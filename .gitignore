@@ -1,0 +1,6 @@
+# Created by pytest automatically.
+build
+build-coverage
+.vscode
+__pycache__/
+*.py[cod]

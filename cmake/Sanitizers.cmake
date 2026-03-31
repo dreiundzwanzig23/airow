@@ -1,0 +1,18 @@
+# Sanitizers.cmake
+option(ENABLE_ASAN "Enable AddressSanitizer in Debug builds" ON)
+option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer in Debug builds" ON)
+
+function(enable_sanitizers target_name)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_CONFIGURATION_TYPES)
+        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+            if (ENABLE_ASAN)
+                target_compile_options(${target_name} PRIVATE -fsanitize=address)
+                target_link_options(${target_name} PRIVATE -fsanitize=address)
+            endif()
+            if (ENABLE_UBSAN)
+                target_compile_options(${target_name} PRIVATE -fsanitize=undefined)
+                target_link_options(${target_name} PRIVATE -fsanitize=undefined)
+            endif()
+        endif()
+    endif()
+endfunction()

@@ -1,0 +1,38 @@
+# WORKFLOW.md — Codex Execution Policy
+
+## Objective
+Define deterministic execution behavior for autonomous and semi-autonomous
+changes.
+
+## Canonical Policy
+- Mandatory governance rules live in `AGENTS.md`.
+- This file is an operational index and must not redefine conflicting policy.
+- For token-efficient agent work, prefer compact repo orientation
+  (`./scripts/project_stats.py --format agent`), locate-then-slice retrieval,
+  and default exclusion of archive/generated/log paths unless the task
+  explicitly needs history, generated trace output, or raw logs.
+
+## Required Sequence
+1. Select actionable requirement work in this order:
+   - requirements with `Needs-Review: yes`,
+   - then highest-priority `OPEN` requirement from `REQUIREMENTS.md`.
+2. Confirm architecture mapping in `ARCHITECTURE.md`.
+3. Write failing tests first (`UT/IT/QT` by layer).
+4. Implement minimal production code.
+5. Iterate failing-test -> implement -> refactor as new risks are discovered.
+6. Run required quality gates.
+7. Regenerate traceability (`python3 tools/tracecheck.py --write`).
+8. Update changelog/readme/context docs when triggered.
+
+## Operational Playbooks (Skills)
+- TDD execution loop: `skills/template-tdd-loop/SKILL.md`
+- Trace maintenance: `skills/template-trace-maintenance/SKILL.md`
+- Test lane choice: `skills/template-test-lanes/SKILL.md`
+- Release/doc sync: `skills/template-release-doc-sync/SKILL.md`
+
+## Enforcement Summary
+- Skipping TDD for functional changes is not allowed.
+- Missing trace tags or evidence is not allowed.
+- Duplicate `@design` or `@test` IDs are not allowed.
+- Non-trivial `src/lib` functions require explicit `@design D-*` mapping.
+- `DONE` items require minimum evidence by layer (`D->UT`, `A->IT`, `R->QT`).

@@ -1,0 +1,43 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  misc-definitions-in-headers,
+  misc-unused-parameters,
+  readability-else-after-return,
+  readability-function-cognitive-complexity,
+  readability-function-size,
+  readability-implicit-bool-conversion,
+  readability-misleading-indentation,
+  readability-redundant-control-flow,
+  readability-redundant-declaration,
+  modernize-pass-by-value,
+  modernize-return-braced-init-list,
+  modernize-use-nullptr,
+  modernize-use-nodiscard,
+  modernize-use-emplace,
+  modernize-use-override,
+  modernize-use-using,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-narrowing-conversions,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-misplaced-widening-cast,
+  -bugprone-exception-escape,
+  -performance-no-automatic-move,
+  -performance-enum-size,
+  -performance-faster-string-find,
+  -performance-inefficient-string-concatenation
+
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(include/project|src)/'
+FormatStyle: file
+
+CheckOptions:
+  - { key: readability-function-cognitive-complexity.Threshold, value: '25' }
+  - { key: readability-function-size.LineThreshold, value: '120' }
+  - { key: readability-function-size.StatementThreshold, value: '60' }
+  - { key: readability-function-size.ParameterThreshold, value: '7' }
+...

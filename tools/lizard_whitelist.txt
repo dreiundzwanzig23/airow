@@ -1,0 +1,2 @@
+# Baseline complexity exemptions for legacy functions.
+# Keep this list minimal and remove entries as functions are refactored.

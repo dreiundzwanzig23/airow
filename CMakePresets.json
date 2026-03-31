@@ -1,0 +1,137 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Dev (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "inherits": "dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "release-clang-libcxx",
+      "displayName": "Release (Clang + libc++)",
+      "inherits": "clang-libcxx",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "clang-libcxx",
+      "displayName": "Clang + libc++ (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+        "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++"
+      }
+    },
+    {
+      "name": "clang-gnu",
+      "displayName": "Clang + libstdc++ (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "coverage-clang-libcxx",
+      "displayName": "Coverage (Clang + libc++)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-coverage",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+        "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++",
+        "ENABLE_COVERAGE": "ON",
+        "ENABLE_ASAN": "OFF",
+        "ENABLE_UBSAN": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "configuration": "Release"
+    },
+    {
+      "name": "release-clang-libcxx",
+      "configurePreset": "release-clang-libcxx",
+      "configuration": "Release"
+    },
+    {
+      "name": "clang-libcxx",
+      "configurePreset": "clang-libcxx",
+      "configuration": "Debug"
+    },
+    {
+      "name": "clang-gnu",
+      "configurePreset": "clang-gnu",
+      "configuration": "Debug"
+    },
+    {
+      "name": "coverage-clang-libcxx",
+      "configurePreset": "coverage-clang-libcxx",
+      "configuration": "Debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-libcxx",
+      "configurePreset": "clang-libcxx",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-gnu",
+      "configurePreset": "clang-gnu",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "coverage-clang-libcxx",
+      "configurePreset": "coverage-clang-libcxx",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
