@@ -12,6 +12,17 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 RULES_FILE = ROOT / "docs" / "process" / "DEPENDENCY_RULES.md"
 INCLUDE_RE = re.compile(r'^\s*#include\s+"(?P<path>[^"]+)"')
 RULE_RE = re.compile(r"^-\s*`(?P<src>[^`]+?)\s*->\s*(?P<dst>[^`]+)`\s*$")
+COMPONENT_PREFIXES = {
+    "core": ("include/project/core/", "src/lib/core/"),
+    "configuration": ("include/project/configuration/", "src/lib/configuration/"),
+    "orchestrator": ("include/project/orchestrator/", "src/lib/orchestrator/"),
+    "mechanics": ("include/project/mechanics/", "src/lib/mechanics/"),
+    "hydro": ("include/project/hydro/", "src/lib/hydro/"),
+    "aero": ("include/project/aero/", "src/lib/aero/"),
+    "control": ("include/project/control/", "src/lib/control/"),
+    "output": ("include/project/output/", "src/lib/output/"),
+    "calibration": ("include/project/calibration/", "src/lib/calibration/"),
+}
 
 
 def classify(path: pathlib.Path) -> Optional[str]:
@@ -31,14 +42,22 @@ def classify(path: pathlib.Path) -> Optional[str]:
     return None
 
 
-def parse_rules() -> Dict[str, Set[str]]:
+def classify_component(path: pathlib.Path) -> Optional[str]:
+    rel = path.relative_to(ROOT).as_posix()
+    for component, prefixes in COMPONENT_PREFIXES.items():
+        if any(rel.startswith(prefix) for prefix in prefixes):
+            return component
+    return None
+
+
+def parse_rules(section_heading: str) -> Dict[str, Set[str]]:
     allowed: Dict[str, Set[str]] = {}
     text = RULES_FILE.read_text(encoding="utf-8")
     in_allowed_section = False
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("## "):
-            in_allowed_section = stripped == "## Allowed dependencies"
+            in_allowed_section = stripped == section_heading
             continue
         if not in_allowed_section:
             continue
@@ -81,15 +100,20 @@ def resolve_include(origin: pathlib.Path, include_path: str) -> Optional[pathlib
 
 
 def main() -> int:
-    allowed = parse_rules()
+    allowed = parse_rules("## Allowed dependencies")
+    component_allowed = parse_rules("## Allowed component dependencies")
     problems: List[str] = []
 
     for src in source_files():
         src_group = classify(src)
+        src_component = classify_component(src)
         if src_group is None:
             continue
         if src_group not in allowed:
             problems.append(f"No dependency rule for source group {src_group}")
+            continue
+        if src_component is not None and src_component not in component_allowed:
+            problems.append(f"No component rule for source component {src_component}")
             continue
 
         text = src.read_text(encoding="utf-8", errors="ignore")
@@ -104,12 +128,22 @@ def main() -> int:
                 continue
 
             dst_group = classify(resolved)
+            dst_component = classify_component(resolved)
             if dst_group is None:
                 continue
             if dst_group not in allowed[src_group]:
                 problems.append(
                     f"Dependency violation: {src.relative_to(ROOT)} ({src_group}) -> "
                     f"{resolved.relative_to(ROOT)} ({dst_group})"
+                )
+            if (
+                src_component is not None
+                and dst_component is not None
+                and dst_component not in component_allowed[src_component]
+            ):
+                problems.append(
+                    f"Component dependency violation: {src.relative_to(ROOT)} ({src_component}) -> "
+                    f"{resolved.relative_to(ROOT)} ({dst_component})"
                 )
 
     if problems:

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Lanes"
+  short_description: "Choose the right repo test lane quickly"
+  default_prompt: "Use $test-lanes to choose the right validation script for this task and explain which full gates are still required before completion."

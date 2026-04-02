@@ -44,6 +44,7 @@ ALLOWED_ARCH_EVIDENCE_PROFILES = {"CODE", "ASSET"}
 ALLOWED_REQUIREMENT_CHANGE_TYPES = {"none", "editorial", "semantic"}
 ALLOWED_REQUIREMENT_NEEDS_REVIEW = {"yes", "no"}
 ALLOWED_AUX_TAG_VALUES = {"yes", "no", "true", "false", "1", "0"}
+BOOTSTRAP_ID_MIN = 900
 REQUIRED_REQUIREMENT_FIELDS = [
     "Title",
     "Acceptance Criteria",
@@ -55,6 +56,18 @@ REQUIRED_REQUIREMENT_FIELDS = [
     "Needs-Review",
 ]
 REQUIRED_ARCH_FIELDS = ["Title", "Satisfies", "Status"]
+REQUIRED_ARCH_CODE_FIELDS = [
+    "Responsibility",
+    "Owned Concepts",
+    "Inputs",
+    "Outputs",
+    "Depends On",
+    "Must Not Depend On",
+    "Invariants",
+    "Allocation Rationale",
+    "Future Absorption",
+    "Interfaces",
+]
 
 REQUIRED_CONTEXT_FILES = [
     "docs/ai/SESSION_CONTEXT.md",
@@ -66,8 +79,14 @@ REQUIRED_CONTEXT_FILES = [
     "docs/process/WORKFLOW.md",
     "docs/process/TEST_STRATEGY.md",
     "docs/process/MAINTENANCE.md",
+    "docs/process/ARCHITECTURE_POLICY.md",
+    "docs/process/ARCHITECTURE_HEALTH.md",
+    "docs/process/MODEL_FIDELITY.md",
+    "docs/process/NUMERICS_POLICY.md",
+    "docs/process/CALIBRATION_PROVENANCE.md",
+    "docs/process/TECHNOLOGY_STACK.md",
     "docs/process/LLM_DRIFT_REVIEW.md",
-    "skills/README.md",
+    ".agents/skills/README.md",
 ]
 
 REQUIRED_LOCAL_AGENTS = [
@@ -91,6 +110,19 @@ def parse_list_field(value: str) -> List[str]:
     if not inner:
         return []
     return [part.strip() for part in inner.split(",") if part.strip()]
+
+
+def id_number(value: str) -> int:
+    return int(value.split("-")[1])
+
+
+def is_bootstrap_id(value: str) -> bool:
+    return bool(re.match(ID, value)) and id_number(value) >= BOOTSTRAP_ID_MIN
+
+
+def normalize_title(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", " ", value.lower())
+    return " ".join(cleaned.split())
 
 
 def architecture_evidence_profile(fields: Dict[str, str]) -> str:
@@ -383,6 +415,10 @@ def validate_metadata_fields(
             problems.append(
                 f"{arch_id} has invalid Evidence Profile '{fields.get('Evidence Profile', '')}'"
             )
+        if profile == "CODE":
+            for field in REQUIRED_ARCH_CODE_FIELDS:
+                if field not in fields or not fields[field].strip():
+                    problems.append(f"{arch_id} missing required CODE field '{field}'")
 
 
 def validate_model(data: Dict[str, object]) -> List[str]:
@@ -579,7 +615,11 @@ def numbering_warnings(data: Dict[str, object]) -> List[str]:
     def check(ids: Set[str], prefix: str) -> None:
         if not ids:
             return
-        nums = sorted(int(item.split("-")[1]) for item in ids if item.startswith(f"{prefix}-"))
+        nums = sorted(
+            int(item.split("-")[1])
+            for item in ids
+            if item.startswith(f"{prefix}-") and not is_bootstrap_id(item)
+        )
         if not nums:
             return
         expected = set(range(1, max(nums) + 1))
@@ -597,7 +637,90 @@ def numbering_warnings(data: Dict[str, object]) -> List[str]:
     return warnings
 
 
-def write_traceability(data: Dict[str, object]) -> None:
+def architecture_warnings(data: Dict[str, object]) -> List[str]:
+    warnings: List[str] = []
+    requirements: Dict[str, Dict[str, str]] = data["R"]
+    architecture: Dict[str, Dict[str, str]] = data["A"]
+    design: Dict[str, Dict[str, object]] = data["D"]
+
+    a_by_r: Dict[str, List[str]] = {}
+    for arch_id, fields in architecture.items():
+        if is_bootstrap_id(arch_id):
+            continue
+        for req_id in parse_list_field(fields.get("Satisfies", "[]")):
+            if is_bootstrap_id(req_id):
+                continue
+            a_by_r.setdefault(req_id, []).append(arch_id)
+
+    d_by_a: Dict[str, List[str]] = {}
+    for design_id, fields in design.items():
+        if is_bootstrap_id(design_id):
+            continue
+        for arch_id in fields.get("Satisfies", []):
+            if is_bootstrap_id(arch_id):
+                continue
+            d_by_a.setdefault(arch_id, []).append(design_id)
+
+    it_by_a: Dict[str, List[str]] = {}
+    for test_id, fields in data["IT"].items():
+        if fields.get("Aux", False) or is_bootstrap_id(test_id):
+            continue
+        for ref in fields.get("Verifies", []):
+            if ref.startswith("A-") and not is_bootstrap_id(ref):
+                it_by_a.setdefault(ref, []).append(test_id)
+
+    normalized_arch_titles: Dict[str, List[str]] = {}
+    for arch_id, fields in architecture.items():
+        if is_bootstrap_id(arch_id):
+            continue
+        title = fields.get("Title", "")
+        normalized = normalize_title(title)
+        if normalized:
+            normalized_arch_titles.setdefault(normalized, []).append(arch_id)
+        for req_id in parse_list_field(fields.get("Satisfies", "[]")):
+            if is_bootstrap_id(req_id):
+                continue
+            if normalize_title(title) == normalize_title(requirements.get(req_id, {}).get("Title", "")):
+                warnings.append(
+                    f"{arch_id} title exactly matches satisfied requirement {req_id}; review for requirement mirroring"
+                )
+
+    for normalized, arch_ids in sorted(normalized_arch_titles.items()):
+        if len(arch_ids) > 1:
+            warnings.append(
+                f"Architecture items share the same normalized title '{normalized}': {', '.join(sorted(arch_ids))}"
+            )
+
+    mapped_requirements = sorted(a_by_r.keys())
+    if len(mapped_requirements) >= 5:
+        one_to_one_count = sum(1 for req_id in mapped_requirements if len(set(a_by_r[req_id])) == 1)
+        ratio = one_to_one_count / len(mapped_requirements)
+        if ratio > 0.80:
+            warnings.append(
+                "More than 80% of mapped non-bootstrap requirements allocate to exactly one architecture item; review for fragmentation"
+            )
+
+    for arch_id, fields in architecture.items():
+        if is_bootstrap_id(arch_id):
+            continue
+        if architecture_evidence_profile(fields) != "CODE":
+            continue
+        req_ids = [
+            req_id for req_id in parse_list_field(fields.get("Satisfies", "[]"))
+            if not is_bootstrap_id(req_id)
+        ]
+        design_ids = d_by_a.get(arch_id, [])
+        it_ids = it_by_a.get(arch_id, [])
+        future_absorption = fields.get("Future Absorption", "").strip()
+        if len(req_ids) == 1 and len(design_ids) == 1 and len(it_ids) == 1 and not future_absorption:
+            warnings.append(
+                f"{arch_id} has a narrow 1R/1D/1IT footprint and empty Future Absorption; review for thin architecture ownership"
+            )
+
+    return warnings
+
+
+def write_traceability(data: Dict[str, object], warnings: List[str]) -> None:
     requirements: Dict[str, Dict[str, str]] = data["R"]
     architecture: Dict[str, Dict[str, str]] = data["A"]
     design: Dict[str, Dict[str, object]] = data["D"]
@@ -701,6 +824,46 @@ def write_traceability(data: Dict[str, object]) -> None:
     )
     lines.extend(design_refines_rows or ["| — | — |"])
 
+    lines.extend(
+        [
+            "",
+            "## Architecture Details",
+            "",
+        ]
+    )
+    for arch_id in sorted(architecture.keys()):
+        fields = architecture[arch_id]
+        lines.extend(
+            [
+                f"### {arch_id} — {fields.get('Title', 'Untitled')}",
+                f"- **Status**: {fields.get('Status', 'OPEN')}",
+                f"- **Evidence Profile**: {architecture_evidence_profile(fields)}",
+                f"- **Satisfies**: {fields.get('Satisfies', '[]')}",
+                f"- **Responsibility**: {fields.get('Responsibility', '—')}",
+                f"- **Owned Concepts**: {fields.get('Owned Concepts', '—')}",
+                f"- **Inputs**: {fields.get('Inputs', '—')}",
+                f"- **Outputs**: {fields.get('Outputs', '—')}",
+                f"- **Depends On**: {fields.get('Depends On', '—')}",
+                f"- **Must Not Depend On**: {fields.get('Must Not Depend On', '—')}",
+                f"- **Invariants**: {fields.get('Invariants', '—')}",
+                f"- **Allocation Rationale**: {fields.get('Allocation Rationale', '—')}",
+                f"- **Future Absorption**: {fields.get('Future Absorption', '—')}",
+                f"- **Interfaces**: {fields.get('Interfaces', '—')}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## Architecture Warnings",
+            "",
+        ]
+    )
+    if warnings:
+        lines.extend([f"- {warning}" for warning in warnings])
+    else:
+        lines.append("- None.")
+
     aux_rows: List[str] = []
     for test_kind in ("UT", "IT", "QT"):
         for test_id in sorted(data[test_kind].keys()):
@@ -736,10 +899,10 @@ def collect_data() -> Dict[str, object]:
 def main(argv: List[str]) -> int:
     data = collect_data()
     problems = validate_model(data)
-    warnings = numbering_warnings(data)
+    warnings = numbering_warnings(data) + architecture_warnings(data)
 
     if "--write" in argv:
-        write_traceability(data)
+        write_traceability(data, warnings)
 
     if "--json" in argv:
         print(json.dumps({"problems": problems, "warnings": warnings, "data": data}, indent=2))

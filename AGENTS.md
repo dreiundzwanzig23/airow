@@ -1,6 +1,6 @@
 # AGENTS.md — Codex Operating Contract
 
-This repository is a domain-agnostic template for AI-guided C++ development.
+This repository bootstraps an AI-guided C++ rowing simulator project.
 Autonomous work must be traceable, test-driven, and resumable.
 
 ## Policy Core
@@ -8,6 +8,9 @@ Autonomous work must be traceable, test-driven, and resumable.
 ### Source of truth
 - Product intent and acceptance: `docs/process/REQUIREMENTS.md`
 - Architecture intent: `docs/process/ARCHITECTURE.md`
+- Architecture allocation policy: `docs/process/ARCHITECTURE_POLICY.md`
+- Approved core technologies: `docs/process/TECHNOLOGY_STACK.md`
+- Durable technical decisions: `docs/ai/DECISIONS.md`
 - Design intent: code Doxygen `@design` blocks
 - Verification intent: tests Doxygen `@test` blocks
 - Session continuity: `docs/ai/*`
@@ -31,7 +34,11 @@ Autonomous work must be traceable, test-driven, and resumable.
 1. Select actionable requirement work in this order:
    - requirements with `Needs-Review: yes`
    - then highest-priority `OPEN` requirement
-2. Confirm/update architecture mapping (`A-*` satisfies `R-*`).
+2. Perform architecture allocation before writing tests:
+   - identify candidate owning `A-*` items,
+   - prefer extending an existing coherent subsystem,
+   - record the architecture delta before TDD,
+   - justify any new `A-*` with explicit cohesion and reuse intent.
 3. Add/adjust failing tests first for functional changes.
 4. Implement minimal code to pass tests.
 5. Refactor behavior-preserving.
@@ -39,6 +46,13 @@ Autonomous work must be traceable, test-driven, and resumable.
 7. Update traceability/context artifacts when triggered.
 
 Never skip failing-tests-first for functional behavior changes.
+Do not create a 1:1 `R -> A` mapping unless `Allocation Rationale` makes the
+need explicit.
+When a task affects technology choice, solver direction, file-format policy, or
+external-tool integration, align with `docs/process/TECHNOLOGY_STACK.md` and
+`docs/ai/DECISIONS.md` before implementation.
+When a change is cross-cutting, migratory, or architectural, use
+`.agents/skills/major-change-loop/SKILL.md` instead of the ordinary TDD loop.
 
 ### Lightweight requirement-change policy
 - Requirement metadata fields:
@@ -101,6 +115,8 @@ A task is complete only when:
 Update `docs/ai/*` when milestone-level change occurs:
 - requirement status changes (`R-*`)
 - architecture status changes (`A-*`)
+- approved technology direction changes
+- durable technical decision changes
 - workflow, gate, or public interface contract changes
 
 ## Change Boundaries
@@ -110,19 +126,25 @@ Update `docs/ai/*` when milestone-level change occurs:
 - `scripts/`: deterministic local/CI-compatible automation
 - `tools/`: traceability and policy guardrails
 
-Avoid adding domain-specific template policy unless it is reusable.
+Avoid adding narrow process policy unless it is reusable or clearly needed by
+the simulator project.
 Avoid non-apt dependencies unless explicitly approved.
 
 ## Legacy
-- Do not preserve outdated template workflow just for compatibility.
+- Do not preserve outdated bootstrap or template workflow just for
+  compatibility.
 - Prefer deleting stale process guidance over adding wrappers around it.
 
+## Codex, OPENAI, ChatGPT
+Always use the OpenAI developer documentation MCP server if you need to work with the OpenAI API, ChatGPT Apps SDK, Codex,… without me having to explicitly ask.
+
 ## Repository Skills (Load On Demand)
-- Skill index: `skills/README.md`
-- `skills/template-tdd-loop/SKILL.md`
-- `skills/template-trace-maintenance/SKILL.md`
-- `skills/template-test-lanes/SKILL.md`
-- `skills/template-release-doc-sync/SKILL.md`
+- Skill index: `.agents/skills/README.md`
+- `.agents/skills/tdd-loop/SKILL.md`
+- `.agents/skills/trace-maintenance/SKILL.md`
+- `.agents/skills/test-lanes/SKILL.md`
+- `.agents/skills/release-doc-sync/SKILL.md`
+- `.agents/skills/major-change-loop/SKILL.md`
 
 Policy stays here. Operational playbooks live in skills and should be loaded
 only when relevant to the task.

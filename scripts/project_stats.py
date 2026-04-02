@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Condensed project statistics report for the template repository."""
+"""Condensed project statistics report for the repository."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ class LineStats:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate condensed project statistics for the template repo"
+        description="Generate condensed project statistics for the repository"
     )
     parser.add_argument(
         "--format",

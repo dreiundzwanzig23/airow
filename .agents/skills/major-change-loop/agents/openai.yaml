@@ -1,0 +1,4 @@
+interface:
+  display_name: "Major-Change Loop"
+  short_description: "Handle cross-cutting and migratory repo changes"
+  default_prompt: "Use $major-change-loop to plan and execute a cross-cutting change with an impact map, architecture delta, characterization coverage, and drift review."

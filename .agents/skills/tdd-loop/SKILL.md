@@ -1,0 +1,48 @@
+---
+name: tdd-loop
+description: Execute the repository's failing-tests-first workflow for behavior-changing code work. Use when implementing features or fixing defects in library or app code, when selecting requirement-driven work, or when a task must finish with the standard local quality gates green.
+---
+
+# TDD Loop
+
+## Start
+- Select actionable requirement work from `docs/process/REQUIREMENTS.md`:
+  - first any item with `Needs-Review: yes`,
+  - then the highest-priority `OPEN` item.
+- Identify the target requirement IDs (`R-*`), candidate owning architecture IDs
+  (`A-*`), and affected design IDs (`D-*`) before changing tests.
+- Switch to `.agents/skills/major-change-loop/SKILL.md` when the change is
+  cross-cutting, migratory, semantic across multiple requirements, or
+  architectural enough that ordinary TDD is too narrow.
+
+## Execute
+1. Select the highest-priority actionable requirement from `docs/process/REQUIREMENTS.md`.
+2. Perform architecture allocation in `docs/process/ARCHITECTURE.md`:
+   - evaluate existing subsystem owners first,
+   - reuse a stable subsystem when coherent,
+   - record any architecture delta before TDD,
+   - justify any new `A-*` with `Allocation Rationale` and `Future Absorption`.
+3. Add or adjust failing tests first (`UT-*`, `IT-*`, `QT-*` as needed).
+4. Implement the minimum code change required to pass tests.
+5. Refactor only when behavior remains unchanged.
+6. Run the fast iteration lane until stable:
+   - `./scripts/test_tdd.sh`
+7. Recheck `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md`
+   before landing any change that affects technology choice, solver direction,
+   file-format policy, or external-tool integration.
+8. Run required completion gates in order:
+   - `./scripts/format.sh`
+   - `./scripts/lint.sh`
+   - `./scripts/build.sh`
+   - `./scripts/test.sh`
+   - `./scripts/depcheck.sh`
+   - `python3 tools/tracecheck.py --write`
+
+## Finish
+- Leave all tests and gates passing.
+- Update traceability and AI context artifacts when changes trigger
+  documentation obligations.
+- Update `README.md` and `CHANGELOG.md` when the change is user-visible or
+  process-visible.
+- Do not create a thin 1:1 `R -> A` mapping unless the architecture policy
+  explicitly justifies it.

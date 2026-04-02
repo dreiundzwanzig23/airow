@@ -1,7 +1,13 @@
-# AI-Guided C++ Template
+# AIRow Bootstrap Repository
 
-A C++ template for autonomous or semi-autonomous development with strict TDD,
-traceability (`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
+AIRow is an open-source C++ rowing simulator project focused on a physically
+serious single-scull simulator with strict TDD, traceability
+(`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
+
+The repository is still in bootstrap state. The current tracked code includes a
+small placeholder sample, while the rowing simulator direction is defined in
+the requirements, architecture bootstrap, technology stack, and decision
+records.
 
 ## Quick Start
 
@@ -15,10 +21,33 @@ Build:
 ./scripts/build.sh
 ```
 
-Run the sample app:
+Run the current bootstrap app:
 ```bash
 ./build/project_app
 ```
+
+## Project Direction
+
+Primary planning and process sources:
+- `docs/process/REQUIREMENTS.md`
+- `docs/process/ARCHITECTURE.md`
+- `docs/process/ARCHITECTURE_POLICY.md`
+- `docs/process/TECHNOLOGY_STACK.md`
+- `docs/ai/DECISIONS.md`
+
+Current intent:
+- single-scull simulator first,
+- headless executable plus reusable library API,
+- 3D mechanics core with reduced hydro and aero runtime models,
+- optional high-fidelity calibration workflows kept outside the default runtime,
+- real simulator code should now land inside the hardened architecture-first
+  workflow rather than extending the bootstrap sample.
+
+Current bootstrap note:
+- the `string_utils` sample code remains as a temporary placeholder until the
+  first real simulator implementation slice replaces it,
+- bootstrap-only sample artifacts live in reserved `900`-series trace IDs and
+  do not represent simulator capability.
 
 ## Validation Lanes
 
@@ -58,26 +87,37 @@ Core artifacts:
 - `AGENTS.md`
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
+- `docs/process/TECHNOLOGY_STACK.md`
+- `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/WORKFLOW.md`
 - `docs/process/TEST_STRATEGY.md`
 - `docs/process/TRACEABILITY.md`
 - `docs/process/MAINTENANCE.md`
 - `docs/process/LLM_DRIFT_REVIEW.md`
+- `docs/process/ARCHITECTURE_HEALTH.md`
+- `docs/process/MODEL_FIDELITY.md`
+- `docs/process/NUMERICS_POLICY.md`
+- `docs/process/CALIBRATION_PROVENANCE.md`
 - `docs/ai/SESSION_CONTEXT.md`
 - `docs/ai/HANDOFF.md`
 - `docs/ai/ROADMAP.md`
 - `docs/ai/DECISIONS.md`
 
 Repo-local skills:
-- `skills/README.md`
-- `skills/template-tdd-loop/SKILL.md`
-- `skills/template-trace-maintenance/SKILL.md`
-- `skills/template-test-lanes/SKILL.md`
-- `skills/template-release-doc-sync/SKILL.md`
+- `.agents/skills/README.md`
+- `.agents/skills/tdd-loop/SKILL.md`
+- `.agents/skills/trace-maintenance/SKILL.md`
+- `.agents/skills/test-lanes/SKILL.md`
+- `.agents/skills/release-doc-sync/SKILL.md`
+- `.agents/skills/major-change-loop/SKILL.md`
 
 Traceability note: non-aux `UT/IT/QT` Doxygen `@test` blocks must verify one
 or more same-layer IDs (`UT->D`, `IT->A`, `QT->R`). Use optional `@aux yes`
 for informational tests that should be excluded from evidence gates.
+
+Technology note: `docs/process/TECHNOLOGY_STACK.md` is the source of truth for
+approved core libraries and formats. `docs/ai/DECISIONS.md` records the
+rationale and durable technical constraints behind those choices.
 
 ## Validation Output
 

@@ -1,11 +1,15 @@
 # ROADMAP.md
 
 ## Near-term
-- Keep the refined generic workflow stable and well-documented.
+- Replace the bootstrap sample code with the first headless simulator slice.
+- Land the first real subsystem-owned `D-*`, `UT-*`, `IT-*`, and `QT-*`
+  evidence inside `A-001..A-009`.
+- Add the first named runtime-backed scenario baselines for passive float, tow,
+  calm-water stroke, headwind stroke, and crosswind stroke.
 - Preserve strict TDD, traceability, and deterministic local gates.
 
 ## Backlog
-- Add additional template sample features only when they improve process
-  clarity without adding domain lock-in.
-- Add template-level aux tests only when they strengthen script/tool contracts
-  without turning the repository into a product-specific example.
+- Add real component-prefixed code paths so component-level depcheck rules
+  become active in production code.
+- Add simulator-specific auxiliary and regression lanes only when they improve
+  local verification without polluting the baseline runtime path.
