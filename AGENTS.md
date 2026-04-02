@@ -135,6 +135,9 @@ Avoid non-apt dependencies unless explicitly approved.
   compatibility.
 - Prefer deleting stale process guidance over adding wrappers around it.
 
+## Codex, OPENAI, ChatGPT
+Always use the OpenAI developer documentation MCP server if you need to work with the OpenAI API, ChatGPT Apps SDK, Codex,… without me having to explicitly ask.
+
 ## Repository Skills (Load On Demand)
 - Skill index: `skills/README.md`
 - `skills/template-tdd-loop/SKILL.md`
