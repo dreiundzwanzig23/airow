@@ -5,6 +5,7 @@ instead of embedding all procedure detail in always-loaded policy docs.
 
 Available skills:
 - `skills/template-tdd-loop/SKILL.md`
+- `skills/template-major-change-loop/SKILL.md`
 - `skills/template-trace-maintenance/SKILL.md`
 - `skills/template-test-lanes/SKILL.md`
 - `skills/template-release-doc-sync/SKILL.md`

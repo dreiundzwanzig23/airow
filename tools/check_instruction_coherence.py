@@ -12,6 +12,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DOCS = [
     ROOT / "AGENTS.md",
     ROOT / "README.md",
+    ROOT / "docs" / "process" / "ARCHITECTURE_POLICY.md",
+    ROOT / "docs" / "process" / "ARCHITECTURE_HEALTH.md",
+    ROOT / "docs" / "process" / "MODEL_FIDELITY.md",
+    ROOT / "docs" / "process" / "NUMERICS_POLICY.md",
+    ROOT / "docs" / "process" / "CALIBRATION_PROVENANCE.md",
     ROOT / "docs" / "process" / "WORKFLOW.md",
     ROOT / "docs" / "process" / "TEST_STRATEGY.md",
     ROOT / "docs" / "process" / "TECHNOLOGY_STACK.md",
@@ -23,22 +28,29 @@ AI_CONTEXT_BUDGETS = {
 }
 REQUIRED_SKILLS = [
     ROOT / "skills" / "template-tdd-loop" / "SKILL.md",
+    ROOT / "skills" / "template-major-change-loop" / "SKILL.md",
     ROOT / "skills" / "template-trace-maintenance" / "SKILL.md",
     ROOT / "skills" / "template-test-lanes" / "SKILL.md",
     ROOT / "skills" / "template-release-doc-sync" / "SKILL.md",
 ]
 REQUIRED_REFERENCES = {
     ROOT / "AGENTS.md": [
+        "docs/process/ARCHITECTURE_POLICY.md",
         "docs/process/TECHNOLOGY_STACK.md",
         "docs/ai/DECISIONS.md",
+        "skills/template-major-change-loop/SKILL.md",
     ],
     ROOT / "README.md": [
+        "docs/process/ARCHITECTURE_POLICY.md",
         "docs/process/TECHNOLOGY_STACK.md",
         "docs/ai/DECISIONS.md",
+        "skills/template-major-change-loop/SKILL.md",
     ],
     ROOT / "docs" / "process" / "WORKFLOW.md": [
+        "docs/process/ARCHITECTURE_POLICY.md",
         "docs/process/TECHNOLOGY_STACK.md",
         "docs/ai/DECISIONS.md",
+        "skills/template-major-change-loop/SKILL.md",
     ],
 }
 SCRIPT_REF_RE = re.compile(r"\./scripts/[A-Za-z0-9_./-]+\.sh")

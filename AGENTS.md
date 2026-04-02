@@ -8,6 +8,7 @@ Autonomous work must be traceable, test-driven, and resumable.
 ### Source of truth
 - Product intent and acceptance: `docs/process/REQUIREMENTS.md`
 - Architecture intent: `docs/process/ARCHITECTURE.md`
+- Architecture allocation policy: `docs/process/ARCHITECTURE_POLICY.md`
 - Approved core technologies: `docs/process/TECHNOLOGY_STACK.md`
 - Durable technical decisions: `docs/ai/DECISIONS.md`
 - Design intent: code Doxygen `@design` blocks
@@ -33,7 +34,11 @@ Autonomous work must be traceable, test-driven, and resumable.
 1. Select actionable requirement work in this order:
    - requirements with `Needs-Review: yes`
    - then highest-priority `OPEN` requirement
-2. Confirm/update architecture mapping (`A-*` satisfies `R-*`).
+2. Perform architecture allocation before writing tests:
+   - identify candidate owning `A-*` items,
+   - prefer extending an existing coherent subsystem,
+   - record the architecture delta before TDD,
+   - justify any new `A-*` with explicit cohesion and reuse intent.
 3. Add/adjust failing tests first for functional changes.
 4. Implement minimal code to pass tests.
 5. Refactor behavior-preserving.
@@ -41,9 +46,13 @@ Autonomous work must be traceable, test-driven, and resumable.
 7. Update traceability/context artifacts when triggered.
 
 Never skip failing-tests-first for functional behavior changes.
+Do not create a 1:1 `R -> A` mapping unless `Allocation Rationale` makes the
+need explicit.
 When a task affects technology choice, solver direction, file-format policy, or
 external-tool integration, align with `docs/process/TECHNOLOGY_STACK.md` and
 `docs/ai/DECISIONS.md` before implementation.
+When a change is cross-cutting, migratory, or architectural, use
+`skills/template-major-change-loop/SKILL.md` instead of the ordinary TDD loop.
 
 ### Lightweight requirement-change policy
 - Requirement metadata fields:
@@ -132,6 +141,7 @@ Avoid non-apt dependencies unless explicitly approved.
 - `skills/template-trace-maintenance/SKILL.md`
 - `skills/template-test-lanes/SKILL.md`
 - `skills/template-release-doc-sync/SKILL.md`
+- `skills/template-major-change-loop/SKILL.md`
 
 Policy stays here. Operational playbooks live in skills and should be loaded
 only when relevant to the task.

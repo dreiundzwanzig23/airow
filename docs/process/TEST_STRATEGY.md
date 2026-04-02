@@ -11,11 +11,11 @@ execution playbooks are in skills.
 
 ### Integration (`tests/integration/`)
 - Verifies architecture-level interactions (`IT-* -> A-*`).
-- Focus: component coupling and contract interoperability.
+- Focus: subsystem contracts, boundary behavior, and contract interoperability.
 
 ### System (`tests/system/`)
 - Verifies requirement-level acceptance (`QT-* -> R-*`).
-- Focus: end-to-end deterministic behavior and scenario-level acceptance.
+- Focus: end-to-end deterministic behavior and named scenario-level acceptance.
 
 ## Core Design Rules
 - Keep tests deterministic and runtime-bounded.
@@ -23,6 +23,19 @@ execution playbooks are in skills.
 - Keep `@test` IDs unique and `@verifies` same-layer.
 - One-or-more same-layer references per test block are allowed.
 - Keep unit tests behavior-focused rather than integration-heavy.
+- Add characterization coverage before invasive refactors or major-change work.
+- Protect named baseline scenarios when changing runtime behavior.
+
+## Scenario Baselines
+Named requirement-level baselines for this project should center on:
+- passive float,
+- tow test,
+- calm-water stroke,
+- headwind stroke,
+- crosswind stroke.
+
+These scenarios should become the default `QT-*` acceptance surface once the
+runtime implementation exists.
 
 ## Auxiliary Test Overlay
 - Use optional `@aux yes` for non-evidence script/tool contract tests.

@@ -40,4 +40,38 @@ CheckOptions:
   - { key: readability-function-size.LineThreshold, value: '120' }
   - { key: readability-function-size.StatementThreshold, value: '60' }
   - { key: readability-function-size.ParameterThreshold, value: '7' }
+  # ----------------------------
+  # Naming (optional but powerful for consistency + AI output)
+  # ----------------------------
+  - { key: readability-identifier-naming.NamespaceCase, value: 'lower_case' }
+  - { key: readability-identifier-naming.ClassCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.StructCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.EnumCase, value: 'CamelCase' }
+  - { key: readability-identifier-naming.EnumConstantCase, value: 'UPPER_CASE' }
+
+  - { key: readability-identifier-naming.FunctionCase, value: 'camelBack' }
+  - { key: readability-identifier-naming.MethodCase, value: 'camelBack' }
+  - { key: readability-identifier-naming.VariableCase, value: 'camelBack' }
+  - { key: readability-identifier-naming.ParameterCase, value: 'camelBack' }
+
+  - { key: readability-identifier-naming.MemberCase, value: 'camelBack' }
+  - { key: readability-identifier-naming.PrivateMemberSuffix, value: '_' }
+
+  - { key: readability-identifier-naming.ConstantCase, value: 'UPPER_CASE' }
+  - { key: readability-identifier-naming.GlobalConstantCase, value: 'UPPER_CASE' }
+
+  # ----------------------------
+  # "Magic numbers" policy tuned for scientific code
+  # ----------------------------
+  # Allow the truly common ones; enforce naming for the rest.
+  - { key: cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues, value: '0;1;-1;2' }
+  - { key: cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues, value: 'true' }
+
+  # ----------------------------
+  # False-positive reducers / quality-of-life
+  # ----------------------------
+  # Many scientific structs are movable but you don't always define everything immediately.
+  - { key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions, value: 'true' }
+
+  # If you use assert-heavy numerics code, you can optionally reduce noise:
 ...

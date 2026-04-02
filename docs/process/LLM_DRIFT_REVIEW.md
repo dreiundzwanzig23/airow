@@ -8,6 +8,8 @@ Review this repository for requirement-to-implementation drift with focus on:
 - contradictions inside `docs/process/REQUIREMENTS.md`,
 - outdated or replaced terminology across requirements, architecture, tests,
   README, and process docs,
+- architecture-allocation drift against `docs/process/ARCHITECTURE_POLICY.md`,
+- architecture-health follow-ups captured in `docs/process/ARCHITECTURE_HEALTH.md`,
 - `DONE` requirements that no longer appear fully supported,
 - requirements with `Needs-Review: yes`,
 - stale `R -> A -> D -> UT/IT/QT` mappings caused by semantic changes.
@@ -22,6 +24,7 @@ Review this repository for requirement-to-implementation drift with focus on:
 ## Review checklist
 - Requirement text uses current canonical terminology.
 - Architecture wording and interfaces match current requirement semantics.
+- Architecture ownership boundaries still match the intended subsystem seams.
 - Tests and examples do not preserve removed or replaced terms.
 - `DONE` status is still justified by current evidence and behavior.
 - Traceability links still reflect the current semantics.

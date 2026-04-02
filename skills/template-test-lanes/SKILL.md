@@ -14,6 +14,9 @@ description: Select the correct repository test lane based on confidence, covera
 
 ## Apply Constraints
 - Do not treat `test_tdd.sh` as a replacement for required completion gates.
+- Treat scenario-oriented `QT-*` runs as the main requirement-level evidence
+  lane for simulator behavior.
+- Add characterization coverage before invasive refactors or major-change work.
 - Prefer `verify.sh` before handoff when broad confidence is required.
 - Keep auxiliary tests informational unless they are deliberately promoted into
   evidence-bearing lanes.

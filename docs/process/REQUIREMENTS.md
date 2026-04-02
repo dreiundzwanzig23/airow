@@ -473,3 +473,25 @@ Requirement-writing intent:
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: This requirement protects scope clarity while keeping the architecture extensible.
+
+## Bootstrap Appendix
+
+The following requirement exists only to keep the temporary sample utility
+traceable while the real simulator implementation is still being bootstrapped.
+It is not part of the rowing-simulator product backlog and must not be used as
+the architectural home for simulator work.
+
+## R-900 — Bootstrap Placeholder Utility
+- **Title**: Keep the temporary sample utility traceable during repository bootstrap
+- **Acceptance Criteria**:
+  - The placeholder sample utility remains buildable while the first simulator-facing implementation slice is pending.
+  - The placeholder utility is isolated from the real simulator backlog through reserved bootstrap trace IDs.
+  - Placeholder tests continue to prove trace and gate wiring without claiming simulator feature coverage.
+  - Future simulator work does not allocate to this requirement.
+- **Priority**: P2
+- **Status**: DONE
+- **Created**: 2026-04-02
+- **Updated**: 2026-04-02
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Reserved bootstrap IDs use the `900` series.

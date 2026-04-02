@@ -4,9 +4,9 @@
 namespace project {
 
 /**
- * @design D-001 — to_upper_ascii
+ * @design D-900 — to_upper_ascii
  * @title ASCII uppercase converter
- * @satisfies [A-001]
+ * @satisfies [A-900]
  * @notes Converts each character to its ASCII uppercase equivalent.
  */
 std::string to_upper_ascii(std::string s) {

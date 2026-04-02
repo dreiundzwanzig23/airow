@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 ### Changed
+- Replaced the earlier architecture optimization draft with an execution-ready
+  hardening plan and seeded the simulator subsystem architecture surface.
+- Reserved the `900`-series trace IDs for bootstrap-only sample artifacts and
+  moved the placeholder utility evidence out of the real simulator namespace.
+- Added architecture policy, architecture health, model fidelity, numerics,
+  and calibration provenance process docs.
+- Added a major-change skill and strengthened workflow wording around
+  architecture allocation before TDD.
+- Extended traceability and dependency guardrails toward architecture-health
+  enforcement and component-level dependency policy.
 - Reframed the repository documentation from generic template wording to a
   rowing simulator bootstrap project and documented that the current sample
   code is temporary placeholder state.

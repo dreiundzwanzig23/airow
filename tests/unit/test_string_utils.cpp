@@ -2,9 +2,9 @@
 #include <gtest/gtest.h>
 
 /**
- * @test UT-001
- * @verifies [D-001]
- * @notes Verifies uppercase transformation behavior.
+ * @test UT-900
+ * @verifies [D-900]
+ * @notes Verifies bootstrap placeholder uppercase behavior.
  */
 TEST(StringUtils, UpperAscii) {
   EXPECT_EQ(project::to_upper_ascii("abcXYZ"), "ABCXYZ");

@@ -31,6 +31,7 @@ Run the current bootstrap app:
 Primary planning and process sources:
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
+- `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/TECHNOLOGY_STACK.md`
 - `docs/ai/DECISIONS.md`
 
@@ -42,7 +43,9 @@ Current intent:
 
 Current bootstrap note:
 - the `string_utils` sample code remains as a temporary placeholder until the
-  first real simulator implementation slice replaces it.
+  first real simulator implementation slice replaces it,
+- bootstrap-only sample artifacts live in reserved `900`-series trace IDs and
+  do not represent simulator capability.
 
 ## Validation Lanes
 
@@ -83,11 +86,16 @@ Core artifacts:
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
 - `docs/process/TECHNOLOGY_STACK.md`
+- `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/WORKFLOW.md`
 - `docs/process/TEST_STRATEGY.md`
 - `docs/process/TRACEABILITY.md`
 - `docs/process/MAINTENANCE.md`
 - `docs/process/LLM_DRIFT_REVIEW.md`
+- `docs/process/ARCHITECTURE_HEALTH.md`
+- `docs/process/MODEL_FIDELITY.md`
+- `docs/process/NUMERICS_POLICY.md`
+- `docs/process/CALIBRATION_PROVENANCE.md`
 - `docs/ai/SESSION_CONTEXT.md`
 - `docs/ai/HANDOFF.md`
 - `docs/ai/ROADMAP.md`
@@ -99,6 +107,7 @@ Repo-local skills:
 - `skills/template-trace-maintenance/SKILL.md`
 - `skills/template-test-lanes/SKILL.md`
 - `skills/template-release-doc-sync/SKILL.md`
+- `skills/template-major-change-loop/SKILL.md`
 
 Traceability note: non-aux `UT/IT/QT` Doxygen `@test` blocks must verify one
 or more same-layer IDs (`UT->D`, `IT->A`, `QT->R`). Use optional `@aux yes`

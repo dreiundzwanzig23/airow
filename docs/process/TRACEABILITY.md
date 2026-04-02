@@ -2,42 +2,228 @@
 
 | Requirement | Req Status | Satisfied by A | Arch Status | Arch Evidence | Implemented by D | Unit Tests (UT) | Integration (IT) | System (QT) |
 |-------------|------------|----------------|-------------|---------------|------------------|-----------------|------------------|-------------|
-| R-001 | OPEN | — | — | — | — | — | — | QT-001 |
-| R-002 | OPEN | — | — | — | — | — | — | — |
-| R-003 | OPEN | — | — | — | — | — | — | — |
-| R-004 | OPEN | — | — | — | — | — | — | — |
-| R-005 | OPEN | — | — | — | — | — | — | — |
-| R-006 | OPEN | — | — | — | — | — | — | — |
-| R-007 | OPEN | — | — | — | — | — | — | — |
-| R-008 | OPEN | — | — | — | — | — | — | — |
-| R-009 | OPEN | — | — | — | — | — | — | — |
-| R-010 | OPEN | — | — | — | — | — | — | — |
-| R-011 | OPEN | — | — | — | — | — | — | — |
-| R-012 | OPEN | — | — | — | — | — | — | — |
-| R-013 | OPEN | — | — | — | — | — | — | — |
-| R-014 | OPEN | — | — | — | — | — | — | — |
-| R-015 | OPEN | — | — | — | — | — | — | — |
-| R-016 | OPEN | — | — | — | — | — | — | — |
-| R-017 | OPEN | — | — | — | — | — | — | — |
-| R-018 | OPEN | — | — | — | — | — | — | — |
-| R-019 | OPEN | — | — | — | — | — | — | — |
-| R-020 | OPEN | — | — | — | — | — | — | — |
-| R-021 | OPEN | — | — | — | — | — | — | — |
-| R-022 | OPEN | — | — | — | — | — | — | — |
-| R-023 | OPEN | — | — | — | — | — | — | — |
-| R-024 | OPEN | — | — | — | — | — | — | — |
-| R-025 | OPEN | — | — | — | — | — | — | — |
-| R-026 | OPEN | — | — | — | — | — | — | — |
-| R-027 | OPEN | — | — | — | — | — | — | — |
-| R-028 | OPEN | — | — | — | — | — | — | — |
-| R-029 | OPEN | — | — | — | — | — | — | — |
-| R-030 | OPEN | — | — | — | — | — | — | — |
+| R-001 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-002 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-003 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-003 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
+| R-004 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-004 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
+| R-005 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-006 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-007 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-008 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-008 | OPEN | A-006 | OPEN | CODE | — | — | — | — |
+| R-009 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-010 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-011 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-012 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-012 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-013 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-014 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-015 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
+| R-016 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-016 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
+| R-017 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-018 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-019 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-020 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-020 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-020 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-020 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-021 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-021 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-021 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-021 | OPEN | A-009 | OPEN | CODE | — | — | — | — |
+| R-022 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-022 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-022 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-022 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
+| R-022 | OPEN | A-009 | OPEN | CODE | — | — | — | — |
+| R-023 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-023 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-023 | OPEN | A-006 | OPEN | CODE | — | — | — | — |
+| R-024 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-024 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-024 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-024 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-024 | OPEN | A-009 | OPEN | CODE | — | — | — | — |
+| R-025 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-025 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-025 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
+| R-026 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-027 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-027 | OPEN | A-006 | OPEN | CODE | — | — | — | — |
+| R-028 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-028 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-029 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-029 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-029 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
+| R-029 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-030 | OPEN | A-001 | OPEN | CODE | — | — | — | — |
+| R-030 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
+| R-900 | DONE | A-900 | DONE | CODE | D-900 | UT-900 | IT-900 | QT-900 |
 
 ## Design Refinement Links
 
 | Design | Refines Design |
 |--------|----------------|
 | — | — |
+
+## Architecture Details
+
+### A-001 — Deterministic configuration and validation subsystem
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-025, R-028, R-029, R-030]
+- **Responsibility**: Parse, validate, normalize, and expose simulator, provider, artifact, and scenario configuration before execution begins.
+- **Owned Concepts**: `SimulatorConfig`; provider selection metadata; schema validation; unit-bearing field definitions; unsupported-scope rejection.
+- **Inputs**: Machine-readable run configuration; batch definitions; external artifact metadata; selected provider and model identifiers.
+- **Outputs**: Validated in-memory configuration; deterministic validation diagnostics; normalized run metadata inputs.
+- **Depends On**: Core validation helpers and documented process policies for units and provenance.
+- **Must Not Depend On**: Mechanics stepping logic; hydro or aero algorithm internals; scenario execution state.
+- **Invariants**: Invalid or ambiguous configuration never reaches runtime stepping; accepted values are normalized deterministically; unsupported scope is rejected explicitly.
+- **Allocation Rationale**: Centralizes all boundary validation so requirements about deterministic rejection, units, provider selection, and scope control do not fragment across runtime subsystems.
+- **Future Absorption**: Additional model toggles, boat-class expansion gates, and richer artifact schemas should be absorbed here before touching runtime logic.
+- **Interfaces**: Planned configuration loader, schema validator, and normalized configuration contract for runtime subsystems.
+
+### A-002 — Headless simulation orchestration subsystem
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-002, R-003, R-004, R-016, R-020, R-023, R-024, R-025]
+- **Responsibility**: Coordinate one or more simulation runs, lifecycle transitions, provider wiring, failure handling, and deterministic replay.
+- **Owned Concepts**: Run lifecycle; in-memory simulation API; CLI entry wiring; provider registry binding; batch execution flow.
+- **Inputs**: Validated configuration; selected runtime providers; time-varying inputs; scenario harness requests.
+- **Outputs**: Run status; structured result objects; deterministic failure codes; per-case batch outcomes.
+- **Depends On**: Configuration and validation; mechanics; hydro; aero; control; output and diagnostics contracts.
+- **Must Not Depend On**: Provider-specific physics internals; calibration artifact generation; scenario acceptance logic internals.
+- **Invariants**: The same validated run definition executes through the same orchestration path for CLI and in-memory use; failures terminate with stable diagnostics; batch case ordering remains deterministic.
+- **Allocation Rationale**: Groups lifecycle and composition concerns into one owner instead of scattering them across feature-specific requirements and runtime providers.
+- **Future Absorption**: Parallel batch scheduling, checkpoint/restart, and richer orchestration policies should extend this subsystem.
+- **Interfaces**: Planned CLI entry contract, in-memory run API, provider selection and run-result contracts.
+
+### A-003 — 3D mechanics core for hull, oars, and seat motion
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-005, R-006, R-007, R-008, R-012, R-027, R-028, R-030]
+- **Responsibility**: Own the constrained 3D mechanical state for hull, oars, seat, optional flexible oar behavior, and optional stabilization control coupling points.
+- **Owned Concepts**: Hull rigid-body state; oar kinematics; seat travel state; prescribed stroke state; optional balance control interfaces; optional rigid vs flexible oar representation.
+- **Inputs**: Validated geometry and mass properties; control or prescribed stroke inputs; external hydro and aero loads.
+- **Outputs**: 3D state trajectories; constraint-residual diagnostics; blade and hull state needed by load providers.
+- **Depends On**: Core math/contracts; control and stroke input; hydro and aero load contracts.
+- **Must Not Depend On**: Output formatting internals; calibration dataset ingestion; scenario acceptance logic.
+- **Invariants**: Mechanical state remains finite in nominal runs; constraints remain bounded by documented tolerances; optional mechanics modes do not silently change the baseline rigid path.
+- **Allocation Rationale**: Keeps the mechanics backbone as the central physical state owner rather than leaking motion ownership into individual requirement-driven feature slices.
+- **Future Absorption**: Expanded body representations, future crew support, and deeper rower dynamics should be absorbed here behind stable state contracts.
+- **Interfaces**: Planned mechanics state contract, external-load application contract, and subsystem initialization contract.
+
+### A-004 — Reduced hydrodynamic runtime models
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-009, R-010, R-011, R-012, R-020, R-021, R-022, R-024, R-029]
+- **Responsibility**: Compute hydrostatic and reduced hydrodynamic loads for the hull and blades during default runtime execution.
+- **Owned Concepts**: Hull flotation model; hull resistance providers; blade-water load providers; disturbance-to-water-load coupling points.
+- **Inputs**: Mechanics state; validated provider selection; optional calibration datasets; optional disturbance definitions.
+- **Outputs**: Hull and blade load vectors; immersion diagnostics; provider metadata for outputs.
+- **Depends On**: Core math/contracts; mechanics state contracts; configuration/provider selection; optional calibration contracts.
+- **Must Not Depend On**: Aero internals; orchestrator lifecycle logic; high-fidelity truth-model toolchains in the default runtime path.
+- **Invariants**: Reduced-model providers remain callable without optional high-fidelity tooling; dry or zero-speed limits behave deterministically; provider outputs stay finite or fail deterministically.
+- **Allocation Rationale**: Concentrates water-load logic into one subsystem so runtime hydro behavior evolves through replaceable providers instead of requirement-specific patches.
+- **Future Absorption**: Additional resistance, blade, wave, and lookup-driven hydro providers should be absorbed here behind shared contracts.
+- **Interfaces**: Planned hull-load provider and blade-load provider contracts with runtime-selectable implementations.
+
+### A-005 — Reduced aerodynamic runtime models
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-013, R-014, R-020, R-021, R-022, R-023, R-024, R-029]
+- **Responsibility**: Compute apparent wind and reduced aerodynamic loads for routine runtime execution.
+- **Owned Concepts**: Apparent wind computation; aero load providers; steady and time-varying wind handling; disturbance-to-aero coupling.
+- **Inputs**: Mechanics state; ambient wind definitions; optional calibration datasets; selected aero provider.
+- **Outputs**: Apparent wind state; aerodynamic force and moment outputs; provider metadata for diagnostics.
+- **Depends On**: Core math/contracts; mechanics state contracts; configuration/provider selection; optional calibration contracts.
+- **Must Not Depend On**: Hydro internals; orchestrator lifecycle policy; optional external CFD toolchains for the baseline runtime path.
+- **Invariants**: Zero apparent wind yields near-zero loads; mirrored crosswind directions produce deterministic sign changes; runtime behavior stays independent of optional truth-model tooling.
+- **Allocation Rationale**: Keeps aero behavior replaceable and decoupled from hydro and orchestration instead of creating mixed fluid-load feature containers.
+- **Future Absorption**: Gust models, richer aero coefficients, and calibrated aero providers should extend this subsystem.
+- **Interfaces**: Planned apparent-wind contract and aerodynamic load provider contract.
+
+### A-006 — Stroke scheduling and low-order control subsystem
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-008, R-023, R-027]
+- **Responsibility**: Generate deterministic prescribed stroke inputs and optional low-order stabilization control outputs.
+- **Owned Concepts**: Stroke schedule definition; phase timing; controller mode selection; wind-aware input scheduling hooks.
+- **Inputs**: Validated schedule and control configuration; optional time-varying inputs; mechanics state feedback when control mode requires it.
+- **Outputs**: Stroke commands; optional control outputs; mode metadata for run reporting.
+- **Depends On**: Core math/contracts; configuration and validation; mechanics feedback contracts.
+- **Must Not Depend On**: Hydro or aero algorithm internals; scenario result evaluation; output serialization internals.
+- **Invariants**: Prescribed schedules replay deterministically; invalid schedules are rejected before runtime; optional controllers remain finite and can be disabled cleanly.
+- **Allocation Rationale**: Separates rower-input generation from mechanics and load-provider ownership so input strategies can evolve independently.
+- **Future Absorption**: Richer control modes and eventual deeper rower representations should be absorbed here until a stronger biomechanics boundary is justified.
+- **Interfaces**: Planned stroke schedule contract and optional controller contract.
+
+### A-007 — Structured outputs and runtime diagnostics subsystem
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025]
+- **Responsibility**: Capture machine-readable summaries, time series, metadata, and actionable diagnostics for single and batch runs.
+- **Owned Concepts**: Run metadata; summary outputs; time-series emission; failure diagnostics; provenance propagation into outputs.
+- **Inputs**: Run lifecycle events; mechanics, hydro, aero, and control outputs; calibration provenance identifiers.
+- **Outputs**: Summary artifacts; time-series artifacts; diagnostic records; per-case batch result summaries.
+- **Depends On**: Orchestrator lifecycle contracts; subsystem output contracts; configuration metadata; provenance metadata.
+- **Must Not Depend On**: Mechanics stepping internals; provider algorithms; scenario pass/fail policy logic.
+- **Invariants**: Output ordering is deterministic; enabled outputs include required identifiers and provenance; failure diagnostics remain stable and actionable.
+- **Allocation Rationale**: Prevents metadata, diagnostics, and serialization concerns from leaking into every runtime subsystem.
+- **Future Absorption**: Richer artifact formats, streamed diagnostics, and analysis-facing summaries should grow here behind stable output contracts.
+- **Interfaces**: Planned result object contract, summary writer contract, and time-series emission contract.
+
+### A-008 — Scenario definition and validation subsystem
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-018, R-019, R-024, R-026, R-029]
+- **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
+- **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines.
+- **Inputs**: Scenario configurations; run outputs; documented acceptance envelopes; process test-lane policy.
+- **Outputs**: Scenario pass/fail results; validation metadata; protected baseline definitions for regression and characterization work.
+- **Depends On**: Orchestrator result contracts; output artifacts; process policies for numerics and fidelity.
+- **Must Not Depend On**: Runtime subsystem internals beyond their public outputs; calibration generation internals; CLI-specific code paths.
+- **Invariants**: Named baseline scenarios remain headlessly runnable; acceptance checks are deterministic; quick verification lanes stay independent of optional high-fidelity tooling.
+- **Allocation Rationale**: Gives validation and scenario ownership one stable home instead of scattering it across tests, scripts, and individual feature requirements.
+- **Future Absorption**: Expanded scenario catalogs, acceptance dashboards, and protected characterization suites should extend this subsystem.
+- **Interfaces**: Planned scenario manifest contract and acceptance-evaluation contract.
+
+### A-009 — External calibration and artifact integration subsystem
+- **Status**: OPEN
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-021, R-022, R-024]
+- **Responsibility**: Own ingestion and metadata handling for external calibration datasets and derived model artifacts while keeping the runtime path loosely coupled.
+- **Owned Concepts**: Calibration dataset loading; artifact provenance metadata; re-imported lookup or surrogate artifacts; offline truth-model handoff boundaries.
+- **Inputs**: External machine-readable datasets; artifact identifiers; source hashes and versions; provider lookup requests.
+- **Outputs**: Queryable calibration data contracts; validated provenance metadata; imported artifact handles for runtime providers.
+- **Depends On**: Configuration and validation; output/provenance contracts; hydro and aero provider contracts.
+- **Must Not Depend On**: Orchestrator lifecycle logic; mechanics state ownership; mandatory installation of offline truth-model toolchains.
+- **Invariants**: Imported artifacts carry deterministic provenance; malformed artifacts are rejected before use; default runtime remains usable without optional calibration-generation tooling.
+- **Allocation Rationale**: Isolates external data and provenance concerns so runtime subsystems can consume calibrated artifacts without becoming responsible for artifact lifecycle policy.
+- **Future Absorption**: Surrogate-model ingestion, richer dataset schemas, and offline export/import workflows should extend this subsystem.
+- **Interfaces**: Planned calibration dataset contract, artifact metadata contract, and provider-facing query contract.
+
+### A-900 — Temporary sample component for repository bootstrap
+- **Status**: DONE
+- **Evidence Profile**: CODE
+- **Satisfies**: [R-900]
+- **Responsibility**: Keep the temporary sample code and tests traceable while the first simulator-facing runtime implementation is still pending.
+- **Owned Concepts**: Placeholder utility behavior; bootstrap-only trace wiring; proof that the repo gates and trace model are functioning.
+- **Inputs**: Sample utility input string; trace metadata conventions.
+- **Outputs**: Uppercase sample output; bootstrap-only trace evidence.
+- **Depends On**: Core repository build, test, and trace tooling.
+- **Must Not Depend On**: Real simulator subsystem ownership; simulator requirement allocation; future runtime architecture boundaries.
+- **Invariants**: Bootstrap placeholder artifacts stay isolated in the `900` series; they do not claim simulator feature coverage; they remain removable without disturbing the real simulator namespace.
+- **Allocation Rationale**: Preserves a minimal placeholder sample during bootstrap while freeing `A-001..A-009` for the real simulator architecture inventory.
+- **Future Absorption**: None. This placeholder should be removed once the first simulator-facing implementation slice replaces it.
+- **Interfaces**: `project::to_upper_ascii(std::string)`
+
+## Architecture Warnings
+
+- None.
 
 ## Auxiliary Tests (Excluded from Evidence Gates)
 

@@ -10,6 +10,8 @@
 - The project direction is now defined around a single-scull rowing simulator
   with a headless-first runtime, reduced hydro and aero models, and later
   calibration/truth-model workflows.
+- The real simulator architecture namespace now belongs to `A-001..A-009`,
+  while bootstrap placeholder artifacts are reserved for the `900` series.
 - `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` record the
   approved technology and architectural direction.
 - The repository still carries the bootstrap `string_utils` sample code while
@@ -24,6 +26,5 @@
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Seed the first real simulator architecture inventory in
-   `docs/process/ARCHITECTURE.md`.
-2. Replace the placeholder sample code with the first coherent simulator slice.
+1. Replace the placeholder sample code with the first coherent simulator slice.
+2. Start landing simulator code under the seeded subsystem ownership boundaries.
