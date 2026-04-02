@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 ### Changed
+- Added a dedicated numerical integration and state-advancement architecture
+  boundary (`A-010`) plus a new `docs/process/STATE_CONVENTIONS.md` source of
+  truth for simulator frame, sign, and orientation conventions.
+- Expanded the simulator requirements to cover startup validity, runtime
+  provider validity metadata, and richer machine-readable output contracts for
+  load or power accounting and frame-aware vector quantities.
 - Replaced the earlier architecture optimization draft with an execution-ready
   hardening plan and seeded the simulator subsystem architecture surface.
 - Reserved the `900`-series trace IDs for bootstrap-only sample artifacts and

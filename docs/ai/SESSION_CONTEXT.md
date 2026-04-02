@@ -4,18 +4,23 @@
 - **Date**: 2026-04-02
 - **Branch**: `main`
 - **Current Objective**: Start landing the first simulator-facing
-  implementation slice inside the hardened architecture-first workflow.
+  implementation slice inside the hardened architecture-first workflow with
+  explicit solver and state-convention contracts.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
   with a headless-first runtime, reduced hydro and aero models, and later
   calibration/truth-model workflows.
-- The real simulator architecture namespace now belongs to `A-001..A-009`,
+- The real simulator architecture namespace now belongs to `A-001..A-010`,
   while bootstrap placeholder artifacts are reserved for the `900` series.
 - The architecture-workflow hardening effort is complete and the repository is
   ready to move on to the first simulator-facing implementation slice.
 - `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` record the
   approved technology and architectural direction.
+- `docs/process/STATE_CONVENTIONS.md` now defines the baseline world-frame,
+  sign, and orientation conventions for simulator boundary contracts.
+- `A-010 Numerical Integration and State Advancement` now owns consistent
+  initialization, solver abstraction, and solver-facing diagnostics.
 - The repository still carries the bootstrap `string_utils` sample code while
   the first simulator implementation slice is pending.
 - Validation scripts emit compact logs and JSON summaries through a shared
@@ -36,4 +41,5 @@
 ## Next Actions
 1. Replace the placeholder sample code with the first coherent simulator slice.
 2. Land the first real `D-*`, `UT-*`, `IT-*`, and `QT-*` evidence inside the
-   seeded subsystem ownership boundaries.
+   seeded subsystem ownership boundaries, starting with configuration,
+   mechanics, and numerical state-advancement seams.

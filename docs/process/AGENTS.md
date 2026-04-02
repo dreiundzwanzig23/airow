@@ -9,7 +9,8 @@ traceability-facing schemas.
   `tools/tracecheck.py`.
 - Keep `ARCHITECTURE_POLICY.md` aligned with the actual allocation workflow and
   architecture schema.
-- Keep `ARCHITECTURE_HEALTH.md`, `MODEL_FIDELITY.md`, `NUMERICS_POLICY.md`, and
+- Keep `ARCHITECTURE_HEALTH.md`, `MODEL_FIDELITY.md`,
+  `STATE_CONVENTIONS.md`, `NUMERICS_POLICY.md`, and
   `CALIBRATION_PROVENANCE.md` aligned with active project process rules.
 - Keep `TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` aligned with approved
   project technology choices and durable technical direction.

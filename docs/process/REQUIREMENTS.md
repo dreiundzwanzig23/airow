@@ -247,15 +247,18 @@ Requirement-writing intent:
 - **Title**: Emit structured outputs for analysis and regression testing
 - **Acceptance Criteria**:
   - Each run writes a machine-readable summary file.
-  - Each run can write machine-readable time-series data for at least hull state, oar state, seat state, boat speed, blade loads, and aero loads.
+  - Each run can write machine-readable time-series data for at least hull state, oar state, seat state, boat speed, hull-water loads, blade loads, aerodynamic loads, and rower-input or stroke-power accounting channels.
   - Output files include a configuration identifier and simulator version.
+  - Vector quantities in machine-readable outputs identify their units and reference frame, and derived power or accounting channels identify their units explicitly.
   - The simulator can be configured to enable or disable high-frequency time-series output.
 - **Priority**: P0
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Expanded output scope to require force and power accounting channels plus explicit unit and frame annotations.
+- **Notes**: Follow-up: confirm the first concrete output schema and artifact-format phasing against this expanded contract.
 
 ## R-016 — Runtime Diagnostics and Safe Failure
 - **Title**: Detect invalid runtime conditions and fail with actionable diagnostics
@@ -473,6 +476,48 @@ Requirement-writing intent:
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: This requirement protects scope clarity while keeping the architecture extensible.
+
+## R-031 — State and Frame Conventions
+- **Title**: Define explicit state, frame, and sign conventions at the simulator boundary
+- **Acceptance Criteria**:
+  - The simulator documentation defines the world frame, body frame, gravity direction, port and starboard sign convention, and orientation representation used at runtime boundaries.
+  - Machine-readable outputs and configuration fields that carry vector quantities identify the reference frame expected for those quantities.
+  - Wind, load, and moment direction cases are interpreted consistently with the documented conventions.
+  - Automated verification covers at least one mirrored port and starboard direction case and one headwind, tailwind, or crosswind interpretation case.
+- **Priority**: P0
+- **Status**: OPEN
+- **Created**: 2026-04-02
+- **Updated**: 2026-04-02
+- **Change-Type**: none
+- **Needs-Review**: no
+
+## R-032 — Consistent Initialization and Startup Validity
+- **Title**: Start each run from a numerically and mechanically valid initial state
+- **Acceptance Criteria**:
+  - A valid simulation run produces a finite, constraint-consistent initial state before time stepping begins.
+  - Inconsistent initial states, invalid constraint setup, or non-converged startup conditions are rejected deterministically with startup-specific diagnostics.
+  - Startup diagnostics report whether initialization succeeded and include solver or convergence status when applicable.
+  - Automated verification includes at least one valid startup case and one rejected startup case.
+- **Priority**: P0
+- **Status**: OPEN
+- **Created**: 2026-04-02
+- **Updated**: 2026-04-02
+- **Change-Type**: none
+- **Needs-Review**: no
+
+## R-033 — Runtime Model Validity Metadata
+- **Title**: Preserve validity-range metadata for reduced runtime providers
+- **Acceptance Criteria**:
+  - Each selectable reduced hull, blade, and aerodynamic provider exposes documented validity metadata or calibration-range metadata suitable for run reporting.
+  - Run metadata records the selected provider identifiers together with their validity metadata identifiers or descriptors.
+  - Provider definitions that omit required validity metadata are rejected deterministically before execution.
+  - Automated verification checks that validity metadata is propagated into machine-readable outputs for at least one run.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-02
+- **Updated**: 2026-04-02
+- **Change-Type**: none
+- **Needs-Review**: no
 
 ## Bootstrap Appendix
 

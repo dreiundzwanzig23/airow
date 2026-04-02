@@ -9,6 +9,7 @@ Autonomous work must be traceable, test-driven, and resumable.
 - Product intent and acceptance: `docs/process/REQUIREMENTS.md`
 - Architecture intent: `docs/process/ARCHITECTURE.md`
 - Architecture allocation policy: `docs/process/ARCHITECTURE_POLICY.md`
+- State and frame conventions: `docs/process/STATE_CONVENTIONS.md`
 - Approved core technologies: `docs/process/TECHNOLOGY_STACK.md`
 - Durable technical decisions: `docs/ai/DECISIONS.md`
 - Design intent: code Doxygen `@design` blocks

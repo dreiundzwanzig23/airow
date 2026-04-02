@@ -7,6 +7,10 @@ not be lost in short-lived handoff notes.
 - `A-002 Simulation Orchestrator` and `A-008 Scenario Harness and Validation`
   both touch run sequencing. Keep acceptance logic and scenario baselines in
   `A-008`; keep lifecycle and execution composition in `A-002`.
+- `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
+  Advancement` both touch startup behavior. Keep physical state ownership and
+  constraint formulation in `A-003`; keep consistent initialization, solver
+  policy, and termination diagnostics in `A-010`.
 - `A-001 Configuration and Validation` and `A-009 External Calibration
   Integration` both touch external artifact handling. Keep schema acceptance in
   `A-001`; keep artifact ingestion and provenance semantics in `A-009`.
@@ -25,6 +29,8 @@ not be lost in short-lived handoff notes.
 - `A-003 Mechanics Subsystem` is likely to attract cross-cutting growth early.
 - `A-007 Output and Diagnostics` risks turning into a dumping ground for
   unrelated metadata concerns if contracts are not kept narrow.
+- `A-010 Numerical Integration and State Advancement` must stay solver-focused
+  and avoid absorbing mechanics ownership or provider-specific load logic.
 - `A-009 External Calibration Integration` must stay optional from the default
   runtime path.
 

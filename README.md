@@ -7,7 +7,8 @@ serious single-scull simulator with strict TDD, traceability
 The repository is still in bootstrap state. The current tracked code includes a
 small placeholder sample, while the rowing simulator direction is defined in
 the requirements, architecture bootstrap, technology stack, and decision
-records.
+records, including explicit state-convention and numerical-integration
+ownership.
 
 ## Quick Start
 
@@ -39,6 +40,10 @@ Current intent:
 - single-scull simulator first,
 - headless executable plus reusable library API,
 - 3D mechanics core with reduced hydro and aero runtime models,
+- explicit world-frame, sign, and orientation conventions at simulator
+  boundaries,
+- explicit numerical integration and startup-validity ownership separate from
+  mechanics ownership,
 - optional high-fidelity calibration workflows kept outside the default runtime,
 - real simulator code should now land inside the hardened architecture-first
   workflow rather than extending the bootstrap sample.
@@ -96,6 +101,7 @@ Core artifacts:
 - `docs/process/LLM_DRIFT_REVIEW.md`
 - `docs/process/ARCHITECTURE_HEALTH.md`
 - `docs/process/MODEL_FIDELITY.md`
+- `docs/process/STATE_CONVENTIONS.md`
 - `docs/process/NUMERICS_POLICY.md`
 - `docs/process/CALIBRATION_PROVENANCE.md`
 - `docs/ai/SESSION_CONTEXT.md`
