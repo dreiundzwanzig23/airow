@@ -5,7 +5,8 @@
 - **Branch**: `main`
 - **Current Objective**: Start landing the first simulator-facing
   implementation slice inside the hardened architecture-first workflow with
-  explicit solver and state-convention contracts.
+  explicit solver and state-convention contracts and an explicit `v0.1` cut
+  line.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
@@ -21,6 +22,10 @@
   sign, and orientation conventions for simulator boundary contracts.
 - `A-010 Numerical Integration and State Advancement` now owns consistent
   initialization, solver abstraction, and solver-facing diagnostics.
+- `docs/ai/ROADMAP.md` now defines `v0.1` as a deterministic single-run
+  baseline and moves calibration ingestion, time-varying wind, batch sweeps,
+  low-order balance control, flexible oars, and disturbance inputs beyond the
+  steady baseline out of that cut line.
 - The repository still carries the bootstrap `string_utils` sample code while
   the first simulator implementation slice is pending.
 - Validation scripts emit compact logs and JSON summaries through a shared
@@ -43,3 +48,5 @@
 2. Land the first real `D-*`, `UT-*`, `IT-*`, and `QT-*` evidence inside the
    seeded subsystem ownership boundaries, starting with configuration,
    mechanics, and numerical state-advancement seams.
+3. Clear or confirm the newly flagged `Needs-Review: yes` backlog items once
+   the post-`v0.1` milestone ordering is accepted.

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Changed
+- Added an explicit `v0.1` milestone cut line in `docs/ai/ROADMAP.md` centered
+  on the deterministic headless single-run baseline.
+- Reprioritized calibration ingestion, calibration provenance, time-varying
+  wind, and batch sweeps behind `v0.1` and marked those requirements for
+  review.
 - Added a dedicated numerical integration and state-advancement architecture
   boundary (`A-010`) plus a new `docs/process/STATE_CONVENTIONS.md` source of
   truth for simulator frame, sign, and orientation conventions.

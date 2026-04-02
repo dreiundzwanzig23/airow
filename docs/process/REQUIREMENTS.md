@@ -43,6 +43,15 @@ Requirement-writing intent:
 - multiple related requirements are expected to allocate into shared `A-*`
   subsystem themes.
 
+Milestone framing:
+- `v0.1` should deliver a deterministic headless baseline with validated
+  configuration, in-memory and CLI execution, stable startup, 3D single-scull
+  mechanics, reduced hull and blade runtime models, steady-wind aero, named
+  baseline scenarios, and structured machine-readable outputs.
+- `v0.1` should not depend on external calibration ingestion, time-varying
+  wind, batch sweeps, low-order balance control, flexible oars, or disturbance
+  inputs beyond the steady baseline cases.
+
 ## R-001 — Configuration Loading and Validation
 - **Title**: Load and validate simulation configuration deterministically
 - **Acceptance Criteria**:
@@ -340,12 +349,14 @@ Requirement-writing intent:
   - Malformed or incomplete calibration datasets are rejected deterministically with a schema-specific error.
   - Loaded datasets are queryable by the configured provider during a run.
   - At least one automated test loads a minimal valid dataset and verifies a successful query.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned external calibration ingestion behind the first deterministic runtime milestone.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-022 — Calibration Provenance Metadata
 - **Title**: Preserve provenance for imported calibration and fitted-model artifacts
@@ -354,12 +365,14 @@ Requirement-writing intent:
   - Run metadata records the identifiers of any external calibration artifacts used during execution.
   - Missing required provenance metadata causes deterministic rejection of the artifact.
   - A regression test verifies that provenance metadata is propagated into run outputs.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned calibration provenance behind the first deterministic runtime milestone together with external artifact ingestion.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-023 — Time-Varying Wind Input
 - **Title**: Support deterministic time-varying wind for gust and transition studies
@@ -368,12 +381,14 @@ Requirement-writing intent:
   - For a constant wind time series, the computed aerodynamic loads match the constant-wind model within tolerance.
   - Replaying the same wind time series yields deterministic results on the same platform.
   - At least one regression scenario includes a non-constant wind input.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned time-varying wind behind steady-wind baseline validation.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-024 — Runtime and Truth-Model Separation
 - **Title**: Keep the default runtime path independent of optional high-fidelity toolchains
@@ -397,12 +412,14 @@ Requirement-writing intent:
   - Each case produces a separate success or failure record without corrupting the results of other cases.
   - Batch summary output includes per-case identifiers and summary metrics.
   - Batch output ordering is deterministic for the same input ordering.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned batch execution behind the first single-run deterministic baseline.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-026 — Scenario Performance Budget
 - **Title**: Keep core verification scenarios within documented runtime budgets
@@ -432,7 +449,7 @@ Requirement-writing intent:
 - **Updated**: 2026-04-01
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement intentionally stops short of full musculoskeletal modeling.
+- **Notes**: This requirement intentionally stops short of full musculoskeletal modeling and is not part of the `v0.1` cut line.
 
 ## R-028 — Optional Flexible Oar Model
 - **Title**: Support an optional flexible oar representation without changing the default rigid-oar runtime path
@@ -447,6 +464,7 @@ Requirement-writing intent:
 - **Updated**: 2026-04-01
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-029 — Optional Wave or Disturbance Input
 - **Title**: Support optional environmental disturbance inputs beyond steady calm water
@@ -461,6 +479,7 @@ Requirement-writing intent:
 - **Updated**: 2026-04-01
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-030 — Multi-Rower and Non-Scull Expansion Readiness
 - **Title**: Preserve a migration path toward future crew and sweep support without including it in the initial scope
