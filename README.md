@@ -1,7 +1,13 @@
-# AI-Guided C++ Template
+# AIRow Bootstrap Repository
 
-A C++ template for autonomous or semi-autonomous development with strict TDD,
-traceability (`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
+AIRow is an open-source C++ rowing simulator project focused on a physically
+serious single-scull simulator with strict TDD, traceability
+(`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
+
+The repository is still in bootstrap state. The current tracked code includes a
+small placeholder sample, while the rowing simulator direction is defined in
+the requirements, architecture bootstrap, technology stack, and decision
+records.
 
 ## Quick Start
 
@@ -15,10 +21,28 @@ Build:
 ./scripts/build.sh
 ```
 
-Run the sample app:
+Run the current bootstrap app:
 ```bash
 ./build/project_app
 ```
+
+## Project Direction
+
+Primary planning and process sources:
+- `docs/process/REQUIREMENTS.md`
+- `docs/process/ARCHITECTURE.md`
+- `docs/process/TECHNOLOGY_STACK.md`
+- `docs/ai/DECISIONS.md`
+
+Current intent:
+- single-scull simulator first,
+- headless executable plus reusable library API,
+- 3D mechanics core with reduced hydro and aero runtime models,
+- optional high-fidelity calibration workflows kept outside the default runtime.
+
+Current bootstrap note:
+- the `string_utils` sample code remains as a temporary placeholder until the
+  first real simulator implementation slice replaces it.
 
 ## Validation Lanes
 
@@ -58,6 +82,7 @@ Core artifacts:
 - `AGENTS.md`
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
+- `docs/process/TECHNOLOGY_STACK.md`
 - `docs/process/WORKFLOW.md`
 - `docs/process/TEST_STRATEGY.md`
 - `docs/process/TRACEABILITY.md`
@@ -78,6 +103,10 @@ Repo-local skills:
 Traceability note: non-aux `UT/IT/QT` Doxygen `@test` blocks must verify one
 or more same-layer IDs (`UT->D`, `IT->A`, `QT->R`). Use optional `@aux yes`
 for informational tests that should be excluded from evidence gates.
+
+Technology note: `docs/process/TECHNOLOGY_STACK.md` is the source of truth for
+approved core libraries and formats. `docs/ai/DECISIONS.md` records the
+rationale and durable technical constraints behind those choices.
 
 ## Validation Output
 

@@ -1,11 +1,13 @@
 # ROADMAP.md
 
 ## Near-term
-- Keep the refined generic workflow stable and well-documented.
+- Seed the first rowing-simulator architecture themes and requirement
+  allocation.
+- Replace the bootstrap sample code with the first headless simulator slice.
 - Preserve strict TDD, traceability, and deterministic local gates.
 
 ## Backlog
-- Add additional template sample features only when they improve process
-  clarity without adding domain lock-in.
-- Add template-level aux tests only when they strengthen script/tool contracts
-  without turning the repository into a product-specific example.
+- Add deterministic baseline scenarios for passive float, tow, calm-water
+  stroke, headwind, and crosswind runs.
+- Add simulator-specific auxiliary and regression lanes only when they improve
+  local verification without polluting the baseline runtime path.

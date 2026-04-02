@@ -1,6 +1,6 @@
 # AGENTS.md — Codex Operating Contract
 
-This repository is a domain-agnostic template for AI-guided C++ development.
+This repository bootstraps an AI-guided C++ rowing simulator project.
 Autonomous work must be traceable, test-driven, and resumable.
 
 ## Policy Core
@@ -8,6 +8,8 @@ Autonomous work must be traceable, test-driven, and resumable.
 ### Source of truth
 - Product intent and acceptance: `docs/process/REQUIREMENTS.md`
 - Architecture intent: `docs/process/ARCHITECTURE.md`
+- Approved core technologies: `docs/process/TECHNOLOGY_STACK.md`
+- Durable technical decisions: `docs/ai/DECISIONS.md`
 - Design intent: code Doxygen `@design` blocks
 - Verification intent: tests Doxygen `@test` blocks
 - Session continuity: `docs/ai/*`
@@ -39,6 +41,9 @@ Autonomous work must be traceable, test-driven, and resumable.
 7. Update traceability/context artifacts when triggered.
 
 Never skip failing-tests-first for functional behavior changes.
+When a task affects technology choice, solver direction, file-format policy, or
+external-tool integration, align with `docs/process/TECHNOLOGY_STACK.md` and
+`docs/ai/DECISIONS.md` before implementation.
 
 ### Lightweight requirement-change policy
 - Requirement metadata fields:
@@ -101,6 +106,8 @@ A task is complete only when:
 Update `docs/ai/*` when milestone-level change occurs:
 - requirement status changes (`R-*`)
 - architecture status changes (`A-*`)
+- approved technology direction changes
+- durable technical decision changes
 - workflow, gate, or public interface contract changes
 
 ## Change Boundaries
@@ -110,11 +117,13 @@ Update `docs/ai/*` when milestone-level change occurs:
 - `scripts/`: deterministic local/CI-compatible automation
 - `tools/`: traceability and policy guardrails
 
-Avoid adding domain-specific template policy unless it is reusable.
+Avoid adding narrow process policy unless it is reusable or clearly needed by
+the simulator project.
 Avoid non-apt dependencies unless explicitly approved.
 
 ## Legacy
-- Do not preserve outdated template workflow just for compatibility.
+- Do not preserve outdated bootstrap or template workflow just for
+  compatibility.
 - Prefer deleting stale process guidance over adding wrappers around it.
 
 ## Repository Skills (Load On Demand)

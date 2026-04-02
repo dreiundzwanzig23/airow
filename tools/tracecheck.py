@@ -66,6 +66,7 @@ REQUIRED_CONTEXT_FILES = [
     "docs/process/WORKFLOW.md",
     "docs/process/TEST_STRATEGY.md",
     "docs/process/MAINTENANCE.md",
+    "docs/process/TECHNOLOGY_STACK.md",
     "docs/process/LLM_DRIFT_REVIEW.md",
     "skills/README.md",
 ]

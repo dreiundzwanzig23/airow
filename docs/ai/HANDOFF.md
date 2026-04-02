@@ -1,21 +1,27 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-03-23
+- 2026-04-02
 
 ## What Changed In This Session
-- Refreshed the template to the refined generic workflow model.
-- Added logged validation summaries, aux-test support, ADR archival, and
-  instruction coherence tooling.
-- Updated process docs, AI context templates, and repo-local skills to match
-  the stricter operating contract.
+- Reframed the repository docs around the rowing simulator bootstrap instead of
+  the generic template wording.
+- Added explicit workflow references to `docs/process/TECHNOLOGY_STACK.md` and
+  `docs/ai/DECISIONS.md` as project sources of truth for technology direction.
+- Marked `docs/process/ARCHITECTURE.md` as bootstrap placeholder state pending
+  the first simulator architecture seeding task.
+- Extended instruction-coherence checks to treat
+  `docs/process/TECHNOLOGY_STACK.md` as a core process artifact.
 
 ## Current Technical Posture
-- The template remains domain-agnostic and keeps the minimal sample utility.
-- Default local validation is now stricter on process drift as well as code
+- The repository now reads as a rowing simulator bootstrap project rather than
+  a domain-agnostic template.
+- The bootstrap `string_utils` sample still remains in code and tests.
+- Default local validation remains strict on process drift as well as code
   drift.
-- Historical AI decisions are archived out of active context when needed.
 
 ## Immediate Next Steps
-1. Keep the new quality gates green on follow-up changes.
-2. Use repo-local skills instead of expanding always-loaded policy docs.
+1. Seed the simulator subsystem architecture entries in
+   `docs/process/ARCHITECTURE.md`.
+2. Begin replacing the placeholder sample code with the first simulator-facing
+   library and executable slice.

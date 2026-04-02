@@ -1,26 +1,29 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-03-23
+- **Date**: 2026-04-02
 - **Branch**: `main`
-- **Current Objective**: Keep the refreshed template workflow, strict gates,
-  and archive-aware AI-doc model aligned and green.
+- **Current Objective**: Keep the rowing simulator bootstrap docs, process
+  guardrails, and active AI context coherent and green.
 
 ## Current State
-- The template now uses refined requirement metadata and a stricter top-level
-  policy model.
+- The project direction is now defined around a single-scull rowing simulator
+  with a headless-first runtime, reduced hydro and aero models, and later
+  calibration/truth-model workflows.
+- `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` record the
+  approved technology and architectural direction.
+- The repository still carries the bootstrap `string_utils` sample code while
+  the first simulator implementation slice is pending.
 - Validation scripts emit compact logs and JSON summaries through a shared
   wrapper.
 - Traceability supports auxiliary tests and stronger evidence validation.
-- Repo-local skills, maintenance docs, and AI-doc archive scaffolding are now
-  part of the default template.
 
 ## Guardrails
-- Preserve domain-agnostic template policy.
 - Keep active AI docs compact and non-duplicative.
+- Do not treat the placeholder sample code as the simulator architecture.
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Keep process docs and skills aligned with actual scripts and tooling.
-2. Extend template samples only when they improve workflow clarity without
-   adding domain lock-in.
+1. Seed the first real simulator architecture inventory in
+   `docs/process/ARCHITECTURE.md`.
+2. Replace the placeholder sample code with the first coherent simulator slice.

@@ -11,8 +11,10 @@ from typing import List, Set
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DOCS = [
     ROOT / "AGENTS.md",
+    ROOT / "README.md",
     ROOT / "docs" / "process" / "WORKFLOW.md",
     ROOT / "docs" / "process" / "TEST_STRATEGY.md",
+    ROOT / "docs" / "process" / "TECHNOLOGY_STACK.md",
 ]
 AI_CONTEXT_BUDGETS = {
     ROOT / "docs" / "ai" / "SESSION_CONTEXT.md": 70,
@@ -25,6 +27,20 @@ REQUIRED_SKILLS = [
     ROOT / "skills" / "template-test-lanes" / "SKILL.md",
     ROOT / "skills" / "template-release-doc-sync" / "SKILL.md",
 ]
+REQUIRED_REFERENCES = {
+    ROOT / "AGENTS.md": [
+        "docs/process/TECHNOLOGY_STACK.md",
+        "docs/ai/DECISIONS.md",
+    ],
+    ROOT / "README.md": [
+        "docs/process/TECHNOLOGY_STACK.md",
+        "docs/ai/DECISIONS.md",
+    ],
+    ROOT / "docs" / "process" / "WORKFLOW.md": [
+        "docs/process/TECHNOLOGY_STACK.md",
+        "docs/ai/DECISIONS.md",
+    ],
+}
 SCRIPT_REF_RE = re.compile(r"\./scripts/[A-Za-z0-9_./-]+\.sh")
 SKILL_REF_RE = re.compile(r"skills/[A-Za-z0-9_-]+/SKILL\.md")
 BANNED_PHRASES = [
@@ -81,6 +97,12 @@ def check_references(problems: List[str]) -> None:
             if not candidate.exists():
                 problems.append(
                     f"{doc.relative_to(ROOT)} references missing skill: {skill_ref}"
+                )
+
+        for required_ref in REQUIRED_REFERENCES.get(doc, []):
+            if required_ref not in text:
+                problems.append(
+                    f"{doc.relative_to(ROOT)} must reference {required_ref}"
                 )
 
     for skill_path in REQUIRED_SKILLS:

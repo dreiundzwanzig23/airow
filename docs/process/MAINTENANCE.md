@@ -7,8 +7,10 @@ development.
 1. Run `./scripts/maintenance.sh`.
 2. Resolve stale `OPEN` requirements older than threshold or add notes.
 3. Confirm `docs/process/QUALITY_SCORECARD.md` reflects current process state.
-4. Remove or archive obsolete docs, tests, or scripts.
-5. Regenerate traceability and confirm no drift.
+4. Confirm `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md`
+   still match the approved project direction.
+5. Remove or archive obsolete docs, tests, or scripts.
+6. Regenerate traceability and confirm no drift.
 
 Active AI docs should remain compact and non-duplicative:
 - `docs/ai/SESSION_CONTEXT.md` <= 70 lines

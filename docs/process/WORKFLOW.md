@@ -7,6 +7,9 @@ changes.
 ## Canonical Policy
 - Mandatory governance rules live in `AGENTS.md`.
 - This file is an operational index and must not redefine conflicting policy.
+- Use `docs/process/TECHNOLOGY_STACK.md` for approved core technologies and
+  `docs/ai/DECISIONS.md` for durable technical rationale when a task touches
+  libraries, solver direction, output formats, or external integrations.
 - For token-efficient agent work, prefer compact repo orientation
   (`./scripts/project_stats.py --format agent`), locate-then-slice retrieval,
   and default exclusion of archive/generated/log paths unless the task

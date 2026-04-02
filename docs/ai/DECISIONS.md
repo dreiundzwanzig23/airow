@@ -19,7 +19,6 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
   - active AI context stays smaller and easier to resume,
   - project-specific runtime or backend gates remain intentionally out of
     scope for the template.
-
 ## ADR-2026-04-02-001
 - **Date**: 2026-04-02
 - **Context**: The rowing simulator is a multiphysics project with evolving
@@ -37,7 +36,6 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
   - Codex work packets should target architectural increments, not raw
     requirement mirroring,
   - trace tooling and workflow docs need follow-up updates to enforce this.
-
 ## ADR-2026-04-02-002
 - **Date**: 2026-04-02
 - **Context**: The simulator needs stable top-level ownership boundaries early
@@ -56,7 +54,6 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
   - dependency rules and tests can be tightened around known subsystem seams,
   - major changes are more likely to evolve existing components than create
     narrow feature containers.
-
 ## ADR-2026-04-02-003
 - **Date**: 2026-04-02
 - **Context**: The rowing simulator may use different numerical techniques over
@@ -75,7 +72,6 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
     requirement churn,
   - numerical-method changes should update ADRs before large implementation
     work proceeds.
-
 ## ADR-2026-04-02-004
 - **Date**: 2026-04-02
 - **Context**: Full high-fidelity fluid simulation of water and air is too
@@ -92,7 +88,6 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
   - calibration workflows can mature independently of the main simulator,
   - requirements and architecture should preserve a strict runtime vs
     truth-model separation.
-
 ## ADR-2026-04-02-005
 - **Date**: 2026-04-02
 - **Context**: The earliest useful simulator should be small enough to validate
@@ -111,7 +106,6 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
     headwind stroke, and crosswind stroke become first-class progress markers,
   - later fidelity increases should be absorbed through existing component
     seams rather than replacing the initial workflow model.
-
 ## ADR-2026-04-02-006
 - **Date**: 2026-04-02
 - **Context**: The project will mix analytic models, calibrated models, and
@@ -129,7 +123,6 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
   - calibrated models can be swapped or updated with traceable provenance,
   - future process docs should add numerics, fidelity, and provenance policies
     tailored to the simulator domain.
-
 ## ADR-2026-04-02-007
 - **Date**: 2026-04-02
 - **Context**: The project needed one explicit place where the approved core

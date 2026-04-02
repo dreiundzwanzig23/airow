@@ -1,4 +1,4 @@
-# TEST_STRATEGY.md — Template Test Strategy
+# TEST_STRATEGY.md — Rowing Simulator Test Strategy
 
 ## Purpose
 Define verification-layer responsibilities and quality intent. Detailed lane
@@ -15,7 +15,7 @@ execution playbooks are in skills.
 
 ### System (`tests/system/`)
 - Verifies requirement-level acceptance (`QT-* -> R-*`).
-- Focus: end-to-end deterministic behavior and acceptance examples.
+- Focus: end-to-end deterministic behavior and scenario-level acceptance.
 
 ## Core Design Rules
 - Keep tests deterministic and runtime-bounded.

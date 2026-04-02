@@ -7,6 +7,8 @@ traceability-facing schemas.
 ## Required updates when changing process
 - Keep `REQUIREMENTS.md` and `ARCHITECTURE.md` syntax valid for
   `tools/tracecheck.py`.
+- Keep `TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` aligned with approved
+  project technology choices and durable technical direction.
 - Keep `WORKFLOW.md`, `TEST_STRATEGY.md`, `MAINTENANCE.md`, and
   `LLM_DRIFT_REVIEW.md` aligned with actual scripts and folder layout.
 - Regenerate `TRACEABILITY.md` via tool, never hand-edit.

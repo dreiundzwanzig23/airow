@@ -18,11 +18,19 @@ Validation policy:
   least one QT-### through satisfied requirements.
 -->
 
-# ARCHITECTURE.md — Template Architecture
+# ARCHITECTURE.md — Rowing Simulator Bootstrap Architecture
 
-## A-001 — String Utilities Component
-- **Title**: ASCII uppercase transformation component
-- **Satisfies**: [R-001]
+This file is still in bootstrap state.
+
+The repository requirements and decisions now describe the rowing simulator, but
+the architecture inventory has not yet been seeded with the planned simulator
+subsystems. Treat the entry below as a temporary placeholder that supports the
+current sample code and trace/tool bootstrap only.
+
+## A-001 — Bootstrap Placeholder Component
+- **Title**: Temporary sample component for repository bootstrap
+- **Satisfies**: []
 - **Status**: DONE
-- **Description**: Provides a deterministic uppercase conversion utility.
+- **Description**: Keeps the current sample code and tests traceable while the
+  first simulator architecture inventory is still pending.
 - **Interfaces**: `project::to_upper_ascii(std::string)`
