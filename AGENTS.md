@@ -52,7 +52,7 @@ When a task affects technology choice, solver direction, file-format policy, or
 external-tool integration, align with `docs/process/TECHNOLOGY_STACK.md` and
 `docs/ai/DECISIONS.md` before implementation.
 When a change is cross-cutting, migratory, or architectural, use
-`skills/template-major-change-loop/SKILL.md` instead of the ordinary TDD loop.
+`.agents/skills/major-change-loop/SKILL.md` instead of the ordinary TDD loop.
 
 ### Lightweight requirement-change policy
 - Requirement metadata fields:
@@ -139,12 +139,12 @@ Avoid non-apt dependencies unless explicitly approved.
 Always use the OpenAI developer documentation MCP server if you need to work with the OpenAI API, ChatGPT Apps SDK, Codex,… without me having to explicitly ask.
 
 ## Repository Skills (Load On Demand)
-- Skill index: `skills/README.md`
-- `skills/template-tdd-loop/SKILL.md`
-- `skills/template-trace-maintenance/SKILL.md`
-- `skills/template-test-lanes/SKILL.md`
-- `skills/template-release-doc-sync/SKILL.md`
-- `skills/template-major-change-loop/SKILL.md`
+- Skill index: `.agents/skills/README.md`
+- `.agents/skills/tdd-loop/SKILL.md`
+- `.agents/skills/trace-maintenance/SKILL.md`
+- `.agents/skills/test-lanes/SKILL.md`
+- `.agents/skills/release-doc-sync/SKILL.md`
+- `.agents/skills/major-change-loop/SKILL.md`
 
 Policy stays here. Operational playbooks live in skills and should be loaded
 only when relevant to the task.

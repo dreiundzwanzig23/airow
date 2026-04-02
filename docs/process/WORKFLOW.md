@@ -34,15 +34,15 @@ changes.
 8. Update changelog/readme/context docs when triggered.
 
 For cross-cutting refactors, migrations, and semantic multi-requirement work,
-use `skills/template-major-change-loop/SKILL.md` rather than the ordinary
+use `.agents/skills/major-change-loop/SKILL.md` rather than the ordinary
 feature loop.
 
 ## Operational Playbooks (Skills)
-- TDD execution loop: `skills/template-tdd-loop/SKILL.md`
-- Major-change loop: `skills/template-major-change-loop/SKILL.md`
-- Trace maintenance: `skills/template-trace-maintenance/SKILL.md`
-- Test lane choice: `skills/template-test-lanes/SKILL.md`
-- Release/doc sync: `skills/template-release-doc-sync/SKILL.md`
+- TDD execution loop: `.agents/skills/tdd-loop/SKILL.md`
+- Major-change loop: `.agents/skills/major-change-loop/SKILL.md`
+- Trace maintenance: `.agents/skills/trace-maintenance/SKILL.md`
+- Test lane choice: `.agents/skills/test-lanes/SKILL.md`
+- Release/doc sync: `.agents/skills/release-doc-sync/SKILL.md`
 
 ## Enforcement Summary
 - Architecture allocation must happen before failing-tests-first work.

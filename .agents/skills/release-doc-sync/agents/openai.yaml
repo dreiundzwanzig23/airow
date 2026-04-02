@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Doc Sync"
+  short_description: "Sync README, changelog, and AI context docs"
+  default_prompt: "Use $release-doc-sync to update the user-facing and AI-context documentation that this change requires."

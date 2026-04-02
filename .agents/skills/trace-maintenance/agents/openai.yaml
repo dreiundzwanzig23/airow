@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trace Maintenance"
+  short_description: "Maintain repo trace tags and evidence links"
+  default_prompt: "Use $trace-maintenance to update traceability tags, regenerate trace output, and fix any broken evidence links."

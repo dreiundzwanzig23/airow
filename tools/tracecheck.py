@@ -86,7 +86,7 @@ REQUIRED_CONTEXT_FILES = [
     "docs/process/CALIBRATION_PROVENANCE.md",
     "docs/process/TECHNOLOGY_STACK.md",
     "docs/process/LLM_DRIFT_REVIEW.md",
-    "skills/README.md",
+    ".agents/skills/README.md",
 ]
 
 REQUIRED_LOCAL_AGENTS = [

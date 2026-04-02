@@ -102,12 +102,12 @@ Core artifacts:
 - `docs/ai/DECISIONS.md`
 
 Repo-local skills:
-- `skills/README.md`
-- `skills/template-tdd-loop/SKILL.md`
-- `skills/template-trace-maintenance/SKILL.md`
-- `skills/template-test-lanes/SKILL.md`
-- `skills/template-release-doc-sync/SKILL.md`
-- `skills/template-major-change-loop/SKILL.md`
+- `.agents/skills/README.md`
+- `.agents/skills/tdd-loop/SKILL.md`
+- `.agents/skills/trace-maintenance/SKILL.md`
+- `.agents/skills/test-lanes/SKILL.md`
+- `.agents/skills/release-doc-sync/SKILL.md`
+- `.agents/skills/major-change-loop/SKILL.md`
 
 Traceability note: non-aux `UT/IT/QT` Doxygen `@test` blocks must verify one
 or more same-layer IDs (`UT->D`, `IT->A`, `QT->R`). Use optional `@aux yes`

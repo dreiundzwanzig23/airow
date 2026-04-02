@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Loop"
+  short_description: "Run the repo's failing-tests-first workflow"
+  default_prompt: "Use $tdd-loop to execute a requirement-driven code change with architecture allocation before tests and the full local gates at the end."

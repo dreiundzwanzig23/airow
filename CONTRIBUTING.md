@@ -5,7 +5,7 @@
 - All new work: TDD. Failing test → minimal pass → refactor.
 - Perform architecture allocation before tests and follow
   `docs/process/ARCHITECTURE_POLICY.md` when choosing or adding `A-*` items.
-- Use `skills/template-major-change-loop/SKILL.md` for cross-cutting,
+- Use `.agents/skills/major-change-loop/SKILL.md` for cross-cutting,
   migratory, or architectural changes.
 - Keep trace metadata current: `R-*`, `A-*`, `D-*`, `UT-*`, `IT-*`, `QT-*`.
 - Keep `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` aligned

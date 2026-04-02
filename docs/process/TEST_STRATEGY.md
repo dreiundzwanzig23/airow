@@ -56,5 +56,5 @@ runtime implementation exists.
 - Aggregate verification: `./scripts/verify.sh`
 
 ## Operational Playbook
-Use `skills/template-test-lanes/SKILL.md` for lane-selection and execution
+Use `.agents/skills/test-lanes/SKILL.md` for lane-selection and execution
 procedures.

@@ -80,7 +80,7 @@ Require architecture allocation before tests or code.
   - `AGENTS.md`
   - `docs/process/WORKFLOW.md`
   - `docs/process/AGENTS.md`
-  - `skills/template-tdd-loop/SKILL.md`
+  - `.agents/skills/tdd-loop/SKILL.md`
 - Replace weak “confirm/update architecture mapping” wording with:
   - identify candidate owning `A-*` items,
   - evaluate reuse before creating a new `A-*`,
@@ -90,8 +90,8 @@ Require architecture allocation before tests or code.
   - do not create 1:1 `R -> A` mappings unless justified,
   - prefer extending a stable subsystem over a narrow new one.
 - Add a new major-change skill:
-  - `skills/template-major-change-loop/SKILL.md`
-- Update `skills/README.md`, `AGENTS.md`, `README.md`, and
+  - `.agents/skills/major-change-loop/SKILL.md`
+- Update `.agents/skills/README.md`, `AGENTS.md`, `README.md`, and
   `docs/process/WORKFLOW.md` to reference the new skill.
 
 #### Major-change skill requirements
@@ -292,7 +292,7 @@ fit the seeded architecture.
 - Edit only where wording still encourages direct `R -> A` mirroring or
   conflicts with the seeded subsystem ownership.
 - Update `docs/process/TEST_STRATEGY.md` and
-  `skills/template-test-lanes/SKILL.md` so they explicitly cover:
+  `.agents/skills/test-lanes/SKILL.md` so they explicitly cover:
   - scenario-oriented `QT-*`,
   - characterization tests for major changes,
   - subsystem-contract focused `IT-*`,

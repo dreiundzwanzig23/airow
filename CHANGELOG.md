@@ -10,6 +10,9 @@
   and calibration provenance process docs.
 - Added a major-change skill and strengthened workflow wording around
   architecture allocation before TDD.
+- Renamed repo-local `template-*` skills to real operational skill names,
+  moved them to `.agents/skills`, and added `agents/openai.yaml` metadata for
+  Codex skill discovery.
 - Extended traceability and dependency guardrails toward architecture-health
   enforcement and component-level dependency policy.
 - Reframed the repository documentation from generic template wording to a

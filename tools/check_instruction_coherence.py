@@ -27,34 +27,34 @@ AI_CONTEXT_BUDGETS = {
     ROOT / "docs" / "ai" / "ROADMAP.md": 70,
 }
 REQUIRED_SKILLS = [
-    ROOT / "skills" / "template-tdd-loop" / "SKILL.md",
-    ROOT / "skills" / "template-major-change-loop" / "SKILL.md",
-    ROOT / "skills" / "template-trace-maintenance" / "SKILL.md",
-    ROOT / "skills" / "template-test-lanes" / "SKILL.md",
-    ROOT / "skills" / "template-release-doc-sync" / "SKILL.md",
+    ROOT / ".agents" / "skills" / "tdd-loop" / "SKILL.md",
+    ROOT / ".agents" / "skills" / "major-change-loop" / "SKILL.md",
+    ROOT / ".agents" / "skills" / "trace-maintenance" / "SKILL.md",
+    ROOT / ".agents" / "skills" / "test-lanes" / "SKILL.md",
+    ROOT / ".agents" / "skills" / "release-doc-sync" / "SKILL.md",
 ]
 REQUIRED_REFERENCES = {
     ROOT / "AGENTS.md": [
         "docs/process/ARCHITECTURE_POLICY.md",
         "docs/process/TECHNOLOGY_STACK.md",
         "docs/ai/DECISIONS.md",
-        "skills/template-major-change-loop/SKILL.md",
+        ".agents/skills/major-change-loop/SKILL.md",
     ],
     ROOT / "README.md": [
         "docs/process/ARCHITECTURE_POLICY.md",
         "docs/process/TECHNOLOGY_STACK.md",
         "docs/ai/DECISIONS.md",
-        "skills/template-major-change-loop/SKILL.md",
+        ".agents/skills/major-change-loop/SKILL.md",
     ],
     ROOT / "docs" / "process" / "WORKFLOW.md": [
         "docs/process/ARCHITECTURE_POLICY.md",
         "docs/process/TECHNOLOGY_STACK.md",
         "docs/ai/DECISIONS.md",
-        "skills/template-major-change-loop/SKILL.md",
+        ".agents/skills/major-change-loop/SKILL.md",
     ],
 }
 SCRIPT_REF_RE = re.compile(r"\./scripts/[A-Za-z0-9_./-]+\.sh")
-SKILL_REF_RE = re.compile(r"skills/[A-Za-z0-9_-]+/SKILL\.md")
+SKILL_REF_RE = re.compile(r"\.agents/skills/[A-Za-z0-9_-]+/SKILL\.md")
 BANNED_PHRASES = [
     "must verify exactly one D-### ID",
     "must verify exactly one same-layer item",

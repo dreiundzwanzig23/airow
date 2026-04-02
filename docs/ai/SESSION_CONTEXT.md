@@ -19,6 +19,9 @@
 - Validation scripts emit compact logs and JSON summaries through a shared
   wrapper.
 - Traceability supports auxiliary tests and stronger evidence validation.
+- Repo-local operational skills now live in `.agents/skills` with real skill
+  names and `agents/openai.yaml` metadata instead of `template-*`
+  placeholders.
 
 ## Guardrails
 - Keep active AI docs compact and non-duplicative.

@@ -11,6 +11,9 @@
   fidelity, numerics, provenance, and health process docs.
 - Hardened workflow docs and repo-local skills around architecture allocation
   before TDD and major-change handling.
+- Renamed the repo-local skills from `template-*` placeholders to real skill
+  names, moved them under `.agents/skills`, and added `agents/openai.yaml`
+  metadata for each one.
 - Extended traceability and dependency guardrails toward architecture-health
   enforcement.
 

@@ -1,9 +1,9 @@
 ---
-name: template-release-doc-sync
-description: Synchronize release-facing and AI context documentation with implementation and process changes. Use when public behavior, interfaces, requirement or architecture status, or milestone scope changes.
+name: release-doc-sync
+description: Synchronize release-facing and AI context documentation with implementation and process changes. Use when public behavior, workflow policy, interfaces, requirement or architecture status, or milestone scope changes.
 ---
 
-# Template Release Doc Sync
+# Release Doc Sync
 
 ## Update Required Artifacts
 - Update `CHANGELOG.md`.
@@ -13,11 +13,11 @@ description: Synchronize release-facing and AI context documentation with implem
 - Update `docs/ai/ROADMAP.md` when backlog or milestone scope changes.
 - Update `docs/ai/DECISIONS.md` when recording a new durable decision.
 
-## Run Workflow
+## Execute
 1. Record behavior and process deltas with concise, concrete wording.
 2. Keep `docs/ai/*` focused on current state, open risks, and next actions.
 3. Re-run `python3 tools/tracecheck.py --write` when trace-relevant docs or
    metadata changed.
 
-## Produce Outputs
+## Finish
 - Keep release and handoff documentation aligned with code and policy state.
