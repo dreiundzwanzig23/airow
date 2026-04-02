@@ -11,11 +11,16 @@ execution playbooks are in skills.
 
 ### Integration (`tests/integration/`)
 - Verifies architecture-level interactions (`IT-* -> A-*`).
-- Focus: subsystem contracts, boundary behavior, and contract interoperability.
+- Focus: subsystem contracts, boundary behavior, provider wiring, and contract
+  interoperability.
+- Preferred for characterization coverage when a major change preserves a
+  subsystem seam but refactors its internals.
 
 ### System (`tests/system/`)
 - Verifies requirement-level acceptance (`QT-* -> R-*`).
 - Focus: end-to-end deterministic behavior and named scenario-level acceptance.
+- This is the main evidence lane for passive float, tow, calm-water stroke,
+  headwind stroke, and crosswind stroke baselines once runtime scenarios exist.
 
 ## Core Design Rules
 - Keep tests deterministic and runtime-bounded.
@@ -24,15 +29,20 @@ execution playbooks are in skills.
 - One-or-more same-layer references per test block are allowed.
 - Keep unit tests behavior-focused rather than integration-heavy.
 - Add characterization coverage before invasive refactors or major-change work.
+- Choose the narrowest characterization lane that protects the preserved
+  behavior:
+  - `UT-*` for local logic,
+  - `IT-*` for subsystem seams,
+  - `QT-*` for named end-to-end scenarios.
 - Protect named baseline scenarios when changing runtime behavior.
 
 ## Scenario Baselines
 Named requirement-level baselines for this project should center on:
-- passive float,
-- tow test,
-- calm-water stroke,
-- headwind stroke,
-- crosswind stroke.
+- passive float for hydrostatic initialization and calm-water equilibrium,
+- tow test for reduced hull-water resistance behavior,
+- calm-water stroke for self-propelled baseline propulsion,
+- headwind stroke for apparent-wind and aero-load interaction,
+- crosswind stroke for asymmetric environmental loading behavior.
 
 These scenarios should become the default `QT-*` acceptance surface once the
 runtime implementation exists.

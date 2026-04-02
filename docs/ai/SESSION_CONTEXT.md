@@ -3,8 +3,8 @@
 ## Snapshot
 - **Date**: 2026-04-02
 - **Branch**: `main`
-- **Current Objective**: Keep the rowing simulator bootstrap docs, process
-  guardrails, and active AI context coherent and green.
+- **Current Objective**: Start landing the first simulator-facing
+  implementation slice inside the hardened architecture-first workflow.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
@@ -12,6 +12,8 @@
   calibration/truth-model workflows.
 - The real simulator architecture namespace now belongs to `A-001..A-009`,
   while bootstrap placeholder artifacts are reserved for the `900` series.
+- The architecture-workflow hardening effort is complete and the repository is
+  ready to move on to the first simulator-facing implementation slice.
 - `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` record the
   approved technology and architectural direction.
 - The repository still carries the bootstrap `string_utils` sample code while
@@ -19,6 +21,9 @@
 - Validation scripts emit compact logs and JSON summaries through a shared
   wrapper.
 - Traceability supports auxiliary tests and stronger evidence validation.
+- Test strategy guidance now explicitly distinguishes subsystem-contract
+  `IT-*`, scenario-oriented `QT-*`, and characterization coverage for major
+  changes.
 - Repo-local operational skills now live in `.agents/skills` with real skill
   names and `agents/openai.yaml` metadata instead of `template-*`
   placeholders.
@@ -30,4 +35,5 @@
 
 ## Next Actions
 1. Replace the placeholder sample code with the first coherent simulator slice.
-2. Start landing simulator code under the seeded subsystem ownership boundaries.
+2. Land the first real `D-*`, `UT-*`, `IT-*`, and `QT-*` evidence inside the
+   seeded subsystem ownership boundaries.

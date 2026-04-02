@@ -9,14 +9,21 @@ description: Select the correct repository test lane based on confidence, covera
 - Use `./scripts/test_tdd.sh` for fast local TDD iteration.
 - Use `./scripts/test.sh` for standard full local testing.
 - Use `./scripts/test_aux.sh` for auxiliary script/tool contract tests.
-- Use `./scripts/regression.sh` for optional regression validation.
+- Use `./scripts/regression.sh` for optional broader regression validation,
+  especially when protecting named baseline scenarios.
 - Use `./scripts/verify.sh` for aggregate pre-merge verification.
 
 ## Apply Constraints
 - Do not treat `test_tdd.sh` as a replacement for required completion gates.
+- Treat `IT-*` as the main subsystem-contract lane for architecture boundary
+  checks and characterization coverage around preserved seams.
 - Treat scenario-oriented `QT-*` runs as the main requirement-level evidence
   lane for simulator behavior.
-- Add characterization coverage before invasive refactors or major-change work.
+- Protect these named baseline scenarios as runtime evidence becomes available:
+  passive float, tow test, calm-water stroke, headwind stroke, crosswind
+  stroke.
+- Add characterization coverage before invasive refactors or major-change work,
+  preferably in the narrowest lane that protects the preserved behavior.
 - Prefer `verify.sh` before handoff when broad confidence is required.
 - Keep auxiliary tests informational unless they are deliberately promoted into
   evidence-bearing lanes.

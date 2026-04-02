@@ -10,6 +10,10 @@
   and calibration provenance process docs.
 - Added a major-change skill and strengthened workflow wording around
   architecture allocation before TDD.
+- Completed the process-optimization hardening effort, retired the temporary
+  execution-plan tracker, and finished the remaining test-strategy alignment
+  for scenario baselines, subsystem-contract `IT-*`, and major-change
+  characterization coverage.
 - Renamed repo-local `template-*` skills to real operational skill names,
   moved them to `.agents/skills`, and added `agents/openai.yaml` metadata for
   Codex skill discovery.

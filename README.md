@@ -39,7 +39,9 @@ Current intent:
 - single-scull simulator first,
 - headless executable plus reusable library API,
 - 3D mechanics core with reduced hydro and aero runtime models,
-- optional high-fidelity calibration workflows kept outside the default runtime.
+- optional high-fidelity calibration workflows kept outside the default runtime,
+- real simulator code should now land inside the hardened architecture-first
+  workflow rather than extending the bootstrap sample.
 
 Current bootstrap note:
 - the `string_utils` sample code remains as a temporary placeholder until the
