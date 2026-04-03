@@ -23,6 +23,8 @@ description: Execute the repository's failing-tests-first workflow for behavior-
    - record any architecture delta before TDD,
    - justify any new `A-*` with `Allocation Rationale` and `Future Absorption`.
 3. Red:
+   - use `.agents/skills/unit-test-design/SKILL.md` when the narrowest correct
+     lane is `UT-*`,
    - add or adjust targeted failing tests first (`UT-*`, `IT-*`, `QT-*` as
      needed),
    - confirm the intended failure is reproducible,

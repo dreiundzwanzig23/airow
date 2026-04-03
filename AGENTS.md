@@ -155,6 +155,7 @@ Always use the OpenAI developer documentation MCP server if you need to work wit
 ## Repository Skills (Load On Demand)
 - Skill index: `.agents/skills/README.md`
 - `.agents/skills/tdd-loop/SKILL.md`
+- `.agents/skills/unit-test-design/SKILL.md`
 - `.agents/skills/trace-maintenance/SKILL.md`
 - `.agents/skills/test-lanes/SKILL.md`
 - `.agents/skills/release-doc-sync/SKILL.md`

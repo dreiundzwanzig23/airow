@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 ### Changed
+- Added a dedicated `.agents/skills/unit-test-design/SKILL.md` playbook for
+  behavior-focused `UT-*` design, boundary and equivalence-class case
+  selection, Given/When/Then notes, and explicit expected-output guidance,
+  with integration points from the TDD and major-change loops.
 - Tightened the workflow from generic failing-tests-first to explicit
   red-green-refactor enforcement with a mandatory refactor phase, aligned
   policy and skill playbooks, and a new warning-only

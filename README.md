@@ -180,6 +180,7 @@ Core artifacts:
 Repo-local skills:
 - `.agents/skills/README.md`
 - `.agents/skills/tdd-loop/SKILL.md`
+- `.agents/skills/unit-test-design/SKILL.md`
 - `.agents/skills/trace-maintenance/SKILL.md`
 - `.agents/skills/test-lanes/SKILL.md`
 - `.agents/skills/release-doc-sync/SKILL.md`

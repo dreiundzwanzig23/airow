@@ -95,3 +95,5 @@ Current checked-in scenario artifacts and acceptance envelopes are listed in
 ## Operational Playbook
 Use `.agents/skills/test-lanes/SKILL.md` for lane-selection and execution
 procedures.
+Use `.agents/skills/unit-test-design/SKILL.md` when designing or tightening
+`UT-*` behavior coverage.

@@ -44,6 +44,7 @@ feature loop.
 
 ## Operational Playbooks (Skills)
 - TDD execution loop: `.agents/skills/tdd-loop/SKILL.md`
+- Unit test design: `.agents/skills/unit-test-design/SKILL.md`
 - Major-change loop: `.agents/skills/major-change-loop/SKILL.md`
 - Trace maintenance: `.agents/skills/trace-maintenance/SKILL.md`
 - Test lane choice: `.agents/skills/test-lanes/SKILL.md`

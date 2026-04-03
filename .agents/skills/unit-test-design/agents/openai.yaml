@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unit Test Design"
+  short_description: "Design high-signal unit tests"
+  default_prompt: "Use $unit-test-design to design or tighten UT-* coverage with boundary cases, equivalence classes, and behavior-focused Given/When/Then tests."
