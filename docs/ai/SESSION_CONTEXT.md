@@ -28,6 +28,9 @@
 - Validation guardrails remain strict: full test gate includes sanitized/GCC
   lanes plus coverage gates, and depcheck enforces component and interface
   discipline.
+- Workflow policy now treats functional changes as explicit red-green-refactor
+  loops with a mandatory refactor phase and warning-mode marker checks in
+  `test_tdd.sh` and `verify.sh`.
 
 ## Guardrails
 - Keep active AI docs compact and non-duplicative.
@@ -37,6 +40,8 @@
   behavior rather than letting mechanics or output serialization accumulate
   there.
 - Keep instruction coherence, depcheck, and traceability green.
+- Keep `rgr:red`, `rgr:green`, and `rgr:refactor` evidence markers present for
+  functional loops.
 
 ## Next Actions
 1. Expand `A-008` beyond passive/tow by landing calm-water stroke, headwind

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Changed
+- Tightened the workflow from generic failing-tests-first to explicit
+  red-green-refactor enforcement with a mandatory refactor phase, aligned
+  policy and skill playbooks, and a new warning-only
+  `./scripts/check_rgr_evidence.sh` hook in `test_tdd.sh` and `verify.sh`
+  for `rgr:red`, `rgr:green`, and `rgr:refactor` marker checks.
 - Added the first `A-008` scenario-harness slice with a public
   `scenario_harness` contract, checked-in passive-float and tow scenario
   artifacts, deterministic acceptance-envelope evaluation, and new evidence

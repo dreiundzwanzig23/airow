@@ -58,6 +58,24 @@ def main() -> int:
     require_contains(test_script, "./scripts/test_sanitized.sh", "sanitized test lane hook")
     require_contains(test_script, "./scripts/test_gcc.sh", "GCC test lane hook")
 
+    test_tdd_script = (ROOT / "scripts" / "test_tdd.sh").read_text(encoding="utf-8")
+    require_contains(
+        test_tdd_script,
+        "./scripts/check_rgr_evidence.sh",
+        "RGR evidence hook in test_tdd lane",
+    )
+
+    verify_script = (ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
+    require_contains(
+        verify_script,
+        "./scripts/check_rgr_evidence.sh",
+        "RGR evidence hook in verify lane",
+    )
+
+    rgr_script = (ROOT / "scripts" / "check_rgr_evidence.sh").read_text(encoding="utf-8")
+    for marker in ("rgr:red", "rgr:green", "rgr:refactor"):
+        require_contains(rgr_script, marker, "RGR marker contract")
+
     test_aux_script = (ROOT / "scripts" / "test_aux.sh").read_text(encoding="utf-8")
     require_contains(test_aux_script, "./scripts/lint_tests.sh", "test lint hook")
 

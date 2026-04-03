@@ -16,8 +16,8 @@
 #include "project/configuration/simulator_config.hpp"
 #include "project/output/run_result.hpp"
 
-#include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 
 namespace project {
 
@@ -105,9 +105,9 @@ bool require_non_negative_number(const Json &root, std::string_view key,
   }
   value = field.get<double>();
   if (!std::isfinite(value) || value < 0.0) {
-    result.diagnostics.push_back(make_error(
-        "invalid_numeric_value", std::string(path),
-        std::string(label) + " must be finite and non-negative"));
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value", std::string(path),
+                   std::string(label) + " must be finite and non-negative"));
     return false;
   }
   return true;
@@ -121,9 +121,9 @@ bool require_positive_number(const Json &root, std::string_view key,
     return false;
   }
   if (value <= 0.0) {
-    result.diagnostics.push_back(make_error(
-        "invalid_numeric_value", std::string(path),
-        std::string(label) + " must be positive"));
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value", std::string(path),
+                   std::string(label) + " must be positive"));
     return false;
   }
   return true;
@@ -139,7 +139,8 @@ std::optional<ScenarioType> parse_scenario_type(std::string_view value) {
   return std::nullopt;
 }
 
-std::optional<ScenarioProviderType> parse_provider_type(std::string_view value) {
+std::optional<ScenarioProviderType>
+parse_provider_type(std::string_view value) {
   if (value == "passive_placeholder") {
     return ScenarioProviderType::passive_placeholder;
   }
@@ -165,8 +166,9 @@ bool parse_speed_samples(const Json &acceptance,
     return false;
   }
   if (field.empty()) {
-    result.diagnostics.push_back(make_error(
-        "invalid_value", std::string(path), "at least one speed sample is required"));
+    result.diagnostics.push_back(
+        make_error("invalid_value", std::string(path),
+                   "at least one speed sample is required"));
     return false;
   }
 
@@ -184,15 +186,15 @@ bool parse_speed_samples(const Json &acceptance,
     }
     const double speed = entry.get<double>();
     if (!std::isfinite(speed) || speed < 0.0) {
-      result.diagnostics.push_back(make_error(
-          "invalid_numeric_value", sample_path,
-          "drag speed sample must be finite and non-negative"));
+      result.diagnostics.push_back(
+          make_error("invalid_numeric_value", sample_path,
+                     "drag speed sample must be finite and non-negative"));
       return false;
     }
     if (index > 0U && speed <= previous_speed) {
-      result.diagnostics.push_back(make_error(
-          "invalid_value", sample_path,
-          "drag speed samples must be strictly increasing"));
+      result.diagnostics.push_back(
+          make_error("invalid_value", sample_path,
+                     "drag speed samples must be strictly increasing"));
       return false;
     }
     envelope.drag_speed_samples_mps.push_back(speed);
@@ -249,8 +251,7 @@ bool parse_scenario_provider(const Json &root,
   scenario.provider.type = *parsed_provider_type;
 
   if (scenario.provider.type == ScenarioProviderType::tow_placeholder &&
-      !require_positive_number(*provider_object,
-                               "drag_coefficient_n_s2_per_m2",
+      !require_positive_number(*provider_object, "drag_coefficient_n_s2_per_m2",
                                "$.provider.drag_coefficient_n_s2_per_m2",
                                scenario.provider.drag_coefficient_n_s2_per_m2,
                                "drag coefficient", result)) {
@@ -259,9 +260,9 @@ bool parse_scenario_provider(const Json &root,
 
   if (scenario.type == ScenarioType::passive_float &&
       scenario.provider.type != ScenarioProviderType::passive_placeholder) {
-    result.diagnostics.push_back(
-        make_error("invalid_value", "$.provider.type",
-                   "passive_float scenario requires passive_placeholder provider"));
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.provider.type",
+        "passive_float scenario requires passive_placeholder provider"));
     return false;
   }
   if (scenario.type == ScenarioType::tow_test &&
@@ -274,13 +275,16 @@ bool parse_scenario_provider(const Json &root,
   return true;
 }
 
-bool parse_scenario_config(const Json &root, LoadScenarioDefinitionResult &result,
+bool parse_scenario_config(const Json &root,
+                           LoadScenarioDefinitionResult &result,
                            ScenarioDefinition &scenario) {
   const Json *config_object = nullptr;
-  if (!require_object_field(root, "config", "$.config", config_object, result)) {
+  if (!require_object_field(root, "config", "$.config", config_object,
+                            result)) {
     return false;
   }
-  const auto loaded = parse_simulator_config_text(config_object->dump(), "<scenario>");
+  const auto loaded =
+      parse_simulator_config_text(config_object->dump(), "<scenario>");
   if (!loaded.ok()) {
     for (const auto &diagnostic : loaded.diagnostics) {
       result.diagnostics.push_back(make_error(
@@ -290,8 +294,8 @@ bool parse_scenario_config(const Json &root, LoadScenarioDefinitionResult &resul
     return false;
   }
   if (!loaded.config.has_value()) {
-    result.diagnostics.push_back(make_error(
-        "invalid_value", "$.config", "scenario config is missing"));
+    result.diagnostics.push_back(
+        make_error("invalid_value", "$.config", "scenario config is missing"));
     return false;
   }
   scenario.config = *loaded.config;
@@ -308,10 +312,10 @@ bool parse_scenario_acceptance(const Json &root,
   }
 
   if (scenario.type == ScenarioType::passive_float) {
-    return require_non_negative_number(
-               *acceptance, "max_abs_distance_m", "$.acceptance.max_abs_distance_m",
-               scenario.acceptance.max_abs_distance_m, "max_abs_distance_m",
-               result) &&
+    return require_non_negative_number(*acceptance, "max_abs_distance_m",
+                                       "$.acceptance.max_abs_distance_m",
+                                       scenario.acceptance.max_abs_distance_m,
+                                       "max_abs_distance_m", result) &&
            require_non_negative_number(
                *acceptance, "max_abs_mean_speed_mps",
                "$.acceptance.max_abs_mean_speed_mps",
@@ -322,10 +326,10 @@ bool parse_scenario_acceptance(const Json &root,
   return require_non_negative_number(
              *acceptance, "min_distance_m", "$.acceptance.min_distance_m",
              scenario.acceptance.min_distance_m, "min_distance_m", result) &&
-         require_non_negative_number(
-             *acceptance, "max_final_speed_mps", "$.acceptance.max_final_speed_mps",
-             scenario.acceptance.max_final_speed_mps, "max_final_speed_mps",
-             result) &&
+         require_non_negative_number(*acceptance, "max_final_speed_mps",
+                                     "$.acceptance.max_final_speed_mps",
+                                     scenario.acceptance.max_final_speed_mps,
+                                     "max_final_speed_mps", result) &&
          parse_speed_samples(*acceptance, scenario.acceptance, result);
 }
 
@@ -446,10 +450,10 @@ void evaluate_tow_runtime_drag_direction(const SimulationRunResult &result,
         result.state_history.at(index).hull.linear_velocity_world_mps.x;
     const auto hydro_force_n = result.load_history.at(index).hydro_force_x_n;
     if (speed_mps > 0.0 && hydro_force_n > DRAG_MONOTONIC_TOLERANCE) {
-      append_issue(
-          evaluation, "scenario_drag_direction_invalid",
-          "$.result.load_history[" + std::to_string(index) + "].hydro_force_x_n",
-          "tow drag must oppose positive forward speed");
+      append_issue(evaluation, "scenario_drag_direction_invalid",
+                   "$.result.load_history[" + std::to_string(index) +
+                       "].hydro_force_x_n",
+                   "tow drag must oppose positive forward speed");
       break;
     }
   }
@@ -459,9 +463,8 @@ void evaluate_tow_drag_curve(const ScenarioDefinition &scenario,
                              ScenarioEvaluationResult &evaluation) {
   double previous_drag_magnitude = -1.0;
   for (const auto speed_mps : scenario.acceptance.drag_speed_samples_mps) {
-    const auto drag_force_n =
-        expected_tow_drag(scenario.provider.drag_coefficient_n_s2_per_m2,
-                          speed_mps);
+    const auto drag_force_n = expected_tow_drag(
+        scenario.provider.drag_coefficient_n_s2_per_m2, speed_mps);
     const auto magnitude = std::abs(drag_force_n);
     if (drag_force_n > DRAG_MONOTONIC_TOLERANCE) {
       append_issue(evaluation, "scenario_drag_direction_invalid",

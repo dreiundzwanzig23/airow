@@ -4,6 +4,13 @@
 - 2026-04-03
 
 ## What Changed In This Session
+- Tightened workflow policy and skills to enforce explicit red-green-refactor
+  loops with a mandatory refactor phase (including explicit no-op rationale
+  when no cleanup edit is needed).
+- Added `scripts/check_rgr_evidence.sh` and wired it into
+  `scripts/test_tdd.sh` and `scripts/verify.sh` in warning mode by default.
+- Added marker contract guidance for `rgr:red`, `rgr:green`, and
+  `rgr:refactor` across policy docs, skills, and README.
 - Landed the first `A-008` implementation slice with a new public scenario
   harness contract in `include/project/orchestrator/scenario_harness.hpp` and
   implementation in `src/lib/orchestrator/scenario_harness.cpp`.

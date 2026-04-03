@@ -37,10 +37,8 @@ project::SimulationRunResult make_success_result() {
       .hull =
           {
               .position_world_m = {.x = 0.0, .y = 0.0, .z = 0.0},
-              .orientation_world_from_body = {.x = 0.0,
-                                              .y = 0.0,
-                                              .z = 0.0,
-                                              .w = 1.0},
+              .orientation_world_from_body =
+                  {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
               .linear_velocity_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
               .angular_velocity_body_radps = {.x = 0.0, .y = 0.0, .z = 0.0},
           },
@@ -149,9 +147,8 @@ std::string replace_once(std::string text, std::string_view token,
  * acceptance envelope fields are parsed deterministically.
  */
 TEST(ScenarioHarnessUnit, LoadsScenarioDefinitionFromJsonFile) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-scenario-passive.json",
-      R"({
+  const auto scenario_path = write_temp_file("airow-ut-scenario-passive.json",
+                                             R"({
         "scenario_id": "passive-float",
         "scenario_type": "passive_float",
         "provider": {
@@ -272,10 +269,10 @@ TEST(ScenarioHarnessUnit, EvaluatesTowEnvelope) {
  * loader parses it, then it returns a deterministic invalid-value diagnostic.
  */
 TEST(ScenarioHarnessUnit, RejectsUnsupportedScenarioType) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-scenario-invalid-type.json",
-      replace_once(make_valid_tow_scenario_json(), "\"tow_test\"",
-                   "\"unsupported\""));
+  const auto scenario_path =
+      write_temp_file("airow-ut-scenario-invalid-type.json",
+                      replace_once(make_valid_tow_scenario_json(),
+                                   "\"tow_test\"", "\"unsupported\""));
 
   const auto loaded = project::load_scenario_definition_file(scenario_path);
 
@@ -304,7 +301,8 @@ TEST(ScenarioHarnessUnit, RejectsNonIncreasingTowSpeedSamples) {
   ASSERT_FALSE(loaded.ok());
   ASSERT_FALSE(loaded.diagnostics.empty());
   EXPECT_EQ(loaded.diagnostics.front().code, "invalid_value");
-  EXPECT_EQ(loaded.diagnostics.front().path, "$.acceptance.drag_speed_samples_mps[2]");
+  EXPECT_EQ(loaded.diagnostics.front().path,
+            "$.acceptance.drag_speed_samples_mps[2]");
 
   remove_file_if_present(scenario_path);
 }
@@ -468,7 +466,8 @@ TEST(ScenarioHarnessUnit, RejectsScenarioProviderMismatch) {
  */
 TEST(ScenarioHarnessUnit, ReportsScenarioFileIoFailure) {
   const auto loaded = project::load_scenario_definition_file(
-      std::filesystem::temp_directory_path() / "airow-ut-missing-scenario.json");
+      std::filesystem::temp_directory_path() /
+      "airow-ut-missing-scenario.json");
 
   ASSERT_FALSE(loaded.ok());
   ASSERT_FALSE(loaded.diagnostics.empty());
@@ -501,11 +500,11 @@ TEST(ScenarioHarnessUnit, ReportsScenarioFileParseFailure) {
  * loader parses it, then it rejects the provider configuration.
  */
 TEST(ScenarioHarnessUnit, RejectsNonPositiveTowDragCoefficient) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-scenario-invalid-coefficient.json",
-      replace_once(make_valid_tow_scenario_json(),
-                   "\"drag_coefficient_n_s2_per_m2\": 6.0",
-                   "\"drag_coefficient_n_s2_per_m2\": 0.0"));
+  const auto scenario_path =
+      write_temp_file("airow-ut-scenario-invalid-coefficient.json",
+                      replace_once(make_valid_tow_scenario_json(),
+                                   "\"drag_coefficient_n_s2_per_m2\": 6.0",
+                                   "\"drag_coefficient_n_s2_per_m2\": 0.0"));
 
   const auto loaded = project::load_scenario_definition_file(scenario_path);
 

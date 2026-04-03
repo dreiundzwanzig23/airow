@@ -65,7 +65,8 @@ TEST(ScenarioHarnessAdditionalUnit, ReportsMissingStateHistory) {
  * acceptance envelope, when evaluated, then drag-direction validation fails
  * deterministically.
  */
-TEST(ScenarioHarnessAdditionalUnit, ReportsTowDragDirectionFailureForNegativeSample) {
+TEST(ScenarioHarnessAdditionalUnit,
+     ReportsTowDragDirectionFailureForNegativeSample) {
   project::ScenarioDefinition scenario;
   scenario.scenario_id = "tow-test";
   scenario.type = project::ScenarioType::tow_test;
@@ -92,9 +93,9 @@ TEST(ScenarioHarnessAdditionalUnit, ReportsTowDragDirectionFailureForNegativeSam
  * deterministically.
  */
 TEST(ScenarioHarnessAdditionalUnit, RejectsPassiveScenarioWithTowProvider) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-passive-provider-mismatch.json",
-      R"({
+  const auto scenario_path =
+      write_temp_file("airow-ut-passive-provider-mismatch.json",
+                      R"({
     "scenario_id": "passive-float",
     "scenario_type": "passive_float",
     "provider": {
@@ -164,9 +165,9 @@ TEST(ScenarioHarnessAdditionalUnit, RejectsPassiveScenarioWithTowProvider) {
  * loader parses it, then it rejects the provider deterministically.
  */
 TEST(ScenarioHarnessAdditionalUnit, RejectsUnsupportedProviderType) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-unsupported-provider.json",
-      R"({
+  const auto scenario_path =
+      write_temp_file("airow-ut-unsupported-provider.json",
+                      R"({
     "scenario_id": "tow-test",
     "scenario_type": "tow_test",
     "provider": {
@@ -237,9 +238,8 @@ TEST(ScenarioHarnessAdditionalUnit, RejectsUnsupportedProviderType) {
  * `$.acceptance`.
  */
 TEST(ScenarioHarnessAdditionalUnit, RejectsMissingAcceptanceObject) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-missing-acceptance.json",
-      R"({
+  const auto scenario_path = write_temp_file("airow-ut-missing-acceptance.json",
+                                             R"({
     "scenario_id": "passive-float",
     "scenario_type": "passive_float",
     "provider": {

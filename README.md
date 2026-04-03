@@ -1,7 +1,7 @@
 # AIRow Repository
 
 AIRow is an open-source C++ rowing simulator project focused on a physically
-serious single-scull simulator with strict TDD, traceability
+serious single-scull simulator with strict red-green-refactor TDD, traceability
 (`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
 
 The repository now includes the first two simulator-facing runtime slices:
@@ -138,6 +138,11 @@ Aggregate pre-merge validation:
 ./scripts/verify.sh
 ```
 
+RGR evidence check (warning-only by default):
+```bash
+./scripts/check_rgr_evidence.sh
+```
+
 Required local completion gates:
 ```bash
 ./scripts/format.sh
@@ -204,6 +209,9 @@ Useful environment variables:
 - `VALIDATION_LOG_DIR`
 - `VALIDATION_SUMMARY_DIR`
 - `VALIDATION_SUMMARY_PATH`
+- `RGR_ENFORCEMENT_MODE` (`warn`, `strict`, `off`)
+- `RGR_EVIDENCE_TEXT`
+- `RGR_EVIDENCE_FILE`
 
 ## AI Context and Archive
 

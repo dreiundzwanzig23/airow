@@ -5,6 +5,10 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./validation_output.sh
 source "${script_dir}/validation_output.sh"
 
+# Warning-only by default; promotes to hard-fail when
+# RGR_ENFORCEMENT_MODE=strict.
+./scripts/check_rgr_evidence.sh
+
 validation_run_logged "verify-format" ./scripts/format.sh
 validation_run_logged "verify-build" ./scripts/build.sh
 validation_run_logged "verify-lint" ./scripts/lint.sh

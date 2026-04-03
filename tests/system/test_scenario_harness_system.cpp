@@ -56,8 +56,7 @@ public:
   }
 
   [[nodiscard]] double drag_force(double forward_speed_mps) const {
-    return -drag_coefficient_ * forward_speed_mps *
-           std::abs(forward_speed_mps);
+    return -drag_coefficient_ * forward_speed_mps * std::abs(forward_speed_mps);
   }
 
 private:
@@ -105,8 +104,8 @@ void clear_output_artifacts(const project::SimulationRunResult &result) {
  * emitted.
  */
 TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesAcceptanceEnvelope) {
-  const auto loaded =
-      project::load_scenario_definition_file(scenario_path("passive_float.json"));
+  const auto loaded = project::load_scenario_definition_file(
+      scenario_path("passive_float.json"));
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
 
@@ -116,13 +115,12 @@ TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesAcceptanceEnvelope) {
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 1s});
 
-  const auto result =
-      project::run_simulation(loaded.scenario->config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &hydro,
-                                  .aero_provider = &aero,
-                                  .clock = &clock,
-                              });
+  const auto result = project::run_simulation(loaded.scenario->config,
+                                              project::SimulationDependencies{
+                                                  .hydro_provider = &hydro,
+                                                  .aero_provider = &aero,
+                                                  .clock = &clock,
+                                              });
   const auto evaluation =
       project::evaluate_scenario_result(*loaded.scenario, result);
 
@@ -159,13 +157,12 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesAcceptanceAndDragCurveChecks) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 2min +
            1s});
 
-  const auto result =
-      project::run_simulation(loaded.scenario->config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &hydro,
-                                  .aero_provider = &aero,
-                                  .clock = &clock,
-                              });
+  const auto result = project::run_simulation(loaded.scenario->config,
+                                              project::SimulationDependencies{
+                                                  .hydro_provider = &hydro,
+                                                  .aero_provider = &aero,
+                                                  .clock = &clock,
+                                              });
   const auto evaluation =
       project::evaluate_scenario_result(*loaded.scenario, result);
 
@@ -174,7 +171,8 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesAcceptanceAndDragCurveChecks) {
   ASSERT_GE(result.load_history.size(), 2U);
 
   double previous_drag_magnitude = -1.0;
-  for (const auto speed_mps : loaded.scenario->acceptance.drag_speed_samples_mps) {
+  for (const auto speed_mps :
+       loaded.scenario->acceptance.drag_speed_samples_mps) {
     const auto load_n = hydro.drag_force(speed_mps);
     EXPECT_LE(load_n, 0.0);
     const auto drag_magnitude = std::abs(load_n);
@@ -215,25 +213,25 @@ TEST(ScenarioHarnessSystem, TowScenarioReplayIsDeterministic) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 3min +
            1s});
 
-  const auto run_a =
-      project::run_simulation(loaded.scenario->config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &hydro_a,
-                                  .aero_provider = &aero_a,
-                                  .clock = &clock_a,
-                              });
-  const auto run_b =
-      project::run_simulation(loaded.scenario->config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &hydro_b,
-                                  .aero_provider = &aero_b,
-                                  .clock = &clock_b,
-                              });
+  const auto run_a = project::run_simulation(loaded.scenario->config,
+                                             project::SimulationDependencies{
+                                                 .hydro_provider = &hydro_a,
+                                                 .aero_provider = &aero_a,
+                                                 .clock = &clock_a,
+                                             });
+  const auto run_b = project::run_simulation(loaded.scenario->config,
+                                             project::SimulationDependencies{
+                                                 .hydro_provider = &hydro_b,
+                                                 .aero_provider = &aero_b,
+                                                 .clock = &clock_b,
+                                             });
 
   ASSERT_TRUE(run_a.ok());
   ASSERT_TRUE(run_b.ok());
-  EXPECT_EQ(run_a.summary.final_simulated_time_s, run_b.summary.final_simulated_time_s);
-  EXPECT_EQ(run_a.summary.executed_step_count, run_b.summary.executed_step_count);
+  EXPECT_EQ(run_a.summary.final_simulated_time_s,
+            run_b.summary.final_simulated_time_s);
+  EXPECT_EQ(run_a.summary.executed_step_count,
+            run_b.summary.executed_step_count);
   EXPECT_EQ(run_a.summary.distance_m, run_b.summary.distance_m);
   EXPECT_EQ(run_a.summary.mean_speed_mps, run_b.summary.mean_speed_mps);
   EXPECT_EQ(run_a.load_history, run_b.load_history);

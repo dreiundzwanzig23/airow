@@ -42,6 +42,13 @@ execution playbooks are in skills.
   - `IT-*` for subsystem seams,
   - `QT-*` for named end-to-end scenarios.
 - Protect named baseline scenarios when changing runtime behavior.
+- Treat functional development as explicit red-green-refactor loops:
+  - red: targeted failing test evidence exists,
+  - green: targeted failure resolved with minimal behavior change,
+  - refactor: mandatory behavior-preserving cleanup pass or explicit no-op
+    rationale.
+- Preserve loop evidence with `rgr:red`, `rgr:green`, and `rgr:refactor`
+  markers in commit messages or evidence notes.
 
 ## Scenario Baselines
 Named requirement-level baselines for this project should center on:
@@ -68,6 +75,8 @@ Current checked-in scenario artifacts and acceptance envelopes are listed in
 ## Required Gates
 - `./scripts/test.sh` is required before completion.
 - `./scripts/test_tdd.sh` is for fast local iteration only.
+- `./scripts/check_rgr_evidence.sh` runs as a warning check in
+  `./scripts/test_tdd.sh` and `./scripts/verify.sh`.
 - `./scripts/test.sh` now includes the auxiliary tooling-contract lane, a
   dedicated sanitized build or run lane, a dedicated GCC portability lane,
   a dedicated test-quality lint lane with tighter test-only limits, and

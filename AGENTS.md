@@ -40,13 +40,24 @@ Autonomous work must be traceable, test-driven, and resumable.
    - prefer extending an existing coherent subsystem,
    - record the architecture delta before TDD,
    - justify any new `A-*` with explicit cohesion and reuse intent.
-3. Add/adjust failing tests first for functional changes.
-4. Implement minimal code to pass tests.
-5. Refactor behavior-preserving.
-6. Run required quality gates.
-7. Update traceability/context artifacts when triggered.
+3. Red: add/adjust failing tests first for functional changes and capture test
+   failure evidence.
+4. Green: implement the minimum code needed to make the targeted failing tests
+   pass.
+5. Refactor: run a mandatory behavior-preserving cleanup pass after green; if
+   no structural changes are needed, record an explicit no-op rationale.
+6. Re-run the fast lane (`./scripts/test_tdd.sh`) after refactor before full
+   completion gates.
+7. Run required quality gates.
+8. Update traceability/context artifacts when triggered.
 
-Never skip failing-tests-first for functional behavior changes.
+Never skip failing-tests-first for functional behavior changes, and never skip
+the refactor phase for functional loops.
+Use explicit `rgr:red`, `rgr:green`, and `rgr:refactor` markers in commit
+messages or evidence notes.
+`./scripts/check_rgr_evidence.sh` is warning-only by default (`warn` mode) and
+is wired into `test_tdd.sh` and `verify.sh`; set
+`RGR_ENFORCEMENT_MODE=strict` to promote missing markers to a failing check.
 Do not create a 1:1 `R -> A` mapping unless `Allocation Rationale` makes the
 need explicit.
 When a task affects technology choice, solver direction, file-format policy, or
@@ -105,6 +116,8 @@ python3 tools/tracecheck.py --write
 `./scripts/test_tdd.sh` is the fast local iteration lane.
 `./scripts/test_aux.sh` is the auxiliary contract lane.
 `./scripts/verify.sh` is the aggregate pre-merge run.
+`./scripts/check_rgr_evidence.sh` checks for `rgr:red`, `rgr:green`, and
+`rgr:refactor` evidence markers.
 
 ### Context/document completion rules
 A task is complete only when:

@@ -22,10 +22,19 @@ description: Execute the repository's failing-tests-first workflow for behavior-
    - reuse a stable subsystem when coherent,
    - record any architecture delta before TDD,
    - justify any new `A-*` with `Allocation Rationale` and `Future Absorption`.
-3. Add or adjust failing tests first (`UT-*`, `IT-*`, `QT-*` as needed).
-4. Implement the minimum code change required to pass tests.
-5. Refactor only when behavior remains unchanged.
-6. Run the fast iteration lane until stable:
+3. Red:
+   - add or adjust targeted failing tests first (`UT-*`, `IT-*`, `QT-*` as
+     needed),
+   - confirm the intended failure is reproducible,
+   - record `rgr:red` evidence.
+4. Green:
+   - implement the minimum code change required to pass the targeted failures,
+   - record `rgr:green` evidence.
+5. Refactor (mandatory):
+   - perform behavior-preserving cleanup immediately after green,
+   - if no cleanup edit is needed, record explicit no-op rationale,
+   - record `rgr:refactor` evidence.
+6. Run the fast iteration lane after refactor:
    - `./scripts/test_tdd.sh`
 7. Recheck `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md`
    before landing any change that affects technology choice, solver direction,
@@ -44,5 +53,9 @@ description: Execute the repository's failing-tests-first workflow for behavior-
   documentation obligations.
 - Update `README.md` and `CHANGELOG.md` when the change is user-visible or
   process-visible.
+- Keep RGR evidence markers (`rgr:red`, `rgr:green`, `rgr:refactor`) in a
+  commit message or evidence note. `./scripts/check_rgr_evidence.sh` warns by
+  default and can be promoted to strict failures with
+  `RGR_ENFORCEMENT_MODE=strict`.
 - Do not create a thin 1:1 `R -> A` mapping unless the architecture policy
   explicitly justifies it.

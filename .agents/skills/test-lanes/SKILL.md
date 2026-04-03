@@ -15,6 +15,12 @@ description: Select the correct repository test lane based on confidence, covera
 
 ## Apply Constraints
 - Do not treat `test_tdd.sh` as a replacement for required completion gates.
+- Treat `test_tdd.sh` as the required loop re-check after each green->refactor
+  transition.
+- Keep explicit `rgr:red`, `rgr:green`, and `rgr:refactor` evidence markers.
+- `./scripts/check_rgr_evidence.sh` runs in warning mode from both
+  `test_tdd.sh` and `verify.sh`; use `RGR_ENFORCEMENT_MODE=strict` when you
+  need marker absence to fail the lane.
 - Treat `IT-*` as the main subsystem-contract lane for architecture boundary
   checks and characterization coverage around preserved seams.
 - Treat scenario-oriented `QT-*` runs as the main requirement-level evidence
