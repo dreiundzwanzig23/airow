@@ -32,6 +32,10 @@
   public-header-only cross-component access, realized component cycle
   detection, and orphan checks that tie component code back to owning `A-*`
   items and non-aux architecture evidence.
+- Split test linting away from production linting with a dedicated
+  `lint_tests.sh` lane, tighter test-only structural thresholds, and static
+  banned-pattern checks for implementation includes, private-public hacks,
+  `FRIEND_TEST`, direct wall-clock reads, and sleep-based timing.
 - Raised the `src/lib/**` unit coverage gates to 90% region coverage and 80%
   branch coverage and added the missing unit-path tests needed to sustain the
   stricter baseline.

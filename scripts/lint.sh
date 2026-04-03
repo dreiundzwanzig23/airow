@@ -71,6 +71,9 @@ collect_changed_complexity_files() {
     git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.hpp' '*.h'
     git ls-files --others --exclude-standard -- '*.cpp' '*.hpp' '*.h'
   } | sort -u | while IFS= read -r path; do
+    if [[ "$path" != include/* && "$path" != src/* ]]; then
+      continue
+    fi
     if [ -f "${path}" ]; then
       echo "${path}"
     fi
@@ -115,7 +118,7 @@ if [ -f "$lizard_whitelist" ]; then
 fi
 
 if [ "$scope" = "all" ]; then
-  lizard_targets=(include src tests)
+  lizard_targets=(include src)
 else
   mapfile -t lizard_targets < <(collect_changed_complexity_files)
   if [ "${#lizard_targets[@]}" -eq 0 ]; then

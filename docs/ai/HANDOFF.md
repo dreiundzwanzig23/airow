@@ -24,6 +24,9 @@
   public-header-only cross-component access, realized component cycle
   detection, and component-orphan checks tied to owning `A-*` items and
   non-aux test coverage.
+- Split test linting away from production linting with a dedicated
+  `lint_tests.sh` lane, tighter test-only structural thresholds, and banned
+  pattern checks for implementation-coupled or time-sensitive tests.
 
 ## Current Technical Posture
 - The repository now has a real simulator architecture ownership surface in

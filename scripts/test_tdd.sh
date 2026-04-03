@@ -15,7 +15,8 @@ validation_run_logged "test-tdd-integration" \
   ctest --test-dir "${test_build_dir}" --output-on-failure -L integration -LE "slow|regression|aux"
 validation_run_logged "test-tdd-system" \
   ctest --test-dir "${test_build_dir}" --output-on-failure -L system -LE "slow|regression|aux"
-validation_run_logged "test-tdd-aux" ./scripts/test_aux.sh
+validation_run_logged "test-tdd-aux" \
+  env TEST_LINT_SCOPE=changed ./scripts/test_aux.sh
 
 # Enforce unit-level coverage quality in the fast loop.
 validation_run_logged "test-tdd-coverage" \

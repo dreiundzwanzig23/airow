@@ -217,11 +217,11 @@ TEST(SimulationRun, AdvancesTimeAndInvokesProvidersDeterministically) {
 /**
  * @test UT-010
  * @verifies [D-012]
- * @notes Given invalid runtime-provider behavior, when the run loop executes,
- * then deterministic runtime diagnostics are returned and the run fails
- * without continuing silently.
+ * @notes Given non-finite provider outputs, when the run loop executes, then
+ * deterministic runtime diagnostics are returned and the run fails without
+ * continuing silently.
  */
-TEST(SimulationRun, ReportsInvalidProviderOutputAndProviderExceptions) {
+TEST(SimulationRun, ReportsInvalidProviderOutput) {
   {
     FixedClock clock(
         {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 14h,
@@ -241,6 +241,34 @@ TEST(SimulationRun, ReportsInvalidProviderOutputAndProviderExceptions) {
     EXPECT_EQ(result.diagnostics.front().subsystem, "hydro");
   }
 
+  {
+    FixedClock clock(
+        {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 15h + 4min,
+         std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 15h + 5min});
+    InvalidAeroProvider aero;
+
+    const auto result =
+        project::run_simulation(make_config(), project::SimulationDependencies{
+                                                   .aero_provider = &aero,
+                                                   .clock = &clock,
+                                               });
+
+    ASSERT_FALSE(result.ok());
+    EXPECT_EQ(result.status, project::RunStatus::runtime_error);
+    ASSERT_EQ(result.diagnostics.size(), 1U);
+    EXPECT_EQ(result.diagnostics.front().code, "invalid_provider_output");
+    EXPECT_EQ(result.diagnostics.front().subsystem, "aero");
+  }
+}
+
+/**
+ * @test UT-017
+ * @verifies [D-012]
+ * @notes Given provider exceptions, when the run loop executes, then
+ * deterministic runtime diagnostics are returned and the run fails without
+ * continuing silently.
+ */
+TEST(SimulationRun, ReportsProviderExceptions) {
   {
     FixedClock clock(
         {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 15h,
@@ -277,25 +305,6 @@ TEST(SimulationRun, ReportsInvalidProviderOutputAndProviderExceptions) {
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "provider_exception");
     EXPECT_EQ(result.diagnostics.front().subsystem, "hydro");
-  }
-
-  {
-    FixedClock clock(
-        {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 15h + 4min,
-         std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 15h + 5min});
-    InvalidAeroProvider aero;
-
-    const auto result =
-        project::run_simulation(make_config(), project::SimulationDependencies{
-                                                   .aero_provider = &aero,
-                                                   .clock = &clock,
-                                               });
-
-    ASSERT_FALSE(result.ok());
-    EXPECT_EQ(result.status, project::RunStatus::runtime_error);
-    ASSERT_EQ(result.diagnostics.size(), 1U);
-    EXPECT_EQ(result.diagnostics.front().code, "invalid_provider_output");
-    EXPECT_EQ(result.diagnostics.front().subsystem, "aero");
   }
 }
 

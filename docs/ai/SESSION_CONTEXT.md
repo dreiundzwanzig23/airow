@@ -42,6 +42,9 @@
   an auxiliary tooling-contract check, public-header self-containment
   compilation, LLVM-native include-cleaner coverage in `clang-tidy`, and
   dedicated sanitized plus GCC lanes inside the full test gate.
+- Test-quality linting is now separating from production-source linting with
+  stricter test-only size limits and banned-pattern checks for implementation
+  coupling and nondeterministic timing.
 - Architecture guardrails are now tightening beyond include allowlists toward
   public-header-only cross-component access, realized component cycle checks,
   and orphan detection tied to `A-*` ownership and non-aux evidence.
@@ -61,8 +64,7 @@
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Implement the first `A-003` and `A-010` mechanics-backed state and startup
-   assembly behind the current orchestrator seam.
+1. Implement the first `A-003` and `A-010` mechanics-backed state and startup assembly behind the current orchestrator seam.
 2. Expand the configuration schema only as needed for mechanics assembly and
    startup-validity work, keeping `A-001` separate from runtime logic.
 3. Start the first baseline output and scenario evidence work once mechanics state exists, then clear or confirm the remaining `Needs-Review: yes` backlog items.

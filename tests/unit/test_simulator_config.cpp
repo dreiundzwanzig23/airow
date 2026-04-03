@@ -92,12 +92,12 @@ TEST(SimulatorConfig, ReportsMissingRequiredFieldPath) {
 
 /**
  * @test UT-003
- * @verifies [D-003, D-006, D-007]
- * @notes Given invalid numeric values for required numeric fields, when the
- * config is parsed, then deterministic diagnostics reject those values before
- * any runtime path can use them.
+ * @verifies [D-006, D-007]
+ * @notes Given negative numeric values for required fields, when the config is
+ * parsed, then deterministic diagnostics reject them before any runtime path
+ * can use them.
  */
-TEST(SimulatorConfig, RejectsInvalidNumericValues) {
+TEST(SimulatorConfig, RejectsNegativeNumericValues) {
   {
     const auto result = project::parse_simulator_config_text(R"({
       "config_id": "baseline-single-scull",
@@ -133,7 +133,16 @@ TEST(SimulatorConfig, RejectsInvalidNumericValues) {
     EXPECT_EQ(result.diagnostics.front().code, "invalid_numeric_value");
     EXPECT_EQ(result.diagnostics.front().path, "$.hull.mass_kg");
   }
+}
 
+/**
+ * @test UT-016
+ * @verifies [D-003]
+ * @notes Given unsupported non-finite numeric literals for required fields,
+ * when the config is parsed, then deterministic diagnostics reject them before
+ * runtime execution starts.
+ */
+TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
   {
     const auto result = project::parse_simulator_config_text(R"({
       "config_id": "baseline-single-scull",

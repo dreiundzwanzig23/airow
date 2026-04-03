@@ -101,6 +101,11 @@ Auxiliary script/tool contracts:
 ./scripts/test_aux.sh
 ```
 
+Dedicated test-quality lint lane:
+```bash
+./scripts/lint_tests.sh
+```
+
 Aggregate pre-merge validation:
 ```bash
 ./scripts/verify.sh
@@ -186,7 +191,8 @@ Maintenance commands:
 ## Gate Highlights
 
 - `./scripts/lint.sh`: strict `clang-tidy` and `lizard` gates over the current
-  `src/` translation-unit tree, including newly added source files, with
+  `src/` and `include/` translation-unit tree, including newly added source
+  files, with
   aligned naming and function-size thresholds plus stronger guidance checks for
   const-correctness, braces, magic numbers, declaration isolation,
   LLVM-native include-cleaner coverage, and related agent-facing code quality
@@ -195,8 +201,12 @@ Maintenance commands:
   contracts, a dedicated sanitized runtime lane, a dedicated GCC portability
   lane, and unit coverage over `src/lib/**` with stricter 90% region and 80%
   branch gates.
-- `./scripts/test_aux.sh`: auxiliary coverage now includes tooling contracts,
-  and public-header self-containment compilation.
+- `./scripts/lint_tests.sh`: separate test-quality linting with banned-pattern
+  checks for implementation-coupled or nondeterministic tests plus tighter
+  test-only structural thresholds.
+- `./scripts/test_aux.sh`: auxiliary coverage now includes the dedicated
+  test-quality lint lane, tooling contracts, and public-header self-containment
+  compilation.
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
   `src/lib/**`.
 - `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction

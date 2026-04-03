@@ -28,6 +28,9 @@ execution playbooks are in skills.
 - Keep `@test` IDs unique and `@verifies` same-layer.
 - One-or-more same-layer references per test block are allowed.
 - Keep unit tests behavior-focused rather than integration-heavy.
+- Keep tests independent of implementation backdoors such as private-public
+  access hacks, `FRIEND_TEST`, implementation-file includes, wall-clock reads,
+  and sleep-based timing.
 - Add characterization coverage before invasive refactors or major-change work.
 - Choose the narrowest characterization lane that protects the preserved
   behavior:
@@ -60,12 +63,14 @@ runtime implementation exists.
 - `./scripts/test_tdd.sh` is for fast local iteration only.
 - `./scripts/test.sh` now includes the auxiliary tooling-contract lane, a
   dedicated sanitized build or run lane, a dedicated GCC portability lane,
-  and coverage gates on `src/lib/**` at 90% region coverage and 80% branch
+  a dedicated test-quality lint lane with tighter test-only limits, and
+  coverage gates on `src/lib/**` at 90% region coverage and 80% branch
   coverage.
 
 ## Optional/Specialized Lanes
 - Auxiliary script/tool contracts and header self-containment:
   `./scripts/test_aux.sh`
+- Dedicated test-quality lint lane: `./scripts/lint_tests.sh`
 - Dedicated sanitized runtime lane: `./scripts/test_sanitized.sh`
 - Dedicated GCC portability lane: `./scripts/test_gcc.sh`
 - Regression lane: `./scripts/regression.sh`

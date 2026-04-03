@@ -58,6 +58,34 @@ def main() -> int:
     require_contains(test_script, "./scripts/test_sanitized.sh", "sanitized test lane hook")
     require_contains(test_script, "./scripts/test_gcc.sh", "GCC test lane hook")
 
+    test_aux_script = (ROOT / "scripts" / "test_aux.sh").read_text(encoding="utf-8")
+    require_contains(test_aux_script, "./scripts/lint_tests.sh", "test lint hook")
+
+    test_lint_script = (ROOT / "scripts" / "lint_tests.sh").read_text(encoding="utf-8")
+    require_contains(test_lint_script, "TEST_LIZARD_CCN_THRESHOLD:-8", "test CCN threshold")
+    require_contains(
+        test_lint_script,
+        "TEST_LIZARD_FUNCTION_LENGTH_THRESHOLD:-75",
+        "test function length threshold",
+    )
+    require_contains(
+        test_lint_script,
+        "TEST_LIZARD_PARAMETER_THRESHOLD:-4",
+        "test parameter threshold",
+    )
+
+    test_quality_tool = (ROOT / "tools" / "check_test_quality.py").read_text(
+        encoding="utf-8"
+    )
+    for token in (
+        "FRIEND_TEST",
+        "sleep_for",
+        "system_clock",
+        "implementation .cpp files",
+        "private or protected access hacks",
+    ):
+        require_contains(test_quality_tool, token, "test quality pattern")
+
     clang_tidy = (ROOT / ".clang-tidy").read_text(encoding="utf-8")
     require_contains(clang_tidy, "misc-include-cleaner", "clang-tidy include-cleaner check")
 
