@@ -1,53 +1,15 @@
 #pragma once
 
 #include <chrono>
-#include <cstdint>
 #include <filesystem>
-#include <string>
 #include <string_view>
-#include <vector>
 
 #include "project/configuration/simulator_config.hpp"
 #include "project/mechanics/state.hpp"
 #include "project/numerics/state_advancement.hpp"
+#include "project/output/run_result.hpp"
 
 namespace project {
-
-enum class RunStatus { success, configuration_error, runtime_error };
-
-struct RunDiagnostic {
-  std::string code;
-  std::string subsystem;
-  std::string path;
-  std::string message;
-
-  bool operator==(const RunDiagnostic &) const = default;
-};
-
-struct RunMetadata {
-  std::string simulator_version;
-  std::string config_id;
-  std::string start_timestamp_utc;
-  std::string end_timestamp_utc;
-  std::string hydro_provider_id;
-  std::string aero_provider_id;
-  std::string state_advancer_id;
-  std::string startup_status;
-  std::string startup_solver_status;
-  double startup_constraint_residual_max{};
-  std::vector<NormalizedConfigEntry> normalized_config;
-
-  bool operator==(const RunMetadata &) const = default;
-};
-
-struct RunSummary {
-  double final_simulated_time_s{};
-  std::uint64_t executed_step_count{};
-  double distance_m{};
-  double mean_speed_mps{};
-
-  bool operator==(const RunSummary &) const = default;
-};
 
 struct StepContext {
   double time_s{};
@@ -84,18 +46,6 @@ struct SimulationDependencies {
   AeroProvider *aero_provider{};
   StateAdvancer *state_advancer{};
   Clock *clock{};
-};
-
-struct SimulationRunResult {
-  RunStatus status{RunStatus::runtime_error};
-  RunMetadata metadata;
-  RunSummary summary;
-  std::vector<RunDiagnostic> diagnostics;
-  std::vector<MechanicalStateSnapshot> state_history;
-
-  [[nodiscard]] bool ok() const noexcept {
-    return status == RunStatus::success && diagnostics.empty();
-  }
 };
 
 SimulationRunResult

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 ### Changed
+- Completed the next `A-007` output slice and closed `R-015` with
+  format-selectable machine-readable artifacts (`json`, `hdf5`, or both),
+  deterministic JSON summary/time-series emission, optional HDF5 artifact
+  emission, explicit unit/frame channel annotations, force/power accounting
+  channels, and deterministic rejection when HDF5 output is requested on
+  unsupported builds.
 - Landed the first mechanics-backed runtime slice for `A-003` and `A-010`
   with expanded startup configuration, public mechanics and state-advancer
   contracts, deterministic startup-validity diagnostics, and in-memory hull,

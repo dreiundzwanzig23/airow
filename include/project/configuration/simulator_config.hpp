@@ -81,6 +81,17 @@ struct StrokeSettings {
   bool operator==(const StrokeSettings &) const = default;
 };
 
+struct OutputSettings {
+  std::string summary_path;
+  std::string time_series_path;
+  std::string hdf5_path;
+  bool high_frequency_time_series{};
+  bool emit_json{true};
+  bool emit_hdf5{};
+
+  bool operator==(const OutputSettings &) const = default;
+};
+
 struct SimulatorConfig {
   std::string config_id;
   SimulationSettings simulation;
@@ -88,6 +99,7 @@ struct SimulatorConfig {
   OarPairSettings oars;
   SeatSettings seat;
   StrokeSettings stroke;
+  OutputSettings output{};
 
   bool operator==(const SimulatorConfig &) const = default;
 };

@@ -23,14 +23,10 @@ project::SimulatorConfig make_config() {
               .center_of_mass_m = {.x = 0.0, .y = 0.0, .z = 0.0},
               .inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2},
               .initial_position_m = {.x = 0.0, .y = 0.0, .z = 0.0},
-              .initial_orientation_xyzw = {.x = 0.0,
-                                           .y = 0.0,
-                                           .z = 0.0,
-                                           .w = 1.0},
+              .initial_orientation_xyzw =
+                  {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
               .initial_linear_velocity_mps = {.x = 1.5, .y = 0.0, .z = 0.0},
-              .initial_angular_velocity_radps = {.x = 0.0,
-                                                 .y = 0.0,
-                                                 .z = 0.0},
+              .initial_angular_velocity_radps = {.x = 0.0, .y = 0.0, .z = 0.0},
           },
       .oars =
           {
@@ -98,7 +94,8 @@ TEST(StateAdvancement, InitializesFiniteMechanicalState) {
  */
 TEST(StateAdvancement, RejectsZeroNormInitialOrientation) {
   auto config = make_config();
-  config.hull.initial_orientation_xyzw = {.x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0};
+  config.hull.initial_orientation_xyzw = {
+      .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0};
   auto &advancer = project::default_state_advancer();
 
   const auto startup = advancer.initialize(config);
@@ -107,7 +104,8 @@ TEST(StateAdvancement, RejectsZeroNormInitialOrientation) {
   ASSERT_FALSE(startup.state.has_value());
   ASSERT_EQ(startup.diagnostics.size(), 1U);
   EXPECT_EQ(startup.diagnostics.front().code, "startup_invalid_state");
-  EXPECT_EQ(startup.diagnostics.front().path, "$.hull.initial_orientation_xyzw");
+  EXPECT_EQ(startup.diagnostics.front().path,
+            "$.hull.initial_orientation_xyzw");
   EXPECT_EQ(startup.solver_status, "invalid_initial_orientation");
 }
 
@@ -126,8 +124,8 @@ TEST(StateAdvancement, AdvancesHullSeatAndOarStateDeterministically) {
   ASSERT_TRUE(startup.ok());
   ASSERT_TRUE(startup.state.has_value());
 
-  const auto first = advancer.advance(config, *startup.state, 0.25,
-                                      project::ExternalLoads{});
+  const auto first =
+      advancer.advance(config, *startup.state, 0.25, project::ExternalLoads{});
   ASSERT_TRUE(first.ok());
   ASSERT_TRUE(first.state.has_value());
   EXPECT_DOUBLE_EQ(first.state->time_s, 0.25);
@@ -192,15 +190,15 @@ TEST(StateAdvancement, RejectsNonFiniteStartupOrRuntimeInputs) {
     ASSERT_TRUE(startup.ok());
     ASSERT_TRUE(startup.state.has_value());
 
-    const auto invalid_step =
-        advancer.advance(make_config(), *startup.state, 0.0,
-                         project::ExternalLoads{});
+    const auto invalid_step = advancer.advance(make_config(), *startup.state,
+                                               0.0, project::ExternalLoads{});
 
     ASSERT_FALSE(invalid_step.ok());
     ASSERT_FALSE(invalid_step.state.has_value());
     ASSERT_EQ(invalid_step.diagnostics.size(), 1U);
     EXPECT_EQ(invalid_step.diagnostics.front().code, "invalid_step_size");
-    EXPECT_EQ(invalid_step.diagnostics.front().path, "$.simulation.time_step_s");
+    EXPECT_EQ(invalid_step.diagnostics.front().path,
+              "$.simulation.time_step_s");
   }
 
   {
@@ -245,11 +243,13 @@ TEST(StateAdvancement, WrapsCycleTimeAcrossLongStepsDeterministically) {
   ASSERT_TRUE(advanced.ok());
   ASSERT_TRUE(advanced.state.has_value());
   EXPECT_DOUBLE_EQ(advanced.state->time_s, 2.5);
-  EXPECT_LT(advanced.state->stroke.cycle_time_s, config.stroke.cycle_duration_s);
+  EXPECT_LT(advanced.state->stroke.cycle_time_s,
+            config.stroke.cycle_duration_s);
   EXPECT_EQ(advanced.state->stroke.phase, project::StrokePhase::drive);
   EXPECT_GT(advanced.state->stroke.phase_time_s, 0.0);
   EXPECT_NEAR(advanced.state->stroke.cycle_time_s, 0.1, 1e-12);
-  EXPECT_TRUE(std::isfinite(advanced.state->hull.orientation_world_from_body.w));
+  EXPECT_TRUE(
+      std::isfinite(advanced.state->hull.orientation_world_from_body.w));
   EXPECT_NE(advanced.state->hull.orientation_world_from_body.w,
             startup.state->hull.orientation_world_from_body.w);
   EXPECT_NE(advanced.state->hull.orientation_world_from_body.z, 0.0);

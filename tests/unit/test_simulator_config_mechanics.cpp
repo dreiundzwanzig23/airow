@@ -208,17 +208,17 @@ TEST(SimulatorConfig, RejectsMissingOrMalformedMechanicsSchemaFields) {
 
   {
     auto invalid = make_valid_config_json();
-    invalid.replace(invalid.find(R"("oarlock_position_m": [0.25, -0.82, 0.18])"),
-                    std::string(
-                        R"("oarlock_position_m": [0.25, -0.82, 0.18])")
-                        .size(),
-                    R"("oarlock_position_m": {"x": 0.25})");
+    invalid.replace(
+        invalid.find(R"("oarlock_position_m": [0.25, -0.82, 0.18])"),
+        std::string(R"("oarlock_position_m": [0.25, -0.82, 0.18])").size(),
+        R"("oarlock_position_m": {"x": 0.25})");
     const auto result = project::parse_simulator_config_text(invalid);
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
-    EXPECT_EQ(result.diagnostics.front().path, "$.oars.port.oarlock_position_m");
+    EXPECT_EQ(result.diagnostics.front().path,
+              "$.oars.port.oarlock_position_m");
   }
 
   {
@@ -233,15 +233,16 @@ TEST(SimulatorConfig, RejectsMissingOrMalformedMechanicsSchemaFields) {
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
-    EXPECT_EQ(result.diagnostics.front().path, "$.hull.initial_orientation_xyzw");
+    EXPECT_EQ(result.diagnostics.front().path,
+              "$.hull.initial_orientation_xyzw");
   }
 
   {
     auto invalid = make_valid_config_json();
-    invalid.replace(invalid.find(R"("center_of_mass_m": [0.0, 0.0, 0.0])"),
-                    std::string(R"("center_of_mass_m": [0.0, 0.0, 0.0])")
-                        .size(),
-                    R"("center_of_mass_m": [0.0, "bad", 0.0])");
+    invalid.replace(
+        invalid.find(R"("center_of_mass_m": [0.0, 0.0, 0.0])"),
+        std::string(R"("center_of_mass_m": [0.0, 0.0, 0.0])").size(),
+        R"("center_of_mass_m": [0.0, "bad", 0.0])");
     const auto result = project::parse_simulator_config_text(invalid);
 
     ASSERT_FALSE(result.ok());
@@ -261,7 +262,8 @@ TEST(SimulatorConfig, RejectsMissingOrMalformedMechanicsSchemaFields) {
  */
 TEST(SimulatorConfig, NormalizesAndRejectsStartupBoundsDeterministically) {
   {
-    auto result = project::parse_simulator_config_text(make_valid_config_json());
+    auto result =
+        project::parse_simulator_config_text(make_valid_config_json());
 
     ASSERT_TRUE(result.ok());
     ASSERT_TRUE(result.config.has_value());
@@ -397,7 +399,8 @@ TEST(SimulatorConfig, RejectsMissingStartupObjectsAndMalformedArrays) {
   {
     auto invalid = make_valid_config_json();
     invalid.erase(invalid.find(R"("seat": {)"),
-                  invalid.find(R"("stroke": {)") - invalid.find(R"("seat": {)"));
+                  invalid.find(R"("stroke": {)") -
+                      invalid.find(R"("seat": {)"));
     const auto result = project::parse_simulator_config_text(invalid);
 
     ASSERT_FALSE(result.ok());
@@ -465,8 +468,7 @@ TEST(SimulatorConfig, RejectsMissingStartupObjectsAndMalformedArrays) {
     auto invalid = make_valid_config_json();
     invalid.replace(
         invalid.find(R"("initial_linear_velocity_mps": [0.0, 0.0, 0.0])"),
-        std::string(R"("initial_linear_velocity_mps": [0.0, 0.0, 0.0])")
-            .size(),
+        std::string(R"("initial_linear_velocity_mps": [0.0, 0.0, 0.0])").size(),
         R"("initial_linear_velocity_mps": [0.0, 0.0])");
     const auto result = project::parse_simulator_config_text(invalid);
 
@@ -505,7 +507,8 @@ TEST(SimulatorConfig, RejectsMissingStartupObjectsAndMalformedArrays) {
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
-    EXPECT_EQ(result.diagnostics.front().path, "$.hull.initial_orientation_xyzw");
+    EXPECT_EQ(result.diagnostics.front().path,
+              "$.hull.initial_orientation_xyzw");
   }
 
   {

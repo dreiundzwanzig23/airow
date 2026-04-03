@@ -36,6 +36,13 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
     )
 endif()
 
+find_package(HDF5 QUIET COMPONENTS C)
+if(HDF5_FOUND)
+    message(STATUS "HDF5 support enabled")
+else()
+    message(STATUS "HDF5 support disabled (library not found)")
+endif()
+
 option(ENABLE_COVERAGE "Enable LLVM source-based coverage instrumentation" OFF)
 if(ENABLE_COVERAGE)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -52,6 +59,7 @@ include(cmake/Sanitizers.cmake)
 add_library(project_lib
     src/lib/configuration/simulator_config.cpp
     src/lib/numerics/state_advancement.cpp
+    src/lib/output/run_output.cpp
     src/lib/orchestrator/cli.cpp
     src/lib/orchestrator/simulation_run.cpp
 )
@@ -62,6 +70,17 @@ target_include_directories(project_lib
         $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(project_lib PUBLIC nlohmann_json::nlohmann_json)
+if(HDF5_FOUND)
+    if(TARGET HDF5::HDF5)
+        target_link_libraries(project_lib PRIVATE HDF5::HDF5)
+    else()
+        target_include_directories(project_lib PRIVATE ${HDF5_INCLUDE_DIRS})
+        target_link_libraries(project_lib PRIVATE ${HDF5_LIBRARIES})
+    endif()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=1)
+else()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=0)
+endif()
 target_compile_definitions(project_lib PUBLIC PROJECT_VERSION_STRING="${PROJECT_VERSION}")
 
 set_project_warnings(project_lib)
@@ -109,6 +128,7 @@ if(BUILD_TESTING)
         tests/unit/test_simulator_config_mechanics.cpp
         tests/unit/test_simulation_run.cpp
         tests/unit/test_simulation_run_advancer.cpp
+        tests/unit/test_run_outputs.cpp
     )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_unit)
@@ -117,6 +137,7 @@ if(BUILD_TESTING)
     add_executable(project_tests_integration
         tests/integration/test_simulator_config_integration.cpp
         tests/integration/test_orchestrator_integration.cpp
+        tests/integration/test_run_outputs_integration.cpp
     )
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_integration)
@@ -125,6 +146,7 @@ if(BUILD_TESTING)
     add_executable(project_tests_system
         tests/system/test_simulator_config_system.cpp
         tests/system/test_headless_simulation_system.cpp
+        tests/system/test_headless_outputs_system.cpp
     )
     target_link_libraries(project_tests_system PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_system)
@@ -136,6 +158,8 @@ if(BUILD_TESTING)
         tests/aux/include_cli.cpp
         tests/aux/include_geometry.cpp
         tests/aux/include_mechanics_state.cpp
+        tests/aux/include_run_output.cpp
+        tests/aux/include_run_result.cpp
         tests/aux/include_state_advancement.cpp
         tests/aux/include_simulation_run.cpp
         tests/aux/include_simulator_config.cpp

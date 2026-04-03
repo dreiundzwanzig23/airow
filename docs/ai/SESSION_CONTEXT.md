@@ -3,10 +3,8 @@
 ## Snapshot
 - **Date**: 2026-04-03
 - **Branch**: `main`
-- **Current Objective**: Extend the landed configuration and orchestration
-  slices into the first mechanics-backed runtime while preserving the hardened
-  architecture-first workflow and explicit solver or state-convention
-  contracts.
+- **Current Objective**: Move from completed `R-015` dual-format output
+  contracts into first named scenario evidence work.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
@@ -26,10 +24,18 @@
   validated hull, oar, seat, and stroke startup inputs; deterministic startup
   assembly; a stable internal state-advancer seam; and in-memory mechanics
   state history for hull, oars, seat, and stroke phase.
+- The current run path now includes the completed `R-015` output contract in
+  `A-007`: deterministic JSON summary and time-series artifacts, optional HDF5
+  artifact emission selected by configuration, explicit unit/frame channel
+  annotations, per-step load-history capture, and configuration-controlled
+  high-frequency sampling.
 - `A-002` is now active with a concrete public contract in `include/project/orchestrator/simulation_run.hpp` and `include/project/orchestrator/cli.hpp`.
 - `A-003` and `A-010` are now active with concrete public contracts in
   `include/project/mechanics/state.hpp` and
   `include/project/numerics/state_advancement.hpp`.
+- `A-007` is now active with public contracts in
+  `include/project/output/run_result.hpp` and
+  `include/project/output/run_output.hpp`.
 - The validation baseline is now stricter at the tool level: stronger
   compiler-warning flags, enabled debug hardening, explicit CTest timeouts,
   an auxiliary tooling-contract check, public-header self-containment
@@ -55,9 +61,9 @@
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Start the first `A-007` baseline output shaping work so the new mechanics
-   state can be emitted through stable machine-readable result channels.
-2. Start the first `A-008` scenario and validation evidence work for passive
+1. Start the first `A-008` scenario and validation evidence work for passive
    float and tow cases now that mechanics startup exists.
-3. Revisit external backend wiring for Chrono and SUNDIALS only after the
+2. Revisit external backend wiring for Chrono and SUNDIALS only after the
    current seam and baseline scenario evidence stabilize.
+3. Expand HDF5 channel-level schema depth after initial scenario harness
+   evidence is stable.

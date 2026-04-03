@@ -373,7 +373,8 @@ TEST(SimulationRun, MapsStartupFailureVariantsFromAdvancer) {
     DiagnosticStartupFailureAdvancer advancer;
 
     const auto result = project::run_simulation(
-        make_config(), project::SimulationDependencies{.state_advancer = &advancer});
+        make_config(),
+        project::SimulationDependencies{.state_advancer = &advancer});
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
@@ -388,7 +389,8 @@ TEST(SimulationRun, MapsStartupFailureVariantsFromAdvancer) {
     MissingStartupStateAdvancer advancer;
 
     const auto result = project::run_simulation(
-        make_config(), project::SimulationDependencies{.state_advancer = &advancer});
+        make_config(),
+        project::SimulationDependencies{.state_advancer = &advancer});
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
@@ -403,7 +405,8 @@ TEST(SimulationRun, MapsStartupFailureVariantsFromAdvancer) {
     NonFiniteStartupStateAdvancer advancer;
 
     const auto result = project::run_simulation(
-        make_config(), project::SimulationDependencies{.state_advancer = &advancer});
+        make_config(),
+        project::SimulationDependencies{.state_advancer = &advancer});
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
@@ -459,7 +462,8 @@ TEST(SimulationRun, MapsUnknownProviderAndAdvancementContractFailures) {
     DiagnosticAdvanceFailureAdvancer advancer;
 
     const auto result = project::run_simulation(
-        make_config(), project::SimulationDependencies{.state_advancer = &advancer});
+        make_config(),
+        project::SimulationDependencies{.state_advancer = &advancer});
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
@@ -473,7 +477,8 @@ TEST(SimulationRun, MapsUnknownProviderAndAdvancementContractFailures) {
     MissingAdvancedStateAdvancer advancer;
 
     const auto result = project::run_simulation(
-        make_config(), project::SimulationDependencies{.state_advancer = &advancer});
+        make_config(),
+        project::SimulationDependencies{.state_advancer = &advancer});
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);

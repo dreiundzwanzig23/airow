@@ -20,7 +20,8 @@ constexpr double HALF = 0.5;
 
 /**
  * @design D-020 — Mechanics-state helper invariants
- * @title Deterministic helper routines for quaternion math, finite-state checks, and stroke phase progression
+ * @title Deterministic helper routines for quaternion math, finite-state
+ * checks, and stroke phase progression
  * @satisfies [A-003, A-010]
  * @refines [D-016]
  */
@@ -39,8 +40,7 @@ Quaternion normalize_quaternion(const Quaternion &value) {
   };
 }
 
-Quaternion quaternion_multiply(const Quaternion &lhs,
-                               const Quaternion &rhs) {
+Quaternion quaternion_multiply(const Quaternion &lhs, const Quaternion &rhs) {
   return {
       .x = lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y,
       .y = lhs.w * rhs.y - lhs.x * rhs.z + lhs.y * rhs.w + lhs.z * rhs.x,
@@ -49,8 +49,7 @@ Quaternion quaternion_multiply(const Quaternion &lhs,
   };
 }
 
-Vector3 rotate_vector(const Quaternion &orientation,
-                      const Vector3 &value) {
+Vector3 rotate_vector(const Quaternion &orientation, const Vector3 &value) {
   const Quaternion normalized = normalize_quaternion(orientation);
   const Quaternion pure{.x = value.x, .y = value.y, .z = value.z, .w = 0.0};
   const Quaternion inverse{.x = -normalized.x,
@@ -70,10 +69,11 @@ Quaternion integrate_orientation(const Quaternion &orientation,
                          .z = angular_velocity_body_radps.z,
                          .w = 0.0};
   const Quaternion derivative = quaternion_multiply(orientation, omega);
-  const Quaternion advanced{.x = orientation.x + 0.5 * derivative.x * step_size_s,
-                            .y = orientation.y + 0.5 * derivative.y * step_size_s,
-                            .z = orientation.z + 0.5 * derivative.z * step_size_s,
-                            .w = orientation.w + 0.5 * derivative.w * step_size_s};
+  const Quaternion advanced{
+      .x = orientation.x + 0.5 * derivative.x * step_size_s,
+      .y = orientation.y + 0.5 * derivative.y * step_size_s,
+      .z = orientation.z + 0.5 * derivative.z * step_size_s,
+      .w = orientation.w + 0.5 * derivative.w * step_size_s};
   return normalize_quaternion(advanced);
 }
 
@@ -114,7 +114,8 @@ bool state_is_finite(const MechanicalStateSnapshot &state) {
   return std::isfinite(state.time_s) && hull_state_is_finite(state.hull) &&
          oar_state_is_finite(state.port_oar) &&
          oar_state_is_finite(state.starboard_oar) &&
-         seat_state_is_finite(state.seat) && stroke_state_is_finite(state.stroke) &&
+         seat_state_is_finite(state.seat) &&
+         stroke_state_is_finite(state.stroke) &&
          std::isfinite(state.constraint_residual_max);
 }
 
@@ -123,15 +124,13 @@ StrokePhase phase_at(const SimulatorConfig &config, double cycle_time_s) {
                                                        : StrokePhase::recovery;
 }
 
-double phase_time_at(const SimulatorConfig &config,
-                     double cycle_time_s) {
+double phase_time_at(const SimulatorConfig &config, double cycle_time_s) {
   return phase_at(config, cycle_time_s) == StrokePhase::drive
              ? cycle_time_s
              : cycle_time_s - config.stroke.drive_duration_s;
 }
 
-double wrap_cycle_time(double cycle_duration_s,
-                       double cycle_time_s) {
+double wrap_cycle_time(double cycle_duration_s, double cycle_time_s) {
   while (cycle_time_s >= cycle_duration_s) {
     cycle_time_s -= cycle_duration_s;
   }
@@ -191,7 +190,8 @@ public:
 
   /**
    * @design D-015 — Mechanics startup assembly
-   * @title Deterministic startup-validity assembly for baseline hull, oars, seat, and stroke state
+   * @title Deterministic startup-validity assembly for baseline hull, oars,
+   * seat, and stroke state
    * @satisfies [A-003, A-010]
    */
   StartupResult initialize(const SimulatorConfig &config) override {
@@ -213,11 +213,13 @@ public:
     state.hull.position_world_m = config.hull.initial_position_m;
     state.hull.orientation_world_from_body =
         normalize_quaternion(config.hull.initial_orientation_xyzw);
-    state.hull.linear_velocity_world_mps = config.hull.initial_linear_velocity_mps;
+    state.hull.linear_velocity_world_mps =
+        config.hull.initial_linear_velocity_mps;
     state.hull.angular_velocity_body_radps =
         config.hull.initial_angular_velocity_radps;
     state.port_oar.handle_angle_rad = config.stroke.catch_angle_rad;
-    state.port_oar.oarlock_position_body_m = config.oars.port.oarlock_position_m;
+    state.port_oar.oarlock_position_body_m =
+        config.oars.port.oarlock_position_m;
     state.starboard_oar.handle_angle_rad = config.stroke.catch_angle_rad;
     state.starboard_oar.oarlock_position_body_m =
         config.oars.starboard.oarlock_position_m;
@@ -228,9 +230,8 @@ public:
     state.stroke.phase_time_s = 0.0;
     state.stroke.cycle_time_s = 0.0;
     state.constraint_residual_max = 0.0;
-    state.port_oar.blade_tip_position_world_m =
-        blade_tip_world_position(state, config.oars.port, -1.0,
-                                 state.port_oar.handle_angle_rad);
+    state.port_oar.blade_tip_position_world_m = blade_tip_world_position(
+        state, config.oars.port, -1.0, state.port_oar.handle_angle_rad);
     state.starboard_oar.blade_tip_position_world_m =
         blade_tip_world_position(state, config.oars.starboard, 1.0,
                                  state.starboard_oar.handle_angle_rad);
@@ -258,11 +259,13 @@ public:
 
   /**
    * @design D-016 — Deterministic baseline state advancement
-   * @title Internal startup-to-step advancer for hull translation and prescribed seat or oar kinematics
+   * @title Internal startup-to-step advancer for hull translation and
+   * prescribed seat or oar kinematics
    * @satisfies [A-003, A-010]
    */
   AdvanceResult advance(const SimulatorConfig &config,
-                        const MechanicalStateSnapshot &state, double step_size_s,
+                        const MechanicalStateSnapshot &state,
+                        double step_size_s,
                         const ExternalLoads &loads) override {
     if (!(std::isfinite(step_size_s) && step_size_s > 0.0)) {
       return {
@@ -282,11 +285,13 @@ public:
         (loads.hydro_force_x_n + loads.aero_force_x_n) / config.hull.mass_kg;
 
     while (remaining_s > 0.0) {
-      const StrokePhase active_phase = phase_at(config, next.stroke.cycle_time_s);
-      const double phase_end_time_s =
-          active_phase == StrokePhase::drive ? config.stroke.drive_duration_s
-                                             : config.stroke.cycle_duration_s;
-      const double time_to_boundary_s = phase_end_time_s - next.stroke.cycle_time_s;
+      const StrokePhase active_phase =
+          phase_at(config, next.stroke.cycle_time_s);
+      const double phase_end_time_s = active_phase == StrokePhase::drive
+                                          ? config.stroke.drive_duration_s
+                                          : config.stroke.cycle_duration_s;
+      const double time_to_boundary_s =
+          phase_end_time_s - next.stroke.cycle_time_s;
       const double segment_s = std::min(remaining_s, time_to_boundary_s);
 
       next.hull.position_world_m.x +=
@@ -303,49 +308,48 @@ public:
 
       if (active_phase == StrokePhase::drive) {
         next.seat.velocity_along_rail_mps = drive_seat_velocity(config);
-        next.seat.position_along_rail_m = std::max(
-            config.seat.min_position_m,
-            next.seat.position_along_rail_m +
-                next.seat.velocity_along_rail_mps * segment_s);
-        next.port_oar.handle_angle_rad = std::min(
-            config.stroke.release_angle_rad,
-            next.port_oar.handle_angle_rad + drive_oar_rate(config) * segment_s);
-        next.starboard_oar.handle_angle_rad = std::min(
-            config.stroke.release_angle_rad,
-            next.starboard_oar.handle_angle_rad +
-                drive_oar_rate(config) * segment_s);
+        next.seat.position_along_rail_m =
+            std::max(config.seat.min_position_m,
+                     next.seat.position_along_rail_m +
+                         next.seat.velocity_along_rail_mps * segment_s);
+        next.port_oar.handle_angle_rad =
+            std::min(config.stroke.release_angle_rad,
+                     next.port_oar.handle_angle_rad +
+                         drive_oar_rate(config) * segment_s);
+        next.starboard_oar.handle_angle_rad =
+            std::min(config.stroke.release_angle_rad,
+                     next.starboard_oar.handle_angle_rad +
+                         drive_oar_rate(config) * segment_s);
       } else {
         next.seat.velocity_along_rail_mps = recovery_seat_velocity(config);
-        next.seat.position_along_rail_m = std::min(
-            config.seat.max_position_m,
-            next.seat.position_along_rail_m +
-                next.seat.velocity_along_rail_mps * segment_s);
-        next.port_oar.handle_angle_rad = std::max(
-            config.stroke.catch_angle_rad,
-            next.port_oar.handle_angle_rad +
-                recovery_oar_rate(config) * segment_s);
-        next.starboard_oar.handle_angle_rad = std::max(
-            config.stroke.catch_angle_rad,
-            next.starboard_oar.handle_angle_rad +
-                recovery_oar_rate(config) * segment_s);
+        next.seat.position_along_rail_m =
+            std::min(config.seat.max_position_m,
+                     next.seat.position_along_rail_m +
+                         next.seat.velocity_along_rail_mps * segment_s);
+        next.port_oar.handle_angle_rad =
+            std::max(config.stroke.catch_angle_rad,
+                     next.port_oar.handle_angle_rad +
+                         recovery_oar_rate(config) * segment_s);
+        next.starboard_oar.handle_angle_rad =
+            std::max(config.stroke.catch_angle_rad,
+                     next.starboard_oar.handle_angle_rad +
+                         recovery_oar_rate(config) * segment_s);
       }
 
       next.time_s += segment_s;
-      next.stroke.cycle_time_s =
-          wrap_cycle_time(config.stroke.cycle_duration_s,
-                          next.stroke.cycle_time_s + segment_s);
+      next.stroke.cycle_time_s = wrap_cycle_time(
+          config.stroke.cycle_duration_s, next.stroke.cycle_time_s + segment_s);
       next.stroke.phase = phase_at(config, next.stroke.cycle_time_s);
-      next.stroke.phase_time_s = phase_time_at(config, next.stroke.cycle_time_s);
+      next.stroke.phase_time_s =
+          phase_time_at(config, next.stroke.cycle_time_s);
       remaining_s -= segment_s;
     }
 
     next.constraint_residual_max = 0.0;
-    next.port_oar.blade_tip_position_world_m =
-        blade_tip_world_position(next, config.oars.port, -1.0,
-                                 next.port_oar.handle_angle_rad);
-    next.starboard_oar.blade_tip_position_world_m =
-        blade_tip_world_position(next, config.oars.starboard, 1.0,
-                                 next.starboard_oar.handle_angle_rad);
+    next.port_oar.blade_tip_position_world_m = blade_tip_world_position(
+        next, config.oars.port, -1.0, next.port_oar.handle_angle_rad);
+    next.starboard_oar.blade_tip_position_world_m = blade_tip_world_position(
+        next, config.oars.starboard, 1.0, next.starboard_oar.handle_angle_rad);
 
     if (!state_is_finite(next)) {
       return {

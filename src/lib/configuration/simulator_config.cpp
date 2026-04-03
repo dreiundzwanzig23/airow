@@ -101,6 +101,29 @@ std::string format_quaternion(const Quaternion &value) {
          format_normalized_double(value.w) + "]";
 }
 
+std::string format_bool(bool value) { return value ? "true" : "false"; }
+
+[[nodiscard]] bool build_has_hdf5_support() noexcept {
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+  return true;
+#else
+  return false;
+#endif
+}
+
+std::string format_output_formats(const OutputSettings &output) {
+  if (output.emit_json && output.emit_hdf5) {
+    return "[json, hdf5]";
+  }
+  if (output.emit_hdf5) {
+    return "[hdf5]";
+  }
+  if (output.emit_json) {
+    return "[json]";
+  }
+  return "[]";
+}
+
 double vector_norm(const Vector3 &value) {
   return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
 }
@@ -524,6 +547,139 @@ bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
   return true;
 }
 
+bool parse_optional_output_string_field(const Json &output,
+                                        std::string_view key,
+                                        std::string_view path,
+                                        std::string &target,
+                                        LoadSimulatorConfigResult &result) {
+  if (!output.contains(key)) {
+    return true;
+  }
+  const auto &field = output.at(key);
+  if (!field.is_string()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected string"));
+    return false;
+  }
+  target = field.get<std::string>();
+  return true;
+}
+
+bool parse_output_high_frequency_toggle(const Json &output,
+                                        OutputSettings &output_config,
+                                        LoadSimulatorConfigResult &result) {
+  if (!output.contains("high_frequency_time_series")) {
+    return true;
+  }
+  const auto &high_frequency = output.at("high_frequency_time_series");
+  if (!high_frequency.is_boolean()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", "$.output.high_frequency_time_series",
+                   "expected boolean"));
+    return false;
+  }
+  output_config.high_frequency_time_series = high_frequency.get<bool>();
+  return true;
+}
+
+bool parse_output_formats_field(const Json &output,
+                                OutputSettings &output_config,
+                                LoadSimulatorConfigResult &result) {
+  if (!output.contains("formats")) {
+    return true;
+  }
+
+  const auto &formats = output.at("formats");
+  if (!formats.is_array()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", "$.output.formats", "expected array"));
+    return false;
+  }
+  if (formats.empty()) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", "$.output.formats",
+                   "at least one output format must be selected"));
+    return false;
+  }
+
+  bool emit_json = false;
+  bool emit_hdf5 = false;
+  std::size_t first_hdf5_index = 0U;
+  bool has_hdf5_index = false;
+  for (std::size_t index = 0U; index < formats.size(); ++index) {
+    const auto path = "$.output.formats[" + std::to_string(index) + "]";
+    const auto &format = formats.at(index);
+    if (!format.is_string()) {
+      result.diagnostics.push_back(
+          make_error("invalid_type", path, "expected string"));
+      return false;
+    }
+
+    const auto format_name = format.get<std::string>();
+    if (format_name == "json") {
+      emit_json = true;
+      continue;
+    }
+    if (format_name == "hdf5") {
+      emit_hdf5 = true;
+      if (!has_hdf5_index) {
+        first_hdf5_index = index;
+        has_hdf5_index = true;
+      }
+      continue;
+    }
+
+    result.diagnostics.push_back(make_error(
+        "invalid_value", path, "unknown output format '" + format_name + "'"));
+    return false;
+  }
+
+  if (!emit_json && !emit_hdf5) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", "$.output.formats",
+                   "at least one output format must be selected"));
+    return false;
+  }
+
+  if (emit_hdf5 && !build_has_hdf5_support()) {
+    result.diagnostics.push_back(
+        make_error("unsupported_value",
+                   "$.output.formats[" + std::to_string(first_hdf5_index) + "]",
+                   "hdf5 output is not available in this build"));
+    return false;
+  }
+
+  output_config.emit_json = emit_json;
+  output_config.emit_hdf5 = emit_hdf5;
+  return true;
+}
+
+bool parse_output_settings(const Json &root, SimulatorConfig &config,
+                           LoadSimulatorConfigResult &result) {
+  if (!root.contains("output")) {
+    return true;
+  }
+
+  const auto &output = root.at("output");
+  if (!output.is_object()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", "$.output", "expected object"));
+    return false;
+  }
+
+  return parse_optional_output_string_field(
+             output, "summary_path", "$.output.summary_path",
+             config.output.summary_path, result) &&
+         parse_optional_output_string_field(
+             output, "time_series_path", "$.output.time_series_path",
+             config.output.time_series_path, result) &&
+         parse_optional_output_string_field(output, "hdf5_path",
+                                            "$.output.hdf5_path",
+                                            config.output.hdf5_path, result) &&
+         parse_output_high_frequency_toggle(output, config.output, result) &&
+         parse_output_formats_field(output, config.output, result);
+}
+
 } // namespace
 
 /**
@@ -580,6 +736,12 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.stroke.catch_angle_rad), "rad"},
       {"$.stroke.release_angle_rad",
        format_normalized_double(config.stroke.release_angle_rad), "rad"},
+      {"$.output.summary_path", config.output.summary_path, ""},
+      {"$.output.time_series_path", config.output.time_series_path, ""},
+      {"$.output.hdf5_path", config.output.hdf5_path, ""},
+      {"$.output.formats", format_output_formats(config.output), ""},
+      {"$.output.high_frequency_time_series",
+       format_bool(config.output.high_frequency_time_series), "bool"},
   };
 }
 
@@ -621,7 +783,8 @@ parse_simulator_config_text(std::string_view json_text,
       parse_hull_settings(root, config, result) &&
       parse_oar_pair_settings(root, config, result) &&
       parse_seat_settings(root, config, result) &&
-      parse_stroke_settings(root, config, result)) {
+      parse_stroke_settings(root, config, result) &&
+      parse_output_settings(root, config, result)) {
     result.normalized_config = normalize_simulator_config(config);
     result.config = std::move(config);
   }

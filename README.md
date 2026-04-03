@@ -47,11 +47,15 @@ Current implemented library surface:
 - deterministic mechanics startup and state-advancement seams for the first
   `A-003` and `A-010` slice
 - reusable in-memory single-run API with injected hydro, aero, and
-  state-advancer seams plus structured state history
+  state-advancer seams plus structured state/load history
+- deterministic machine-readable summary and time-series artifacts with
+  explicit unit or frame annotations for boundary-visible channels
+- output-format selection (`json`, `hdf5`, or both) with deterministic
+  configuration rejection when HDF5 is requested but unavailable in the build
+- configuration-controlled high-frequency time-series emission
 - headless CLI wrapper with stable exit-code behavior for `R-002` and `R-003`
-- current run results now include baseline hull, oar, seat, and stroke
-  trajectories in memory while machine-readable artifact emission remains
-  future work
+- stable run-result contract now lives in `include/project/output/run_result.hpp`
+  with output-writer seams in `include/project/output/run_output.hpp`
 
 ## Project Direction
 
@@ -83,9 +87,12 @@ Current implemented slice:
 - `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
   Advancement` are now in progress through a deterministic internal baseline
   state-advancer seam,
+- `A-007 Output and Diagnostics` is now in progress with deterministic
+  machine-readable summary/time-series artifact emission and optional HDF5
+  parity behind the same output contract,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- reduced runtime physics providers, scenario evidence, and machine-readable
-  run artifacts remain future work after the first mechanics-startup baseline.
+- reduced runtime physics providers and scenario evidence remain future work
+  after the first mechanics-startup baseline.
 
 ## Validation Lanes
 

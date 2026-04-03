@@ -1,5 +1,6 @@
 #include "project/orchestrator/cli.hpp"
 #include "project/orchestrator/simulation_run.hpp"
+#include "project/output/run_result.hpp"
 
 #include <filesystem>
 #include <ostream>

@@ -3,6 +3,8 @@
 #include "project/core/geometry.hpp"
 #include "project/mechanics/state.hpp"
 #include "project/numerics/state_advancement.hpp"
+#include "project/output/run_output.hpp"
+#include "project/output/run_result.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -202,6 +204,11 @@ bool advance_one_step(const SimulatorConfig &config,
                             aero_force_x_n)) {
     return false;
   }
+  result.load_history.push_back(LoadSample{
+      .time_s = state.time_s,
+      .hydro_force_x_n = hydro_force_x_n,
+      .aero_force_x_n = aero_force_x_n,
+  });
 
   const double remaining_time_s = config.simulation.duration_s - state.time_s;
   const double step_size_s =
@@ -295,12 +302,14 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    */
   if (!accept_startup_result(result, startup)) {
     result.metadata.end_timestamp_utc = current_timestamp();
+    emit_run_outputs(config, result);
     return result;
   }
   if (!startup.state.has_value()) {
     append_runtime_failure(result, "startup", "$.startup", "startup_failed",
                            "startup reported success without a state");
     result.metadata.end_timestamp_utc = current_timestamp();
+    emit_run_outputs(config, result);
     return result;
   }
 
@@ -323,6 +332,7 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
 
   finalize_summary(result, state, executed_step_count, initial_x_m);
   result.metadata.end_timestamp_utc = current_timestamp();
+  emit_run_outputs(config, result);
   return result;
 }
 

@@ -132,7 +132,7 @@ must not become the architectural home for simulator requirements.
 ## A-007 — Output and Diagnostics
 - **Title**: Structured outputs and runtime diagnostics subsystem
 - **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Capture machine-readable summaries, time series, metadata, and actionable diagnostics for single and batch runs.
 - **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs.
 - **Inputs**: Run lifecycle events; mechanics, hydro, aero, control, and numerical integration outputs; calibration provenance identifiers.
@@ -142,7 +142,12 @@ must not become the architectural home for simulator requirements.
 - **Invariants**: Output ordering is deterministic; enabled outputs include required identifiers, provenance, validity metadata, and frame or unit annotations for vector quantities; failure diagnostics remain stable and actionable.
 - **Allocation Rationale**: Prevents metadata, diagnostics, and serialization concerns from leaking into every runtime subsystem.
 - **Future Absorption**: Richer artifact formats, streamed diagnostics, and analysis-facing summaries should grow here behind stable output contracts.
-- **Interfaces**: Planned result object contract, summary writer contract, and time-series emission contract.
+- **Interfaces**: Stable run-result contract with deterministic JSON summary and
+  time-series artifact emission plus optional HDF5 artifact emission selected
+  at runtime configuration (`json`, `hdf5`, or both). The output contract
+  preserves explicit unit/frame annotations for boundary-visible vectors,
+  force/power accounting channels, deterministic sampling policy, and stable
+  diagnostics when requested formats are unavailable.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem

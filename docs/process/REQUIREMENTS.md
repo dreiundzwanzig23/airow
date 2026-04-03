@@ -272,13 +272,16 @@ Milestone framing:
   - Vector quantities in machine-readable outputs identify their units and reference frame, and derived power or accounting channels identify their units explicitly.
   - The simulator can be configured to enable or disable high-frequency time-series output.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Change-Note**: Expanded output scope to require force and power accounting channels plus explicit unit and frame annotations.
-- **Notes**: Follow-up: confirm the first concrete output schema and artifact-format phasing against this expanded contract.
+- **Updated**: 2026-04-03
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: The baseline contract now supports deterministic structured summary
+  and time-series artifacts with explicit unit or frame annotations,
+  configuration-controlled high-frequency sampling, and output-format
+  selection (`json`, `hdf5`, or both). HDF5 output is optional and rejected
+  deterministically at configuration parse time when unavailable in the build.
 
 ## R-016 — Runtime Diagnostics and Safe Failure
 - **Title**: Detect invalid runtime conditions and fail with actionable diagnostics
