@@ -1,12 +1,12 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-02
+- **Date**: 2026-04-03
 - **Branch**: `main`
-- **Current Objective**: Start landing the first simulator-facing
-  implementation slice inside the hardened architecture-first workflow with
-  explicit solver and state-convention contracts and an explicit `v0.1` cut
-  line.
+- **Current Objective**: Extend the first landed simulator-facing
+  configuration slice into executable single-run orchestration while preserving
+  the hardened architecture-first workflow and explicit solver or
+  state-convention contracts.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
@@ -26,8 +26,11 @@
   baseline and moves calibration ingestion, time-varying wind, batch sweeps,
   low-order balance control, flexible oars, and disturbance inputs beyond the
   steady baseline out of that cut line.
-- The repository still carries the bootstrap `string_utils` sample code while
-  the first simulator implementation slice is pending.
+- The repository now includes the first simulator-facing implementation slice:
+  deterministic JSON loading and validation for `R-001` in the `configuration`
+  component.
+- Bootstrap placeholder code and `900`-series evidence have been removed from
+  the compiled code path.
 - Validation scripts emit compact logs and JSON summaries through a shared
   wrapper.
 - Traceability supports auxiliary tests and stronger evidence validation.
@@ -40,13 +43,14 @@
 
 ## Guardrails
 - Keep active AI docs compact and non-duplicative.
-- Do not treat the placeholder sample code as the simulator architecture.
+- Keep `A-001` focused on configuration and validation rather than letting
+  runtime orchestration or mechanics details leak into it.
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Replace the placeholder sample code with the first coherent simulator slice.
-2. Land the first real `D-*`, `UT-*`, `IT-*`, and `QT-*` evidence inside the
-   seeded subsystem ownership boundaries, starting with configuration,
-   mechanics, and numerical state-advancement seams.
-3. Clear or confirm the newly flagged `Needs-Review: yes` backlog items once
-   the post-`v0.1` milestone ordering is accepted.
+1. Implement `R-002` and `R-003` around the existing validated configuration
+   contract.
+2. Start expanding mechanics-facing configuration fields only when `A-003` and
+   `A-010` implementation work needs them.
+3. Clear or confirm the remaining `Needs-Review: yes` backlog items once the
+   post-`v0.1` milestone ordering is accepted.

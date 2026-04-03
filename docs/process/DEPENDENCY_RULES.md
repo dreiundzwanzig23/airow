@@ -21,14 +21,14 @@ These rules apply only to files that live under component-prefixed paths such
 as `include/project/mechanics/**` or `src/lib/mechanics/**`.
 
 - `core -> core`
-- `configuration -> core`
-- `mechanics -> core`
-- `hydro -> core, mechanics`
-- `aero -> core, mechanics`
-- `control -> core, mechanics`
-- `output -> core, configuration, mechanics, hydro, aero, control, orchestrator`
-- `orchestrator -> core, configuration, mechanics, hydro, aero, control, output`
-- `calibration -> core, mechanics, hydro, aero, output`
+- `configuration -> core, configuration`
+- `mechanics -> core, mechanics`
+- `hydro -> core, mechanics, hydro`
+- `aero -> core, mechanics, aero`
+- `control -> core, mechanics, control`
+- `output -> core, configuration, mechanics, hydro, aero, control, orchestrator, output`
+- `orchestrator -> core, configuration, mechanics, hydro, aero, control, output, orchestrator`
+- `calibration -> core, mechanics, hydro, aero, output, calibration`
 
 ## Forbidden component examples
 - `hydro -> aero`

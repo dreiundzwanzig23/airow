@@ -1,14 +1,14 @@
-# AIRow Bootstrap Repository
+# AIRow Repository
 
 AIRow is an open-source C++ rowing simulator project focused on a physically
 serious single-scull simulator with strict TDD, traceability
 (`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
 
-The repository is still in bootstrap state. The current tracked code includes a
-small placeholder sample, while the rowing simulator direction is defined in
-the requirements, architecture bootstrap, technology stack, and decision
-records, including explicit state-convention and numerical-integration
-ownership.
+The repository now includes its first simulator-facing implementation slice:
+deterministic JSON configuration loading and validation for the baseline
+single-scull runtime. The broader rowing simulator direction remains defined in
+the requirements, architecture, technology stack, and decision records,
+including explicit state-convention and numerical-integration ownership.
 
 ## Quick Start
 
@@ -22,10 +22,16 @@ Build:
 ./scripts/build.sh
 ```
 
-Run the current bootstrap app:
+Run the current executable stub:
 ```bash
 ./build/project_app
 ```
+
+Current implemented library surface:
+- `include/project/configuration/simulator_config.hpp`
+- JSON file or in-memory loading for `config_id`,
+  `simulation.duration_s`, `simulation.time_step_s`, and `hull.mass_kg`
+- deterministic diagnostics and normalized configuration metadata for `R-001`
 
 ## Project Direction
 
@@ -48,11 +54,12 @@ Current intent:
 - real simulator code should now land inside the hardened architecture-first
   workflow rather than extending the bootstrap sample.
 
-Current bootstrap note:
-- the `string_utils` sample code remains as a temporary placeholder until the
-  first real simulator implementation slice replaces it,
-- bootstrap-only sample artifacts live in reserved `900`-series trace IDs and
-  do not represent simulator capability.
+Current implemented slice:
+- `A-001 Configuration and Validation` is now in progress with a real public
+  contract for deterministic JSON loading and validation,
+- bootstrap-only placeholder code has been removed from the compiled targets,
+- execution CLI and in-memory run orchestration remain future work under
+  `R-002` and `R-003`.
 
 ## Validation Lanes
 

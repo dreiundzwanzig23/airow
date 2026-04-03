@@ -1,7 +1,8 @@
-#include "project/string_utils.hpp"
 #include <iostream>
 
 int main() {
-  std::cout << project::to_upper_ascii("Hello, world!") << "\n";
+  std::cout
+      << "AIRow configuration subsystem is available; run execution CLI is "
+         "not implemented yet.\n";
   return 0;
 }

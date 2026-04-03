@@ -16,10 +16,9 @@ not be lost in short-lived handoff notes.
   `A-001`; keep artifact ingestion and provenance semantics in `A-009`.
 
 ## Fragile Temporary Seams
-- The bootstrap `900`-series sample still exists and should not accumulate new
-  behavior.
-- Component-level dependency rules are defined ahead of code layout; they will
-  only become active as component-prefixed files are added.
+- Component-level dependency rules are now active for the first
+  component-prefixed production code path and must stay aligned with the real
+  include graph.
 
 ## Tolerated Duplication
 - Scenario naming appears in both requirements and test strategy for now
@@ -35,6 +34,7 @@ not be lost in short-lived handoff notes.
   runtime path.
 
 ## Avoid Growing Complexity Here
-- Do not add simulator behavior to the bootstrap `string_utils` sample.
+- Do not reintroduce bootstrap-only sample behavior under reserved `900`-series
+  trace IDs now that the first simulator slice has landed.
 - Do not let `A-002` absorb subsystem-specific algorithms.
 - Do not mix hydro and aero internals just because both are force providers.

@@ -27,6 +27,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_package(nlohmann_json QUIET)
+if(NOT TARGET nlohmann_json::nlohmann_json)
+    find_path(NLOHMANN_JSON_INCLUDE_DIR nlohmann/json.hpp REQUIRED)
+    add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+    target_include_directories(nlohmann_json::nlohmann_json INTERFACE
+        "${NLOHMANN_JSON_INCLUDE_DIR}"
+    )
+endif()
+
 option(ENABLE_COVERAGE "Enable LLVM source-based coverage instrumentation" OFF)
 if(ENABLE_COVERAGE)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -41,7 +50,7 @@ include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
-    src/lib/string_utils.cpp
+    src/lib/configuration/simulator_config.cpp
 )
 
 target_include_directories(project_lib
@@ -49,6 +58,7 @@ target_include_directories(project_lib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+target_link_libraries(project_lib PUBLIC nlohmann_json::nlohmann_json)
 
 set_project_warnings(project_lib)
 enable_sanitizers(project_lib)
@@ -89,17 +99,17 @@ if(BUILD_TESTING)
 
     find_package(Threads REQUIRED)
 
-    add_executable(project_tests_unit tests/unit/test_string_utils.cpp)
+    add_executable(project_tests_unit tests/unit/test_simulator_config.cpp)
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_unit)
     enable_sanitizers(project_tests_unit)
 
-    add_executable(project_tests_integration tests/integration/test_string_utils_integration.cpp)
+    add_executable(project_tests_integration tests/integration/test_simulator_config_integration.cpp)
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_integration)
     enable_sanitizers(project_tests_integration)
 
-    add_executable(project_tests_system tests/system/test_string_utils_system.cpp)
+    add_executable(project_tests_system tests/system/test_simulator_config_system.cpp)
     target_link_libraries(project_tests_system PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_system)
     enable_sanitizers(project_tests_system)

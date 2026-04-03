@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 ### Changed
+- Replaced the bootstrap `string_utils` sample with the first simulator-facing
+  `R-001` configuration slice under `A-001`, including a public JSON loading
+  and validation contract.
+- Added the first real simulator trace evidence: `D-001..D-009`,
+  `UT-001..UT-007`, `IT-001..IT-002`, and `QT-001..QT-002`.
+- Activated the first component-prefixed production code path in
+  `configuration`, fixed component self-dependency policy, and added the
+  `nlohmann-json3-dev` setup dependency.
 - Added an explicit `v0.1` milestone cut line in `docs/ai/ROADMAP.md` centered
   on the deterministic headless single-run baseline.
 - Reprioritized calibration ingestion, calibration provenance, time-varying

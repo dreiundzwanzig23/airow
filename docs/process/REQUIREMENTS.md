@@ -60,12 +60,12 @@ Milestone framing:
   - Invalid numeric values, including NaN, infinity, negative duration, and negative mass, are rejected before time stepping starts.
   - Accepted configuration values are echoed in normalized form in run metadata.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Initial scope uses SI units only.
+- **Notes**: Initial scope uses SI units only. The first implementation slice covers deterministic JSON loading, validation, and normalized metadata; full simulation execution remains with `R-002`.
 
 ## R-002 — Headless Simulation Execution
 - **Title**: Execute one simulation without any GUI dependency
@@ -537,25 +537,3 @@ Milestone framing:
 - **Updated**: 2026-04-02
 - **Change-Type**: none
 - **Needs-Review**: no
-
-## Bootstrap Appendix
-
-The following requirement exists only to keep the temporary sample utility
-traceable while the real simulator implementation is still being bootstrapped.
-It is not part of the rowing-simulator product backlog and must not be used as
-the architectural home for simulator work.
-
-## R-900 — Bootstrap Placeholder Utility
-- **Title**: Keep the temporary sample utility traceable during repository bootstrap
-- **Acceptance Criteria**:
-  - The placeholder sample utility remains buildable while the first simulator-facing implementation slice is pending.
-  - The placeholder utility is isolated from the real simulator backlog through reserved bootstrap trace IDs.
-  - Placeholder tests continue to prove trace and gate wiring without claiming simulator feature coverage.
-  - Future simulator work does not allocate to this requirement.
-- **Priority**: P2
-- **Status**: DONE
-- **Created**: 2026-04-02
-- **Updated**: 2026-04-02
-- **Change-Type**: none
-- **Needs-Review**: no
-- **Notes**: Reserved bootstrap IDs use the `900` series.

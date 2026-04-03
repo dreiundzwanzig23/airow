@@ -33,13 +33,13 @@ This file defines the stable architecture ownership surface for the rowing
 simulator.
 
 Real simulator architecture items use `A-001..A-010`.
-Reserved bootstrap placeholders use the `A-900` range and must not become the
-architectural home for simulator requirements.
+The `A-900` range remains reserved for temporary bootstrap-only artifacts and
+must not become the architectural home for simulator requirements.
 
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem
 - **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-025, R-028, R-029, R-030, R-031, R-032, R-033]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Parse, validate, normalize, and expose simulator, provider, artifact, and scenario configuration before execution begins.
 - **Owned Concepts**: `SimulatorConfig`; provider selection metadata; schema validation; unit-bearing and frame-bearing field definitions; provider validity metadata; unsupported-scope rejection.
 - **Inputs**: Machine-readable run configuration; batch definitions; external artifact metadata; selected provider and model identifiers.
@@ -49,7 +49,7 @@ architectural home for simulator requirements.
 - **Invariants**: Invalid or ambiguous configuration never reaches runtime stepping; accepted values are normalized deterministically; unsupported scope is rejected explicitly.
 - **Allocation Rationale**: Centralizes all boundary validation so requirements about deterministic rejection, units, provider selection, and scope control do not fragment across runtime subsystems.
 - **Future Absorption**: Additional model toggles, boat-class expansion gates, richer artifact schemas, and future frame-bearing configuration definitions should be absorbed here before touching runtime logic.
-- **Interfaces**: Planned configuration loader, schema validator, and normalized configuration contract for runtime subsystems.
+- **Interfaces**: File-backed and in-memory JSON configuration loading contract returning validated `SimulatorConfig`, deterministic diagnostics, and normalized configuration metadata suitable for later runtime orchestration.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -185,19 +185,3 @@ architectural home for simulator requirements.
 - **Allocation Rationale**: Separates numerical backend ownership and startup validity from physical-state ownership so mechanics models and solver strategies can evolve independently without leaking backend choices into product requirements.
 - **Future Absorption**: Alternative integrators, sensitivity analysis support, adaptive stepping policies, and richer DAE initialization helpers should extend this subsystem.
 - **Interfaces**: Planned consistent-initialization contract, state-advancement contract, and solver-diagnostic contract.
-
-## A-900 — Bootstrap Placeholder Component
-- **Title**: Temporary sample component for repository bootstrap
-- **Satisfies**: [R-900]
-- **Status**: DONE
-- **Responsibility**: Keep the temporary sample code and tests traceable while the first simulator-facing runtime implementation is still pending.
-- **Owned Concepts**: Placeholder utility behavior; bootstrap-only trace wiring; proof that the repo gates and trace model are functioning.
-- **Inputs**: Sample utility input string; trace metadata conventions.
-- **Outputs**: Uppercase sample output; bootstrap-only trace evidence.
-- **Depends On**: Core repository build, test, and trace tooling.
-- **Must Not Depend On**: Real simulator subsystem ownership; simulator requirement allocation; future runtime architecture boundaries.
-- **Invariants**: Bootstrap placeholder artifacts stay isolated in the `900` series; they do not claim simulator feature coverage; they remain removable without disturbing the real simulator namespace.
-- **Allocation Rationale**: Preserves a minimal placeholder sample during bootstrap while freeing `A-001..A-010` for the real simulator architecture inventory.
-- **Future Absorption**: None. This placeholder should be removed once the first simulator-facing implementation slice replaces it.
-- **Description**: Reserved bootstrap ownership for the placeholder sample utility only.
-- **Interfaces**: `project::to_upper_ascii(std::string)`
