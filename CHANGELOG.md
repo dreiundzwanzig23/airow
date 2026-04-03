@@ -28,6 +28,10 @@
   compilation, and LLVM-native `misc-include-cleaner` coverage in
   `clang-tidy` so include drift and compiler-specific regressions are caught
   earlier in the local workflow without a separate IWYU lane.
+- Tightened `depcheck` with architecture-health enforcement for
+  public-header-only cross-component access, realized component cycle
+  detection, and orphan checks that tie component code back to owning `A-*`
+  items and non-aux architecture evidence.
 - Raised the `src/lib/**` unit coverage gates to 90% region coverage and 80%
   branch coverage and added the missing unit-path tests needed to sustain the
   stricter baseline.

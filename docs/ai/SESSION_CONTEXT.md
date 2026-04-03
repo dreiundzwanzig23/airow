@@ -32,9 +32,7 @@
 - The current run path is still orchestration-only: it proves shared execution,
   metadata, diagnostics, and test seams, but not yet real mechanics-backed
   rowing physics.
-- `A-002` is now active with a concrete public contract in
-  `include/project/orchestrator/simulation_run.hpp` and
-  `include/project/orchestrator/cli.hpp`.
+- `A-002` is now active with a concrete public contract in `include/project/orchestrator/simulation_run.hpp` and `include/project/orchestrator/cli.hpp`.
 - Bootstrap placeholder code and `900`-series evidence have been removed from
   the compiled code path.
 - Validation scripts emit compact logs and JSON summaries through a shared
@@ -44,13 +42,14 @@
   an auxiliary tooling-contract check, public-header self-containment
   compilation, LLVM-native include-cleaner coverage in `clang-tidy`, and
   dedicated sanitized plus GCC lanes inside the full test gate.
+- Architecture guardrails are now tightening beyond include allowlists toward
+  public-header-only cross-component access, realized component cycle checks,
+  and orphan detection tied to `A-*` ownership and non-aux evidence.
 - Traceability supports auxiliary tests and stronger evidence validation.
 - Test strategy guidance now explicitly distinguishes subsystem-contract
   `IT-*`, scenario-oriented `QT-*`, and characterization coverage for major
   changes.
-- Repo-local operational skills now live in `.agents/skills` with real skill
-  names and `agents/openai.yaml` metadata instead of `template-*`
-  placeholders.
+- Repo-local operational skills now live in `.agents/skills` with real names and `agents/openai.yaml` metadata instead of `template-*` placeholders.
 
 ## Guardrails
 - Keep active AI docs compact and non-duplicative.

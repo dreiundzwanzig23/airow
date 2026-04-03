@@ -61,6 +61,25 @@ def main() -> int:
     clang_tidy = (ROOT / ".clang-tidy").read_text(encoding="utf-8")
     require_contains(clang_tidy, "misc-include-cleaner", "clang-tidy include-cleaner check")
 
+    depcheck = (ROOT / "tools" / "depcheck.py").read_text(encoding="utf-8")
+    require_contains(depcheck, "Internal component include violation", "public-header-only architecture check")
+    require_contains(depcheck, "Component cycle detected", "component cycle detection")
+    require_contains(depcheck, "Orphan component evidence", "component orphan evidence check")
+
+    dependency_rules = (ROOT / "docs" / "process" / "DEPENDENCY_RULES.md").read_text(
+        encoding="utf-8"
+    )
+    require_contains(
+        dependency_rules,
+        "Cross-component access must go through `include/project/**` public headers.",
+        "dependency-rules public header policy",
+    )
+    require_contains(
+        dependency_rules,
+        "actual realized component include graph must remain acyclic",
+        "dependency-rules cycle policy",
+    )
+
     cmake_lists = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
     for timeout in ("TIMEOUT 30", "TIMEOUT 45", "TIMEOUT 60"):
         require_contains(cmake_lists, timeout, "CTest timeout")

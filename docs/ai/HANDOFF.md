@@ -20,6 +20,10 @@
   hardening, explicit test timeouts, sanitized and GCC lanes, an auxiliary
   tooling-contract check, public-header self-containment compilation, and
   LLVM-native include-cleaner coverage in the default lint path.
+- Tightened `depcheck` toward architecture-health enforcement with
+  public-header-only cross-component access, realized component cycle
+  detection, and component-orphan checks tied to owning `A-*` items and
+  non-aux test coverage.
 
 ## Current Technical Posture
 - The repository now has a real simulator architecture ownership surface in

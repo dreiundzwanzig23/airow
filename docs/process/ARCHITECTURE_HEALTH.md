@@ -19,6 +19,8 @@ not be lost in short-lived handoff notes.
 - Component-level dependency rules are now active for the first
   component-prefixed production code paths and must stay aligned with the real
   include graph.
+- Cross-component access should stay on public headers only; direct reaches into
+  another component's `src/lib/**` tree now count as architecture drift.
 
 ## Tolerated Duplication
 - Scenario naming appears in both requirements and test strategy for now
@@ -29,6 +31,9 @@ not be lost in short-lived handoff notes.
 - `A-002 Simulation Orchestrator` now has a real execution seam and must not
   become the fallback home for mechanics state, provider algorithms, or output
   serialization details just because it touches all of them.
+- As `A-007 Output and Diagnostics` comes online, keep the realized component
+  include graph acyclic even if orchestration lifecycle events and output
+  contracts need to meet at a shared seam.
 - `A-007 Output and Diagnostics` risks turning into a dumping ground for
   unrelated metadata concerns if contracts are not kept narrow.
 - `A-010 Numerical Integration and State Advancement` must stay solver-focused

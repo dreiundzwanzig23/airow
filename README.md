@@ -200,5 +200,7 @@ Maintenance commands:
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
   `src/lib/**`.
 - `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction
-  coherence checks.
+  coherence checks, including public-header-only cross-component access,
+  realized component cycle detection, and component-orphan guardrails tied to
+  architecture ownership and non-aux test coverage.
 - `python3 tools/tracecheck.py --write`: strict traceability and evidence checks.
