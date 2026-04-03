@@ -2,19 +2,31 @@
 
 | Requirement | Req Status | Satisfied by A | Arch Status | Arch Evidence | Implemented by D | Unit Tests (UT) | Integration (IT) | System (QT) |
 |-------------|------------|----------------|-------------|---------------|------------------|-----------------|------------------|-------------|
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-001 | UT-001, UT-002, UT-005, UT-007 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-002 | UT-001 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-003 | UT-003 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-004 | UT-001, UT-006 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-005 | UT-001, UT-004 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-006 | UT-001, UT-002, UT-003 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-007 | UT-001, UT-002, UT-003, UT-006 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-008 | UT-001 | IT-001, IT-002 | QT-001, QT-002 |
-| R-001 | IN_PROGRESS | A-001 | IN_PROGRESS | CODE | D-009 | UT-007 | IT-001, IT-002 | QT-001, QT-002 |
-| R-002 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
-| R-003 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
-| R-003 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
-| R-004 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-001 | UT-001, UT-002, UT-005, UT-007 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-002 | UT-001 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-003 | UT-003 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-004 | UT-001, UT-006 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-005 | UT-001, UT-004 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-006 | UT-001, UT-002, UT-003 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-007 | UT-001, UT-002, UT-003, UT-006 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-008 | UT-001 | IT-001, IT-002 | QT-001, QT-002 |
+| R-001 | DONE | A-001 | IN_PROGRESS | CODE | D-009 | UT-007 | IT-001, IT-002 | QT-001, QT-002 |
+| R-002 | DONE | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | QT-003, QT-004, QT-005 |
+| R-002 | DONE | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | QT-003, QT-004, QT-005 |
+| R-002 | DONE | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | QT-003, QT-004, QT-005 |
+| R-002 | DONE | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | QT-003, QT-004, QT-005 |
+| R-002 | DONE | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | QT-003, QT-004, QT-005 |
+| R-003 | DONE | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | QT-005 |
+| R-003 | DONE | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | QT-005 |
+| R-003 | DONE | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | QT-005 |
+| R-003 | DONE | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | QT-005 |
+| R-003 | DONE | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | QT-005 |
+| R-003 | DONE | A-007 | OPEN | CODE | — | — | — | QT-005 |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | — |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | — |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | — |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | — |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | — |
 | R-004 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
 | R-004 | OPEN | A-010 | OPEN | CODE | — | — | — | — |
 | R-005 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
@@ -30,7 +42,11 @@
 | R-013 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
 | R-014 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
 | R-015 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
-| R-016 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-016 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | — |
+| R-016 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | — |
+| R-016 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | — |
+| R-016 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | — |
+| R-016 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | — |
 | R-016 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
 | R-016 | OPEN | A-010 | OPEN | CODE | — | — | — | — |
 | R-017 | OPEN | A-001 | IN_PROGRESS | CODE | D-001 | UT-001, UT-002, UT-005, UT-007 | IT-001, IT-002 | — |
@@ -53,7 +69,11 @@
 | R-020 | OPEN | A-001 | IN_PROGRESS | CODE | D-007 | UT-001, UT-002, UT-003, UT-006 | IT-001, IT-002 | — |
 | R-020 | OPEN | A-001 | IN_PROGRESS | CODE | D-008 | UT-001 | IT-001, IT-002 | — |
 | R-020 | OPEN | A-001 | IN_PROGRESS | CODE | D-009 | UT-007 | IT-001, IT-002 | — |
-| R-020 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-020 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | — |
+| R-020 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | — |
+| R-020 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | — |
+| R-020 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | — |
+| R-020 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | — |
 | R-020 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
 | R-020 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
 | R-021 | OPEN | A-001 | IN_PROGRESS | CODE | D-001 | UT-001, UT-002, UT-005, UT-007 | IT-001, IT-002 | — |
@@ -81,10 +101,18 @@
 | R-022 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
 | R-022 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
 | R-022 | OPEN | A-009 | OPEN | CODE | — | — | — | — |
-| R-023 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-023 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | — |
+| R-023 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | — |
+| R-023 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | — |
+| R-023 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | — |
+| R-023 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | — |
 | R-023 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
 | R-023 | OPEN | A-006 | OPEN | CODE | — | — | — | — |
-| R-024 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-024 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | — |
+| R-024 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | — |
+| R-024 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | — |
+| R-024 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | — |
+| R-024 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | — |
 | R-024 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
 | R-024 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
 | R-024 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
@@ -98,7 +126,11 @@
 | R-025 | OPEN | A-001 | IN_PROGRESS | CODE | D-007 | UT-001, UT-002, UT-003, UT-006 | IT-001, IT-002 | — |
 | R-025 | OPEN | A-001 | IN_PROGRESS | CODE | D-008 | UT-001 | IT-001, IT-002 | — |
 | R-025 | OPEN | A-001 | IN_PROGRESS | CODE | D-009 | UT-007 | IT-001, IT-002 | — |
-| R-025 | OPEN | A-002 | OPEN | CODE | — | — | — | — |
+| R-025 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005 | — |
+| R-025 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011 | IT-003, IT-004, IT-005 | — |
+| R-025 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010 | IT-003, IT-004, IT-005 | — |
+| R-025 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005 | — |
+| R-025 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012 | IT-003, IT-004, IT-005 | — |
 | R-025 | OPEN | A-007 | OPEN | CODE | — | — | — | — |
 | R-026 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
 | R-027 | OPEN | A-003 | OPEN | CODE | — | — | — | — |
@@ -195,7 +227,7 @@
 - **Interfaces**: File-backed and in-memory JSON configuration loading contract returning validated `SimulatorConfig`, deterministic diagnostics, and normalized configuration metadata suitable for later runtime orchestration.
 
 ### A-002 — Headless simulation orchestration subsystem
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Evidence Profile**: CODE
 - **Satisfies**: [R-002, R-003, R-004, R-016, R-020, R-023, R-024, R-025]
 - **Responsibility**: Coordinate one or more simulation runs, lifecycle transitions, provider wiring, failure handling, and deterministic replay.
@@ -207,7 +239,10 @@
 - **Invariants**: The same validated run definition executes through the same orchestration path for CLI and in-memory use; failures terminate with stable diagnostics; batch case ordering remains deterministic.
 - **Allocation Rationale**: Groups lifecycle and composition concerns into one owner instead of scattering them across feature-specific requirements and runtime providers.
 - **Future Absorption**: Parallel batch scheduling, checkpoint/restart, and richer orchestration policies should extend this subsystem.
-- **Interfaces**: Planned CLI entry contract, in-memory run API, provider selection and run-result contracts.
+- **Interfaces**: CLI entry contract and in-memory run API that share one
+deterministic single-run execution path, plus injected hydro and aero stub
+provider seams, stable run-result metadata, and exit-code mapping for the
+first headless baseline.
 
 ### A-003 — 3D mechanics core for hull, oars, and seat motion
 - **Status**: OPEN

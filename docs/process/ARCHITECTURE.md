@@ -54,7 +54,7 @@ must not become the architectural home for simulator requirements.
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
 - **Satisfies**: [R-002, R-003, R-004, R-016, R-020, R-023, R-024, R-025]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Coordinate one or more simulation runs, lifecycle transitions, provider wiring, failure handling, and deterministic replay.
 - **Owned Concepts**: Run lifecycle; in-memory simulation API; CLI entry wiring; provider registry binding; batch execution flow.
 - **Inputs**: Validated configuration; selected runtime providers; time-varying inputs; scenario harness requests.
@@ -64,7 +64,10 @@ must not become the architectural home for simulator requirements.
 - **Invariants**: The same validated run definition executes through the same orchestration path for CLI and in-memory use; failures terminate with stable diagnostics; batch case ordering remains deterministic.
 - **Allocation Rationale**: Groups lifecycle and composition concerns into one owner instead of scattering them across feature-specific requirements and runtime providers.
 - **Future Absorption**: Parallel batch scheduling, checkpoint/restart, and richer orchestration policies should extend this subsystem.
-- **Interfaces**: Planned CLI entry contract, in-memory run API, provider selection and run-result contracts.
+- **Interfaces**: CLI entry contract and in-memory run API that share one
+  deterministic single-run execution path, plus injected hydro and aero stub
+  provider seams, stable run-result metadata, and exit-code mapping for the
+  first headless baseline.
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion

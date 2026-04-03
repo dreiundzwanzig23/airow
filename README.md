@@ -4,11 +4,12 @@ AIRow is an open-source C++ rowing simulator project focused on a physically
 serious single-scull simulator with strict TDD, traceability
 (`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
 
-The repository now includes its first simulator-facing implementation slice:
-deterministic JSON configuration loading and validation for the baseline
-single-scull runtime. The broader rowing simulator direction remains defined in
-the requirements, architecture, technology stack, and decision records,
-including explicit state-convention and numerical-integration ownership.
+The repository now includes the first two simulator-facing runtime slices:
+deterministic JSON configuration loading plus a shared in-memory and CLI
+single-run orchestration path for the baseline single-scull runtime. The
+broader rowing simulator direction remains defined in the requirements,
+architecture, technology stack, and decision records, including explicit
+state-convention and numerical-integration ownership.
 
 ## Quick Start
 
@@ -22,16 +23,20 @@ Build:
 ./scripts/build.sh
 ```
 
-Run the current executable stub:
+Run one headless baseline case:
 ```bash
-./build/project_app
+./build/project_app --config /path/to/config.json
 ```
 
 Current implemented library surface:
 - `include/project/configuration/simulator_config.hpp`
+- `include/project/orchestrator/simulation_run.hpp`
+- `include/project/orchestrator/cli.hpp`
 - JSON file or in-memory loading for `config_id`,
   `simulation.duration_s`, `simulation.time_step_s`, and `hull.mass_kg`
 - deterministic diagnostics and normalized configuration metadata for `R-001`
+- reusable in-memory single-run API with injected hydro and aero stubs
+- headless CLI wrapper with stable exit-code behavior for `R-002` and `R-003`
 
 ## Project Direction
 
@@ -57,9 +62,11 @@ Current intent:
 Current implemented slice:
 - `A-001 Configuration and Validation` is now in progress with a real public
   contract for deterministic JSON loading and validation,
+- `A-002 Simulation Orchestrator` is now in progress with a shared single-run
+  path for CLI and in-memory execution,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- execution CLI and in-memory run orchestration remain future work under
-  `R-002` and `R-003`.
+- real mechanics, reduced runtime physics, and machine-readable run artifacts
+  remain future work after the first headless orchestration baseline.
 
 ## Validation Lanes
 

@@ -62,6 +62,9 @@ LoadSimulatorConfigResult
 parse_simulator_config_text(std::string_view json_text,
                             std::string_view source_name = "<memory>");
 
+std::vector<NormalizedConfigEntry>
+normalize_simulator_config(const SimulatorConfig &config);
+
 LoadSimulatorConfigResult
 load_simulator_config_file(const std::filesystem::path &path);
 

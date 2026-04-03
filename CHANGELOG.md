@@ -5,6 +5,11 @@
 - Replaced the bootstrap `string_utils` sample with the first simulator-facing
   `R-001` configuration slice under `A-001`, including a public JSON loading
   and validation contract.
+- Landed `R-002` and `R-003` inside `A-002` with a shared single-run
+  orchestration path, injected hydro and aero stub seams, and a minimal
+  `project_app --config <path>` CLI contract.
+- Expanded the simulator trace surface to `D-001..D-014`,
+  `UT-001..UT-012`, `IT-001..IT-005`, and `QT-001..QT-005`.
 - Added the first real simulator trace evidence: `D-001..D-009`,
   `UT-001..UT-007`, `IT-001..IT-002`, and `QT-001..QT-002`.
 - Activated the first component-prefixed production code path in

@@ -60,7 +60,7 @@ Milestone framing:
   - Invalid numeric values, including NaN, infinity, negative duration, and negative mass, are rejected before time stepping starts.
   - Accepted configuration values are echoed in normalized form in run metadata.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-03
 - **Change-Type**: none
@@ -75,11 +75,15 @@ Milestone framing:
   - Successful runs return a success status and failed runs return a non-zero failure status.
   - Run metadata includes simulator version, configuration identifier, and start and end timestamps.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The current implementation slice introduces the first shared
+  single-run path for CLI and in-memory execution with deterministic metadata
+  and exit-code behavior before real mechanics or machine-readable artifact
+  emission land.
 
 ## R-003 — In-Memory Simulation API
 - **Title**: Provide a library API suitable for tests and harnesses
@@ -89,12 +93,15 @@ Milestone framing:
   - The API supports injection of deterministic stub or mock hydro and aero providers.
   - At least one automated test uses the in-memory API with stub providers.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement exists primarily to improve testability and agentic workflow ergonomics.
+- **Notes**: This requirement exists primarily to improve testability and
+  agentic workflow ergonomics. The first implementation slice uses injected
+  deterministic hydro and aero stub interfaces around a bounded single-run
+  loop before mechanics-state contracts exist.
 
 ## R-004 — Deterministic Replay
 - **Title**: Reproduce the same run deterministically on the same platform

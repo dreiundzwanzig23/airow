@@ -32,9 +32,8 @@ void remove_file_if_present(const std::filesystem::path &path) {
  * then accepted values are loaded and echoed in normalized metadata.
  */
 TEST(SimulatorConfigSystem, LoadsMachineReadableConfigFile) {
-  const auto path = write_temp_file(
-      "airow-system-valid-config.json",
-      R"({
+  const auto path = write_temp_file("airow-system-valid-config.json",
+                                    R"({
         "config_id": "headwind-baseline",
         "simulation": {
           "duration_s": 42.0,
@@ -63,9 +62,8 @@ TEST(SimulatorConfigSystem, LoadsMachineReadableConfigFile) {
  * identify the failing field path before any runtime stepping can start.
  */
 TEST(SimulatorConfigSystem, RejectsInvalidConfigFileWithFieldPath) {
-  const auto path = write_temp_file(
-      "airow-system-invalid-config.json",
-      R"({
+  const auto path = write_temp_file("airow-system-invalid-config.json",
+                                    R"({
         "config_id": "invalid",
         "simulation": {
           "duration_s": 12.0

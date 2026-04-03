@@ -3,10 +3,10 @@
 ## Snapshot
 - **Date**: 2026-04-03
 - **Branch**: `main`
-- **Current Objective**: Extend the first landed simulator-facing
-  configuration slice into executable single-run orchestration while preserving
-  the hardened architecture-first workflow and explicit solver or
-  state-convention contracts.
+- **Current Objective**: Extend the landed configuration and orchestration
+  slices into the first mechanics-backed runtime while preserving the hardened
+  architecture-first workflow and explicit solver or state-convention
+  contracts.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
@@ -26,9 +26,12 @@
   baseline and moves calibration ingestion, time-varying wind, batch sweeps,
   low-order balance control, flexible oars, and disturbance inputs beyond the
   steady baseline out of that cut line.
-- The repository now includes the first simulator-facing implementation slice:
-  deterministic JSON loading and validation for `R-001` in the `configuration`
-  component.
+- The repository now includes the first simulator-facing implementation slices:
+  deterministic JSON loading and validation for `R-001` plus a shared
+  in-memory and CLI single-run orchestration path for `R-002` and `R-003`.
+- `A-002` is now active with a concrete public contract in
+  `include/project/orchestrator/simulation_run.hpp` and
+  `include/project/orchestrator/cli.hpp`.
 - Bootstrap placeholder code and `900`-series evidence have been removed from
   the compiled code path.
 - Validation scripts emit compact logs and JSON summaries through a shared
@@ -45,12 +48,16 @@
 - Keep active AI docs compact and non-duplicative.
 - Keep `A-001` focused on configuration and validation rather than letting
   runtime orchestration or mechanics details leak into it.
+- Keep `A-002` focused on orchestration, provider seams, and lifecycle
+  behavior rather than letting mechanics or output serialization accumulate
+  there.
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Implement `R-002` and `R-003` around the existing validated configuration
-   contract.
-2. Start expanding mechanics-facing configuration fields only when `A-003` and
-   `A-010` implementation work needs them.
-3. Clear or confirm the remaining `Needs-Review: yes` backlog items once the
-   post-`v0.1` milestone ordering is accepted.
+1. Implement the first `A-003` and `A-010` mechanics-backed state and startup
+   assembly behind the current orchestrator seam.
+2. Expand the configuration schema only as needed for mechanics assembly and
+   startup-validity work, keeping `A-001` separate from runtime logic.
+3. Start the first baseline output and scenario evidence work once mechanics
+   state exists, then clear or confirm the remaining `Needs-Review: yes`
+   backlog items.

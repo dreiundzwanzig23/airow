@@ -33,9 +33,8 @@ void remove_file_if_present(const std::filesystem::path &path) {
  * validated config data and normalized metadata in stable order.
  */
 TEST(SimulatorConfigIntegration, LoadsConfigFileAndNormalizesMetadata) {
-  const auto path = write_temp_file(
-      "airow-valid-config.json",
-      R"({
+  const auto path = write_temp_file("airow-valid-config.json",
+                                    R"({
         "config_id": "tow-baseline",
         "simulation": {
           "duration_s": 30.0,
@@ -70,9 +69,8 @@ TEST(SimulatorConfigIntegration, LoadsConfigFileAndNormalizesMetadata) {
  * ordering remain deterministic.
  */
 TEST(SimulatorConfigIntegration, RepeatedLoadsRemainDeterministic) {
-  const auto path = write_temp_file(
-      "airow-deterministic-config.json",
-      R"({
+  const auto path = write_temp_file("airow-deterministic-config.json",
+                                    R"({
         "config_id": "repeatable",
         "simulation": {
           "duration_s": 10.0,

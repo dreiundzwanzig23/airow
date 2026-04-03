@@ -51,6 +51,8 @@ include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
     src/lib/configuration/simulator_config.cpp
+    src/lib/orchestrator/cli.cpp
+    src/lib/orchestrator/simulation_run.cpp
 )
 
 target_include_directories(project_lib
@@ -59,6 +61,7 @@ target_include_directories(project_lib
         $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(project_lib PUBLIC nlohmann_json::nlohmann_json)
+target_compile_definitions(project_lib PUBLIC PROJECT_VERSION_STRING="${PROJECT_VERSION}")
 
 set_project_warnings(project_lib)
 enable_sanitizers(project_lib)
@@ -99,20 +102,30 @@ if(BUILD_TESTING)
 
     find_package(Threads REQUIRED)
 
-    add_executable(project_tests_unit tests/unit/test_simulator_config.cpp)
+    add_executable(project_tests_unit
+        tests/unit/test_simulator_config.cpp
+        tests/unit/test_simulation_run.cpp
+    )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_unit)
     enable_sanitizers(project_tests_unit)
 
-    add_executable(project_tests_integration tests/integration/test_simulator_config_integration.cpp)
+    add_executable(project_tests_integration
+        tests/integration/test_simulator_config_integration.cpp
+        tests/integration/test_orchestrator_integration.cpp
+    )
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_integration)
     enable_sanitizers(project_tests_integration)
 
-    add_executable(project_tests_system tests/system/test_simulator_config_system.cpp)
+    add_executable(project_tests_system
+        tests/system/test_simulator_config_system.cpp
+        tests/system/test_headless_simulation_system.cpp
+    )
     target_link_libraries(project_tests_system PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_system)
     enable_sanitizers(project_tests_system)
+    target_compile_definitions(project_tests_system PRIVATE PROJECT_APP_PATH="$<TARGET_FILE:project_app>")
 
     include(GoogleTest)
     gtest_add_tests(TARGET project_tests_unit TEST_LIST unit_tests_list)

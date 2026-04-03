@@ -285,9 +285,8 @@ TEST(SimulatorConfig, LoadsFromFileOrReportsIoError) {
   }
 
   {
-    const auto path = write_temp_file(
-        "airow-unit-valid-config.json",
-        R"({
+    const auto path = write_temp_file("airow-unit-valid-config.json",
+                                      R"({
           "config_id": "unit-file",
           "simulation": {
             "duration_s": 6.0,

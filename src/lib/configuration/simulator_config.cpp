@@ -114,9 +114,9 @@ const Json *require_object(const Json &root, std::string_view key,
                            std::string_view path,
                            LoadSimulatorConfigResult &result) {
   if (!root.contains(key)) {
-    result.diagnostics.push_back(make_error(
-        "missing_required_field", std::string(path),
-        "missing required object field"));
+    result.diagnostics.push_back(make_error("missing_required_field",
+                                            std::string(path),
+                                            "missing required object field"));
     return nullptr;
   }
 
@@ -172,8 +172,8 @@ bool validate_numeric_value(double value, std::string_view path,
 }
 
 bool require_non_negative_field(const Json &root, std::string_view key,
-                                std::string_view path,
-                                std::string_view label, double &target,
+                                std::string_view path, std::string_view label,
+                                double &target,
                                 LoadSimulatorConfigResult &result) {
   if (!root.contains(key)) {
     result.diagnostics.push_back(make_error(
@@ -207,10 +207,8 @@ bool require_non_negative_field(const Json &root, std::string_view key,
  * @satisfies [A-001]
  */
 bool require_positive_field(const Json &root, std::string_view key,
-                            std::string_view path,
-                            std::string_view label,
-                            double &target,
-                            LoadSimulatorConfigResult &result) {
+                            std::string_view path, std::string_view label,
+                            double &target, LoadSimulatorConfigResult &result) {
   if (!require_non_negative_field(root, key, path, label, target, result)) {
     return false;
   }
@@ -223,13 +221,15 @@ bool require_positive_field(const Json &root, std::string_view key,
   return true;
 }
 
+} // namespace
+
 /**
  * @design D-008 — Normalized configuration metadata assembly
  * @title Stable normalized metadata projection for accepted config values
  * @satisfies [A-001]
  */
 std::vector<NormalizedConfigEntry>
-build_normalized_entries(const SimulatorConfig &config) {
+normalize_simulator_config(const SimulatorConfig &config) {
   return {
       {"$.config_id", config.config_id, ""},
       {"$.simulation.duration_s",
@@ -239,8 +239,6 @@ build_normalized_entries(const SimulatorConfig &config) {
       {"$.hull.mass_kg", format_normalized_double(config.hull.mass_kg), "kg"},
   };
 }
-
-} // namespace
 
 /**
  * @design D-001 — SimulatorConfig loading and validation
@@ -261,10 +259,9 @@ parse_simulator_config_text(std::string_view json_text,
   try {
     root = Json::parse(json_text.begin(), json_text.end());
   } catch (const Json::parse_error &error) {
-    return fail_with(
-        make_error("parse_error", "$",
-                   std::string("failed to parse configuration JSON: ") +
-                       error.what()));
+    return fail_with(make_error(
+        "parse_error", "$",
+        std::string("failed to parse configuration JSON: ") + error.what()));
   }
 
   if (!root.is_object()) {
@@ -300,12 +297,12 @@ parse_simulator_config_text(std::string_view json_text,
   if (hull == nullptr) {
     return result;
   }
-  if (!require_non_negative_field(*hull, "mass_kg", "$.hull.mass_kg",
-                                  "mass_kg", config.hull.mass_kg, result)) {
+  if (!require_non_negative_field(*hull, "mass_kg", "$.hull.mass_kg", "mass_kg",
+                                  config.hull.mass_kg, result)) {
     return result;
   }
 
-  result.normalized_config = build_normalized_entries(config);
+  result.normalized_config = normalize_simulator_config(config);
   result.config = std::move(config);
   return result;
 }

@@ -17,7 +17,7 @@ not be lost in short-lived handoff notes.
 
 ## Fragile Temporary Seams
 - Component-level dependency rules are now active for the first
-  component-prefixed production code path and must stay aligned with the real
+  component-prefixed production code paths and must stay aligned with the real
   include graph.
 
 ## Tolerated Duplication
@@ -26,6 +26,9 @@ not be lost in short-lived handoff notes.
 
 ## Pressure Points
 - `A-003 Mechanics Subsystem` is likely to attract cross-cutting growth early.
+- `A-002 Simulation Orchestrator` now has a real execution seam and must not
+  become the fallback home for mechanics state, provider algorithms, or output
+  serialization details just because it touches all of them.
 - `A-007 Output and Diagnostics` risks turning into a dumping ground for
   unrelated metadata concerns if contracts are not kept narrow.
 - `A-010 Numerical Integration and State Advancement` must stay solver-focused
@@ -37,4 +40,6 @@ not be lost in short-lived handoff notes.
 - Do not reintroduce bootstrap-only sample behavior under reserved `900`-series
   trace IDs now that the first simulator slice has landed.
 - Do not let `A-002` absorb subsystem-specific algorithms.
+- Do not duplicate configuration normalization logic outside `A-001`; reuse the
+  public normalization contract when orchestration needs echoed metadata.
 - Do not mix hydro and aero internals just because both are force providers.
