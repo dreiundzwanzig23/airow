@@ -54,6 +54,9 @@ Named requirement-level baselines for this project should center on:
 These scenarios should become the default `QT-*` acceptance surface once the
 runtime implementation exists.
 
+Current checked-in scenario artifacts and acceptance envelopes are listed in
+`docs/process/SCENARIOS.md`.
+
 ## Auxiliary Test Overlay
 - Use optional `@aux yes` for non-evidence script/tool contract tests.
 - `@aux` tests are excluded from evidence gates (`D->UT`, `A->IT`, `R->QT`) and

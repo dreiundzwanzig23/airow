@@ -61,6 +61,7 @@ add_library(project_lib
     src/lib/numerics/state_advancement.cpp
     src/lib/output/run_output.cpp
     src/lib/orchestrator/cli.cpp
+    src/lib/orchestrator/scenario_harness.cpp
     src/lib/orchestrator/simulation_run.cpp
 )
 
@@ -129,6 +130,8 @@ if(BUILD_TESTING)
         tests/unit/test_simulation_run.cpp
         tests/unit/test_simulation_run_advancer.cpp
         tests/unit/test_run_outputs.cpp
+        tests/unit/test_scenario_harness.cpp
+        tests/unit/test_scenario_harness_additional.cpp
     )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_unit)
@@ -147,11 +150,16 @@ if(BUILD_TESTING)
         tests/system/test_simulator_config_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
+        tests/system/test_scenario_harness_system.cpp
     )
     target_link_libraries(project_tests_system PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_system)
     enable_sanitizers(project_tests_system)
-    target_compile_definitions(project_tests_system PRIVATE PROJECT_APP_PATH="$<TARGET_FILE:project_app>")
+    target_compile_definitions(
+        project_tests_system PRIVATE
+        PROJECT_APP_PATH="$<TARGET_FILE:project_app>"
+        PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    )
 
     add_executable(project_tests_aux_headers
         tests/aux/header_self_containment_main.cpp
@@ -160,6 +168,7 @@ if(BUILD_TESTING)
         tests/aux/include_mechanics_state.cpp
         tests/aux/include_run_output.cpp
         tests/aux/include_run_result.cpp
+        tests/aux/include_scenario_harness.cpp
         tests/aux/include_state_advancement.cpp
         tests/aux/include_simulation_run.cpp
         tests/aux/include_simulator_config.cpp

@@ -23,8 +23,10 @@ not be lost in short-lived handoff notes.
   another component's `src/lib/**` tree now count as architecture drift.
 
 ## Tolerated Duplication
-- Scenario naming appears in both requirements and test strategy for now
-  because the scenario harness does not yet exist in code.
+- Scenario naming and acceptance-envelope wording currently appear in
+  requirements, test strategy, and `docs/process/SCENARIOS.md` while the first
+  scenario harness slice is still expanding to calm-water, headwind, and
+  crosswind cases.
 
 ## Pressure Points
 - `A-003 Mechanics Subsystem` is likely to attract cross-cutting growth early.

@@ -187,11 +187,14 @@ Milestone framing:
   - A passive float test completes without non-finite values or runaway drift.
   - Output includes equilibrium draft or immersion-related diagnostics.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The first passive-float scenario harness slice is now in place
+  with deterministic placeholder hydro signals and acceptance-envelope checks.
+  Full hydrostatic equilibrium physics depth remains open behind `A-004`.
 
 ## R-010 — Reduced Hull-Water Resistance
 - **Title**: Apply a reduced hydrodynamic resistance model to hull motion
@@ -201,11 +204,15 @@ Milestone framing:
   - At zero forward speed, the forward drag component is zero or within a documented near-zero tolerance.
   - A tow-test scenario produces a reproducible drag-versus-speed curve.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The first tow scenario harness slice now verifies deterministic
+  placeholder tow-drag direction and monotonic drag-speed behavior through
+  checked-in acceptance envelopes; richer reduced-model physics remains open
+  behind `A-004`.
 
 ## R-011 — Reduced Blade-Water Force Model
 - **Title**: Compute blade hydrodynamic loads from blade state and relative water motion
@@ -320,9 +327,9 @@ Milestone framing:
   - Reference scenarios are runnable headlessly in automated verification.
   - A failed acceptance check causes the verification job to fail.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: This requirement is intentionally verification-heavy to support agentic development.

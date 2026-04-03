@@ -9,8 +9,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include "project/output/run_output.hpp"
 #include "project/orchestrator/simulation_run.hpp"
+#include "project/output/run_output.hpp"
 
 namespace {
 
@@ -44,9 +44,8 @@ std::string make_valid_config_json_with_output(
     double duration_s = 1.0, double time_step_s = 0.25,
     std::string_view formats_json = "[\"json\"]",
     std::string_view hdf5_path = "") {
-  return std::string("{\n") +
-         "  \"config_id\": \"" + std::string(config_id) + "\",\n" +
-         "  \"simulation\": {\n" +
+  return std::string("{\n") + "  \"config_id\": \"" + std::string(config_id) +
+         "\",\n" + "  \"simulation\": {\n" +
          "    \"duration_s\": " + std::to_string(duration_s) + ",\n" +
          "    \"time_step_s\": " + std::to_string(time_step_s) + "\n" +
          "  },\n" +
@@ -84,9 +83,9 @@ std::string make_valid_config_json_with_output(
          "    \"release_angle_rad\": 0.6\n"
          "  },\n"
          "  \"output\": {\n"
-         "    \"summary_path\": \"" + std::string(summary_path) + "\",\n" +
-         "    \"time_series_path\": \"" + std::string(time_series_path) +
-         "\",\n" +
+         "    \"summary_path\": \"" +
+         std::string(summary_path) + "\",\n" + "    \"time_series_path\": \"" +
+         std::string(time_series_path) + "\",\n" +
          "    \"formats\": " + std::string(formats_json) + ",\n" +
          "    \"hdf5_path\": \"" + std::string(hdf5_path) + "\",\n" +
          "    \"high_frequency_time_series\": " +
@@ -125,12 +124,12 @@ private:
  * shape and run metadata.
  */
 TEST(RunOutputsIntegration, FileBackedAndInMemoryEmissionMatch) {
-  const auto file_summary_path =
-      std::filesystem::temp_directory_path() / "airow-it-output-file-summary.json";
+  const auto file_summary_path = std::filesystem::temp_directory_path() /
+                                 "airow-it-output-file-summary.json";
   const auto file_time_series_path = std::filesystem::temp_directory_path() /
                                      "airow-it-output-file-timeseries.json";
-  const auto mem_summary_path =
-      std::filesystem::temp_directory_path() / "airow-it-output-mem-summary.json";
+  const auto mem_summary_path = std::filesystem::temp_directory_path() /
+                                "airow-it-output-mem-summary.json";
   const auto mem_time_series_path = std::filesystem::temp_directory_path() /
                                     "airow-it-output-mem-timeseries.json";
 
@@ -139,10 +138,11 @@ TEST(RunOutputsIntegration, FileBackedAndInMemoryEmissionMatch) {
   remove_file_if_present(mem_summary_path);
   remove_file_if_present(mem_time_series_path);
 
-  const auto config_path = write_temp_file(
-      "airow-it-output-config.json",
-      make_valid_config_json_with_output("it-output", file_summary_path.string(),
-                                         file_time_series_path.string(), true));
+  const auto config_path =
+      write_temp_file("airow-it-output-config.json",
+                      make_valid_config_json_with_output(
+                          "it-output", file_summary_path.string(),
+                          file_time_series_path.string(), true));
 
   FixedClock file_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 11h,
@@ -231,11 +231,12 @@ TEST(RunOutputsIntegration, DualFormatEmissionIncludesHdf5WhenSupported) {
   remove_file_if_present(mem_time_series_path);
   remove_file_if_present(mem_hdf5_path);
 
-  const auto config_path = write_temp_file(
-      "airow-it-output-h5-config.json",
-      make_valid_config_json_with_output(
-          "it-output-h5", file_summary_path.string(), file_time_series_path.string(),
-          true, 1.0, 0.25, "[\"json\", \"hdf5\"]", file_hdf5_path.string()));
+  const auto config_path =
+      write_temp_file("airow-it-output-h5-config.json",
+                      make_valid_config_json_with_output(
+                          "it-output-h5", file_summary_path.string(),
+                          file_time_series_path.string(), true, 1.0, 0.25,
+                          "[\"json\", \"hdf5\"]", file_hdf5_path.string()));
 
   FixedClock file_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 12h,

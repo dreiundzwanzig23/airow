@@ -69,12 +69,12 @@ void remove_file_if_present(const std::filesystem::path &path) {
   std::filesystem::remove(path, error);
 }
 
-std::string make_valid_config_json(std::string_view config_id,
-                                   std::string_view summary_path,
-                                   std::string_view time_series_path,
-                                   std::string_view formats_json =
-                                       R"(["json"])",
-                                   std::string_view hdf5_path = "") {
+std::string
+make_valid_config_json(std::string_view config_id,
+                       std::string_view summary_path,
+                       std::string_view time_series_path,
+                       std::string_view formats_json = R"(["json"])",
+                       std::string_view hdf5_path = "") {
   std::ostringstream stream;
   stream << R"({
         "config_id": ")"
@@ -144,8 +144,8 @@ std::string make_valid_config_json(std::string_view config_id,
 TEST(HeadlessOutputsSystem, CliEmitsStructuredOutputArtifacts) {
   const auto summary_path =
       std::filesystem::temp_directory_path() / "airow-qt-output-summary.json";
-  const auto time_series_path =
-      std::filesystem::temp_directory_path() / "airow-qt-output-timeseries.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-output-timeseries.json";
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
@@ -201,10 +201,10 @@ TEST(HeadlessOutputsSystem, CliEmitsStructuredOutputArtifacts) {
  * for both availability states.
  */
 TEST(HeadlessOutputsSystem, CliHandlesHdf5OutputAvailabilityDeterministically) {
-  const auto summary_path = std::filesystem::temp_directory_path() /
-                            "airow-qt-hdf5-summary.json";
-  const auto time_series_path = std::filesystem::temp_directory_path() /
-                                "airow-qt-hdf5-timeseries.json";
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-qt-hdf5-summary.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() / "airow-qt-hdf5-timeseries.json";
   const auto hdf5_path =
       std::filesystem::temp_directory_path() / "airow-qt-hdf5-output.h5";
 

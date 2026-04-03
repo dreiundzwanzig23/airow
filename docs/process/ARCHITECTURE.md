@@ -152,7 +152,7 @@ must not become the architectural home for simulator requirements.
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
 - **Satisfies**: [R-018, R-019, R-024, R-026, R-029]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
 - **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines.
 - **Inputs**: Scenario configurations; run outputs; documented acceptance envelopes; process test-lane policy.
@@ -162,7 +162,11 @@ must not become the architectural home for simulator requirements.
 - **Invariants**: Named baseline scenarios remain headlessly runnable; acceptance checks are deterministic; quick verification lanes stay independent of optional high-fidelity tooling.
 - **Allocation Rationale**: Gives validation and scenario ownership one stable home instead of scattering it across tests, scripts, and individual feature requirements.
 - **Future Absorption**: Expanded scenario catalogs, acceptance dashboards, and protected characterization suites should extend this subsystem.
-- **Interfaces**: Planned scenario manifest contract and acceptance-evaluation contract.
+- **Interfaces**: Public scenario-harness contract in
+  `include/project/orchestrator/scenario_harness.hpp` for deterministic
+  checked-in scenario definition loading and acceptance-envelope evaluation
+  against runtime results, with first passive-float and tow scenario artifacts
+  under `scenarios/`.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

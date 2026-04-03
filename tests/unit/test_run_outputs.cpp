@@ -12,8 +12,8 @@
 #include <nlohmann/json.hpp>
 
 #include "project/configuration/simulator_config.hpp"
-#include "project/output/run_output.hpp"
 #include "project/orchestrator/simulation_run.hpp"
+#include "project/output/run_output.hpp"
 
 namespace {
 
@@ -286,20 +286,19 @@ TEST(RunOutputs, ParsesOutputSettingsFromConfigSchema) {
 
   auto normalized_contains = [&](std::string_view key, std::string_view value,
                                  std::string_view unit) {
-    return std::any_of(parsed.normalized_config.begin(),
-                       parsed.normalized_config.end(),
-                       [&](const project::NormalizedConfigEntry &entry) {
-                         return entry.key == key && entry.value == value &&
-                                entry.unit == unit;
-                       });
+    return std::any_of(
+        parsed.normalized_config.begin(), parsed.normalized_config.end(),
+        [&](const project::NormalizedConfigEntry &entry) {
+          return entry.key == key && entry.value == value && entry.unit == unit;
+        });
   };
 
-  EXPECT_TRUE(normalized_contains("$.output.summary_path",
-                                  "results/summary.json", ""));
+  EXPECT_TRUE(
+      normalized_contains("$.output.summary_path", "results/summary.json", ""));
   EXPECT_TRUE(normalized_contains("$.output.time_series_path",
                                   "results/timeseries.json", ""));
-  EXPECT_TRUE(normalized_contains("$.output.high_frequency_time_series",
-                                  "true", "bool"));
+  EXPECT_TRUE(normalized_contains("$.output.high_frequency_time_series", "true",
+                                  "bool"));
 }
 
 /**
@@ -341,15 +340,14 @@ TEST(RunOutputs, EmitsEmptyTimeSeriesWhenStartupFails) {
   auto config = make_config("ut-output-startup-fail", 1.0, 0.25);
   const auto summary_path = std::filesystem::temp_directory_path() /
                             "airow-ut-output-startup-fail-summary.json";
-  const auto time_series_path =
-      std::filesystem::temp_directory_path() /
-      "airow-ut-output-startup-fail-timeseries.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-ut-output-startup-fail-timeseries.json";
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
   config.output.summary_path = summary_path.string();
   config.output.time_series_path = time_series_path.string();
-  config.hull.initial_orientation_xyzw =
-      {.x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0};
+  config.hull.initial_orientation_xyzw = {
+      .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0};
 
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 13h,
@@ -389,9 +387,9 @@ TEST(RunOutputs, DerivesDeterministicDefaultArtifactPaths) {
   ASSERT_TRUE(result.ok());
   EXPECT_NE(result.outputs.summary_path.find("airow-ut_output_default-summary"),
             std::string::npos);
-  EXPECT_NE(
-      result.outputs.time_series_path.find("airow-ut_output_default-timeseries"),
-      std::string::npos);
+  EXPECT_NE(result.outputs.time_series_path.find(
+                "airow-ut_output_default-timeseries"),
+            std::string::npos);
   ASSERT_TRUE(std::filesystem::exists(result.outputs.summary_path));
   ASSERT_TRUE(std::filesystem::exists(result.outputs.time_series_path));
 
@@ -446,9 +444,8 @@ TEST(RunOutputs, LowFrequencyEmissionUsesSingleRecordForZeroDurationRuns) {
   auto config = make_config("ut-output-zero-duration", 0.0, 0.25);
   const auto summary_path = std::filesystem::temp_directory_path() /
                             "airow-ut-output-zero-duration-summary.json";
-  const auto time_series_path =
-      std::filesystem::temp_directory_path() /
-      "airow-ut-output-zero-duration-timeseries.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-ut-output-zero-duration-timeseries.json";
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
   config.output.summary_path = summary_path.string();
@@ -549,8 +546,8 @@ TEST(RunOutputs, RejectsMalformedOutputSchemaFieldTypes) {
 
   {
     auto config_text = base;
-    config_text.replace(config_text.find("__OUTPUT__"), std::string("__OUTPUT__").size(),
-                        "7");
+    config_text.replace(config_text.find("__OUTPUT__"),
+                        std::string("__OUTPUT__").size(), "7");
     const auto parsed = project::parse_simulator_config_text(config_text);
     ASSERT_FALSE(parsed.ok());
     ASSERT_EQ(parsed.diagnostics.size(), 1U);
@@ -560,7 +557,8 @@ TEST(RunOutputs, RejectsMalformedOutputSchemaFieldTypes) {
 
   {
     auto config_text = base;
-    config_text.replace(config_text.find("__OUTPUT__"), std::string("__OUTPUT__").size(),
+    config_text.replace(config_text.find("__OUTPUT__"),
+                        std::string("__OUTPUT__").size(),
                         R"({"summary_path": 7})");
     const auto parsed = project::parse_simulator_config_text(config_text);
     ASSERT_FALSE(parsed.ok());
@@ -571,7 +569,8 @@ TEST(RunOutputs, RejectsMalformedOutputSchemaFieldTypes) {
 
   {
     auto config_text = base;
-    config_text.replace(config_text.find("__OUTPUT__"), std::string("__OUTPUT__").size(),
+    config_text.replace(config_text.find("__OUTPUT__"),
+                        std::string("__OUTPUT__").size(),
                         R"({"high_frequency_time_series": "yes"})");
     const auto parsed = project::parse_simulator_config_text(config_text);
     ASSERT_FALSE(parsed.ok());
@@ -649,17 +648,15 @@ TEST(RunOutputs, ParsesOutputFormatSelectionAndHdf5Path) {
 
   auto normalized_contains = [&](std::string_view key, std::string_view value,
                                  std::string_view unit) {
-    return std::any_of(parsed.normalized_config.begin(),
-                       parsed.normalized_config.end(),
-                       [&](const project::NormalizedConfigEntry &entry) {
-                         return entry.key == key && entry.value == value &&
-                                entry.unit == unit;
-                       });
+    return std::any_of(
+        parsed.normalized_config.begin(), parsed.normalized_config.end(),
+        [&](const project::NormalizedConfigEntry &entry) {
+          return entry.key == key && entry.value == value && entry.unit == unit;
+        });
   };
 
   EXPECT_TRUE(normalized_contains("$.output.formats", "[json, hdf5]", ""));
-  EXPECT_TRUE(
-      normalized_contains("$.output.hdf5_path", "results/run.h5", ""));
+  EXPECT_TRUE(normalized_contains("$.output.hdf5_path", "results/run.h5", ""));
 }
 
 /**
@@ -893,9 +890,8 @@ TEST(RunOutputs, AllowsInMemoryRunsWithAllOutputFormatsDisabled) {
   auto config = make_config("ut-output-none", 0.5, 0.25);
   const auto summary_path = std::filesystem::temp_directory_path() /
                             "airow-ut-output-none-summary.json";
-  const auto time_series_path =
-      std::filesystem::temp_directory_path() /
-      "airow-ut-output-none-timeseries.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-ut-output-none-timeseries.json";
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
 

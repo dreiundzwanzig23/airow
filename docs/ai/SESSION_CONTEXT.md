@@ -3,53 +3,31 @@
 ## Snapshot
 - **Date**: 2026-04-03
 - **Branch**: `main`
-- **Current Objective**: Move from completed `R-015` dual-format output
-  contracts into first named scenario evidence work.
+- **Current Objective**: Extend the first named scenario evidence slice from
+  passive-float and tow toward remaining `v0.1` baseline scenarios.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
   with a headless-first runtime, reduced hydro and aero models, and later
   calibration/truth-model workflows.
-- The real simulator architecture namespace now belongs to `A-001..A-010`,
-  while bootstrap placeholder artifacts are reserved for the `900` series.
-- `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` record the
-  approved technology and architectural direction.
-- `docs/process/STATE_CONVENTIONS.md` now defines the baseline world-frame,
-  sign, and orientation conventions for simulator boundary contracts.
-- `docs/ai/ROADMAP.md` now defines `v0.1` as a deterministic single-run
-  baseline and moves calibration ingestion, time-varying wind, batch sweeps,
-  low-order balance control, flexible oars, and disturbance inputs beyond the
-  steady baseline out of that cut line.
-- The current run path now includes the first mechanics-backed slice:
-  validated hull, oar, seat, and stroke startup inputs; deterministic startup
-  assembly; a stable internal state-advancer seam; and in-memory mechanics
-  state history for hull, oars, seat, and stroke phase.
-- The current run path now includes the completed `R-015` output contract in
-  `A-007`: deterministic JSON summary and time-series artifacts, optional HDF5
-  artifact emission selected by configuration, explicit unit/frame channel
-  annotations, per-step load-history capture, and configuration-controlled
-  high-frequency sampling.
-- `A-002` is now active with a concrete public contract in `include/project/orchestrator/simulation_run.hpp` and `include/project/orchestrator/cli.hpp`.
-- `A-003` and `A-010` are now active with concrete public contracts in
-  `include/project/mechanics/state.hpp` and
-  `include/project/numerics/state_advancement.hpp`.
-- `A-007` is now active with public contracts in
-  `include/project/output/run_result.hpp` and
-  `include/project/output/run_output.hpp`.
-- The validation baseline is now stricter at the tool level: stronger
-  compiler-warning flags, enabled debug hardening, explicit CTest timeouts,
-  an auxiliary tooling-contract check, public-header self-containment
-  compilation, LLVM-native include-cleaner coverage in `clang-tidy`, and
-  dedicated sanitized plus GCC lanes inside the full test gate.
-- Architecture guardrails are now tightening beyond include allowlists toward
-  public-header-only cross-component access, realized component cycle checks,
-  and orphan detection tied to `A-*` ownership and non-aux evidence.
-- Traceability supports auxiliary tests and stronger evidence validation.
-- Trace and test enforcement now explicitly blocks `trace: trivial` bypasses,
-  enforces helper-refinement shape (`@refines` exactly one parent for helper
-  blocks), caps default unit test file size/case count, and runs changed-file
-  coverage ratchets in both fast and full test lanes.
-- Repo-local operational skills now live in `.agents/skills` with real names and `agents/openai.yaml` metadata instead of `template-*` placeholders.
+- `A-001`, `A-002`, `A-003`, `A-007`, `A-008`, and `A-010` are now active with
+  public contracts under `include/project/**`.
+- The run path is mechanics-backed and includes deterministic startup and
+  stepping, structured JSON/HDF5-capable output contracts, and stable runtime
+  diagnostics.
+- `A-008` is now active with public scenario-harness contracts in
+  `include/project/orchestrator/scenario_harness.hpp` and first checked-in
+  scenario artifacts under `scenarios/passive_float.json` and
+  `scenarios/tow_test.json`.
+- `R-009`, `R-010`, and `R-018` are now `IN_PROGRESS` with deterministic
+  scenario-harness evidence and placeholder hydro behavior; fuller reduced
+  hydro model depth remains open in `A-004`.
+- Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
+  `R-025`) remain intentionally deferred behind the `v0.1` cut line and
+  should not block near-term scenario delivery work.
+- Validation guardrails remain strict: full test gate includes sanitized/GCC
+  lanes plus coverage gates, and depcheck enforces component and interface
+  discipline.
 
 ## Guardrails
 - Keep active AI docs compact and non-duplicative.
@@ -61,9 +39,9 @@
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Start the first `A-008` scenario and validation evidence work for passive
-   float and tow cases now that mechanics startup exists.
-2. Revisit external backend wiring for Chrono and SUNDIALS only after the
-   current seam and baseline scenario evidence stabilize.
-3. Expand HDF5 channel-level schema depth after initial scenario harness
-   evidence is stable.
+1. Expand `A-008` beyond passive/tow by landing calm-water stroke, headwind
+   stroke, and crosswind stroke checked-in scenario artifacts plus envelopes.
+2. Increase `A-004` hydro realism from placeholder behavior to richer reduced
+   runtime models while preserving the scenario-harness contract.
+3. Revisit external backend wiring for Chrono and SUNDIALS only after the
+   baseline scenario evidence set stabilizes.

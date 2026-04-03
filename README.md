@@ -15,8 +15,9 @@ The current run path is now mechanics-backed for the first startup slice. It
 validates an expanded hull, oar, seat, and stroke configuration; assembles a
 deterministic rigid-body startup state; advances that state through a baseline
 internal state-advancer seam; and exposes structured metadata, diagnostics,
-and in-memory state history. Reduced hydro, aero, scenario, and file-output
-subsystems remain future work behind the same boundary.
+and in-memory state history. The first scenario-harness slice is now present
+for passive-float and tow baseline artifacts; richer hydro and aero runtime
+providers remain future work behind the same boundary.
 
 ## Quick Start
 
@@ -41,6 +42,7 @@ Current implemented library surface:
 - `include/project/numerics/state_advancement.hpp`
 - `include/project/orchestrator/simulation_run.hpp`
 - `include/project/orchestrator/cli.hpp`
+- `include/project/orchestrator/scenario_harness.hpp`
 - JSON file or in-memory loading for baseline simulation, hull, oar, seat, and
   prescribed-stroke startup fields
 - deterministic diagnostics and normalized configuration metadata for `R-001`
@@ -56,6 +58,8 @@ Current implemented library surface:
 - headless CLI wrapper with stable exit-code behavior for `R-002` and `R-003`
 - stable run-result contract now lives in `include/project/output/run_result.hpp`
   with output-writer seams in `include/project/output/run_output.hpp`
+- deterministic scenario-definition loading and acceptance-envelope evaluation
+  for checked-in passive-float and tow artifacts in `scenarios/*.json`
 
 ## Project Direction
 
@@ -90,9 +94,12 @@ Current implemented slice:
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission and optional HDF5
   parity behind the same output contract,
+- `A-008 Scenario Harness and Validation` is now in progress with a public
+  scenario-harness API and runtime-backed passive-float/tow `QT-*` evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- reduced runtime physics providers and scenario evidence remain future work
-  after the first mechanics-startup baseline.
+- reduced runtime physics providers and remaining scenario evidence (calm-water,
+  headwind, crosswind) remain future work after the first mechanics-startup
+  baseline.
 
 ## Validation Lanes
 
@@ -151,6 +158,7 @@ Core artifacts:
 - `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/WORKFLOW.md`
 - `docs/process/TEST_STRATEGY.md`
+- `docs/process/SCENARIOS.md`
 - `docs/process/TRACEABILITY.md`
 - `docs/process/MAINTENANCE.md`
 - `docs/process/LLM_DRIFT_REVIEW.md`

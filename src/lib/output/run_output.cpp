@@ -15,8 +15,8 @@
 #include <utility>
 #include <vector>
 
-#include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
 #include <algorithm>
@@ -92,8 +92,7 @@ std::filesystem::path default_summary_path(const SimulatorConfig &config) {
 
 std::filesystem::path default_time_series_path(const SimulatorConfig &config) {
   return std::filesystem::temp_directory_path() /
-         ("airow-" + sanitize_config_id(config.config_id) +
-          "-timeseries.json");
+         ("airow-" + sanitize_config_id(config.config_id) + "-timeseries.json");
 }
 
 std::filesystem::path default_hdf5_path(const SimulatorConfig &config) {
@@ -118,26 +117,23 @@ bool write_json_file(const std::filesystem::path &path, const Json &document,
     std::filesystem::create_directories(parent, mkdir_error);
     if (mkdir_error) {
       diagnostic = make_output_diagnostic(
-          "$.output",
-          "failed to create output directory '" + parent.string() +
-              "': " + mkdir_error.message());
+          "$.output", "failed to create output directory '" + parent.string() +
+                          "': " + mkdir_error.message());
       return false;
     }
   }
 
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   if (!output) {
-    diagnostic = make_output_diagnostic("$.output",
-                                        "failed to open output file '" +
-                                            path.string() + "'");
+    diagnostic = make_output_diagnostic(
+        "$.output", "failed to open output file '" + path.string() + "'");
     return false;
   }
 
   output << document.dump(2) << '\n';
   if (!output.good()) {
-    diagnostic = make_output_diagnostic("$.output",
-                                        "failed to write output file '" +
-                                            path.string() + "'");
+    diagnostic = make_output_diagnostic(
+        "$.output", "failed to write output file '" + path.string() + "'");
     return false;
   }
 
@@ -219,17 +215,18 @@ Json output_formats_json(const OutputArtifacts &outputs) {
 }
 
 Json make_summary_document(const SimulationRunResult &result) {
-  Json metadata = Json{{"config_id", result.metadata.config_id},
-                       {"simulator_version", result.metadata.simulator_version},
-                       {"start_timestamp_utc", result.metadata.start_timestamp_utc},
-                       {"end_timestamp_utc", result.metadata.end_timestamp_utc},
-                       {"hydro_provider_id", result.metadata.hydro_provider_id},
-                       {"aero_provider_id", result.metadata.aero_provider_id},
-                       {"state_advancer_id", result.metadata.state_advancer_id},
-                       {"startup_status", result.metadata.startup_status},
-                       {"startup_solver_status", result.metadata.startup_solver_status},
-                       {"startup_constraint_residual_max",
-                        result.metadata.startup_constraint_residual_max}};
+  Json metadata =
+      Json{{"config_id", result.metadata.config_id},
+           {"simulator_version", result.metadata.simulator_version},
+           {"start_timestamp_utc", result.metadata.start_timestamp_utc},
+           {"end_timestamp_utc", result.metadata.end_timestamp_utc},
+           {"hydro_provider_id", result.metadata.hydro_provider_id},
+           {"aero_provider_id", result.metadata.aero_provider_id},
+           {"state_advancer_id", result.metadata.state_advancer_id},
+           {"startup_status", result.metadata.startup_status},
+           {"startup_solver_status", result.metadata.startup_solver_status},
+           {"startup_constraint_residual_max",
+            result.metadata.startup_constraint_residual_max}};
 
   Json normalized_config = Json::array();
   for (const auto &entry : result.metadata.normalized_config) {
@@ -238,24 +235,24 @@ Json make_summary_document(const SimulationRunResult &result) {
   }
   metadata["normalized_config"] = normalized_config;
 
-  return Json{{"schema_version", OUTPUT_SCHEMA_VERSION},
-              {"config_id", result.metadata.config_id},
-              {"simulator_version", result.metadata.simulator_version},
-              {"status", run_status_text(result.status)},
-              {"summary",
-               Json{{"final_simulated_time_s", result.summary.final_simulated_time_s},
-                    {"executed_step_count", result.summary.executed_step_count},
-                    {"distance_m", result.summary.distance_m},
-                    {"mean_speed_mps", result.summary.mean_speed_mps}}},
-              {"metadata", metadata},
-              {"diagnostics", diagnostics_json(result)},
-              {"outputs",
-               Json{{"summary_path", result.outputs.summary_path},
-                    {"time_series_path", result.outputs.time_series_path},
-                    {"hdf5_path", result.outputs.hdf5_path},
-                    {"formats", output_formats_json(result.outputs)},
-                    {"high_frequency_time_series",
-                     result.outputs.high_frequency_time_series}}}};
+  return Json{
+      {"schema_version", OUTPUT_SCHEMA_VERSION},
+      {"config_id", result.metadata.config_id},
+      {"simulator_version", result.metadata.simulator_version},
+      {"status", run_status_text(result.status)},
+      {"summary",
+       Json{{"final_simulated_time_s", result.summary.final_simulated_time_s},
+            {"executed_step_count", result.summary.executed_step_count},
+            {"distance_m", result.summary.distance_m},
+            {"mean_speed_mps", result.summary.mean_speed_mps}}},
+      {"metadata", metadata},
+      {"diagnostics", diagnostics_json(result)},
+      {"outputs", Json{{"summary_path", result.outputs.summary_path},
+                       {"time_series_path", result.outputs.time_series_path},
+                       {"hdf5_path", result.outputs.hdf5_path},
+                       {"formats", output_formats_json(result.outputs)},
+                       {"high_frequency_time_series",
+                        result.outputs.high_frequency_time_series}}}};
 }
 
 /**
@@ -273,7 +270,8 @@ Json make_time_series_document(const SimulationRunResult &result,
     const auto boat_speed_mps = state.hull.linear_velocity_world_mps.x;
     const auto hydro_load =
         Vector3{.x = loads.hydro_force_x_n, .y = 0.0, .z = 0.0};
-    const auto aero_load = Vector3{.x = loads.aero_force_x_n, .y = 0.0, .z = 0.0};
+    const auto aero_load =
+        Vector3{.x = loads.aero_force_x_n, .y = 0.0, .z = 0.0};
     const auto blade_load_zero = Vector3{.x = 0.0, .y = 0.0, .z = 0.0};
     const double stroke_power_w =
         (loads.hydro_force_x_n + loads.aero_force_x_n) * boat_speed_mps;
@@ -283,7 +281,7 @@ Json make_time_series_document(const SimulationRunResult &result,
         {"hull_state",
          Json{{"position_world_m",
                Json{{"vector", vector_channel(state.hull.position_world_m, "m",
-                                               "world")}}},
+                                              "world")}}},
               {"orientation_world_from_body_xyzw",
                Json{{"value",
                      Json::array({state.hull.orientation_world_from_body.x,
@@ -293,38 +291,44 @@ Json make_time_series_document(const SimulationRunResult &result,
                     {"unit", "unit-quaternion"},
                     {"frame", "world_from_body"}}},
               {"linear_velocity_world_mps",
-               Json{{"vector", vector_channel(state.hull.linear_velocity_world_mps,
-                                               "m/s", "world")}}},
+               Json{{"vector",
+                     vector_channel(state.hull.linear_velocity_world_mps, "m/s",
+                                    "world")}}},
               {"angular_velocity_body_radps",
-               Json{{"vector", vector_channel(state.hull.angular_velocity_body_radps,
-                                               "rad/s", "body")}}}}},
+               Json{{"vector",
+                     vector_channel(state.hull.angular_velocity_body_radps,
+                                    "rad/s", "body")}}}}},
         {"oar_state",
-         Json{{"port",
-               Json{{"handle_angle_rad", scalar_channel(state.port_oar.handle_angle_rad,
-                                                         "rad")},
-                    {"oarlock_position_body_m",
-                     Json{{"vector", vector_channel(state.port_oar.oarlock_position_body_m,
-                                                     "m", "body")}}},
-                    {"blade_tip_position_world_m",
-                     Json{{"vector", vector_channel(
-                                           state.port_oar.blade_tip_position_world_m,
-                                           "m", "world")}}}}},
-              {"starboard",
-               Json{{"handle_angle_rad",
-                     scalar_channel(state.starboard_oar.handle_angle_rad, "rad")},
-                    {"oarlock_position_body_m",
-                     Json{{"vector", vector_channel(
-                                           state.starboard_oar.oarlock_position_body_m,
-                                           "m", "body")}}},
-                    {"blade_tip_position_world_m",
-                     Json{{"vector", vector_channel(
-                                           state.starboard_oar
-                                               .blade_tip_position_world_m,
-                                           "m", "world")}}}}}}},
+         Json{
+             {"port",
+              Json{{"handle_angle_rad",
+                    scalar_channel(state.port_oar.handle_angle_rad, "rad")},
+                   {"oarlock_position_body_m",
+                    Json{{"vector",
+                          vector_channel(state.port_oar.oarlock_position_body_m,
+                                         "m", "body")}}},
+                   {"blade_tip_position_world_m",
+                    Json{{"vector",
+                          vector_channel(
+                              state.port_oar.blade_tip_position_world_m, "m",
+                              "world")}}}}},
+             {"starboard",
+              Json{
+                  {"handle_angle_rad",
+                   scalar_channel(state.starboard_oar.handle_angle_rad, "rad")},
+                  {"oarlock_position_body_m",
+                   Json{{"vector", vector_channel(state.starboard_oar
+                                                      .oarlock_position_body_m,
+                                                  "m", "body")}}},
+                  {"blade_tip_position_world_m",
+                   Json{{"vector",
+                         vector_channel(
+                             state.starboard_oar.blade_tip_position_world_m,
+                             "m", "world")}}}}}}},
         {"seat_state",
          Json{{"rail_axis_body",
                Json{{"vector", vector_channel(state.seat.rail_axis_body, "axis",
-                                               "body")}}},
+                                              "body")}}},
               {"position_along_rail_m",
                scalar_channel(state.seat.position_along_rail_m, "m")},
               {"velocity_along_rail_mps",
@@ -333,15 +337,17 @@ Json make_time_series_document(const SimulationRunResult &result,
         {"hull_water_load_world_n",
          Json{{"vector", vector_channel(hydro_load, "N", "world")}}},
         {"blade_load_world_n",
-         Json{{"port", Json{{"vector", vector_channel(blade_load_zero, "N", "world")}}},
-              {"starboard",
-               Json{{"vector", vector_channel(blade_load_zero, "N", "world")}}}}},
+         Json{{"port",
+               Json{{"vector", vector_channel(blade_load_zero, "N", "world")}}},
+              {"starboard", Json{{"vector", vector_channel(blade_load_zero, "N",
+                                                           "world")}}}}},
         {"aerodynamic_load_world_n",
          Json{{"vector", vector_channel(aero_load, "N", "world")}}},
         {"stroke_input",
-         Json{{"phase", stroke_phase_text(state.stroke.phase)},
-              {"phase_time_s", scalar_channel(state.stroke.phase_time_s, "s")},
-              {"cycle_time_s", scalar_channel(state.stroke.cycle_time_s, "s")}}},
+         Json{
+             {"phase", stroke_phase_text(state.stroke.phase)},
+             {"phase_time_s", scalar_channel(state.stroke.phase_time_s, "s")},
+             {"cycle_time_s", scalar_channel(state.stroke.cycle_time_s, "s")}}},
         {"stroke_power_w", scalar_channel(stroke_power_w, "W")},
     });
   }
@@ -407,17 +413,17 @@ bool ensure_parent_directory(const std::filesystem::path &path,
   std::error_code mkdir_error;
   std::filesystem::create_directories(parent, mkdir_error);
   if (mkdir_error) {
-    diagnostic = make_output_diagnostic(
-        "$.output.hdf5_path",
-        "failed to create output directory '" + parent.string() +
-            "': " + mkdir_error.message());
+    diagnostic = make_output_diagnostic("$.output.hdf5_path",
+                                        "failed to create output directory '" +
+                                            parent.string() +
+                                            "': " + mkdir_error.message());
     return false;
   }
   return true;
 }
 
-bool write_string_attribute(hid_t object, const char *name, std::string_view value,
-                            RunDiagnostic &diagnostic) {
+bool write_string_attribute(hid_t object, const char *name,
+                            std::string_view value, RunDiagnostic &diagnostic) {
   H5ScopedHandle type(H5Tcopy(H5T_C_S1), H5Tclose);
   if (!type.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
@@ -472,10 +478,9 @@ bool write_int_attribute(hid_t object, const char *name, int value,
     return false;
   }
 
-  H5ScopedHandle attribute(
-      H5Acreate2(object, name, H5T_NATIVE_INT, space.id, H5P_DEFAULT,
-                 H5P_DEFAULT),
-      H5Aclose);
+  H5ScopedHandle attribute(H5Acreate2(object, name, H5T_NATIVE_INT, space.id,
+                                      H5P_DEFAULT, H5P_DEFAULT),
+                           H5Aclose);
   if (!attribute.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 attribute");
@@ -498,10 +503,9 @@ bool write_double_scalar_dataset(hid_t group, const char *name, double value,
                                         "failed to create HDF5 scalar space");
     return false;
   }
-  H5ScopedHandle dataset(
-      H5Dcreate2(group, name, H5T_NATIVE_DOUBLE, space.id, H5P_DEFAULT,
-                 H5P_DEFAULT, H5P_DEFAULT),
-      H5Dclose);
+  H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_DOUBLE, space.id,
+                                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+                         H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
@@ -525,10 +529,9 @@ bool write_uint64_scalar_dataset(hid_t group, const char *name,
                                         "failed to create HDF5 scalar space");
     return false;
   }
-  H5ScopedHandle dataset(
-      H5Dcreate2(group, name, H5T_NATIVE_UINT64, space.id, H5P_DEFAULT,
-                 H5P_DEFAULT, H5P_DEFAULT),
-      H5Dclose);
+  H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_UINT64, space.id,
+                                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+                         H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
@@ -575,10 +578,9 @@ bool write_string_vector_dataset(hid_t group, const char *name,
     return false;
   }
 
-  H5ScopedHandle dataset(
-      H5Dcreate2(group, name, type.id, space.id, H5P_DEFAULT, H5P_DEFAULT,
-                 H5P_DEFAULT),
-      H5Dclose);
+  H5ScopedHandle dataset(H5Dcreate2(group, name, type.id, space.id, H5P_DEFAULT,
+                                    H5P_DEFAULT, H5P_DEFAULT),
+                         H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
@@ -587,8 +589,7 @@ bool write_string_vector_dataset(hid_t group, const char *name,
 
   std::vector<char> buffer(static_cast<std::size_t>(rows) * max_chars, '\0');
   for (std::size_t row = 0U; row < values.size(); ++row) {
-    const auto copy_count =
-        std::min(max_chars - 1U, values.at(row).size());
+    const auto copy_count = std::min(max_chars - 1U, values.at(row).size());
     std::copy_n(values.at(row).data(), static_cast<std::ptrdiff_t>(copy_count),
                 buffer.data() + static_cast<std::ptrdiff_t>(row * max_chars));
   }
@@ -615,19 +616,18 @@ bool write_double_vector_dataset(hid_t group, const char *name,
                                         "failed to create HDF5 vector space");
     return false;
   }
-  H5ScopedHandle dataset(
-      H5Dcreate2(group, name, H5T_NATIVE_DOUBLE, space.id, H5P_DEFAULT,
-                 H5P_DEFAULT, H5P_DEFAULT),
-      H5Dclose);
+  H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_DOUBLE, space.id,
+                                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+                         H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
     return false;
   }
   const double zero = 0.0;
-  const void *write_ptr =
-      values.empty() ? static_cast<const void *>(&zero)
-                     : static_cast<const void *>(values.data());
+  const void *write_ptr = values.empty()
+                              ? static_cast<const void *>(&zero)
+                              : static_cast<const void *>(values.data());
   if (H5Dwrite(dataset.id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                write_ptr) < 0) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
@@ -687,7 +687,8 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
   }
 
   if (!(write_string_attribute(metadata_group.id, "start_timestamp_utc",
-                               result.metadata.start_timestamp_utc, diagnostic) &&
+                               result.metadata.start_timestamp_utc,
+                               diagnostic) &&
         write_string_attribute(metadata_group.id, "end_timestamp_utc",
                                result.metadata.end_timestamp_utc, diagnostic) &&
         write_string_attribute(metadata_group.id, "hydro_provider_id",
@@ -707,14 +708,13 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
     return false;
   }
 
-  H5ScopedHandle normalized_group(
-      H5Gcreate2(metadata_group.id, "normalized_config", H5P_DEFAULT,
-                 H5P_DEFAULT, H5P_DEFAULT),
-      H5Gclose);
+  H5ScopedHandle normalized_group(H5Gcreate2(metadata_group.id,
+                                             "normalized_config", H5P_DEFAULT,
+                                             H5P_DEFAULT, H5P_DEFAULT),
+                                  H5Gclose);
   if (!normalized_group.valid()) {
     diagnostic = make_output_diagnostic(
-        "$.output.hdf5_path",
-        "failed to create HDF5 normalized_config group");
+        "$.output.hdf5_path", "failed to create HDF5 normalized_config group");
     return false;
   }
 
@@ -730,8 +730,8 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
     normalized_units.push_back(entry.unit);
   }
 
-  return write_string_vector_dataset(normalized_group.id, "key", normalized_keys,
-                                     diagnostic) &&
+  return write_string_vector_dataset(normalized_group.id, "key",
+                                     normalized_keys, diagnostic) &&
          write_string_vector_dataset(normalized_group.id, "value",
                                      normalized_values, diagnostic) &&
          write_string_vector_dataset(normalized_group.id, "unit",
@@ -747,8 +747,9 @@ struct Hdf5TimeSeriesChannels {
   std::vector<std::string> stroke_phase;
 };
 
-Hdf5TimeSeriesChannels collect_hdf5_time_series_channels(
-    const SimulationRunResult &result, bool high_frequency_time_series) {
+Hdf5TimeSeriesChannels
+collect_hdf5_time_series_channels(const SimulationRunResult &result,
+                                  bool high_frequency_time_series) {
   Hdf5TimeSeriesChannels channels;
   const auto indices = sample_indices(result, high_frequency_time_series);
   channels.time_s.reserve(indices.size());
@@ -767,9 +768,8 @@ Hdf5TimeSeriesChannels collect_hdf5_time_series_channels(
     channels.boat_speed_mps.push_back(speed);
     channels.hydro_force_x_n.push_back(loads.hydro_force_x_n);
     channels.aero_force_x_n.push_back(loads.aero_force_x_n);
-    channels.stroke_power_w.push_back((loads.hydro_force_x_n +
-                                       loads.aero_force_x_n) *
-                                      speed);
+    channels.stroke_power_w.push_back(
+        (loads.hydro_force_x_n + loads.aero_force_x_n) * speed);
     channels.stroke_phase.push_back(stroke_phase_text(state.stroke.phase));
   }
 
@@ -836,9 +836,9 @@ bool write_hdf5_file(const std::filesystem::path &path,
                      const SimulationRunResult & /*result*/,
                      bool /*high_frequency_time_series*/,
                      RunDiagnostic &diagnostic) {
-  diagnostic = make_output_diagnostic("$.output.hdf5_path",
-                                      "hdf5 output unavailable in this build: " +
-                                          path.string());
+  diagnostic = make_output_diagnostic(
+      "$.output.hdf5_path",
+      "hdf5 output unavailable in this build: " + path.string());
   return false;
 }
 
@@ -848,7 +848,8 @@ bool write_hdf5_file(const std::filesystem::path &path,
 
 bool hdf5_output_supported() noexcept { return build_has_hdf5_support(); }
 
-void emit_run_outputs(const SimulatorConfig &config, SimulationRunResult &result) {
+void emit_run_outputs(const SimulatorConfig &config,
+                      SimulationRunResult &result) {
   result.outputs.schema_version =
       config.output.emit_json && config.output.emit_hdf5
           ? std::string(OUTPUT_SCHEMA_VERSION) + "+" +
@@ -860,12 +861,14 @@ void emit_run_outputs(const SimulatorConfig &config, SimulationRunResult &result
   result.outputs.emit_json = config.output.emit_json;
   result.outputs.emit_hdf5 = config.output.emit_hdf5;
 
-  const auto summary_path = config.output.summary_path.empty()
-                                ? default_summary_path(config)
-                                : std::filesystem::path(config.output.summary_path);
-  const auto time_series_path = config.output.time_series_path.empty()
-                                    ? default_time_series_path(config)
-                                    : std::filesystem::path(config.output.time_series_path);
+  const auto summary_path =
+      config.output.summary_path.empty()
+          ? default_summary_path(config)
+          : std::filesystem::path(config.output.summary_path);
+  const auto time_series_path =
+      config.output.time_series_path.empty()
+          ? default_time_series_path(config)
+          : std::filesystem::path(config.output.time_series_path);
   const auto hdf5_path = config.output.hdf5_path.empty()
                              ? default_hdf5_path(config)
                              : std::filesystem::path(config.output.hdf5_path);
@@ -876,7 +879,8 @@ void emit_run_outputs(const SimulatorConfig &config, SimulationRunResult &result
 
   RunDiagnostic diagnostic;
   if (config.output.emit_json) {
-    if (write_json_file(summary_path, make_summary_document(result), diagnostic)) {
+    if (write_json_file(summary_path, make_summary_document(result),
+                        diagnostic)) {
       result.outputs.summary_written = true;
     } else {
       result.outputs.summary_written = false;
@@ -884,10 +888,10 @@ void emit_run_outputs(const SimulatorConfig &config, SimulationRunResult &result
       result.diagnostics.push_back(std::move(diagnostic));
     }
 
-    if (write_json_file(
-            time_series_path,
-            make_time_series_document(result, config.output.high_frequency_time_series),
-            diagnostic)) {
+    if (write_json_file(time_series_path,
+                        make_time_series_document(
+                            result, config.output.high_frequency_time_series),
+                        diagnostic)) {
       result.outputs.time_series_written = true;
     } else {
       result.outputs.time_series_written = false;
@@ -897,8 +901,8 @@ void emit_run_outputs(const SimulatorConfig &config, SimulationRunResult &result
   }
 
   if (config.output.emit_hdf5) {
-    if (write_hdf5_file(hdf5_path, result, config.output.high_frequency_time_series,
-                        diagnostic)) {
+    if (write_hdf5_file(hdf5_path, result,
+                        config.output.high_frequency_time_series, diagnostic)) {
       result.outputs.hdf5_written = true;
     } else {
       result.outputs.hdf5_written = false;

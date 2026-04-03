@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 ### Changed
+- Added the first `A-008` scenario-harness slice with a public
+  `scenario_harness` contract, checked-in passive-float and tow scenario
+  artifacts, deterministic acceptance-envelope evaluation, and new evidence
+  coverage (`D-023`, `D-024`, `UT-052..UT-070`, `QT-009..QT-011`) while
+  intentionally staging hydro behavior through deterministic placeholder
+  providers.
 - Completed the next `A-007` output slice and closed `R-015` with
   format-selectable machine-readable artifacts (`json`, `hdf5`, or both),
   deterministic JSON summary/time-series emission, optional HDF5 artifact

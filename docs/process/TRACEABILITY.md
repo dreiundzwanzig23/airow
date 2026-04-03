@@ -28,20 +28,20 @@
 | R-003 | DONE | A-002 | IN_PROGRESS | CODE | D-019 | — | IT-003, IT-004, IT-005, IT-006 | QT-005 |
 | R-003 | DONE | A-007 | IN_PROGRESS | CODE | D-021 | UT-034, UT-036, UT-037, UT-039, UT-040, UT-042, UT-043, UT-044, UT-045, UT-046, UT-047, UT-050, UT-051 | IT-007, IT-008 | QT-005 |
 | R-003 | DONE | A-007 | IN_PROGRESS | CODE | D-022 | UT-035, UT-038, UT-041, UT-048, UT-049 | IT-007, IT-008 | QT-005 |
-| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005, IT-006 | — |
-| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011, UT-013, UT-027, UT-033 | IT-003, IT-004, IT-005, IT-006 | — |
-| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010, UT-017, UT-026 | IT-003, IT-004, IT-005, IT-006 | — |
-| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005, IT-006 | — |
-| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012, UT-014, UT-015 | IT-003, IT-004, IT-005, IT-006 | — |
-| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-017 | UT-022, UT-025, UT-026 | IT-003, IT-004, IT-005, IT-006 | — |
-| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-019 | — | IT-003, IT-004, IT-005, IT-006 | — |
-| R-004 | OPEN | A-007 | IN_PROGRESS | CODE | D-021 | UT-034, UT-036, UT-037, UT-039, UT-040, UT-042, UT-043, UT-044, UT-045, UT-046, UT-047, UT-050, UT-051 | IT-007, IT-008 | — |
-| R-004 | OPEN | A-007 | IN_PROGRESS | CODE | D-022 | UT-035, UT-038, UT-041, UT-048, UT-049 | IT-007, IT-008 | — |
-| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-015 | UT-019, UT-020, UT-023 | IT-006 | — |
-| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-016 | UT-021, UT-023, UT-024 | IT-006 | — |
-| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-017 | UT-022, UT-025, UT-026 | IT-006 | — |
-| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-019 | — | IT-006 | — |
-| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-020 | — | IT-006 | — |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-010 | UT-008, UT-009 | IT-003, IT-004, IT-005, IT-006 | QT-011 |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-011 | UT-011, UT-013, UT-027, UT-033 | IT-003, IT-004, IT-005, IT-006 | QT-011 |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-012 | UT-009, UT-010, UT-017, UT-026 | IT-003, IT-004, IT-005, IT-006 | QT-011 |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-013 | UT-008 | IT-003, IT-004, IT-005, IT-006 | QT-011 |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-014 | UT-012, UT-014, UT-015 | IT-003, IT-004, IT-005, IT-006 | QT-011 |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-017 | UT-022, UT-025, UT-026 | IT-003, IT-004, IT-005, IT-006 | QT-011 |
+| R-004 | OPEN | A-002 | IN_PROGRESS | CODE | D-019 | — | IT-003, IT-004, IT-005, IT-006 | QT-011 |
+| R-004 | OPEN | A-007 | IN_PROGRESS | CODE | D-021 | UT-034, UT-036, UT-037, UT-039, UT-040, UT-042, UT-043, UT-044, UT-045, UT-046, UT-047, UT-050, UT-051 | IT-007, IT-008 | QT-011 |
+| R-004 | OPEN | A-007 | IN_PROGRESS | CODE | D-022 | UT-035, UT-038, UT-041, UT-048, UT-049 | IT-007, IT-008 | QT-011 |
+| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-015 | UT-019, UT-020, UT-023 | IT-006 | QT-011 |
+| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-016 | UT-021, UT-023, UT-024 | IT-006 | QT-011 |
+| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-017 | UT-022, UT-025, UT-026 | IT-006 | QT-011 |
+| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-019 | — | IT-006 | QT-011 |
+| R-004 | OPEN | A-010 | IN_PROGRESS | CODE | D-020 | — | IT-006 | QT-011 |
 | R-005 | IN_PROGRESS | A-003 | IN_PROGRESS | CODE | D-015 | UT-019, UT-020, UT-023 | IT-006 | — |
 | R-005 | IN_PROGRESS | A-003 | IN_PROGRESS | CODE | D-016 | UT-021, UT-023, UT-024 | IT-006 | — |
 | R-005 | IN_PROGRESS | A-003 | IN_PROGRESS | CODE | D-020 | — | IT-006 | — |
@@ -55,8 +55,8 @@
 | R-008 | IN_PROGRESS | A-003 | IN_PROGRESS | CODE | D-016 | UT-021, UT-023, UT-024 | IT-006 | — |
 | R-008 | IN_PROGRESS | A-003 | IN_PROGRESS | CODE | D-020 | — | IT-006 | — |
 | R-008 | IN_PROGRESS | A-006 | OPEN | CODE | — | — | — | — |
-| R-009 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
-| R-010 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
+| R-009 | IN_PROGRESS | A-004 | OPEN | CODE | — | — | — | QT-009 |
+| R-010 | IN_PROGRESS | A-004 | OPEN | CODE | — | — | — | QT-010 |
 | R-011 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
 | R-012 | OPEN | A-003 | IN_PROGRESS | CODE | D-015 | UT-019, UT-020, UT-023 | IT-006 | — |
 | R-012 | OPEN | A-003 | IN_PROGRESS | CODE | D-016 | UT-021, UT-023, UT-024 | IT-006 | — |
@@ -90,8 +90,10 @@
 | R-017 | OPEN | A-001 | IN_PROGRESS | CODE | D-008 | UT-001 | IT-001, IT-002 | — |
 | R-017 | OPEN | A-001 | IN_PROGRESS | CODE | D-009 | UT-007 | IT-001, IT-002 | — |
 | R-017 | OPEN | A-001 | IN_PROGRESS | CODE | D-018 | UT-018, UT-028, UT-029, UT-030, UT-031, UT-032 | IT-001, IT-002 | — |
-| R-018 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
-| R-019 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-018 | IN_PROGRESS | A-008 | IN_PROGRESS | CODE | D-023 | UT-052, UT-055, UT-056, UT-057, UT-060, UT-061, UT-062, UT-063, UT-068, UT-069, UT-070 | — | QT-009, QT-010, QT-011 |
+| R-018 | IN_PROGRESS | A-008 | IN_PROGRESS | CODE | D-024 | UT-053, UT-054, UT-058, UT-059, UT-064, UT-065, UT-066, UT-067 | — | QT-009, QT-010, QT-011 |
+| R-019 | OPEN | A-008 | IN_PROGRESS | CODE | D-023 | UT-052, UT-055, UT-056, UT-057, UT-060, UT-061, UT-062, UT-063, UT-068, UT-069, UT-070 | — | — |
+| R-019 | OPEN | A-008 | IN_PROGRESS | CODE | D-024 | UT-053, UT-054, UT-058, UT-059, UT-064, UT-065, UT-066, UT-067 | — | — |
 | R-020 | OPEN | A-001 | IN_PROGRESS | CODE | D-001 | UT-001, UT-002, UT-005, UT-007 | IT-001, IT-002 | — |
 | R-020 | OPEN | A-001 | IN_PROGRESS | CODE | D-002 | UT-001, UT-029 | IT-001, IT-002 | — |
 | R-020 | OPEN | A-001 | IN_PROGRESS | CODE | D-003 | UT-016 | IT-001, IT-002 | — |
@@ -157,7 +159,8 @@
 | R-024 | OPEN | A-002 | IN_PROGRESS | CODE | D-019 | — | IT-003, IT-004, IT-005, IT-006 | — |
 | R-024 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
 | R-024 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
-| R-024 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-024 | OPEN | A-008 | IN_PROGRESS | CODE | D-023 | UT-052, UT-055, UT-056, UT-057, UT-060, UT-061, UT-062, UT-063, UT-068, UT-069, UT-070 | — | — |
+| R-024 | OPEN | A-008 | IN_PROGRESS | CODE | D-024 | UT-053, UT-054, UT-058, UT-059, UT-064, UT-065, UT-066, UT-067 | — | — |
 | R-024 | OPEN | A-009 | OPEN | CODE | — | — | — | — |
 | R-025 | OPEN | A-001 | IN_PROGRESS | CODE | D-001 | UT-001, UT-002, UT-005, UT-007 | IT-001, IT-002 | — |
 | R-025 | OPEN | A-001 | IN_PROGRESS | CODE | D-002 | UT-001, UT-029 | IT-001, IT-002 | — |
@@ -178,7 +181,8 @@
 | R-025 | OPEN | A-002 | IN_PROGRESS | CODE | D-019 | — | IT-003, IT-004, IT-005, IT-006 | — |
 | R-025 | OPEN | A-007 | IN_PROGRESS | CODE | D-021 | UT-034, UT-036, UT-037, UT-039, UT-040, UT-042, UT-043, UT-044, UT-045, UT-046, UT-047, UT-050, UT-051 | IT-007, IT-008 | — |
 | R-025 | OPEN | A-007 | IN_PROGRESS | CODE | D-022 | UT-035, UT-038, UT-041, UT-048, UT-049 | IT-007, IT-008 | — |
-| R-026 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-026 | OPEN | A-008 | IN_PROGRESS | CODE | D-023 | UT-052, UT-055, UT-056, UT-057, UT-060, UT-061, UT-062, UT-063, UT-068, UT-069, UT-070 | — | — |
+| R-026 | OPEN | A-008 | IN_PROGRESS | CODE | D-024 | UT-053, UT-054, UT-058, UT-059, UT-064, UT-065, UT-066, UT-067 | — | — |
 | R-027 | OPEN | A-003 | IN_PROGRESS | CODE | D-015 | UT-019, UT-020, UT-023 | IT-006 | — |
 | R-027 | OPEN | A-003 | IN_PROGRESS | CODE | D-016 | UT-021, UT-023, UT-024 | IT-006 | — |
 | R-027 | OPEN | A-003 | IN_PROGRESS | CODE | D-020 | — | IT-006 | — |
@@ -208,7 +212,8 @@
 | R-029 | OPEN | A-001 | IN_PROGRESS | CODE | D-018 | UT-018, UT-028, UT-029, UT-030, UT-031, UT-032 | IT-001, IT-002 | — |
 | R-029 | OPEN | A-004 | OPEN | CODE | — | — | — | — |
 | R-029 | OPEN | A-005 | OPEN | CODE | — | — | — | — |
-| R-029 | OPEN | A-008 | OPEN | CODE | — | — | — | — |
+| R-029 | OPEN | A-008 | IN_PROGRESS | CODE | D-023 | UT-052, UT-055, UT-056, UT-057, UT-060, UT-061, UT-062, UT-063, UT-068, UT-069, UT-070 | — | — |
+| R-029 | OPEN | A-008 | IN_PROGRESS | CODE | D-024 | UT-053, UT-054, UT-058, UT-059, UT-064, UT-065, UT-066, UT-067 | — | — |
 | R-030 | OPEN | A-001 | IN_PROGRESS | CODE | D-001 | UT-001, UT-002, UT-005, UT-007 | IT-001, IT-002 | — |
 | R-030 | OPEN | A-001 | IN_PROGRESS | CODE | D-002 | UT-001, UT-029 | IT-001, IT-002 | — |
 | R-030 | OPEN | A-001 | IN_PROGRESS | CODE | D-003 | UT-016 | IT-001, IT-002 | — |
@@ -394,7 +399,7 @@ force/power accounting channels, deterministic sampling policy, and stable
 diagnostics when requested formats are unavailable.
 
 ### A-008 — Scenario definition and validation subsystem
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Evidence Profile**: CODE
 - **Satisfies**: [R-018, R-019, R-024, R-026, R-029]
 - **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
@@ -406,7 +411,11 @@ diagnostics when requested formats are unavailable.
 - **Invariants**: Named baseline scenarios remain headlessly runnable; acceptance checks are deterministic; quick verification lanes stay independent of optional high-fidelity tooling.
 - **Allocation Rationale**: Gives validation and scenario ownership one stable home instead of scattering it across tests, scripts, and individual feature requirements.
 - **Future Absorption**: Expanded scenario catalogs, acceptance dashboards, and protected characterization suites should extend this subsystem.
-- **Interfaces**: Planned scenario manifest contract and acceptance-evaluation contract.
+- **Interfaces**: Public scenario-harness contract in
+`include/project/orchestrator/scenario_harness.hpp` for deterministic
+checked-in scenario definition loading and acceptance-envelope evaluation
+against runtime results, with first passive-float and tow scenario artifacts
+under `scenarios/`.
 
 ### A-009 — External calibration and artifact integration subsystem
 - **Status**: OPEN

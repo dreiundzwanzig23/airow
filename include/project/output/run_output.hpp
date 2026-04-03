@@ -6,6 +6,7 @@
 namespace project {
 [[nodiscard]] bool hdf5_output_supported() noexcept;
 
-void emit_run_outputs(const SimulatorConfig &config, SimulationRunResult &result);
+void emit_run_outputs(const SimulatorConfig &config,
+                      SimulationRunResult &result);
 
 } // namespace project
