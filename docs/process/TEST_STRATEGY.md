@@ -59,7 +59,8 @@ runtime implementation exists.
 - `./scripts/test.sh` is required before completion.
 - `./scripts/test_tdd.sh` is for fast local iteration only.
 - `./scripts/test.sh` now includes the auxiliary tooling-contract lane, a
-  dedicated sanitized build or run lane, and coverage gates on `src/lib/**`.
+  dedicated sanitized build or run lane, and coverage gates on `src/lib/**`
+  at 90% region coverage and 80% branch coverage.
 
 ## Optional/Specialized Lanes
 - Auxiliary script/tool contracts: `./scripts/test_aux.sh`

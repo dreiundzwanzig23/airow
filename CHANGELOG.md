@@ -24,6 +24,9 @@
   hardening (`-fno-omit-frame-pointer`, stdlib assertions), explicit CTest
   timeouts, a dedicated sanitized preset or lane, and an auxiliary tooling
   contract check.
+- Raised the `src/lib/**` unit coverage gates to 90% region coverage and 80%
+  branch coverage and added the missing unit-path tests needed to sustain the
+  stricter baseline.
 - Expanded the simulator trace surface to `D-001..D-014`,
   `UT-001..UT-012`, `IT-001..IT-005`, and `QT-001..QT-005`.
 - Added the first real simulator trace evidence: `D-001..D-009`,

@@ -5,8 +5,8 @@ command -v llvm-cov >/dev/null 2>&1 || { echo >&2 "llvm-cov not found"; exit 1; 
 command -v llvm-profdata >/dev/null 2>&1 || { echo >&2 "llvm-profdata not found"; exit 1; }
 
 coverage_scope="${COVERAGE_SCOPE:-tdd}"
-coverage_min_region="${COVERAGE_MIN_REGION:-80}"
-coverage_min_branch="${COVERAGE_MIN_BRANCH:-71}"
+coverage_min_region="${COVERAGE_MIN_REGION:-90}"
+coverage_min_branch="${COVERAGE_MIN_BRANCH:-80}"
 coverage_build_dir="${COVERAGE_BUILD_DIR:-build-coverage}"
 coverage_cmake_preset="${COVERAGE_CMAKE_PRESET:-coverage-clang-libcxx}"
 coverage_profile_dir="${coverage_build_dir}/profiles"

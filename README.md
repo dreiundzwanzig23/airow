@@ -187,7 +187,7 @@ Maintenance commands:
   agent-facing code quality issues.
 - `./scripts/test.sh`: full validation now includes auxiliary tooling
   contracts, a dedicated sanitized runtime lane, and unit coverage over
-  `src/lib/**`.
+  `src/lib/**` with stricter 90% region and 80% branch gates.
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
   `src/lib/**`.
 - `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction

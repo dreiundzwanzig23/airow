@@ -169,6 +169,24 @@ TEST(SimulatorConfig, RejectsInvalidNumericValues) {
     EXPECT_EQ(result.diagnostics.front().code, "invalid_numeric_literal");
     EXPECT_EQ(result.diagnostics.front().path, "$.simulation.time_step_s");
   }
+
+  {
+    const auto result = project::parse_simulator_config_text(R"({
+      "config_id": "baseline-single-scull",
+      "simulation": {
+        "duration_s": 120.0,
+        "time_step_s": 0.01
+      },
+      "hull": {
+        "mass_kg": -Infinity
+      }
+    })");
+
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.diagnostics.size(), 1U);
+    EXPECT_EQ(result.diagnostics.front().code, "invalid_numeric_literal");
+    EXPECT_EQ(result.diagnostics.front().path, "$.hull.mass_kg");
+  }
 }
 
 /**
@@ -263,6 +281,22 @@ TEST(SimulatorConfig, RejectsInvalidObjectStructureAndZeroStepSize) {
     EXPECT_EQ(result.diagnostics.front().code, "invalid_numeric_value");
     EXPECT_EQ(result.diagnostics.front().path, "$.simulation.time_step_s");
   }
+
+  {
+    const auto result = project::parse_simulator_config_text(R"({
+      "config_id": "baseline-single-scull",
+      "simulation": {
+        "duration_s": 120.0,
+        "time_step_s": 0.01
+      },
+      "hull": "not-an-object"
+    })");
+
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.diagnostics.size(), 1U);
+    EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
+    EXPECT_EQ(result.diagnostics.front().path, "$.hull");
+  }
 }
 
 /**
@@ -304,5 +338,17 @@ TEST(SimulatorConfig, LoadsFromFileOrReportsIoError) {
     ASSERT_TRUE(result.config.has_value());
     EXPECT_EQ(result.config->config_id, "unit-file");
     EXPECT_EQ(result.normalized_config.size(), 4U);
+  }
+
+  {
+    const auto path = write_temp_file("airow-unit-empty-config.json", "");
+
+    const auto result = project::load_simulator_config_file(path);
+    remove_file_if_present(path);
+
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.diagnostics.size(), 1U);
+    EXPECT_EQ(result.diagnostics.front().code, "parse_error");
+    EXPECT_EQ(result.diagnostics.front().path, "$");
   }
 }
