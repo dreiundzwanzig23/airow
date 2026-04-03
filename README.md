@@ -91,6 +91,11 @@ Dedicated sanitized test lane:
 ./scripts/test_sanitized.sh
 ```
 
+Dedicated GCC portability lane:
+```bash
+./scripts/test_gcc.sh
+```
+
 Auxiliary script/tool contracts:
 ```bash
 ./scripts/test_aux.sh
@@ -183,11 +188,15 @@ Maintenance commands:
 - `./scripts/lint.sh`: strict `clang-tidy` and `lizard` gates over the current
   `src/` translation-unit tree, including newly added source files, with
   aligned naming and function-size thresholds plus stronger guidance checks for
-  const-correctness, braces, magic numbers, declaration isolation, and related
-  agent-facing code quality issues.
+  const-correctness, braces, magic numbers, declaration isolation,
+  LLVM-native include-cleaner coverage, and related agent-facing code quality
+  issues.
 - `./scripts/test.sh`: full validation now includes auxiliary tooling
-  contracts, a dedicated sanitized runtime lane, and unit coverage over
-  `src/lib/**` with stricter 90% region and 80% branch gates.
+  contracts, a dedicated sanitized runtime lane, a dedicated GCC portability
+  lane, and unit coverage over `src/lib/**` with stricter 90% region and 80%
+  branch gates.
+- `./scripts/test_aux.sh`: auxiliary coverage now includes tooling contracts,
+  and public-header self-containment compilation.
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
   `src/lib/**`.
 - `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction

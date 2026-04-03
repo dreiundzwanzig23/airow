@@ -127,10 +127,21 @@ if(BUILD_TESTING)
     enable_sanitizers(project_tests_system)
     target_compile_definitions(project_tests_system PRIVATE PROJECT_APP_PATH="$<TARGET_FILE:project_app>")
 
+    add_executable(project_tests_aux_headers
+        tests/aux/header_self_containment_main.cpp
+        tests/aux/include_cli.cpp
+        tests/aux/include_simulation_run.cpp
+        tests/aux/include_simulator_config.cpp
+    )
+    target_link_libraries(project_tests_aux_headers PRIVATE project_lib)
+    set_project_warnings(project_tests_aux_headers)
+    enable_sanitizers(project_tests_aux_headers)
+
     include(GoogleTest)
     gtest_add_tests(TARGET project_tests_unit TEST_LIST unit_tests_list)
     gtest_add_tests(TARGET project_tests_integration TEST_LIST integration_tests_list)
     gtest_add_tests(TARGET project_tests_system TEST_LIST system_tests_list)
+    add_test(NAME project_tests_aux_headers COMMAND project_tests_aux_headers)
 
     set_tests_properties(
         ${unit_tests_list}
@@ -151,6 +162,13 @@ if(BUILD_TESTING)
         PROPERTIES
             LABELS "system"
             TIMEOUT 60
+            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+    )
+    set_tests_properties(
+        project_tests_aux_headers
+        PROPERTIES
+            LABELS "aux"
+            TIMEOUT 15
             ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
     )
 endif()

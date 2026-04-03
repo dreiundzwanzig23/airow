@@ -41,8 +41,9 @@
   wrapper.
 - The validation baseline is now stricter at the tool level: stronger
   compiler-warning flags, enabled debug hardening, explicit CTest timeouts,
-  an auxiliary tooling-contract check, and a dedicated sanitized lane inside
-  the full test gate.
+  an auxiliary tooling-contract check, public-header self-containment
+  compilation, LLVM-native include-cleaner coverage in `clang-tidy`, and
+  dedicated sanitized plus GCC lanes inside the full test gate.
 - Traceability supports auxiliary tests and stronger evidence validation.
 - Test strategy guidance now explicitly distinguishes subsystem-contract
   `IT-*`, scenario-oriented `QT-*`, and characterization coverage for major
@@ -65,6 +66,4 @@
    assembly behind the current orchestrator seam.
 2. Expand the configuration schema only as needed for mechanics assembly and
    startup-validity work, keeping `A-001` separate from runtime logic.
-3. Start the first baseline output and scenario evidence work once mechanics
-   state exists, then clear or confirm the remaining `Needs-Review: yes`
-   backlog items.
+3. Start the first baseline output and scenario evidence work once mechanics state exists, then clear or confirm the remaining `Needs-Review: yes` backlog items.

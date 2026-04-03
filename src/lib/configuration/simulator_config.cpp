@@ -1,12 +1,18 @@
 #include "project/configuration/simulator_config.hpp"
 
+#include <cctype>
 #include <cmath>
+#include <cstddef>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <ios>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -14,7 +20,7 @@ namespace project {
 
 namespace {
 
-using Json = nlohmann::ordered_json;
+using Json = nlohmann::basic_json<>;
 
 struct NumericFieldSpec {
   std::string_view key;

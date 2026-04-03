@@ -43,6 +43,12 @@ def main() -> int:
         raise AssertionError("missing build preset sanitized-clang-libcxx")
     if "sanitized-clang-libcxx" not in test_names:
         raise AssertionError("missing test preset sanitized-clang-libcxx")
+    if "gcc" not in configure_names:
+        raise AssertionError("missing configure preset gcc")
+    if "gcc" not in build_names:
+        raise AssertionError("missing build preset gcc")
+    if "gcc" not in test_names:
+        raise AssertionError("missing test preset gcc")
 
     for preset_name in ("release", "release-clang-libcxx"):
         if preset_name not in test_names:
@@ -50,10 +56,16 @@ def main() -> int:
 
     test_script = (ROOT / "scripts" / "test.sh").read_text(encoding="utf-8")
     require_contains(test_script, "./scripts/test_sanitized.sh", "sanitized test lane hook")
+    require_contains(test_script, "./scripts/test_gcc.sh", "GCC test lane hook")
+
+    clang_tidy = (ROOT / ".clang-tidy").read_text(encoding="utf-8")
+    require_contains(clang_tidy, "misc-include-cleaner", "clang-tidy include-cleaner check")
 
     cmake_lists = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
     for timeout in ("TIMEOUT 30", "TIMEOUT 45", "TIMEOUT 60"):
         require_contains(cmake_lists, timeout, "CTest timeout")
+    require_contains(cmake_lists, "project_tests_aux_headers", "aux header self-containment target")
+    require_contains(cmake_lists, 'LABELS "aux"', "aux CTest label")
 
     print("Tooling contracts OK")
     return 0

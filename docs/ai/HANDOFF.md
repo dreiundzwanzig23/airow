@@ -17,8 +17,9 @@
 - Expanded simulator trace evidence through `D-014`, `UT-012`, `IT-005`, and
   `QT-005`.
 - Tightened the tooling baseline with stronger compiler warnings, debug
-  hardening, explicit test timeouts, a sanitized preset or lane, and an
-  auxiliary tooling-contract check.
+  hardening, explicit test timeouts, sanitized and GCC lanes, an auxiliary
+  tooling-contract check, public-header self-containment compilation, and
+  LLVM-native include-cleaner coverage in the default lint path.
 
 ## Current Technical Posture
 - The repository now has a real simulator architecture ownership surface in

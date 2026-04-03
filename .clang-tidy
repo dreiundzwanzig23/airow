@@ -6,6 +6,7 @@ Checks: >
   bugprone-branch-clone,
   performance-*,
   misc-definitions-in-headers,
+  misc-include-cleaner,
   misc-unused-parameters,
   misc-const-correctness,
   readability-braces-around-statements,

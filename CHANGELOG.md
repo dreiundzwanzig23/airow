@@ -24,6 +24,10 @@
   hardening (`-fno-omit-frame-pointer`, stdlib assertions), explicit CTest
   timeouts, a dedicated sanitized preset or lane, and an auxiliary tooling
   contract check.
+- Added a dedicated GCC portability lane, public-header self-containment aux
+  compilation, and LLVM-native `misc-include-cleaner` coverage in
+  `clang-tidy` so include drift and compiler-specific regressions are caught
+  earlier in the local workflow without a separate IWYU lane.
 - Raised the `src/lib/**` unit coverage gates to 90% region coverage and 80%
   branch coverage and added the missing unit-path tests needed to sustain the
   stricter baseline.
