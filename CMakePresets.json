@@ -70,6 +70,23 @@
         "ENABLE_ASAN": "OFF",
         "ENABLE_UBSAN": "OFF"
       }
+    },
+    {
+      "name": "sanitized-clang-libcxx",
+      "displayName": "Sanitized (Clang + libc++)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-sanitized",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+        "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++",
+        "ENABLE_COVERAGE": "OFF",
+        "ENABLE_ASAN": "ON",
+        "ENABLE_UBSAN": "ON",
+        "ENABLE_TSAN": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -102,6 +119,11 @@
       "name": "coverage-clang-libcxx",
       "configurePreset": "coverage-clang-libcxx",
       "configuration": "Debug"
+    },
+    {
+      "name": "sanitized-clang-libcxx",
+      "configurePreset": "sanitized-clang-libcxx",
+      "configuration": "Debug"
     }
   ],
   "testPresets": [
@@ -129,6 +151,27 @@
     {
       "name": "coverage-clang-libcxx",
       "configurePreset": "coverage-clang-libcxx",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release-clang-libcxx",
+      "configurePreset": "release-clang-libcxx",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "sanitized-clang-libcxx",
+      "configurePreset": "sanitized-clang-libcxx",
       "output": {
         "outputOnFailure": true
       }

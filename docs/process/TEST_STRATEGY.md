@@ -58,10 +58,12 @@ runtime implementation exists.
 ## Required Gates
 - `./scripts/test.sh` is required before completion.
 - `./scripts/test_tdd.sh` is for fast local iteration only.
-- Coverage gates on `src/lib/**` are enforced by test scripts.
+- `./scripts/test.sh` now includes the auxiliary tooling-contract lane, a
+  dedicated sanitized build or run lane, and coverage gates on `src/lib/**`.
 
 ## Optional/Specialized Lanes
 - Auxiliary script/tool contracts: `./scripts/test_aux.sh`
+- Dedicated sanitized runtime lane: `./scripts/test_sanitized.sh`
 - Regression lane: `./scripts/regression.sh`
 - Aggregate verification: `./scripts/verify.sh`
 

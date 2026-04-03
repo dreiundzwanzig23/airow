@@ -20,9 +20,9 @@ if [ "$default_jobs" -gt 8 ]; then
 fi
 jobs="${LINT_JOBS:-$default_jobs}"
 scope="${LINT_SCOPE:-all}"
-lizard_ccn_threshold="${LIZARD_CCN_THRESHOLD:-20}"
-lizard_function_length_threshold="${LIZARD_FUNCTION_LENGTH_THRESHOLD:-150}"
-lizard_parameter_threshold="${LIZARD_PARAMETER_THRESHOLD:-8}"
+lizard_ccn_threshold="${LIZARD_CCN_THRESHOLD:-15}"
+lizard_function_length_threshold="${LIZARD_FUNCTION_LENGTH_THRESHOLD:-120}"
+lizard_parameter_threshold="${LIZARD_PARAMETER_THRESHOLD:-7}"
 lizard_whitelist="${LIZARD_WHITELIST:-tools/lizard_whitelist.txt}"
 
 if ! [[ "$jobs" =~ ^[0-9]+$ ]] || [ "$jobs" -lt 1 ]; then

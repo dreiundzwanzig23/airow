@@ -39,6 +39,10 @@
   the compiled code path.
 - Validation scripts emit compact logs and JSON summaries through a shared
   wrapper.
+- The validation baseline is now stricter at the tool level: stronger
+  compiler-warning flags, enabled debug hardening, explicit CTest timeouts,
+  an auxiliary tooling-contract check, and a dedicated sanitized lane inside
+  the full test gate.
 - Traceability supports auxiliary tests and stronger evidence validation.
 - Test strategy guidance now explicitly distinguishes subsystem-contract
   `IT-*`, scenario-oriented `QT-*`, and characterization coverage for major

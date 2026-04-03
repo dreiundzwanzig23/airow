@@ -12,8 +12,8 @@ namespace project {
 
 namespace {
 
-constexpr std::string_view kDefaultHydroProviderId = "baseline-null-hydro";
-constexpr std::string_view kDefaultAeroProviderId = "baseline-null-aero";
+constexpr std::string_view DEFAULT_HYDRO_PROVIDER_ID = "baseline-null-hydro";
+constexpr std::string_view DEFAULT_AERO_PROVIDER_ID = "baseline-null-aero";
 
 #ifndef PROJECT_VERSION_STRING
 #define PROJECT_VERSION_STRING "0.0.0"
@@ -35,7 +35,6 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
     const auto time_value = std::chrono::system_clock::to_time_t(instant);
     std::tm utc_time{};
     gmtime_r(&time_value, &utc_time);
-
     std::ostringstream stream;
     stream << std::put_time(&utc_time, "%Y-%m-%dT%H:%M:%SZ");
     return stream.str();
@@ -60,13 +59,12 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
   result.metadata.hydro_provider_id =
       dependencies.hydro_provider != nullptr
           ? std::string(dependencies.hydro_provider->identifier())
-          : std::string(kDefaultHydroProviderId);
+          : std::string(DEFAULT_HYDRO_PROVIDER_ID);
   result.metadata.aero_provider_id =
       dependencies.aero_provider != nullptr
           ? std::string(dependencies.aero_provider->identifier())
-          : std::string(kDefaultAeroProviderId);
+          : std::string(DEFAULT_AERO_PROVIDER_ID);
   result.metadata.normalized_config = normalize_simulator_config(config);
-
   auto fail_runtime = [&](std::string subsystem, std::string path,
                           std::string code, std::string message) {
     result.status = RunStatus::runtime_error;
@@ -77,10 +75,8 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
         .message = std::move(message),
     });
   };
-
   double simulated_time_s = 0.0;
   std::uint64_t executed_step_count = 0;
-
   /**
    * @design D-012 — Provider sampling and runtime-failure handling
    * @title Deterministic hydro and aero provider invocation with stable faults
@@ -166,7 +162,6 @@ run_simulation_from_config_file(const std::filesystem::path &path,
     const auto time_value = std::chrono::system_clock::to_time_t(instant);
     std::tm utc_time{};
     gmtime_r(&time_value, &utc_time);
-
     std::ostringstream stream;
     stream << std::put_time(&utc_time, "%Y-%m-%dT%H:%M:%SZ");
     return stream.str();

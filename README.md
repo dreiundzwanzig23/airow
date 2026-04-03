@@ -86,6 +86,11 @@ Standard full local testing:
 ./scripts/test.sh
 ```
 
+Dedicated sanitized test lane:
+```bash
+./scripts/test_sanitized.sh
+```
+
 Auxiliary script/tool contracts:
 ```bash
 ./scripts/test_aux.sh
@@ -176,7 +181,13 @@ Maintenance commands:
 ## Gate Highlights
 
 - `./scripts/lint.sh`: strict `clang-tidy` and `lizard` gates over the current
-  `src/` translation-unit tree, including newly added source files.
+  `src/` translation-unit tree, including newly added source files, with
+  aligned naming and function-size thresholds plus stronger guidance checks for
+  const-correctness, braces, magic numbers, declaration isolation, and related
+  agent-facing code quality issues.
+- `./scripts/test.sh`: full validation now includes auxiliary tooling
+  contracts, a dedicated sanitized runtime lane, and unit coverage over
+  `src/lib/**`.
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
   `src/lib/**`.
 - `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction

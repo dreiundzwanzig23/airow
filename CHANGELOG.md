@@ -14,6 +14,16 @@
 - Tightened `./scripts/lint.sh` so the `all` scope discovers translation units
   from the filesystem under `src/` instead of only from tracked git entries,
   making newly added source files part of the immediate lint feedback loop.
+- Enabled the configured identifier-naming checks in `.clang-tidy` and aligned
+  the `lizard` structural thresholds with the active function-size policy.
+- Added high-signal `clang-tidy` guidance checks for braces, const-correctness,
+  member-function constness, magic numbers, special member functions, branch
+  clone detection, and declaration isolation.
+- Tightened compiler and test policy with stronger warning flags
+  (`-Wshadow`, conversion-family warnings, `-Wnon-virtual-dtor`), debug
+  hardening (`-fno-omit-frame-pointer`, stdlib assertions), explicit CTest
+  timeouts, a dedicated sanitized preset or lane, and an auxiliary tooling
+  contract check.
 - Expanded the simulator trace surface to `D-001..D-014`,
   `UT-001..UT-012`, `IT-001..IT-005`, and `QT-001..QT-005`.
 - Added the first real simulator trace evidence: `D-001..D-009`,

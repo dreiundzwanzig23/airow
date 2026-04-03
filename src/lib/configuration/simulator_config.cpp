@@ -21,11 +21,15 @@ struct NumericFieldSpec {
   std::string_view path;
 };
 
-constexpr NumericFieldSpec kNumericFields[] = {
+constexpr NumericFieldSpec NUMERIC_FIELDS[] = {
     {"duration_s", "$.simulation.duration_s"},
     {"time_step_s", "$.simulation.time_step_s"},
     {"mass_kg", "$.hull.mass_kg"},
 };
+constexpr int NORMALIZED_DOUBLE_PRECISION = 15;
+constexpr std::size_t NAN_LITERAL_LENGTH = 3;
+constexpr std::size_t INFINITY_LITERAL_LENGTH = 8;
+constexpr std::size_t NEGATIVE_INFINITY_LITERAL_LENGTH = 9;
 
 ValidationDiagnostic make_error(std::string code, std::string path,
                                 std::string message) {
@@ -46,7 +50,8 @@ LoadSimulatorConfigResult fail_with(ValidationDiagnostic diagnostic) {
 
 std::string format_normalized_double(double value) {
   std::ostringstream stream;
-  stream << std::setprecision(15) << std::defaultfloat << value;
+  stream << std::setprecision(NORMALIZED_DOUBLE_PRECISION) << std::defaultfloat
+         << value;
   auto text = stream.str();
   const auto exponent = text.find_first_of("eE");
   if (exponent != std::string::npos) {
@@ -72,7 +77,7 @@ std::string format_normalized_double(double value) {
  */
 std::optional<ValidationDiagnostic>
 find_invalid_numeric_literal(std::string_view text) {
-  for (const auto &field : kNumericFields) {
+  for (const auto &field : NUMERIC_FIELDS) {
     const auto key_token = std::string("\"") + std::string(field.key) + "\"";
     const auto key_pos = text.find(key_token);
     if (key_pos == std::string_view::npos) {
@@ -89,15 +94,16 @@ find_invalid_numeric_literal(std::string_view text) {
       ++value_pos;
     }
 
-    if (text.substr(value_pos, 3) == "NaN") {
+    if (text.substr(value_pos, NAN_LITERAL_LENGTH) == "NaN") {
       return make_error("invalid_numeric_literal", std::string(field.path),
                         "invalid numeric literal NaN");
     }
-    if (text.substr(value_pos, 8) == "Infinity") {
+    if (text.substr(value_pos, INFINITY_LITERAL_LENGTH) == "Infinity") {
       return make_error("invalid_numeric_literal", std::string(field.path),
                         "invalid numeric literal Infinity");
     }
-    if (text.substr(value_pos, 9) == "-Infinity") {
+    if (text.substr(value_pos, NEGATIVE_INFINITY_LITERAL_LENGTH) ==
+        "-Infinity") {
       return make_error("invalid_numeric_literal", std::string(field.path),
                         "invalid numeric literal -Infinity");
     }
@@ -314,7 +320,7 @@ parse_simulator_config_text(std::string_view json_text,
  */
 LoadSimulatorConfigResult
 load_simulator_config_file(const std::filesystem::path &path) {
-  std::ifstream input(path, std::ios::binary);
+  const std::ifstream input(path, std::ios::binary);
   if (!input) {
     return fail_with(
         make_error("io_error", "$",

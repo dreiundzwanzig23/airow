@@ -136,18 +136,21 @@ if(BUILD_TESTING)
         ${unit_tests_list}
         PROPERTIES
             LABELS "unit"
+            TIMEOUT 30
             ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
     )
     set_tests_properties(
         ${integration_tests_list}
         PROPERTIES
             LABELS "integration"
+            TIMEOUT 45
             ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
     )
     set_tests_properties(
         ${system_tests_list}
         PROPERTIES
             LABELS "system"
+            TIMEOUT 60
             ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
     )
 endif()
