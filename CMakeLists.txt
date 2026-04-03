@@ -51,6 +51,7 @@ include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
     src/lib/configuration/simulator_config.cpp
+    src/lib/numerics/state_advancement.cpp
     src/lib/orchestrator/cli.cpp
     src/lib/orchestrator/simulation_run.cpp
 )
@@ -103,8 +104,11 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
 
     add_executable(project_tests_unit
+        tests/unit/test_state_advancement.cpp
         tests/unit/test_simulator_config.cpp
+        tests/unit/test_simulator_config_mechanics.cpp
         tests/unit/test_simulation_run.cpp
+        tests/unit/test_simulation_run_advancer.cpp
     )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_unit)
@@ -130,6 +134,9 @@ if(BUILD_TESTING)
     add_executable(project_tests_aux_headers
         tests/aux/header_self_containment_main.cpp
         tests/aux/include_cli.cpp
+        tests/aux/include_geometry.cpp
+        tests/aux/include_mechanics_state.cpp
+        tests/aux/include_state_advancement.cpp
         tests/aux/include_simulation_run.cpp
         tests/aux/include_simulator_config.cpp
     )

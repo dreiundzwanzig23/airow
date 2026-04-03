@@ -30,6 +30,7 @@ COMPONENT_PREFIXES = {
     "calibration": ("include/project/calibration/", "src/lib/calibration/"),
 }
 COMPONENT_ARCHITECTURE = {
+    "core": "A-003",
     "configuration": "A-001",
     "orchestrator": "A-002",
     "mechanics": "A-003",

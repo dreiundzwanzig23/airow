@@ -28,6 +28,10 @@ execution playbooks are in skills.
 - Keep `@test` IDs unique and `@verifies` same-layer.
 - One-or-more same-layer references per test block are allowed.
 - Keep unit tests behavior-focused rather than integration-heavy.
+- Keep unit test files intentionally small by default:
+  - max `900` lines per file,
+  - max `14` `TEST*` cases per file,
+  - use per-file overrides only with explicit rationale.
 - Keep tests independent of implementation backdoors such as private-public
   access hacks, `FRIEND_TEST`, implementation-file includes, wall-clock reads,
   and sleep-based timing.
@@ -65,7 +69,7 @@ runtime implementation exists.
   dedicated sanitized build or run lane, a dedicated GCC portability lane,
   a dedicated test-quality lint lane with tighter test-only limits, and
   coverage gates on `src/lib/**` at 90% region coverage and 80% branch
-  coverage.
+  coverage plus changed-file coverage regression ratchets.
 
 ## Optional/Specialized Lanes
 - Auxiliary script/tool contracts and header self-containment:

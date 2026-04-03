@@ -29,8 +29,94 @@ project::SimulatorConfig make_config(double duration_s = 1.0,
       .hull =
           {
               .mass_kg = 14.0,
+              .center_of_mass_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2},
+              .initial_position_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .initial_orientation_xyzw =
+                  {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
+              .initial_linear_velocity_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .initial_angular_velocity_radps = {.x = 0.0, .y = 0.0, .z = 0.0},
+          },
+      .oars =
+          {
+              .port =
+                  {
+                      .inboard_length_m = 0.88,
+                      .outboard_length_m = 1.98,
+                      .oarlock_position_m = {.x = 0.25, .y = -0.82, .z = 0.18},
+                  },
+              .starboard =
+                  {
+                      .inboard_length_m = 0.88,
+                      .outboard_length_m = 1.98,
+                      .oarlock_position_m = {.x = 0.25, .y = 0.82, .z = 0.18},
+                  },
+          },
+      .seat =
+          {
+              .rail_axis = {.x = 1.0, .y = 0.0, .z = 0.0},
+              .min_position_m = -0.4,
+              .max_position_m = 0.4,
+              .initial_position_m = 0.0,
+          },
+      .stroke =
+          {
+              .cycle_duration_s = 1.2,
+              .drive_duration_s = 0.48,
+              .catch_angle_rad = -0.9,
+              .release_angle_rad = 0.6,
           },
   };
+}
+
+std::string make_valid_config_json(std::string_view config_id,
+                                   double duration_s = 1.0,
+                                   double time_step_s = 0.5) {
+  std::ostringstream stream;
+  stream << R"({
+        "config_id": ")"
+         << config_id << R"(",
+        "simulation": {
+          "duration_s": )"
+         << duration_s << R"(,
+          "time_step_s": )"
+         << time_step_s << R"(
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        }
+      })";
+  return stream.str();
 }
 
 std::filesystem::path write_temp_file(const std::string &file_name,
@@ -158,8 +244,8 @@ public:
  * @test UT-008
  * @verifies [D-010, D-013]
  * @notes Given a validated config and fixed runtime dependencies, when the
- * in-memory run API executes, then it returns deterministic metadata, zeroed
- * baseline summary metrics, and no diagnostics.
+ * in-memory run API executes, then it returns deterministic metadata,
+ * startup-validity metadata, mechanics state history, and no diagnostics.
  */
 TEST(SimulationRun, ReturnsDeterministicMetadataAndSummary) {
   FixedClock clock(
@@ -178,10 +264,19 @@ TEST(SimulationRun, ReturnsDeterministicMetadataAndSummary) {
   EXPECT_FALSE(result.metadata.simulator_version.empty());
   EXPECT_EQ(result.metadata.hydro_provider_id, "baseline-null-hydro");
   EXPECT_EQ(result.metadata.aero_provider_id, "baseline-null-aero");
+  EXPECT_EQ(result.metadata.state_advancer_id,
+            "deterministic-baseline-state-advancer");
+  EXPECT_EQ(result.metadata.startup_status, "success");
+  EXPECT_EQ(result.metadata.startup_solver_status, "deterministic-baseline");
   EXPECT_EQ(result.summary.final_simulated_time_s, 1.0);
   EXPECT_EQ(result.summary.executed_step_count, 4ULL);
   EXPECT_DOUBLE_EQ(result.summary.distance_m, 0.0);
   EXPECT_DOUBLE_EQ(result.summary.mean_speed_mps, 0.0);
+  ASSERT_EQ(result.state_history.size(), 5U);
+  EXPECT_EQ(result.state_history.front().time_s, 0.0);
+  EXPECT_EQ(result.state_history.back().time_s, 1.0);
+  EXPECT_EQ(result.state_history.front().stroke.phase,
+            project::StrokePhase::drive);
 }
 
 /**
@@ -212,6 +307,11 @@ TEST(SimulationRun, AdvancesTimeAndInvokesProvidersDeterministically) {
   EXPECT_EQ(result.metadata.aero_provider_id, "stub-aero");
   EXPECT_EQ(hydro.observed_times_s, (std::vector<double>{0.0, 0.5, 1.0}));
   EXPECT_EQ(aero.observed_times_s, (std::vector<double>{0.0, 0.5, 1.0}));
+  ASSERT_EQ(result.state_history.size(), 4U);
+  EXPECT_GT(result.state_history[0].seat.position_along_rail_m,
+            result.state_history[1].seat.position_along_rail_m);
+  EXPECT_LT(result.state_history[0].port_oar.handle_angle_rad,
+            result.state_history[1].port_oar.handle_angle_rad);
 }
 
 /**
@@ -323,7 +423,37 @@ TEST(SimulationRun, MapsConfigurationFailuresFromFileBackedEntryPoint) {
           "duration_s": 1.0
         },
         "hull": {
-          "mass_kg": 14.0
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
         }
       })");
 
@@ -354,16 +484,7 @@ TEST(SimulationRun, MapsConfigurationFailuresFromFileBackedEntryPoint) {
  */
 TEST(SimulationRun, ExecutesSuccessfulFileBackedRun) {
   const auto path = write_temp_file("airow-valid-run-config.json",
-                                    R"({
-        "config_id": "valid-run",
-        "simulation": {
-          "duration_s": 1.0,
-          "time_step_s": 0.5
-        },
-        "hull": {
-          "mass_kg": 14.0
-        }
-      })");
+                                    make_valid_config_json("valid-run"));
 
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 17h,
@@ -380,6 +501,61 @@ TEST(SimulationRun, ExecutesSuccessfulFileBackedRun) {
   EXPECT_EQ(result.metadata.start_timestamp_utc, "2026-04-03T17:00:00Z");
   EXPECT_EQ(result.metadata.end_timestamp_utc, "2026-04-03T17:00:01Z");
   EXPECT_EQ(result.summary.executed_step_count, 2ULL);
+  EXPECT_EQ(result.metadata.startup_status, "success");
+}
+
+/**
+ * @test UT-027
+ * @verifies [D-011]
+ * @notes Given a valid config file and default runtime dependencies, when the
+ * file-backed entry point executes without an injected clock, then it still
+ * produces non-empty timestamps and the shared mechanics-backed success
+ * contract.
+ */
+TEST(SimulationRun, ExecutesFileBackedRunWithoutInjectedClock) {
+  const auto path =
+      write_temp_file("airow-valid-run-config-default-clock.json",
+                      make_valid_config_json("valid-run-default-clock"));
+
+  const auto result = project::run_simulation_from_config_file(
+      path, project::SimulationDependencies{});
+  remove_file_if_present(path);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.status, project::RunStatus::success);
+  EXPECT_EQ(result.metadata.config_id, "valid-run-default-clock");
+  EXPECT_FALSE(result.metadata.start_timestamp_utc.empty());
+  EXPECT_FALSE(result.metadata.end_timestamp_utc.empty());
+  EXPECT_EQ(result.metadata.startup_status, "success");
+}
+
+/**
+ * @test UT-033
+ * @verifies [D-011]
+ * @notes Given an invalid config file and default runtime dependencies, when
+ * the file-backed entry point rejects configuration without an injected clock,
+ * then it still stamps non-empty timestamps on the configuration error result.
+ */
+TEST(SimulationRun, MapsFileBackedConfigurationFailureWithoutInjectedClock) {
+  const auto path =
+      write_temp_file("airow-invalid-run-config-default-clock.json",
+                      R"({
+        "config_id": "invalid-run-default-clock",
+        "simulation": {
+          "duration_s": 1.0
+        }
+      })");
+
+  const auto result = project::run_simulation_from_config_file(
+      path, project::SimulationDependencies{});
+  remove_file_if_present(path);
+
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.status, project::RunStatus::configuration_error);
+  ASSERT_EQ(result.diagnostics.size(), 1U);
+  EXPECT_EQ(result.diagnostics.front().code, "missing_required_field");
+  EXPECT_FALSE(result.metadata.start_timestamp_utc.empty());
+  EXPECT_FALSE(result.metadata.end_timestamp_utc.empty());
 }
 
 /**
@@ -424,17 +600,9 @@ TEST(SimulationRun, HeadlessCliWrapperMapsSuccessAndConfigurationFailure) {
   std::ostringstream stdout_stream;
   std::ostringstream stderr_stream;
 
-  const auto valid_path = write_temp_file("airow-unit-cli-valid-config.json",
-                                          R"({
-          "config_id": "unit-cli-valid",
-          "simulation": {
-            "duration_s": 1.0,
-            "time_step_s": 0.5
-          },
-          "hull": {
-            "mass_kg": 14.0
-          }
-        })");
+  const auto valid_path =
+      write_temp_file("airow-unit-cli-valid-config.json",
+                      make_valid_config_json("unit-cli-valid"));
   FixedClock valid_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 1s});
@@ -463,7 +631,37 @@ TEST(SimulationRun, HeadlessCliWrapperMapsSuccessAndConfigurationFailure) {
             "duration_s": 1.0
           },
           "hull": {
-            "mass_kg": 14.0
+            "mass_kg": 14.0,
+            "center_of_mass_m": [0.0, 0.0, 0.0],
+            "inertia_kg_m2": [1.1, 7.8, 8.2],
+            "initial_position_m": [0.0, 0.0, 0.0],
+            "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+            "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+            "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+          },
+          "oars": {
+            "port": {
+              "inboard_length_m": 0.88,
+              "outboard_length_m": 1.98,
+              "oarlock_position_m": [0.25, -0.82, 0.18]
+            },
+            "starboard": {
+              "inboard_length_m": 0.88,
+              "outboard_length_m": 1.98,
+              "oarlock_position_m": [0.25, 0.82, 0.18]
+            }
+          },
+          "seat": {
+            "rail_axis": [1.0, 0.0, 0.0],
+            "min_position_m": -0.4,
+            "max_position_m": 0.4,
+            "initial_position_m": 0.0
+          },
+          "stroke": {
+            "cycle_duration_s": 1.2,
+            "drive_duration_s": 0.48,
+            "catch_angle_rad": -0.9,
+            "release_angle_rad": 0.6
           }
         })");
   FixedClock invalid_clock(
@@ -495,16 +693,7 @@ TEST(SimulationRun, HeadlessCliWrapperMapsRuntimeFailure) {
   std::ostringstream stderr_stream;
 
   const auto path = write_temp_file("airow-unit-cli-runtime-config.json",
-                                    R"({
-          "config_id": "unit-cli-runtime",
-          "simulation": {
-            "duration_s": 1.0,
-            "time_step_s": 0.5
-          },
-          "hull": {
-            "mass_kg": 14.0
-          }
-        })");
+                                    make_valid_config_json("unit-cli-runtime"));
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 4min,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 5min});

@@ -14,44 +14,35 @@
   calibration/truth-model workflows.
 - The real simulator architecture namespace now belongs to `A-001..A-010`,
   while bootstrap placeholder artifacts are reserved for the `900` series.
-- The architecture-workflow hardening effort is complete and the repository is
-  ready to move on to the first simulator-facing implementation slice.
 - `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` record the
   approved technology and architectural direction.
 - `docs/process/STATE_CONVENTIONS.md` now defines the baseline world-frame,
   sign, and orientation conventions for simulator boundary contracts.
-- `A-010 Numerical Integration and State Advancement` now owns consistent
-  initialization, solver abstraction, and solver-facing diagnostics.
 - `docs/ai/ROADMAP.md` now defines `v0.1` as a deterministic single-run
   baseline and moves calibration ingestion, time-varying wind, batch sweeps,
   low-order balance control, flexible oars, and disturbance inputs beyond the
   steady baseline out of that cut line.
-- The repository now includes the first simulator-facing implementation slices:
-  deterministic JSON loading and validation for `R-001` plus a shared
-  in-memory and CLI single-run orchestration path for `R-002` and `R-003`.
-- The current run path is still orchestration-only: it proves shared execution,
-  metadata, diagnostics, and test seams, but not yet real mechanics-backed
-  rowing physics.
+- The current run path now includes the first mechanics-backed slice:
+  validated hull, oar, seat, and stroke startup inputs; deterministic startup
+  assembly; a stable internal state-advancer seam; and in-memory mechanics
+  state history for hull, oars, seat, and stroke phase.
 - `A-002` is now active with a concrete public contract in `include/project/orchestrator/simulation_run.hpp` and `include/project/orchestrator/cli.hpp`.
-- Bootstrap placeholder code and `900`-series evidence have been removed from
-  the compiled code path.
-- Validation scripts emit compact logs and JSON summaries through a shared
-  wrapper.
+- `A-003` and `A-010` are now active with concrete public contracts in
+  `include/project/mechanics/state.hpp` and
+  `include/project/numerics/state_advancement.hpp`.
 - The validation baseline is now stricter at the tool level: stronger
   compiler-warning flags, enabled debug hardening, explicit CTest timeouts,
   an auxiliary tooling-contract check, public-header self-containment
   compilation, LLVM-native include-cleaner coverage in `clang-tidy`, and
   dedicated sanitized plus GCC lanes inside the full test gate.
-- Test-quality linting is now separating from production-source linting with
-  stricter test-only size limits and banned-pattern checks for implementation
-  coupling and nondeterministic timing.
 - Architecture guardrails are now tightening beyond include allowlists toward
   public-header-only cross-component access, realized component cycle checks,
   and orphan detection tied to `A-*` ownership and non-aux evidence.
 - Traceability supports auxiliary tests and stronger evidence validation.
-- Test strategy guidance now explicitly distinguishes subsystem-contract
-  `IT-*`, scenario-oriented `QT-*`, and characterization coverage for major
-  changes.
+- Trace and test enforcement now explicitly blocks `trace: trivial` bypasses,
+  enforces helper-refinement shape (`@refines` exactly one parent for helper
+  blocks), caps default unit test file size/case count, and runs changed-file
+  coverage ratchets in both fast and full test lanes.
 - Repo-local operational skills now live in `.agents/skills` with real names and `agents/openai.yaml` metadata instead of `template-*` placeholders.
 
 ## Guardrails
@@ -64,7 +55,9 @@
 - Keep instruction coherence, depcheck, and traceability green.
 
 ## Next Actions
-1. Implement the first `A-003` and `A-010` mechanics-backed state and startup assembly behind the current orchestrator seam.
-2. Expand the configuration schema only as needed for mechanics assembly and
-   startup-validity work, keeping `A-001` separate from runtime logic.
-3. Start the first baseline output and scenario evidence work once mechanics state exists, then clear or confirm the remaining `Needs-Review: yes` backlog items.
+1. Start the first `A-007` baseline output shaping work so the new mechanics
+   state can be emitted through stable machine-readable result channels.
+2. Start the first `A-008` scenario and validation evidence work for passive
+   float and tow cases now that mechanics startup exists.
+3. Revisit external backend wiring for Chrono and SUNDIALS only after the
+   current seam and baseline scenario evidence stabilize.

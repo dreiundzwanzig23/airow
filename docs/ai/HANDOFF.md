@@ -4,29 +4,24 @@
 - 2026-04-03
 
 ## What Changed In This Session
-- Landed `R-002` and `R-003` inside `A-002` with a shared single-run
-  orchestration path for the CLI and in-memory API, deterministic run
-  metadata, stable exit-code mapping, and injected hydro and aero stub seams.
-- Clarified in the repo-facing docs that the current "simulation run" surface
-  is execution infrastructure only and is not yet a mechanics-backed physics
-  runtime.
-- Added the orchestrator public contracts in
-  `include/project/orchestrator/simulation_run.hpp` and
-  `include/project/orchestrator/cli.hpp`, plus the first real headless
-  executable behavior in `src/app/main.cpp`.
-- Expanded simulator trace evidence through `D-014`, `UT-012`, `IT-005`, and
-  `QT-005`.
-- Tightened the tooling baseline with stronger compiler warnings, debug
-  hardening, explicit test timeouts, sanitized and GCC lanes, an auxiliary
-  tooling-contract check, public-header self-containment compilation, and
-  LLVM-native include-cleaner coverage in the default lint path.
-- Tightened `depcheck` toward architecture-health enforcement with
-  public-header-only cross-component access, realized component cycle
-  detection, and component-orphan checks tied to owning `A-*` items and
-  non-aux test coverage.
-- Split test linting away from production linting with a dedicated
-  `lint_tests.sh` lane, tighter test-only structural thresholds, and banned
-  pattern checks for implementation-coupled or time-sensitive tests.
+- Landed the first mechanics-backed `A-003` and `A-010` slice behind the
+  shared orchestrator seam with public contracts in
+  `include/project/mechanics/state.hpp` and
+  `include/project/numerics/state_advancement.hpp`.
+- Expanded `A-001` configuration loading to validate deterministic startup
+  inputs for hull mass properties, initial hull state, port and starboard oar
+  geometry, seat travel, and prescribed stroke timing.
+- Reworked `run_simulation` so successful runs now perform startup assembly,
+  deterministic state advancement, hydro or aero provider sampling against
+  mechanics-backed step context, and in-memory state history capture.
+- Added startup-validity and runtime-state failure mapping so invalid startup
+  conditions and non-finite runtime states fail with stable diagnostics.
+- Expanded simulator trace evidence through `D-018`, `UT-022`, `IT-006`, and
+  `QT-006`.
+- Hardened anti-regression workflow enforcement by removing the
+  `trace: trivial` escape hatch, splitting oversized unit files, adding
+  default unit-file size/test-count checks, and enforcing changed-file
+  coverage ratchets in both `test_tdd.sh` and `test.sh`.
 
 ## Current Technical Posture
 - The repository now has a real simulator architecture ownership surface in
@@ -35,6 +30,10 @@
   `include/project/configuration/simulator_config.hpp`.
 - `A-002` is now in progress with shared file-backed, in-memory, and CLI
   single-run execution paths.
+- `A-003` is now in progress with boundary-visible hull, oar, seat, and stroke
+  state contracts.
+- `A-010` is now in progress with a stable state-advancer interface and a
+  deterministic internal baseline implementation.
 - The architecture-workflow hardening plan is complete and no longer blocked on
   placeholder code.
 - The near-term milestone remains the deterministic headless single-run
@@ -43,9 +42,9 @@
   drift.
 
 ## Immediate Next Steps
-1. Implement the first mechanics-backed `A-003` and startup-validity `A-010`
-   contracts behind the current orchestration seam.
-2. Expand the configuration schema only as needed for mechanics assembly and
-   startup-validity work, keeping `A-001` separate from runtime logic.
-3. Start `R-015` and `R-018` groundwork only after mechanics state exists and
-   the baseline runtime can emit meaningful results.
+1. Start `A-007` output shaping so the new in-memory mechanics state can be
+   surfaced through stable machine-readable runtime results.
+2. Start `A-008` passive-float and tow scenario evidence now that deterministic
+   mechanics startup and stepping exist.
+3. Revisit concrete Chrono and SUNDIALS wiring only after the current seam and
+   baseline scenario evidence stabilize.

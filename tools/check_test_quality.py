@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
 import sys
@@ -12,6 +13,11 @@ from typing import Iterable
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TESTS_DIR = ROOT / "tests"
 CXX_SUFFIXES = {".cpp", ".cc", ".cxx", ".hpp", ".h"}
+DEFAULT_MAX_TEST_FILE_LINES = int(os.environ.get("TEST_MAX_FILE_LINES", "900"))
+DEFAULT_MAX_TEST_CASES_PER_FILE = int(os.environ.get("TEST_MAX_TEST_CASES", "14"))
+TEST_FILE_LINE_LIMIT_OVERRIDES: dict[str, int] = {}
+TEST_CASE_LIMIT_OVERRIDES: dict[str, int] = {}
+TEST_CASE_PATTERN = re.compile(r"^\s*TEST(?:_F|_P)?\s*\(", re.M)
 
 
 @dataclass(frozen=True)
@@ -83,7 +89,27 @@ def main(argv: list[str]) -> int:
 
     for path in candidate_files(argv):
         rel_path = path.relative_to(ROOT)
+        rel_key = rel_path.as_posix()
         text = path.read_text(encoding="utf-8", errors="ignore")
+
+        line_limit = TEST_FILE_LINE_LIMIT_OVERRIDES.get(
+            rel_key, DEFAULT_MAX_TEST_FILE_LINES
+        )
+        line_count = text.count("\n") + 1
+        if line_count > line_limit:
+            problems.append(
+                f"{rel_path}: file has {line_count} lines (limit {line_limit})"
+            )
+
+        test_case_limit = TEST_CASE_LIMIT_OVERRIDES.get(
+            rel_key, DEFAULT_MAX_TEST_CASES_PER_FILE
+        )
+        test_case_count = len(TEST_CASE_PATTERN.findall(text))
+        if test_case_count > test_case_limit:
+            problems.append(
+                f"{rel_path}: file has {test_case_count} TEST cases (limit {test_case_limit})"
+            )
+
         for policy in POLICY_PATTERNS:
             for match in policy.pattern.finditer(text):
                 problems.append(

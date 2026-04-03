@@ -51,4 +51,7 @@ feature loop.
 - Missing trace tags or evidence is not allowed.
 - Duplicate `@design` or `@test` IDs are not allowed.
 - Non-trivial `src/lib` functions require explicit `@design D-*` mapping.
+- `trace: trivial` (or equivalent helper bypass tags) is not allowed.
+- Helper-only `@design` refinements must target exactly one parent `D-*`.
 - `DONE` items require minimum evidence by layer (`D->UT`, `A->IT`, `R->QT`).
+- Fast and full coverage gates must include changed-file regression checks.

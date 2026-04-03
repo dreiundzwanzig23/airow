@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -34,6 +35,56 @@ std::string read_file(const std::filesystem::path &path) {
 void remove_file_if_present(const std::filesystem::path &path) {
   std::error_code error;
   std::filesystem::remove(path, error);
+}
+
+std::string make_valid_config_json(std::string_view config_id,
+                                   double duration_s = 1.0,
+                                   double time_step_s = 0.5) {
+  std::ostringstream stream;
+  stream << R"({
+        "config_id": ")"
+         << config_id << R"(",
+        "simulation": {
+          "duration_s": )"
+         << duration_s << R"(,
+          "time_step_s": )"
+         << time_step_s << R"(
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        }
+      })";
+  return stream.str();
 }
 
 std::string shell_quote(std::string_view value) {
@@ -113,17 +164,8 @@ const std::filesystem::path kProjectAppPath = PROJECT_APP_PATH;
  * headlessly with `--config`, then it exits successfully without any GUI.
  */
 TEST(HeadlessSimulationSystem, ExecutableRunsOneHeadlessSimulation) {
-  const auto config_path = write_temp_file("airow-qt-valid-config.json",
-                                           R"({
-        "config_id": "qt-cli-success",
-        "simulation": {
-          "duration_s": 1.0,
-          "time_step_s": 0.5
-        },
-        "hull": {
-          "mass_kg": 14.0
-        }
-      })");
+  const auto config_path = write_temp_file(
+      "airow-qt-valid-config.json", make_valid_config_json("qt-cli-success"));
   const auto stdout_path =
       std::filesystem::temp_directory_path() / "airow-qt-cli-success.stdout";
   const auto stderr_path =
@@ -158,7 +200,37 @@ TEST(HeadlessSimulationSystem, ExecutableReportsConfigurationFailure) {
           "duration_s": 1.0
         },
         "hull": {
-          "mass_kg": 14.0
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
         }
       })");
   const auto stdout_path =
@@ -194,7 +266,46 @@ TEST(HeadlessSimulationSystem, InMemoryApiReturnsStructuredRunResult) {
   project::SimulatorConfig config{
       .config_id = "qt-in-memory",
       .simulation = {.duration_s = 1.0, .time_step_s = 0.25},
-      .hull = {.mass_kg = 14.0},
+      .hull =
+          {
+              .mass_kg = 14.0,
+              .center_of_mass_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2},
+              .initial_position_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .initial_orientation_xyzw =
+                  {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
+              .initial_linear_velocity_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .initial_angular_velocity_radps = {.x = 0.0, .y = 0.0, .z = 0.0},
+          },
+      .oars =
+          {
+              .port =
+                  {
+                      .inboard_length_m = 0.88,
+                      .outboard_length_m = 1.98,
+                      .oarlock_position_m = {.x = 0.25, .y = -0.82, .z = 0.18},
+                  },
+              .starboard =
+                  {
+                      .inboard_length_m = 0.88,
+                      .outboard_length_m = 1.98,
+                      .oarlock_position_m = {.x = 0.25, .y = 0.82, .z = 0.18},
+                  },
+          },
+      .seat =
+          {
+              .rail_axis = {.x = 1.0, .y = 0.0, .z = 0.0},
+              .min_position_m = -0.4,
+              .max_position_m = 0.4,
+              .initial_position_m = 0.0,
+          },
+      .stroke =
+          {
+              .cycle_duration_s = 1.2,
+              .drive_duration_s = 0.48,
+              .catch_angle_rad = -0.9,
+              .release_angle_rad = 0.6,
+          },
   };
   RecordingHydroProvider hydro;
   RecordingAeroProvider aero;
@@ -220,4 +331,36 @@ TEST(HeadlessSimulationSystem, InMemoryApiReturnsStructuredRunResult) {
   EXPECT_TRUE(result.diagnostics.empty());
   EXPECT_EQ(hydro.call_count, 4ULL);
   EXPECT_EQ(aero.call_count, 4ULL);
+  ASSERT_EQ(result.state_history.size(), 5U);
+  EXPECT_EQ(result.metadata.startup_status, "success");
+}
+
+/**
+ * @test QT-006
+ * @verifies [R-032]
+ * @notes Given a mechanically invalid startup orientation, when the in-memory
+ * run API executes, then startup fails deterministically with a startup-
+ * specific runtime diagnostic before time stepping proceeds.
+ */
+TEST(HeadlessSimulationSystem, InMemoryApiReportsStartupFailure) {
+  auto config_text = make_valid_config_json("qt-startup-invalid");
+  const auto token = std::string(R"([0.0, 0.0, 0.0, 1.0])");
+  config_text.replace(config_text.find(token), token.size(),
+                      "[0.0, 0.0, 0.0, 0.0]");
+
+  const auto loaded = project::parse_simulator_config_text(config_text);
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.config.has_value());
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 21h + 2min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 21h + 3min});
+  const auto result = project::run_simulation(
+      *loaded.config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.status, project::RunStatus::runtime_error);
+  ASSERT_EQ(result.diagnostics.size(), 1U);
+  EXPECT_EQ(result.diagnostics.front().code, "startup_invalid_state");
+  EXPECT_EQ(result.diagnostics.front().subsystem, "startup");
 }

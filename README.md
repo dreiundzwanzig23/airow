@@ -11,9 +11,12 @@ broader rowing simulator direction remains defined in the requirements,
 architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership.
 
-The current run path is orchestration-only. It validates configuration, runs a
-bounded deterministic loop, and exposes structured metadata and diagnostics,
-but it does not yet include real mechanics-backed rowing physics.
+The current run path is now mechanics-backed for the first startup slice. It
+validates an expanded hull, oar, seat, and stroke configuration; assembles a
+deterministic rigid-body startup state; advances that state through a baseline
+internal state-advancer seam; and exposes structured metadata, diagnostics,
+and in-memory state history. Reduced hydro, aero, scenario, and file-output
+subsystems remain future work behind the same boundary.
 
 ## Quick Start
 
@@ -34,15 +37,21 @@ Run one headless baseline case:
 
 Current implemented library surface:
 - `include/project/configuration/simulator_config.hpp`
+- `include/project/mechanics/state.hpp`
+- `include/project/numerics/state_advancement.hpp`
 - `include/project/orchestrator/simulation_run.hpp`
 - `include/project/orchestrator/cli.hpp`
-- JSON file or in-memory loading for `config_id`,
-  `simulation.duration_s`, `simulation.time_step_s`, and `hull.mass_kg`
+- JSON file or in-memory loading for baseline simulation, hull, oar, seat, and
+  prescribed-stroke startup fields
 - deterministic diagnostics and normalized configuration metadata for `R-001`
-- reusable in-memory single-run API with injected hydro and aero stubs
+- deterministic mechanics startup and state-advancement seams for the first
+  `A-003` and `A-010` slice
+- reusable in-memory single-run API with injected hydro, aero, and
+  state-advancer seams plus structured state history
 - headless CLI wrapper with stable exit-code behavior for `R-002` and `R-003`
-- current run results are infrastructure-level placeholders until mechanics,
-  hydro, aero, and startup-validity subsystems land
+- current run results now include baseline hull, oar, seat, and stroke
+  trajectories in memory while machine-readable artifact emission remains
+  future work
 
 ## Project Direction
 
@@ -67,12 +76,16 @@ Current intent:
 
 Current implemented slice:
 - `A-001 Configuration and Validation` is now in progress with a real public
-  contract for deterministic JSON loading and validation,
+  contract for deterministic JSON loading and validation of mechanics-startup
+  inputs,
 - `A-002 Simulation Orchestrator` is now in progress with a shared single-run
   path for CLI and in-memory execution,
+- `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
+  Advancement` are now in progress through a deterministic internal baseline
+  state-advancer seam,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- real mechanics, reduced runtime physics, and machine-readable run artifacts
-  remain future work after the first headless orchestration baseline.
+- reduced runtime physics providers, scenario evidence, and machine-readable
+  run artifacts remain future work after the first mechanics-startup baseline.
 
 ## Validation Lanes
 
@@ -203,12 +216,14 @@ Maintenance commands:
   branch gates.
 - `./scripts/lint_tests.sh`: separate test-quality linting with banned-pattern
   checks for implementation-coupled or nondeterministic tests plus tighter
-  test-only structural thresholds.
+  test-only structural thresholds (default max `900` lines and `14` test cases
+  per file).
 - `./scripts/test_aux.sh`: auxiliary coverage now includes the dedicated
   test-quality lint lane, tooling contracts, and public-header self-containment
   compilation.
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
-  `src/lib/**`.
+  `src/lib/**` plus changed-file coverage ratchets against merge-base
+  baselines.
 - `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction
   coherence checks, including public-header-only cross-component access,
   realized component cycle detection, and component-orphan guardrails tied to

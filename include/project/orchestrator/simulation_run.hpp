@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "project/configuration/simulator_config.hpp"
+#include "project/mechanics/state.hpp"
+#include "project/numerics/state_advancement.hpp"
 
 namespace project {
 
@@ -29,6 +31,10 @@ struct RunMetadata {
   std::string end_timestamp_utc;
   std::string hydro_provider_id;
   std::string aero_provider_id;
+  std::string state_advancer_id;
+  std::string startup_status;
+  std::string startup_solver_status;
+  double startup_constraint_residual_max{};
   std::vector<NormalizedConfigEntry> normalized_config;
 
   bool operator==(const RunMetadata &) const = default;
@@ -45,6 +51,7 @@ struct RunSummary {
 
 struct StepContext {
   double time_s{};
+  MechanicalStateSnapshot state;
 
   bool operator==(const StepContext &) const = default;
 };
@@ -75,6 +82,7 @@ public:
 struct SimulationDependencies {
   HydroProvider *hydro_provider{};
   AeroProvider *aero_provider{};
+  StateAdvancer *state_advancer{};
   Clock *clock{};
 };
 
@@ -83,6 +91,7 @@ struct SimulationRunResult {
   RunMetadata metadata;
   RunSummary summary;
   std::vector<RunDiagnostic> diagnostics;
+  std::vector<MechanicalStateSnapshot> state_history;
 
   [[nodiscard]] bool ok() const noexcept {
     return status == RunStatus::success && diagnostics.empty();

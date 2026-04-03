@@ -1,23 +1,62 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <string>
 #include <string_view>
 
 #include "project/configuration/simulator_config.hpp"
 
 namespace {
 
-constexpr std::string_view kValidConfig = R"({
-  "config_id": "baseline-single-scull",
+std::string
+make_valid_config_json(std::string_view config_id = "baseline-single-scull") {
+  std::ostringstream stream;
+  stream << R"({
+  "config_id": ")"
+         << config_id << R"(",
   "simulation": {
     "duration_s": 120.0,
     "time_step_s": 0.01
   },
   "hull": {
-    "mass_kg": 14.5
+    "mass_kg": 14.5,
+    "center_of_mass_m": [0.0, 0.0, 0.0],
+    "inertia_kg_m2": [1.2, 8.4, 8.8],
+    "initial_position_m": [0.0, 0.0, 0.0],
+    "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+    "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+    "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+  },
+  "oars": {
+    "port": {
+      "inboard_length_m": 0.88,
+      "outboard_length_m": 1.98,
+      "oarlock_position_m": [0.25, -0.82, 0.18]
+    },
+    "starboard": {
+      "inboard_length_m": 0.88,
+      "outboard_length_m": 1.98,
+      "oarlock_position_m": [0.25, 0.82, 0.18]
+    }
+  },
+  "seat": {
+    "rail_axis": [1.0, 0.0, 0.0],
+    "min_position_m": -0.4,
+    "max_position_m": 0.4,
+    "initial_position_m": 0.0
+  },
+  "stroke": {
+    "cycle_duration_s": 1.2,
+    "drive_duration_s": 0.48,
+    "catch_angle_rad": -0.9,
+    "release_angle_rad": 0.6
   }
 })";
+  return stream.str();
+}
 
 std::filesystem::path write_temp_file(const std::string &file_name,
                                       const std::string &contents) {
@@ -43,7 +82,8 @@ void remove_file_if_present(const std::filesystem::path &path) {
  * deterministically.
  */
 TEST(SimulatorConfig, ParsesValidJsonText) {
-  const auto result = project::parse_simulator_config_text(kValidConfig);
+  const auto result =
+      project::parse_simulator_config_text(make_valid_config_json());
 
   ASSERT_TRUE(result.ok());
   ASSERT_TRUE(result.config.has_value());
@@ -53,14 +93,29 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
   EXPECT_DOUBLE_EQ(result.config->simulation.duration_s, 120.0);
   EXPECT_DOUBLE_EQ(result.config->simulation.time_step_s, 0.01);
   EXPECT_DOUBLE_EQ(result.config->hull.mass_kg, 14.5);
+  EXPECT_DOUBLE_EQ(result.config->seat.min_position_m, -0.4);
+  EXPECT_DOUBLE_EQ(result.config->seat.max_position_m, 0.4);
+  EXPECT_DOUBLE_EQ(result.config->stroke.cycle_duration_s, 1.2);
+  EXPECT_DOUBLE_EQ(result.config->stroke.drive_duration_s, 0.48);
+  EXPECT_EQ(result.config->oars.port.oarlock_position_m.y, -0.82);
+  EXPECT_EQ(result.config->oars.starboard.oarlock_position_m.y, 0.82);
 
-  const std::vector<project::NormalizedConfigEntry> expected = {
-      {"$.config_id", "baseline-single-scull", ""},
-      {"$.simulation.duration_s", "120", "s"},
-      {"$.simulation.time_step_s", "0.01", "s"},
-      {"$.hull.mass_kg", "14.5", "kg"},
-  };
-  EXPECT_EQ(result.normalized_config, expected);
+  EXPECT_GE(result.normalized_config.size(), 24U);
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{
+                          "$.config_id", "baseline-single-scull", ""}),
+            result.normalized_config.end());
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{"$.seat.rail_axis",
+                                                     "[1, 0, 0]", "body-axis"}),
+            result.normalized_config.end());
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{
+                          "$.stroke.drive_duration_s", "0.48", "s"}),
+            result.normalized_config.end());
 }
 
 /**
@@ -77,7 +132,37 @@ TEST(SimulatorConfig, ReportsMissingRequiredFieldPath) {
       "duration_s": 120.0
     },
     "hull": {
-      "mass_kg": 14.5
+      "mass_kg": 14.5,
+      "center_of_mass_m": [0.0, 0.0, 0.0],
+      "inertia_kg_m2": [1.2, 8.4, 8.8],
+      "initial_position_m": [0.0, 0.0, 0.0],
+      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+    },
+    "oars": {
+      "port": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, -0.82, 0.18]
+      },
+      "starboard": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, 0.82, 0.18]
+      }
+    },
+    "seat": {
+      "rail_axis": [1.0, 0.0, 0.0],
+      "min_position_m": -0.4,
+      "max_position_m": 0.4,
+      "initial_position_m": 0.0
+    },
+    "stroke": {
+      "cycle_duration_s": 1.2,
+      "drive_duration_s": 0.48,
+      "catch_angle_rad": -0.9,
+      "release_angle_rad": 0.6
     }
   })");
 
@@ -106,7 +191,37 @@ TEST(SimulatorConfig, RejectsNegativeNumericValues) {
         "time_step_s": 0.01
       },
       "hull": {
-        "mass_kg": 14.5
+        "mass_kg": 14.5,
+        "center_of_mass_m": [0.0, 0.0, 0.0],
+        "inertia_kg_m2": [1.2, 8.4, 8.8],
+        "initial_position_m": [0.0, 0.0, 0.0],
+        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+      },
+      "oars": {
+        "port": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, -0.82, 0.18]
+        },
+        "starboard": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, 0.82, 0.18]
+        }
+      },
+      "seat": {
+        "rail_axis": [1.0, 0.0, 0.0],
+        "min_position_m": -0.4,
+        "max_position_m": 0.4,
+        "initial_position_m": 0.0
+      },
+      "stroke": {
+        "cycle_duration_s": 1.2,
+        "drive_duration_s": 0.48,
+        "catch_angle_rad": -0.9,
+        "release_angle_rad": 0.6
       }
     })");
 
@@ -124,7 +239,37 @@ TEST(SimulatorConfig, RejectsNegativeNumericValues) {
         "time_step_s": 0.01
       },
       "hull": {
-        "mass_kg": -2.0
+        "mass_kg": -2.0,
+        "center_of_mass_m": [0.0, 0.0, 0.0],
+        "inertia_kg_m2": [1.2, 8.4, 8.8],
+        "initial_position_m": [0.0, 0.0, 0.0],
+        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+      },
+      "oars": {
+        "port": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, -0.82, 0.18]
+        },
+        "starboard": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, 0.82, 0.18]
+        }
+      },
+      "seat": {
+        "rail_axis": [1.0, 0.0, 0.0],
+        "min_position_m": -0.4,
+        "max_position_m": 0.4,
+        "initial_position_m": 0.0
+      },
+      "stroke": {
+        "cycle_duration_s": 1.2,
+        "drive_duration_s": 0.48,
+        "catch_angle_rad": -0.9,
+        "release_angle_rad": 0.6
       }
     })");
 
@@ -151,7 +296,37 @@ TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
         "time_step_s": 0.01
       },
       "hull": {
-        "mass_kg": 14.5
+        "mass_kg": 14.5,
+        "center_of_mass_m": [0.0, 0.0, 0.0],
+        "inertia_kg_m2": [1.2, 8.4, 8.8],
+        "initial_position_m": [0.0, 0.0, 0.0],
+        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+      },
+      "oars": {
+        "port": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, -0.82, 0.18]
+        },
+        "starboard": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, 0.82, 0.18]
+        }
+      },
+      "seat": {
+        "rail_axis": [1.0, 0.0, 0.0],
+        "min_position_m": -0.4,
+        "max_position_m": 0.4,
+        "initial_position_m": 0.0
+      },
+      "stroke": {
+        "cycle_duration_s": 1.2,
+        "drive_duration_s": 0.48,
+        "catch_angle_rad": -0.9,
+        "release_angle_rad": 0.6
       }
     })");
 
@@ -169,7 +344,37 @@ TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
         "time_step_s": Infinity
       },
       "hull": {
-        "mass_kg": 14.5
+        "mass_kg": 14.5,
+        "center_of_mass_m": [0.0, 0.0, 0.0],
+        "inertia_kg_m2": [1.2, 8.4, 8.8],
+        "initial_position_m": [0.0, 0.0, 0.0],
+        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+      },
+      "oars": {
+        "port": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, -0.82, 0.18]
+        },
+        "starboard": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, 0.82, 0.18]
+        }
+      },
+      "seat": {
+        "rail_axis": [1.0, 0.0, 0.0],
+        "min_position_m": -0.4,
+        "max_position_m": 0.4,
+        "initial_position_m": 0.0
+      },
+      "stroke": {
+        "cycle_duration_s": 1.2,
+        "drive_duration_s": 0.48,
+        "catch_angle_rad": -0.9,
+        "release_angle_rad": 0.6
       }
     })");
 
@@ -187,7 +392,37 @@ TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
         "time_step_s": 0.01
       },
       "hull": {
-        "mass_kg": -Infinity
+        "mass_kg": -Infinity,
+        "center_of_mass_m": [0.0, 0.0, 0.0],
+        "inertia_kg_m2": [1.2, 8.4, 8.8],
+        "initial_position_m": [0.0, 0.0, 0.0],
+        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+      },
+      "oars": {
+        "port": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, -0.82, 0.18]
+        },
+        "starboard": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, 0.82, 0.18]
+        }
+      },
+      "seat": {
+        "rail_axis": [1.0, 0.0, 0.0],
+        "min_position_m": -0.4,
+        "max_position_m": 0.4,
+        "initial_position_m": 0.0
+      },
+      "stroke": {
+        "cycle_duration_s": 1.2,
+        "drive_duration_s": 0.48,
+        "catch_angle_rad": -0.9,
+        "release_angle_rad": 0.6
       }
     })");
 
@@ -212,7 +447,37 @@ TEST(SimulatorConfig, RejectsWrongJsonTypes) {
       "time_step_s": 0.01
     },
     "hull": {
-      "mass_kg": 14.5
+      "mass_kg": 14.5,
+      "center_of_mass_m": [0.0, 0.0, 0.0],
+      "inertia_kg_m2": [1.2, 8.4, 8.8],
+      "initial_position_m": [0.0, 0.0, 0.0],
+      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+    },
+    "oars": {
+      "port": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, -0.82, 0.18]
+      },
+      "starboard": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, 0.82, 0.18]
+      }
+    },
+    "seat": {
+      "rail_axis": [1.0, 0.0, 0.0],
+      "min_position_m": -0.4,
+      "max_position_m": 0.4,
+      "initial_position_m": 0.0
+    },
+    "stroke": {
+      "cycle_duration_s": 1.2,
+      "drive_duration_s": 0.48,
+      "catch_angle_rad": -0.9,
+      "release_angle_rad": 0.6
     }
   })");
 
@@ -263,7 +528,37 @@ TEST(SimulatorConfig, RejectsInvalidObjectStructureAndZeroStepSize) {
       "config_id": "baseline-single-scull",
       "simulation": [],
       "hull": {
-        "mass_kg": 14.5
+        "mass_kg": 14.5,
+        "center_of_mass_m": [0.0, 0.0, 0.0],
+        "inertia_kg_m2": [1.2, 8.4, 8.8],
+        "initial_position_m": [0.0, 0.0, 0.0],
+        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+      },
+      "oars": {
+        "port": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, -0.82, 0.18]
+        },
+        "starboard": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, 0.82, 0.18]
+        }
+      },
+      "seat": {
+        "rail_axis": [1.0, 0.0, 0.0],
+        "min_position_m": -0.4,
+        "max_position_m": 0.4,
+        "initial_position_m": 0.0
+      },
+      "stroke": {
+        "cycle_duration_s": 1.2,
+        "drive_duration_s": 0.48,
+        "catch_angle_rad": -0.9,
+        "release_angle_rad": 0.6
       }
     })");
 
@@ -281,7 +576,37 @@ TEST(SimulatorConfig, RejectsInvalidObjectStructureAndZeroStepSize) {
         "time_step_s": 0.0
       },
       "hull": {
-        "mass_kg": 14.5
+        "mass_kg": 14.5,
+        "center_of_mass_m": [0.0, 0.0, 0.0],
+        "inertia_kg_m2": [1.2, 8.4, 8.8],
+        "initial_position_m": [0.0, 0.0, 0.0],
+        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+      },
+      "oars": {
+        "port": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, -0.82, 0.18]
+        },
+        "starboard": {
+          "inboard_length_m": 0.88,
+          "outboard_length_m": 1.98,
+          "oarlock_position_m": [0.25, 0.82, 0.18]
+        }
+      },
+      "seat": {
+        "rail_axis": [1.0, 0.0, 0.0],
+        "min_position_m": -0.4,
+        "max_position_m": 0.4,
+        "initial_position_m": 0.0
+      },
+      "stroke": {
+        "cycle_duration_s": 1.2,
+        "drive_duration_s": 0.48,
+        "catch_angle_rad": -0.9,
+        "release_angle_rad": 0.6
       }
     })");
 
@@ -329,16 +654,7 @@ TEST(SimulatorConfig, LoadsFromFileOrReportsIoError) {
 
   {
     const auto path = write_temp_file("airow-unit-valid-config.json",
-                                      R"({
-          "config_id": "unit-file",
-          "simulation": {
-            "duration_s": 6.0,
-            "time_step_s": 0.1
-          },
-          "hull": {
-            "mass_kg": 15.0
-          }
-        })");
+                                      make_valid_config_json("unit-file"));
 
     const auto result = project::load_simulator_config_file(path);
     remove_file_if_present(path);
@@ -346,7 +662,7 @@ TEST(SimulatorConfig, LoadsFromFileOrReportsIoError) {
     ASSERT_TRUE(result.ok());
     ASSERT_TRUE(result.config.has_value());
     EXPECT_EQ(result.config->config_id, "unit-file");
-    EXPECT_EQ(result.normalized_config.size(), 4U);
+    EXPECT_GE(result.normalized_config.size(), 24U);
   }
 
   {

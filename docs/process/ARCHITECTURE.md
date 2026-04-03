@@ -72,7 +72,7 @@ must not become the architectural home for simulator requirements.
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
 - **Satisfies**: [R-005, R-006, R-007, R-008, R-012, R-027, R-028, R-030, R-031, R-032]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Own the constrained 3D mechanical state for hull, oars, seat, optional flexible oar behavior, and optional stabilization control coupling points.
 - **Owned Concepts**: Hull rigid-body state; oar kinematics; seat travel state; prescribed stroke state; consistent initial mechanical state; optional balance control interfaces; optional rigid vs flexible oar representation.
 - **Inputs**: Validated geometry and mass properties; control or prescribed stroke inputs; external hydro and aero loads.
@@ -82,7 +82,7 @@ must not become the architectural home for simulator requirements.
 - **Invariants**: Mechanical state remains finite in nominal runs; constraints remain bounded by documented tolerances; startup assembly exposes enough information for consistent initialization; optional mechanics modes do not silently change the baseline rigid path.
 - **Allocation Rationale**: Keeps the mechanics backbone as the central physical state owner rather than leaking motion ownership into individual requirement-driven feature slices.
 - **Future Absorption**: Expanded body representations, future crew support, and deeper rower dynamics should be absorbed here behind stable state contracts.
-- **Interfaces**: Planned mechanics state contract, external-load application contract, and subsystem initialization contract for state advancement.
+- **Interfaces**: Mechanics state contract, external-load application contract, and subsystem initialization contract for state advancement. The current realization slice establishes boundary-visible hull, oar, seat, and stroke state behind the orchestrator seam using a deterministic internal baseline implementation that remains independent of concrete Chrono types.
 
 ## A-004 — Hydro Runtime Models
 - **Title**: Reduced hydrodynamic runtime models
@@ -177,7 +177,7 @@ must not become the architectural home for simulator requirements.
 ## A-010 — Numerical Integration and State Advancement
 - **Title**: Numerical integration and consistent state-advancement subsystem
 - **Satisfies**: [R-004, R-016, R-032]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Own consistent initialization, solver-backend abstraction, state-advancement policy, and solver-facing diagnostics while keeping concrete numerical backends replaceable.
 - **Owned Concepts**: Consistent initialization; step-size and tolerance policy; solver backend selection; convergence and termination diagnostics; replay-stable state advancement.
 - **Inputs**: Validated initial conditions and tolerances; mechanics state and constraint contracts; time span requests; orchestrator lifecycle requests.
@@ -187,4 +187,4 @@ must not become the architectural home for simulator requirements.
 - **Invariants**: Concrete solver choice remains hidden behind a stable contract; consistent initialization occurs before runtime stepping; solver failures map to deterministic diagnostics; replay expectations remain scoped to the same executable and platform unless a broader guarantee is documented.
 - **Allocation Rationale**: Separates numerical backend ownership and startup validity from physical-state ownership so mechanics models and solver strategies can evolve independently without leaking backend choices into product requirements.
 - **Future Absorption**: Alternative integrators, sensitivity analysis support, adaptive stepping policies, and richer DAE initialization helpers should extend this subsystem.
-- **Interfaces**: Planned consistent-initialization contract, state-advancement contract, and solver-diagnostic contract.
+- **Interfaces**: Consistent-initialization contract, state-advancement contract, and solver-diagnostic contract. The current realization slice establishes a stable advancer interface plus deterministic internal startup and stepping behavior while deferring Chrono or SUNDIALS integration behind that seam.

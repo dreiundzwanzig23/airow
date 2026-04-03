@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 ### Changed
+- Landed the first mechanics-backed runtime slice for `A-003` and `A-010`
+  with expanded startup configuration, public mechanics and state-advancer
+  contracts, deterministic startup-validity diagnostics, and in-memory hull,
+  oar, seat, and stroke state history.
 - Replaced the bootstrap `string_utils` sample with the first simulator-facing
   `R-001` configuration slice under `A-001`, including a public JSON loading
   and validation contract.
@@ -39,6 +43,11 @@
 - Raised the `src/lib/**` unit coverage gates to 90% region coverage and 80%
   branch coverage and added the missing unit-path tests needed to sustain the
   stricter baseline.
+- Hardened workflow enforcement by removing the `trace: trivial` function
+  bypass, requiring helper refinement blocks to target exactly one parent
+  design item, adding split unit files for mechanics-heavy coverage, and
+  enforcing changed-file coverage ratchets in both `test_tdd.sh` and
+  `test.sh`.
 - Expanded the simulator trace surface to `D-001..D-014`,
   `UT-001..UT-012`, `IT-001..IT-005`, and `QT-001..QT-005`.
 - Added the first real simulator trace evidence: `D-001..D-009`,

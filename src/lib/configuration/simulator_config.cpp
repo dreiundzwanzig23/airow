@@ -1,4 +1,5 @@
 #include "project/configuration/simulator_config.hpp"
+#include "project/core/geometry.hpp"
 
 #include <cctype>
 #include <cmath>
@@ -31,23 +32,34 @@ constexpr NumericFieldSpec NUMERIC_FIELDS[] = {
     {"duration_s", "$.simulation.duration_s"},
     {"time_step_s", "$.simulation.time_step_s"},
     {"mass_kg", "$.hull.mass_kg"},
+    {"inboard_length_m", "$.oars.port.inboard_length_m"},
+    {"outboard_length_m", "$.oars.port.outboard_length_m"},
+    {"min_position_m", "$.seat.min_position_m"},
+    {"max_position_m", "$.seat.max_position_m"},
+    {"initial_position_m", "$.seat.initial_position_m"},
+    {"cycle_duration_s", "$.stroke.cycle_duration_s"},
+    {"drive_duration_s", "$.stroke.drive_duration_s"},
+    {"catch_angle_rad", "$.stroke.catch_angle_rad"},
+    {"release_angle_rad", "$.stroke.release_angle_rad"},
 };
 constexpr int NORMALIZED_DOUBLE_PRECISION = 15;
+constexpr std::size_t VECTOR_COMPONENT_COUNT = 3U;
+constexpr std::size_t QUATERNION_COMPONENT_COUNT = 4U;
 constexpr std::size_t NAN_LITERAL_LENGTH = 3;
 constexpr std::size_t INFINITY_LITERAL_LENGTH = 8;
 constexpr std::size_t NEGATIVE_INFINITY_LITERAL_LENGTH = 9;
-
-ValidationDiagnostic make_error(std::string code, std::string path,
-                                std::string message) {
-  return {DiagnosticSeverity::error, std::move(code), std::move(path),
-          std::move(message)};
-}
 
 /**
  * @design D-002 — Configuration result shaping and numeric formatting helpers
  * @title Internal helpers for deterministic result and scalar normalization
  * @satisfies [A-001]
  */
+ValidationDiagnostic make_error(std::string code, std::string path,
+                                std::string message) {
+  return {DiagnosticSeverity::error, std::move(code), std::move(path),
+          std::move(message)};
+}
+
 LoadSimulatorConfigResult fail_with(ValidationDiagnostic diagnostic) {
   LoadSimulatorConfigResult result;
   result.diagnostics.push_back(std::move(diagnostic));
@@ -74,6 +86,32 @@ std::string format_normalized_double(double value) {
     text.pop_back();
   }
   return text;
+}
+
+std::string format_vector3(const Vector3 &value) {
+  return "[" + format_normalized_double(value.x) + ", " +
+         format_normalized_double(value.y) + ", " +
+         format_normalized_double(value.z) + "]";
+}
+
+std::string format_quaternion(const Quaternion &value) {
+  return "[" + format_normalized_double(value.x) + ", " +
+         format_normalized_double(value.y) + ", " +
+         format_normalized_double(value.z) + ", " +
+         format_normalized_double(value.w) + "]";
+}
+
+double vector_norm(const Vector3 &value) {
+  return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
+}
+
+Vector3 normalize_vector(const Vector3 &value) {
+  const double magnitude = vector_norm(value);
+  return {
+      .x = value.x / magnitude,
+      .y = value.y / magnitude,
+      .z = value.z / magnitude,
+  };
 }
 
 /**
@@ -183,10 +221,9 @@ bool validate_numeric_value(double value, std::string_view path,
   return true;
 }
 
-bool require_non_negative_field(const Json &root, std::string_view key,
-                                std::string_view path, std::string_view label,
-                                double &target,
-                                LoadSimulatorConfigResult &result) {
+bool require_number_field(const Json &root, std::string_view key,
+                          std::string_view path, std::string_view label,
+                          double &target, LoadSimulatorConfigResult &result) {
   if (!root.contains(key)) {
     result.diagnostics.push_back(make_error(
         "missing_required_field", std::string(path), "missing required field"));
@@ -201,7 +238,14 @@ bool require_non_negative_field(const Json &root, std::string_view key,
   }
 
   target = value.get<double>();
-  if (!validate_numeric_value(target, path, label, result)) {
+  return validate_numeric_value(target, path, label, result);
+}
+
+bool require_non_negative_field(const Json &root, std::string_view key,
+                                std::string_view path, std::string_view label,
+                                double &target,
+                                LoadSimulatorConfigResult &result) {
+  if (!require_number_field(root, key, path, label, target, result)) {
     return false;
   }
   if (target < 0.0) {
@@ -233,6 +277,253 @@ bool require_positive_field(const Json &root, std::string_view key,
   return true;
 }
 
+/**
+ * @design D-018 — Mechanics-startup configuration schema
+ * @title Deterministic extraction and validation for hull, oar, seat, and
+ * stroke startup fields
+ * @satisfies [A-001]
+ */
+bool require_vector3_field(const Json &root, std::string_view key,
+                           std::string_view path, std::string_view label,
+                           Vector3 &target, LoadSimulatorConfigResult &result) {
+  if (!root.contains(key)) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", std::string(path), "missing required field"));
+    return false;
+  }
+
+  const auto &value = root.at(key);
+  if (!value.is_array()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected array"));
+    return false;
+  }
+  if (value.size() != VECTOR_COMPONENT_COUNT) {
+    result.diagnostics.push_back(make_error("invalid_type", std::string(path),
+                                            "expected array with 3 entries"));
+    return false;
+  }
+
+  const auto read_component = [&](std::size_t index, double &component) {
+    const auto component_path =
+        std::string(path) + "[" + std::to_string(index) + "]";
+    if (!value.at(index).is_number()) {
+      result.diagnostics.push_back(
+          make_error("invalid_type", component_path, "expected number"));
+      return false;
+    }
+    component = value.at(index).get<double>();
+    return validate_numeric_value(component, component_path, label, result);
+  };
+
+  return read_component(0U, target.x) && read_component(1U, target.y) &&
+         read_component(2U, target.z);
+}
+
+bool require_quaternion_field(const Json &root, std::string_view key,
+                              std::string_view path, Quaternion &target,
+                              LoadSimulatorConfigResult &result) {
+  if (!root.contains(key)) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", std::string(path), "missing required field"));
+    return false;
+  }
+
+  const auto &value = root.at(key);
+  if (!value.is_array()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected array"));
+    return false;
+  }
+  if (value.size() != QUATERNION_COMPONENT_COUNT) {
+    result.diagnostics.push_back(make_error("invalid_type", std::string(path),
+                                            "expected array with 4 entries"));
+    return false;
+  }
+
+  const auto read_component = [&](std::size_t index, double &component) {
+    const auto component_path =
+        std::string(path) + "[" + std::to_string(index) + "]";
+    if (!value.at(index).is_number()) {
+      result.diagnostics.push_back(
+          make_error("invalid_type", component_path, "expected number"));
+      return false;
+    }
+    component = value.at(index).get<double>();
+    return validate_numeric_value(component, component_path, "quaternion",
+                                  result);
+  };
+
+  return read_component(0U, target.x) && read_component(1U, target.y) &&
+         read_component(2U, target.z) &&
+         read_component(QUATERNION_COMPONENT_COUNT - 1U, target.w);
+}
+
+bool require_normalized_axis_field(const Json &root, std::string_view key,
+                                   std::string_view path, Vector3 &target,
+                                   LoadSimulatorConfigResult &result) {
+  if (!require_vector3_field(root, key, path, key, target, result)) {
+    return false;
+  }
+  if (vector_norm(target) == 0.0) {
+    result.diagnostics.push_back(make_error(
+        "invalid_numeric_value", std::string(path), "axis must be non-zero"));
+    return false;
+  }
+  target = normalize_vector(target);
+  return true;
+}
+
+const Json *require_oar_object(const Json &root, std::string_view key,
+                               std::string_view path,
+                               LoadSimulatorConfigResult &result) {
+  return require_object(root, key, path, result);
+}
+
+bool parse_oar_settings(const Json &root, std::string_view key,
+                        std::string_view path, OarSettings &target,
+                        LoadSimulatorConfigResult &result) {
+  const Json *oar = require_oar_object(root, key, path, result);
+  if (oar == nullptr) {
+    return false;
+  }
+  return require_positive_field(
+             *oar, "inboard_length_m", std::string(path) + ".inboard_length_m",
+             "inboard_length_m", target.inboard_length_m, result) &&
+         require_positive_field(*oar, "outboard_length_m",
+                                std::string(path) + ".outboard_length_m",
+                                "outboard_length_m", target.outboard_length_m,
+                                result) &&
+         require_vector3_field(*oar, "oarlock_position_m",
+                               std::string(path) + ".oarlock_position_m",
+                               "oarlock_position_m", target.oarlock_position_m,
+                               result);
+}
+
+bool parse_simulation_settings(const Json &root, SimulatorConfig &config,
+                               LoadSimulatorConfigResult &result) {
+  const Json *simulation =
+      require_object(root, "simulation", "$.simulation", result);
+  return simulation != nullptr &&
+         require_non_negative_field(*simulation, "duration_s",
+                                    "$.simulation.duration_s", "duration_s",
+                                    config.simulation.duration_s, result) &&
+         require_positive_field(*simulation, "time_step_s",
+                                "$.simulation.time_step_s", "time_step_s",
+                                config.simulation.time_step_s, result);
+}
+
+bool parse_hull_settings(const Json &root, SimulatorConfig &config,
+                         LoadSimulatorConfigResult &result) {
+  const Json *hull = require_object(root, "hull", "$.hull", result);
+  if (hull == nullptr ||
+      !require_positive_field(*hull, "mass_kg", "$.hull.mass_kg", "mass_kg",
+                              config.hull.mass_kg, result) ||
+      !require_vector3_field(*hull, "center_of_mass_m",
+                             "$.hull.center_of_mass_m", "center_of_mass_m",
+                             config.hull.center_of_mass_m, result) ||
+      !require_vector3_field(*hull, "inertia_kg_m2", "$.hull.inertia_kg_m2",
+                             "inertia_kg_m2", config.hull.inertia_kg_m2,
+                             result) ||
+      !require_vector3_field(*hull, "initial_position_m",
+                             "$.hull.initial_position_m", "initial_position_m",
+                             config.hull.initial_position_m, result) ||
+      !require_quaternion_field(*hull, "initial_orientation_xyzw",
+                                "$.hull.initial_orientation_xyzw",
+                                config.hull.initial_orientation_xyzw, result) ||
+      !require_vector3_field(*hull, "initial_linear_velocity_mps",
+                             "$.hull.initial_linear_velocity_mps",
+                             "initial_linear_velocity_mps",
+                             config.hull.initial_linear_velocity_mps, result) ||
+      !require_vector3_field(*hull, "initial_angular_velocity_radps",
+                             "$.hull.initial_angular_velocity_radps",
+                             "initial_angular_velocity_radps",
+                             config.hull.initial_angular_velocity_radps,
+                             result)) {
+    return false;
+  }
+
+  if (config.hull.inertia_kg_m2.x <= 0.0 ||
+      config.hull.inertia_kg_m2.y <= 0.0 ||
+      config.hull.inertia_kg_m2.z <= 0.0) {
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value", "$.hull.inertia_kg_m2",
+                   "inertia_kg_m2 components must be positive"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_oar_pair_settings(const Json &root, SimulatorConfig &config,
+                             LoadSimulatorConfigResult &result) {
+  const Json *oars = require_object(root, "oars", "$.oars", result);
+  return oars != nullptr &&
+         parse_oar_settings(*oars, "port", "$.oars.port", config.oars.port,
+                            result) &&
+         parse_oar_settings(*oars, "starboard", "$.oars.starboard",
+                            config.oars.starboard, result);
+}
+
+bool parse_seat_settings(const Json &root, SimulatorConfig &config,
+                         LoadSimulatorConfigResult &result) {
+  const Json *seat = require_object(root, "seat", "$.seat", result);
+  if (seat == nullptr ||
+      !require_normalized_axis_field(*seat, "rail_axis", "$.seat.rail_axis",
+                                     config.seat.rail_axis, result) ||
+      !require_number_field(*seat, "min_position_m", "$.seat.min_position_m",
+                            "min_position_m", config.seat.min_position_m,
+                            result) ||
+      !require_number_field(*seat, "max_position_m", "$.seat.max_position_m",
+                            "max_position_m", config.seat.max_position_m,
+                            result) ||
+      !require_number_field(*seat, "initial_position_m",
+                            "$.seat.initial_position_m", "initial_position_m",
+                            config.seat.initial_position_m, result)) {
+    return false;
+  }
+  if (config.seat.max_position_m < config.seat.min_position_m) {
+    result.diagnostics.push_back(make_error(
+        "invalid_numeric_value", "$.seat.max_position_m",
+        "max_position_m must be greater than or equal to min_position_m"));
+    return false;
+  }
+  if (config.seat.initial_position_m < config.seat.min_position_m ||
+      config.seat.initial_position_m > config.seat.max_position_m) {
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value", "$.seat.initial_position_m",
+                   "initial_position_m must lie within seat travel limits"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
+                           LoadSimulatorConfigResult &result) {
+  const Json *stroke = require_object(root, "stroke", "$.stroke", result);
+  if (stroke == nullptr ||
+      !require_positive_field(*stroke, "cycle_duration_s",
+                              "$.stroke.cycle_duration_s", "cycle_duration_s",
+                              config.stroke.cycle_duration_s, result) ||
+      !require_positive_field(*stroke, "drive_duration_s",
+                              "$.stroke.drive_duration_s", "drive_duration_s",
+                              config.stroke.drive_duration_s, result) ||
+      !require_number_field(*stroke, "catch_angle_rad",
+                            "$.stroke.catch_angle_rad", "catch_angle_rad",
+                            config.stroke.catch_angle_rad, result) ||
+      !require_number_field(*stroke, "release_angle_rad",
+                            "$.stroke.release_angle_rad", "release_angle_rad",
+                            config.stroke.release_angle_rad, result)) {
+    return false;
+  }
+  if (config.stroke.drive_duration_s >= config.stroke.cycle_duration_s) {
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value", "$.stroke.drive_duration_s",
+                   "drive_duration_s must be less than cycle_duration_s"));
+    return false;
+  }
+  return true;
+}
+
 } // namespace
 
 /**
@@ -249,6 +540,46 @@ normalize_simulator_config(const SimulatorConfig &config) {
       {"$.simulation.time_step_s",
        format_normalized_double(config.simulation.time_step_s), "s"},
       {"$.hull.mass_kg", format_normalized_double(config.hull.mass_kg), "kg"},
+      {"$.hull.center_of_mass_m", format_vector3(config.hull.center_of_mass_m),
+       "m"},
+      {"$.hull.inertia_kg_m2", format_vector3(config.hull.inertia_kg_m2),
+       "kg*m^2"},
+      {"$.hull.initial_position_m",
+       format_vector3(config.hull.initial_position_m), "m"},
+      {"$.hull.initial_orientation_xyzw",
+       format_quaternion(config.hull.initial_orientation_xyzw),
+       "unit-quaternion"},
+      {"$.hull.initial_linear_velocity_mps",
+       format_vector3(config.hull.initial_linear_velocity_mps), "m/s"},
+      {"$.hull.initial_angular_velocity_radps",
+       format_vector3(config.hull.initial_angular_velocity_radps), "rad/s"},
+      {"$.oars.port.inboard_length_m",
+       format_normalized_double(config.oars.port.inboard_length_m), "m"},
+      {"$.oars.port.outboard_length_m",
+       format_normalized_double(config.oars.port.outboard_length_m), "m"},
+      {"$.oars.port.oarlock_position_m",
+       format_vector3(config.oars.port.oarlock_position_m), "m"},
+      {"$.oars.starboard.inboard_length_m",
+       format_normalized_double(config.oars.starboard.inboard_length_m), "m"},
+      {"$.oars.starboard.outboard_length_m",
+       format_normalized_double(config.oars.starboard.outboard_length_m), "m"},
+      {"$.oars.starboard.oarlock_position_m",
+       format_vector3(config.oars.starboard.oarlock_position_m), "m"},
+      {"$.seat.rail_axis", format_vector3(config.seat.rail_axis), "body-axis"},
+      {"$.seat.min_position_m",
+       format_normalized_double(config.seat.min_position_m), "m"},
+      {"$.seat.max_position_m",
+       format_normalized_double(config.seat.max_position_m), "m"},
+      {"$.seat.initial_position_m",
+       format_normalized_double(config.seat.initial_position_m), "m"},
+      {"$.stroke.cycle_duration_s",
+       format_normalized_double(config.stroke.cycle_duration_s), "s"},
+      {"$.stroke.drive_duration_s",
+       format_normalized_double(config.stroke.drive_duration_s), "s"},
+      {"$.stroke.catch_angle_rad",
+       format_normalized_double(config.stroke.catch_angle_rad), "rad"},
+      {"$.stroke.release_angle_rad",
+       format_normalized_double(config.stroke.release_angle_rad), "rad"},
   };
 }
 
@@ -256,8 +587,8 @@ normalize_simulator_config(const SimulatorConfig &config) {
  * @design D-001 — SimulatorConfig loading and validation
  * @title Deterministic JSON configuration boundary for baseline simulator runs
  * @satisfies [A-001]
- * @notes Loads one JSON configuration, validates the baseline schema, and
- * emits deterministic diagnostics and normalized configuration metadata.
+ * @notes Loads one JSON configuration, validates the mechanics-startup schema,
+ * and emits deterministic diagnostics and normalized configuration metadata.
  */
 LoadSimulatorConfigResult
 parse_simulator_config_text(std::string_view json_text,
@@ -284,38 +615,17 @@ parse_simulator_config_text(std::string_view json_text,
   LoadSimulatorConfigResult result;
   SimulatorConfig config;
 
-  if (!require_string_field(root, "config_id", "$.config_id", config.config_id,
-                            result)) {
-    return result;
+  if (require_string_field(root, "config_id", "$.config_id", config.config_id,
+                           result) &&
+      parse_simulation_settings(root, config, result) &&
+      parse_hull_settings(root, config, result) &&
+      parse_oar_pair_settings(root, config, result) &&
+      parse_seat_settings(root, config, result) &&
+      parse_stroke_settings(root, config, result)) {
+    result.normalized_config = normalize_simulator_config(config);
+    result.config = std::move(config);
   }
 
-  const Json *simulation =
-      require_object(root, "simulation", "$.simulation", result);
-  if (simulation == nullptr) {
-    return result;
-  }
-  if (!require_non_negative_field(*simulation, "duration_s",
-                                  "$.simulation.duration_s", "duration_s",
-                                  config.simulation.duration_s, result)) {
-    return result;
-  }
-  if (!require_positive_field(*simulation, "time_step_s",
-                              "$.simulation.time_step_s", "time_step_s",
-                              config.simulation.time_step_s, result)) {
-    return result;
-  }
-
-  const Json *hull = require_object(root, "hull", "$.hull", result);
-  if (hull == nullptr) {
-    return result;
-  }
-  if (!require_non_negative_field(*hull, "mass_kg", "$.hull.mass_kg", "mass_kg",
-                                  config.hull.mass_kg, result)) {
-    return result;
-  }
-
-  result.normalized_config = normalize_simulator_config(config);
-  result.config = std::move(config);
   return result;
 }
 

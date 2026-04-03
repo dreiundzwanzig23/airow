@@ -21,3 +21,8 @@ validation_run_logged "test-tdd-aux" \
 # Enforce unit-level coverage quality in the fast loop.
 validation_run_logged "test-tdd-coverage" \
   env COVERAGE_SCOPE=tdd ./scripts/coverage.sh
+
+# Prevent late coverage surprises by rejecting changed-file regressions against
+# the merge-base baseline.
+validation_run_logged "test-tdd-coverage-ratchet" \
+  env COVERAGE_SCOPE=tdd ./scripts/coverage_ratchet.sh
