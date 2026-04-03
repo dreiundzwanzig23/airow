@@ -10,8 +10,8 @@
 #include <string_view>
 #include <vector>
 
-#include "project/orchestrator/simulation_run.hpp"
 #include "project/orchestrator/cli.hpp"
+#include "project/orchestrator/simulation_run.hpp"
 
 namespace {
 
@@ -165,13 +165,12 @@ TEST(SimulationRun, AdvancesTimeAndInvokesProvidersDeterministically) {
   RecordingHydroProvider hydro("stub-hydro");
   RecordingAeroProvider aero("stub-aero");
 
-  const auto result = project::run_simulation(
-      make_config(1.05, 0.5),
-      project::SimulationDependencies{
-          .hydro_provider = &hydro,
-          .aero_provider = &aero,
-          .clock = &clock,
-      });
+  const auto result = project::run_simulation(make_config(1.05, 0.5),
+                                              project::SimulationDependencies{
+                                                  .hydro_provider = &hydro,
+                                                  .aero_provider = &aero,
+                                                  .clock = &clock,
+                                              });
 
   ASSERT_TRUE(result.ok());
   EXPECT_EQ(result.summary.final_simulated_time_s, 1.05);
@@ -196,11 +195,11 @@ TEST(SimulationRun, ReportsInvalidProviderOutputAndProviderExceptions) {
          std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 14h + 1s});
     InvalidHydroProvider hydro;
 
-    const auto result = project::run_simulation(
-        make_config(), project::SimulationDependencies{
-                           .hydro_provider = &hydro,
-                           .clock = &clock,
-                       });
+    const auto result =
+        project::run_simulation(make_config(), project::SimulationDependencies{
+                                                   .hydro_provider = &hydro,
+                                                   .clock = &clock,
+                                               });
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
@@ -215,11 +214,11 @@ TEST(SimulationRun, ReportsInvalidProviderOutputAndProviderExceptions) {
          std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 15h + 1s});
     ThrowingAeroProvider aero;
 
-    const auto result = project::run_simulation(
-        make_config(), project::SimulationDependencies{
-                           .aero_provider = &aero,
-                           .clock = &clock,
-                       });
+    const auto result =
+        project::run_simulation(make_config(), project::SimulationDependencies{
+                                                   .aero_provider = &aero,
+                                                   .clock = &clock,
+                                               });
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
@@ -237,9 +236,8 @@ TEST(SimulationRun, ReportsInvalidProviderOutputAndProviderExceptions) {
  * structured run result without entering the runtime loop.
  */
 TEST(SimulationRun, MapsConfigurationFailuresFromFileBackedEntryPoint) {
-  const auto path = write_temp_file(
-      "airow-invalid-run-config.json",
-      R"({
+  const auto path = write_temp_file("airow-invalid-run-config.json",
+                                    R"({
         "config_id": "invalid-run",
         "simulation": {
           "duration_s": 1.0
@@ -280,7 +278,8 @@ TEST(SimulationRun, HeadlessCliWrapperMapsUsageAndRunStatuses) {
 
   {
     const std::vector<std::string_view> args = {};
-    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream), 64);
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
+              64);
     EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
   }
 
@@ -290,9 +289,8 @@ TEST(SimulationRun, HeadlessCliWrapperMapsUsageAndRunStatuses) {
   stderr_stream.clear();
 
   {
-    const auto path = write_temp_file(
-        "airow-unit-cli-valid-config.json",
-        R"({
+    const auto path = write_temp_file("airow-unit-cli-valid-config.json",
+                                      R"({
           "config_id": "unit-cli-valid",
           "simulation": {
             "duration_s": 1.0,
@@ -308,11 +306,10 @@ TEST(SimulationRun, HeadlessCliWrapperMapsUsageAndRunStatuses) {
     const auto path_text = path.string();
     const std::vector<std::string_view> args = {"--config", path_text};
 
-    EXPECT_EQ(project::run_headless_cli(
-                  args, stdout_stream, stderr_stream,
-                  project::CliDependencies{
-                      .simulation = {.clock = &clock},
-                  }),
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
+                                        project::CliDependencies{
+                                            .simulation = {.clock = &clock},
+                                        }),
               0);
     EXPECT_NE(stdout_stream.str().find("status=success"), std::string::npos);
     remove_file_if_present(path);

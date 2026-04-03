@@ -93,9 +93,8 @@ private:
  * shared single-run path produces matching summary and metadata fields.
  */
 TEST(OrchestratorIntegration, FileBackedAndInMemoryRunsShareCorePath) {
-  const auto path = write_temp_file(
-      "airow-orchestrator-valid-config.json",
-      R"({
+  const auto path = write_temp_file("airow-orchestrator-valid-config.json",
+                                    R"({
         "config_id": "it-shared-run",
         "simulation": {
           "duration_s": 1.0,
@@ -112,12 +111,11 @@ TEST(OrchestratorIntegration, FileBackedAndInMemoryRunsShareCorePath) {
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 17h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 17h + 1s});
   const auto file_result = project::run_simulation_from_config_file(
-      path,
-      project::SimulationDependencies{
-          .hydro_provider = &hydro,
-          .aero_provider = &aero,
-          .clock = &file_clock,
-      });
+      path, project::SimulationDependencies{
+                .hydro_provider = &hydro,
+                .aero_provider = &aero,
+                .clock = &file_clock,
+            });
   remove_file_if_present(path);
 
   project::SimulatorConfig config{
@@ -130,13 +128,12 @@ TEST(OrchestratorIntegration, FileBackedAndInMemoryRunsShareCorePath) {
   FixedClock direct_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 17h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 17h + 1s});
-  const auto direct_result = project::run_simulation(
-      config,
-      project::SimulationDependencies{
-          .hydro_provider = &direct_hydro,
-          .aero_provider = &direct_aero,
-          .clock = &direct_clock,
-      });
+  const auto direct_result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &direct_hydro,
+                                          .aero_provider = &direct_aero,
+                                          .clock = &direct_clock,
+                                      });
 
   ASSERT_TRUE(file_result.ok());
   ASSERT_TRUE(direct_result.ok());
@@ -171,13 +168,12 @@ TEST(OrchestratorIntegration, InMemoryApiSupportsInjectedStubProviders) {
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 2s});
 
-  const auto result = project::run_simulation(
-      config,
-      project::SimulationDependencies{
-          .hydro_provider = &hydro,
-          .aero_provider = &aero,
-          .clock = &clock,
-      });
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
 
   ASSERT_TRUE(result.ok());
   EXPECT_EQ(result.metadata.hydro_provider_id, "stub-hydro-it");
@@ -200,7 +196,8 @@ TEST(OrchestratorIntegration, CliWrapperMapsStatusesToStableExitCodes) {
 
   {
     const std::vector<std::string_view> args = {};
-    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream), 64);
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
+              64);
     EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
   }
 
@@ -210,9 +207,8 @@ TEST(OrchestratorIntegration, CliWrapperMapsStatusesToStableExitCodes) {
   stderr_stream.clear();
 
   {
-    const auto path = write_temp_file(
-        "airow-cli-invalid-config.json",
-        R"({
+    const auto path = write_temp_file("airow-cli-invalid-config.json",
+                                      R"({
           "config_id": "cli-invalid",
           "simulation": {
             "duration_s": 1.0
@@ -227,13 +223,13 @@ TEST(OrchestratorIntegration, CliWrapperMapsStatusesToStableExitCodes) {
     const auto path_text = path.string();
     const std::vector<std::string_view> args = {"--config", path_text};
 
-    EXPECT_EQ(project::run_headless_cli(
-                  args, stdout_stream, stderr_stream,
-                  project::CliDependencies{
-                      .simulation = {.clock = &clock},
-                  }),
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
+                                        project::CliDependencies{
+                                            .simulation = {.clock = &clock},
+                                        }),
               2);
-    EXPECT_NE(stderr_stream.str().find("configuration_error"), std::string::npos);
+    EXPECT_NE(stderr_stream.str().find("configuration_error"),
+              std::string::npos);
     remove_file_if_present(path);
   }
 
@@ -243,9 +239,8 @@ TEST(OrchestratorIntegration, CliWrapperMapsStatusesToStableExitCodes) {
   stderr_stream.clear();
 
   {
-    const auto path = write_temp_file(
-        "airow-cli-valid-config.json",
-        R"({
+    const auto path = write_temp_file("airow-cli-valid-config.json",
+                                      R"({
           "config_id": "cli-valid",
           "simulation": {
             "duration_s": 1.0,
@@ -261,11 +256,10 @@ TEST(OrchestratorIntegration, CliWrapperMapsStatusesToStableExitCodes) {
     const auto path_text = path.string();
     const std::vector<std::string_view> args = {"--config", path_text};
 
-    EXPECT_EQ(project::run_headless_cli(
-                  args, stdout_stream, stderr_stream,
-                  project::CliDependencies{
-                      .simulation = {.clock = &clock},
-                  }),
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
+                                        project::CliDependencies{
+                                            .simulation = {.clock = &clock},
+                                        }),
               0);
     EXPECT_NE(stdout_stream.str().find("status=success"), std::string::npos);
     remove_file_if_present(path);

@@ -46,20 +46,17 @@ if ! [[ "$lizard_parameter_threshold" =~ ^[0-9]+$ ]] || [ "$lizard_parameter_thr
 fi
 
 collect_all_files() {
-  git ls-files 'src/*.cpp' 'src/**/*.cpp' | while IFS= read -r path; do
-    if [ -f "${path}" ]; then
-      echo "${path}"
-    fi
-  done
+  find src -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) \
+    | LC_ALL=C sort
 }
 
 collect_changed_files() {
   {
-    git diff --name-only --diff-filter=ACMR -- '*.cpp'
-    git diff --cached --name-only --diff-filter=ACMR -- '*.cpp'
-    git ls-files --others --exclude-standard -- '*.cpp'
+    git diff --name-only --diff-filter=ACMR -- '*.cpp' '*.cc' '*.cxx'
+    git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.cc' '*.cxx'
+    git ls-files --others --exclude-standard -- '*.cpp' '*.cc' '*.cxx'
   } | sort -u | while IFS= read -r path; do
-    if [[ "$path" != src/*.cpp ]]; then
+    if [[ "$path" != src/* ]]; then
       continue
     fi
     if [ -f "${path}" ]; then

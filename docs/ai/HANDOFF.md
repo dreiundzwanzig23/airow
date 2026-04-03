@@ -7,6 +7,9 @@
 - Landed `R-002` and `R-003` inside `A-002` with a shared single-run
   orchestration path for the CLI and in-memory API, deterministic run
   metadata, stable exit-code mapping, and injected hydro and aero stub seams.
+- Clarified in the repo-facing docs that the current "simulation run" surface
+  is execution infrastructure only and is not yet a mechanics-backed physics
+  runtime.
 - Added the orchestrator public contracts in
   `include/project/orchestrator/simulation_run.hpp` and
   `include/project/orchestrator/cli.hpp`, plus the first real headless

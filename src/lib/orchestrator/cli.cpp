@@ -15,8 +15,7 @@ namespace project {
  * terminal output.
  */
 int run_headless_cli(std::span<const std::string_view> args, std::ostream &out,
-                     std::ostream &err,
-                     const CliDependencies &dependencies) {
+                     std::ostream &err, const CliDependencies &dependencies) {
   if (args.size() != 2 || args.front() != "--config" || args.back().empty()) {
     err << "usage: project_app --config <path>\n";
     return 64;
@@ -26,8 +25,7 @@ int run_headless_cli(std::span<const std::string_view> args, std::ostream &out,
       std::filesystem::path(args.back()), dependencies.simulation);
 
   if (result.status == RunStatus::success) {
-    out << "status=success"
-        << " config_id=" << result.metadata.config_id
+    out << "status=success" << " config_id=" << result.metadata.config_id
         << " version=" << result.metadata.simulator_version
         << " start=" << result.metadata.start_timestamp_utc
         << " end=" << result.metadata.end_timestamp_utc
@@ -45,10 +43,8 @@ int run_headless_cli(std::span<const std::string_view> args, std::ostream &out,
       << " start=" << result.metadata.start_timestamp_utc
       << " end=" << result.metadata.end_timestamp_utc << '\n';
   for (const auto &diagnostic : result.diagnostics) {
-    err << "diagnostic"
-        << " code=" << diagnostic.code
-        << " subsystem=" << diagnostic.subsystem
-        << " path=" << diagnostic.path
+    err << "diagnostic" << " code=" << diagnostic.code
+        << " subsystem=" << diagnostic.subsystem << " path=" << diagnostic.path
         << " message=" << diagnostic.message << '\n';
   }
   return exit_code;

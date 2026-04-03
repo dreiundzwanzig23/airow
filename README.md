@@ -11,6 +11,10 @@ broader rowing simulator direction remains defined in the requirements,
 architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership.
 
+The current run path is orchestration-only. It validates configuration, runs a
+bounded deterministic loop, and exposes structured metadata and diagnostics,
+but it does not yet include real mechanics-backed rowing physics.
+
 ## Quick Start
 
 Install dependencies:
@@ -37,6 +41,8 @@ Current implemented library surface:
 - deterministic diagnostics and normalized configuration metadata for `R-001`
 - reusable in-memory single-run API with injected hydro and aero stubs
 - headless CLI wrapper with stable exit-code behavior for `R-002` and `R-003`
+- current run results are infrastructure-level placeholders until mechanics,
+  hydro, aero, and startup-validity subsystems land
 
 ## Project Direction
 
@@ -169,7 +175,8 @@ Maintenance commands:
 
 ## Gate Highlights
 
-- `./scripts/lint.sh`: strict `clang-tidy` and `lizard` gates.
+- `./scripts/lint.sh`: strict `clang-tidy` and `lizard` gates over the current
+  `src/` translation-unit tree, including newly added source files.
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
   `src/lib/**`.
 - `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction

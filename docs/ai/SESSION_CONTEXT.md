@@ -29,6 +29,9 @@
 - The repository now includes the first simulator-facing implementation slices:
   deterministic JSON loading and validation for `R-001` plus a shared
   in-memory and CLI single-run orchestration path for `R-002` and `R-003`.
+- The current run path is still orchestration-only: it proves shared execution,
+  metadata, diagnostics, and test seams, but not yet real mechanics-backed
+  rowing physics.
 - `A-002` is now active with a concrete public contract in
   `include/project/orchestrator/simulation_run.hpp` and
   `include/project/orchestrator/cli.hpp`.

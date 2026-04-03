@@ -89,9 +89,9 @@ struct SimulationRunResult {
   }
 };
 
-SimulationRunResult run_simulation(
-    const SimulatorConfig &config,
-    const SimulationDependencies &dependencies = {});
+SimulationRunResult
+run_simulation(const SimulatorConfig &config,
+               const SimulationDependencies &dependencies = {});
 
 SimulationRunResult run_simulation_from_config_file(
     const std::filesystem::path &path,

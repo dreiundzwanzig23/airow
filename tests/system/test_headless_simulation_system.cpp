@@ -113,9 +113,8 @@ const std::filesystem::path kProjectAppPath = PROJECT_APP_PATH;
  * headlessly with `--config`, then it exits successfully without any GUI.
  */
 TEST(HeadlessSimulationSystem, ExecutableRunsOneHeadlessSimulation) {
-  const auto config_path = write_temp_file(
-      "airow-qt-valid-config.json",
-      R"({
+  const auto config_path = write_temp_file("airow-qt-valid-config.json",
+                                           R"({
         "config_id": "qt-cli-success",
         "simulation": {
           "duration_s": 1.0,
@@ -152,9 +151,8 @@ TEST(HeadlessSimulationSystem, ExecutableRunsOneHeadlessSimulation) {
  * diagnostics.
  */
 TEST(HeadlessSimulationSystem, ExecutableReportsConfigurationFailure) {
-  const auto config_path = write_temp_file(
-      "airow-qt-invalid-config.json",
-      R"({
+  const auto config_path = write_temp_file("airow-qt-invalid-config.json",
+                                           R"({
         "config_id": "qt-cli-invalid",
         "simulation": {
           "duration_s": 1.0
@@ -204,13 +202,12 @@ TEST(HeadlessSimulationSystem, InMemoryApiReturnsStructuredRunResult) {
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 21h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 21h + 1s});
 
-  const auto result = project::run_simulation(
-      config,
-      project::SimulationDependencies{
-          .hydro_provider = &hydro,
-          .aero_provider = &aero,
-          .clock = &clock,
-      });
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
 
   ASSERT_TRUE(result.ok());
   EXPECT_EQ(result.status, project::RunStatus::success);

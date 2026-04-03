@@ -78,12 +78,14 @@ Milestone framing:
 - **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-03
-- **Change-Type**: none
+- **Change-Type**: editorial
 - **Needs-Review**: no
 - **Notes**: The current implementation slice introduces the first shared
   single-run path for CLI and in-memory execution with deterministic metadata
   and exit-code behavior before real mechanics or machine-readable artifact
-  emission land.
+  emission land. In the current repository state, "simulation" here means the
+  headless execution of the validated runtime path, not yet a mechanics-backed
+  rowing-physics model.
 
 ## R-003 — In-Memory Simulation API
 - **Title**: Provide a library API suitable for tests and harnesses
@@ -96,12 +98,14 @@ Milestone framing:
 - **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-03
-- **Change-Type**: none
+- **Change-Type**: editorial
 - **Needs-Review**: no
 - **Notes**: This requirement exists primarily to improve testability and
   agentic workflow ergonomics. The first implementation slice uses injected
   deterministic hydro and aero stub interfaces around a bounded single-run
-  loop before mechanics-state contracts exist.
+  loop before mechanics-state contracts exist. In the current repository
+  state, the API guarantees structured execution and test seams, not yet a
+  mechanics-backed physics result.
 
 ## R-004 — Deterministic Replay
 - **Title**: Reproduce the same run deterministically on the same platform

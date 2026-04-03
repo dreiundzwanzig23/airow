@@ -8,6 +8,12 @@
 - Landed `R-002` and `R-003` inside `A-002` with a shared single-run
   orchestration path, injected hydro and aero stub seams, and a minimal
   `project_app --config <path>` CLI contract.
+- Clarified the current wording around `R-002` and `R-003` so "simulation run"
+  is explicitly understood as orchestration infrastructure, not yet a
+  mechanics-backed physics model.
+- Tightened `./scripts/lint.sh` so the `all` scope discovers translation units
+  from the filesystem under `src/` instead of only from tracked git entries,
+  making newly added source files part of the immediate lint feedback loop.
 - Expanded the simulator trace surface to `D-001..D-014`,
   `UT-001..UT-012`, `IT-001..IT-005`, and `QT-001..QT-005`.
 - Added the first real simulator trace evidence: `D-001..D-009`,

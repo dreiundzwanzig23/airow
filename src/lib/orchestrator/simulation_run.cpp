@@ -29,9 +29,8 @@ constexpr std::string_view kDefaultAeroProviderId = "baseline-null-aero";
  * injected hydro, aero, and clock seams while keeping baseline summary metrics
  * stable before mechanics exists.
  */
-SimulationRunResult run_simulation(
-    const SimulatorConfig &config,
-    const SimulationDependencies &dependencies) {
+SimulationRunResult run_simulation(const SimulatorConfig &config,
+                                   const SimulationDependencies &dependencies) {
   auto format_timestamp = [&](std::chrono::system_clock::time_point instant) {
     const auto time_value = std::chrono::system_clock::to_time_t(instant);
     std::tm utc_time{};
@@ -97,10 +96,9 @@ SimulationRunResult run_simulation(
               ? dependencies.hydro_provider->sample_load(context)
               : 0.0;
       if (!std::isfinite(hydro_load)) {
-        fail_runtime(
-            "hydro", "$.runtime.hydro", "invalid_provider_output",
-            "hydro provider '" + result.metadata.hydro_provider_id +
-                "' returned a non-finite load sample");
+        fail_runtime("hydro", "$.runtime.hydro", "invalid_provider_output",
+                     "hydro provider '" + result.metadata.hydro_provider_id +
+                         "' returned a non-finite load sample");
         break;
       }
     } catch (const std::exception &error) {
@@ -121,10 +119,9 @@ SimulationRunResult run_simulation(
               ? dependencies.aero_provider->sample_load(context)
               : 0.0;
       if (!std::isfinite(aero_load)) {
-        fail_runtime(
-            "aero", "$.runtime.aero", "invalid_provider_output",
-            "aero provider '" + result.metadata.aero_provider_id +
-                "' returned a non-finite load sample");
+        fail_runtime("aero", "$.runtime.aero", "invalid_provider_output",
+                     "aero provider '" + result.metadata.aero_provider_id +
+                         "' returned a non-finite load sample");
         break;
       }
     } catch (const std::exception &error) {
@@ -139,7 +136,8 @@ SimulationRunResult run_simulation(
       break;
     }
 
-    const double remaining_time_s = config.simulation.duration_s - simulated_time_s;
+    const double remaining_time_s =
+        config.simulation.duration_s - simulated_time_s;
     const double step_size_s =
         std::min(config.simulation.time_step_s, remaining_time_s);
     simulated_time_s += step_size_s;
@@ -161,9 +159,9 @@ SimulationRunResult run_simulation(
  * @notes Reuses the validated configuration boundary and maps configuration
  * failures into stable run results before the runtime loop is entered.
  */
-SimulationRunResult run_simulation_from_config_file(
-    const std::filesystem::path &path,
-    const SimulationDependencies &dependencies) {
+SimulationRunResult
+run_simulation_from_config_file(const std::filesystem::path &path,
+                                const SimulationDependencies &dependencies) {
   auto format_timestamp = [&](std::chrono::system_clock::time_point instant) {
     const auto time_value = std::chrono::system_clock::to_time_t(instant);
     std::tm utc_time{};
@@ -200,7 +198,23 @@ SimulationRunResult run_simulation_from_config_file(
     return result;
   }
 
-  return run_simulation(*loaded.config, dependencies);
+  if (!loaded.config.has_value()) {
+    SimulationRunResult result;
+    result.status = RunStatus::configuration_error;
+    result.metadata.simulator_version = PROJECT_VERSION_STRING;
+    result.metadata.start_timestamp_utc = current_timestamp();
+    result.metadata.end_timestamp_utc = current_timestamp();
+    result.diagnostics.push_back(RunDiagnostic{
+        .code = "missing_loaded_config",
+        .subsystem = "configuration",
+        .path = "$",
+        .message =
+            "configuration load reported success without a config object",
+    });
+    return result;
+  }
+
+  return run_simulation(loaded.config.value(), dependencies);
 }
 
 } // namespace project
