@@ -30,6 +30,13 @@ struct ScenarioProviderConfig {
   ScenarioProviderType type{ScenarioProviderType::passive_placeholder};
   double drag_coefficient_n_s2_per_m2{};
   double blade_force_coefficient_n_s_per_m{};
+  double hydrostatic_heave_stiffness_n_per_m{};
+  double hydrostatic_heave_damping_n_s_per_m{};
+  double roll_restoring_moment_n_m_per_rad{};
+  double roll_damping_moment_n_m_s_per_rad{};
+  double pitch_restoring_moment_n_m_per_rad{};
+  double pitch_damping_moment_n_m_s_per_rad{};
+  double full_blade_immersion_depth_m{0.12};
 
   bool operator==(const ScenarioProviderConfig &) const = default;
 };
@@ -45,6 +52,10 @@ struct ScenarioAeroProviderConfig {
 struct ScenarioAcceptanceEnvelope {
   double max_abs_distance_m{};
   double max_abs_mean_speed_mps{};
+  double max_abs_final_hull_position_z_m{};
+  double max_abs_final_hydro_force_z_n{};
+  double max_abs_final_hydro_moment_x_n_m{};
+  double max_abs_final_hydro_moment_y_n_m{};
   double min_distance_m{};
   double min_mean_speed_mps{};
   double max_mean_speed_mps{};

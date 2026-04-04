@@ -210,11 +210,10 @@ TEST(AeroRuntimeModels, ConfigRejectsNonFiniteAmbientWindComponent) {
 TEST(AeroRuntimeModels, ProviderComputesApparentWindFromAmbientAndBoatMotion) {
   project::SteadyWindPlaceholderAeroProvider provider(1.5, 0.75);
 
-  const auto sample =
-      provider.sample_load(project::StepContext{.time_s = 0.0,
-                                                .state = make_state(
-                                                    {.x = 1.2, .y = -0.4, .z = 0.0})},
-                           {.x = -3.0, .y = 0.6, .z = 0.0});
+  const auto sample = provider.sample_load(
+      project::StepContext{
+          .time_s = 0.0, .state = make_state({.x = 1.2, .y = -0.4, .z = 0.0})},
+      {.x = -3.0, .y = 0.6, .z = 0.0});
 
   EXPECT_EQ(sample.apparent_wind_world_mps,
             (project::Vector3{.x = -4.2, .y = 1.0, .z = 0.0}));
@@ -229,11 +228,10 @@ TEST(AeroRuntimeModels, ProviderComputesApparentWindFromAmbientAndBoatMotion) {
 TEST(AeroRuntimeModels, ProviderReturnsZeroLoadAtZeroApparentWind) {
   project::SteadyWindPlaceholderAeroProvider provider(1.5, 0.75);
 
-  const auto sample =
-      provider.sample_load(project::StepContext{.time_s = 0.0,
-                                                .state = make_state(
-                                                    {.x = 1.0, .y = 0.5, .z = 0.0})},
-                           {.x = 1.0, .y = 0.5, .z = 0.0});
+  const auto sample = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 1.0, .y = 0.5, .z = 0.0})},
+      {.x = 1.0, .y = 0.5, .z = 0.0});
 
   EXPECT_EQ(sample.force_world_n,
             (project::Vector3{.x = 0.0, .y = 0.0, .z = 0.0}));
@@ -251,16 +249,14 @@ TEST(AeroRuntimeModels, ProviderReturnsZeroLoadAtZeroApparentWind) {
 TEST(AeroRuntimeModels, ProviderMirrorsCrosswindYawMomentSign) {
   project::SteadyWindPlaceholderAeroProvider provider(1.5, 0.75);
 
-  const auto starboard =
-      provider.sample_load(project::StepContext{.time_s = 0.0,
-                                                .state = make_state(
-                                                    {.x = 1.0, .y = 0.0, .z = 0.0})},
-                           {.x = 0.0, .y = 2.0, .z = 0.0});
-  const auto port =
-      provider.sample_load(project::StepContext{.time_s = 0.0,
-                                                .state = make_state(
-                                                    {.x = 1.0, .y = 0.0, .z = 0.0})},
-                           {.x = 0.0, .y = -2.0, .z = 0.0});
+  const auto starboard = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 1.0, .y = 0.0, .z = 0.0})},
+      {.x = 0.0, .y = 2.0, .z = 0.0});
+  const auto port = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 1.0, .y = 0.0, .z = 0.0})},
+      {.x = 0.0, .y = -2.0, .z = 0.0});
 
   EXPECT_GT(starboard.moment_world_n_m.z, 0.0);
   EXPECT_LT(port.moment_world_n_m.z, 0.0);
@@ -275,9 +271,8 @@ TEST(AeroRuntimeModels, ProviderMirrorsCrosswindYawMomentSign) {
  * scenario type, aero provider, and wind-backed acceptance envelope.
  */
 TEST(AeroRuntimeModels, LoadsHeadwindScenarioDefinitionWithAeroProvider) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-headwind-scenario.json",
-      R"({
+  const auto scenario_path = write_temp_file("airow-ut-headwind-scenario.json",
+                                             R"({
     "scenario_id": "headwind-stroke",
     "scenario_type": "headwind_stroke",
     "provider": {

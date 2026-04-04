@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -16,11 +17,6 @@ namespace {
 
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
-
-double drive_oar_rate_radps(const project::SimulatorConfig &config) {
-  return (config.stroke.release_angle_rad - config.stroke.catch_angle_rad) /
-         config.stroke.drive_duration_s;
-}
 
 project::SimulatorConfig make_config() {
   return {
@@ -69,6 +65,8 @@ project::SimulatorConfig make_config() {
               .drive_duration_s = 0.48,
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
+              .drive_blade_depth_m = 0.12,
+              .recovery_blade_depth_m = 0.0,
           },
       .environment = {},
       .output =
@@ -134,9 +132,7 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
   config.output.summary_path = summary_path.string();
   config.output.time_series_path = time_series_path.string();
 
-  project::StrokePropulsionPlaceholderHydroProvider hydro(
-      4.0, config.oars.port.outboard_length_m,
-      config.oars.starboard.outboard_length_m, drive_oar_rate_radps(config));
+  project::StrokePropulsionPlaceholderHydroProvider hydro(4.0);
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 1s});
@@ -151,11 +147,14 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
 
   bool observed_positive_blade_force = false;
   for (const auto &sample : result.load_history) {
-    EXPECT_DOUBLE_EQ(sample.hydro_force_x_n, 0.0);
-    if (sample.port_blade_force_x_n > 0.0) {
+    EXPECT_TRUE(std::isfinite(sample.hull_force_world_n.z));
+    EXPECT_TRUE(std::isfinite(sample.hull_moment_world_n_m.x));
+    EXPECT_TRUE(std::isfinite(sample.port_blade_immersion_depth_m));
+    if (sample.port_blade_force_world_n.x > 0.0) {
       observed_positive_blade_force = true;
-      EXPECT_DOUBLE_EQ(sample.port_blade_force_x_n,
-                       sample.starboard_blade_force_x_n);
+      EXPECT_DOUBLE_EQ(sample.port_blade_force_world_n.x,
+                       sample.starboard_blade_force_world_n.x);
+      EXPECT_GT(sample.port_blade_immersion_depth_m, 0.0);
     }
   }
   EXPECT_TRUE(observed_positive_blade_force);
@@ -180,6 +179,12 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
     if (port_blade_force > 0.0) {
       observed_positive_blade_channel = true;
       EXPECT_DOUBLE_EQ(port_blade_force, starboard_blade_force);
+      EXPECT_GT(record.at("blade_state")
+                    .at("port")
+                    .at("immersion_depth_m")
+                    .at("value")
+                    .get<double>(),
+                0.0);
       if (record.at("stroke_power_w").at("value").get<double>() > 0.0) {
         observed_positive_propulsive_power = true;
       }
@@ -187,6 +192,64 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
   }
   EXPECT_TRUE(observed_positive_blade_channel);
   EXPECT_TRUE(observed_positive_propulsive_power);
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test IT-011
+ * @verifies [A-004, A-007, A-010]
+ * @notes Given the widened reduced-hydro runtime path, when the shared run
+ * path executes a calm-water stroke, then hydro vectors, moments, and blade
+ * immersion diagnostics propagate into both in-memory results and emitted time
+ * series.
+ */
+TEST(HydroRuntimeIntegration, EmitsHydroVectorsMomentsAndImmersionChannels) {
+  auto config = make_config();
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-it-hydro-extended-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-it-hydro-extended-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  config.output.summary_path = summary_path.string();
+  config.output.time_series_path = time_series_path.string();
+
+  project::StrokePropulsionPlaceholderHydroProvider hydro(4.0);
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 2min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 2min +
+           1s});
+
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.hydro_provider = &hydro,
+                                              .clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_FALSE(result.load_history.empty());
+  EXPECT_TRUE(result.summary.final_hydro_force_world_n.z == 0.0 ||
+              std::isfinite(result.summary.final_hydro_force_world_n.z));
+  EXPECT_TRUE(std::isfinite(result.summary.final_hydro_moment_world_n_m.x));
+
+  const auto time_series = read_json_file(time_series_path);
+  const auto &first_record = time_series.at("records").front();
+  EXPECT_EQ(first_record.at("hull_water_load_world_n")
+                .at("vector")
+                .at("frame")
+                .get<std::string>(),
+            "world");
+  EXPECT_EQ(first_record.at("hydrodynamic_moment_world_n_m")
+                .at("vector")
+                .at("frame")
+                .get<std::string>(),
+            "world");
+  EXPECT_EQ(first_record.at("blade_state")
+                .at("port")
+                .at("immersion_depth_m")
+                .at("unit")
+                .get<std::string>(),
+            "m");
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);

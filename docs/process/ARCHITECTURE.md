@@ -154,16 +154,17 @@ Implemented baseline today:
 - shared headless CLI and in-memory single-run orchestration,
 - boundary-visible hull, oar, seat, and stroke state contracts,
 - deterministic internal startup and state advancement seam,
-- structured hydro-provider samples with deterministic passive, tow, and
-  calm-water propulsion placeholder providers,
+- structured hydro-provider samples with deterministic reduced passive, tow,
+  and calm-water propulsion behavior, including hydro moments and blade
+  immersion diagnostics,
 - structured JSON output and optional HDF5 output contract,
-- checked-in passive-float, tow-test, and calm-water stroke scenario
-  evaluation.
+- checked-in passive-float, tow-test, calm-water stroke, headwind stroke, and
+  crosswind stroke scenario evaluation.
 
 Still planned or incomplete:
-- richer reduced hydro runtime models beyond the first placeholder providers,
-- apparent wind and reduced aero models,
-- headwind and crosswind scenario artifacts,
+- richer reduced hydro runtime models beyond the first widened baseline
+  providers,
+- apparent wind and reduced aero models beyond the first steady-wind slice,
 - runtime-selectable provider families,
 - external calibration ingestion and provenance propagation,
 - concrete Chrono and SUNDIALS backend wiring behind existing seams.
@@ -230,9 +231,12 @@ Still planned or incomplete:
 - **Allocation Rationale**: Concentrates water-load logic into one subsystem so runtime hydro behavior evolves through replaceable providers instead of requirement-specific patches.
 - **Future Absorption**: Additional resistance, blade, wave, and lookup-driven hydro providers should be absorbed here behind shared contracts.
 - **Interfaces**: Public hydro-provider seam in the shared run path that now
-  returns structured hull and per-blade load samples for deterministic
-  baseline passive, tow, and calm-water propulsion providers, plus follow-on
-  provider-selection contracts that remain future work.
+  returns structured hull force or moment plus per-blade world-force and
+  immersion samples for deterministic reduced passive, tow, and calm-water
+  propulsion providers. The current realization slice couples longitudinal and
+  vertical hydro-force components plus roll or pitch restoring moments into the
+  internal baseline advancer while leaving fuller sway or yaw hydro dynamics
+  for later work.
 
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models
@@ -338,4 +342,9 @@ Still planned or incomplete:
 - **Invariants**: Concrete solver choice remains hidden behind a stable contract; consistent initialization occurs before runtime stepping; solver failures map to deterministic diagnostics; replay expectations remain scoped to the same executable and platform unless a broader guarantee is documented.
 - **Allocation Rationale**: Separates numerical backend ownership and startup validity from physical-state ownership so mechanics models and solver strategies can evolve independently without leaking backend choices into product requirements.
 - **Future Absorption**: Alternative integrators, sensitivity analysis support, adaptive stepping policies, and richer DAE initialization helpers should extend this subsystem.
-- **Interfaces**: Consistent-initialization contract, state-advancement contract, and solver-diagnostic contract. The current realization slice establishes a stable advancer interface plus deterministic internal startup and stepping behavior while deferring Chrono or SUNDIALS integration behind that seam.
+- **Interfaces**: Consistent-initialization contract, state-advancement
+  contract, and solver-diagnostic contract. The current realization slice
+  establishes a stable advancer interface plus deterministic internal startup
+  and stepping behavior, explicit blade-immersion or blade-tip-velocity state,
+  and widened hydro-force coupling while deferring Chrono or SUNDIALS
+  integration behind that seam.

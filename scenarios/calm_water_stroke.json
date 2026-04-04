@@ -3,7 +3,9 @@
   "scenario_type": "calm_water_stroke",
   "provider": {
     "type": "stroke_propulsion_placeholder",
-    "blade_force_coefficient_n_s_per_m": 4.0
+    "blade_force_coefficient_n_s_per_m": 4.0,
+    "drag_coefficient_n_s2_per_m2": 0.8,
+    "full_blade_immersion_depth_m": 0.12
   },
   "config": {
     "config_id": "calm-water-stroke",
@@ -42,7 +44,9 @@
       "cycle_duration_s": 1.2,
       "drive_duration_s": 0.48,
       "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
+      "release_angle_rad": 0.6,
+      "drive_blade_depth_m": 0.12,
+      "recovery_blade_depth_m": 0.0
     }
   },
   "acceptance": {

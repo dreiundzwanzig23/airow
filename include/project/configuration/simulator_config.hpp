@@ -77,6 +77,8 @@ struct StrokeSettings {
   double drive_duration_s{};
   double catch_angle_rad{};
   double release_angle_rad{};
+  double drive_blade_depth_m{0.12};
+  double recovery_blade_depth_m{};
 
   bool operator==(const StrokeSettings &) const = default;
 };

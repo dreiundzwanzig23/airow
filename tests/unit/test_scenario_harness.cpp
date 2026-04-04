@@ -47,12 +47,16 @@ project::SimulationRunResult make_success_result() {
               .handle_angle_rad = -0.9,
               .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
               .blade_tip_position_world_m = {.x = 2.0, .y = -0.82, .z = 0.18},
+              .blade_tip_velocity_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .blade_immersion_depth_m = 0.0,
           },
       .starboard_oar =
           {
               .handle_angle_rad = -0.9,
               .oarlock_position_body_m = {.x = 0.25, .y = 0.82, .z = 0.18},
               .blade_tip_position_world_m = {.x = 2.0, .y = 0.82, .z = 0.18},
+              .blade_tip_velocity_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
+              .blade_immersion_depth_m = 0.0,
           },
       .seat =
           {
@@ -152,7 +156,13 @@ TEST(ScenarioHarnessUnit, LoadsScenarioDefinitionFromJsonFile) {
         "scenario_id": "passive-float",
         "scenario_type": "passive_float",
         "provider": {
-          "type": "passive_placeholder"
+          "type": "passive_placeholder",
+          "hydrostatic_heave_stiffness_n_per_m": 120.0,
+          "hydrostatic_heave_damping_n_s_per_m": 24.0,
+          "roll_restoring_moment_n_m_per_rad": 18.0,
+          "roll_damping_moment_n_m_s_per_rad": 4.0,
+          "pitch_restoring_moment_n_m_per_rad": 22.0,
+          "pitch_damping_moment_n_m_s_per_rad": 4.5
         },
         "config": {
           "config_id": "passive-float-run",
@@ -191,12 +201,18 @@ TEST(ScenarioHarnessUnit, LoadsScenarioDefinitionFromJsonFile) {
             "cycle_duration_s": 1.2,
             "drive_duration_s": 0.48,
             "catch_angle_rad": -0.9,
-            "release_angle_rad": 0.6
+            "release_angle_rad": 0.6,
+            "drive_blade_depth_m": 0.12,
+            "recovery_blade_depth_m": 0.0
           }
         },
         "acceptance": {
           "max_abs_distance_m": 1e-9,
-          "max_abs_mean_speed_mps": 1e-9
+          "max_abs_mean_speed_mps": 1e-9,
+          "max_abs_final_hull_position_z_m": 1e-9,
+          "max_abs_final_hydro_force_z_n": 1e-9,
+          "max_abs_final_hydro_moment_x_n_m": 1e-9,
+          "max_abs_final_hydro_moment_y_n_m": 1e-9
         }
       })");
 
@@ -228,11 +244,49 @@ TEST(ScenarioHarnessUnit, EvaluatesPassiveFloatEnvelope) {
   scenario.provider.type = project::ScenarioProviderType::passive_placeholder;
   scenario.acceptance.max_abs_distance_m = 1e-9;
   scenario.acceptance.max_abs_mean_speed_mps = 1e-9;
+  scenario.acceptance.max_abs_final_hull_position_z_m = 1e-9;
+  scenario.acceptance.max_abs_final_hydro_force_z_n = 1e-9;
+  scenario.acceptance.max_abs_final_hydro_moment_x_n_m = 1e-9;
+  scenario.acceptance.max_abs_final_hydro_moment_y_n_m = 1e-9;
   auto result = make_success_result();
+  result.summary.final_hull_position_z_m = 0.0;
+  result.summary.final_hydro_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0};
+  result.summary.final_hydro_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0};
 
   const auto evaluation = project::evaluate_scenario_result(scenario, result);
 
   EXPECT_TRUE(evaluation.ok());
+}
+
+/**
+ * @test UT-112
+ * @verifies [D-027]
+ * @notes Given a passive-float acceptance envelope with hydrostatic
+ * equilibrium tolerances, when the final vertical force or restoring moments
+ * exceed those limits, then the evaluator reports deterministic envelope
+ * violations.
+ */
+TEST(ScenarioHarnessUnit, ReportsPassiveFloatHydrostaticEnvelopeViolations) {
+  project::ScenarioDefinition scenario;
+  scenario.scenario_id = "passive-float";
+  scenario.type = project::ScenarioType::passive_float;
+  scenario.provider.type = project::ScenarioProviderType::passive_placeholder;
+  scenario.acceptance.max_abs_distance_m = 1e-9;
+  scenario.acceptance.max_abs_mean_speed_mps = 1e-9;
+  scenario.acceptance.max_abs_final_hull_position_z_m = 0.01;
+  scenario.acceptance.max_abs_final_hydro_force_z_n = 0.5;
+  scenario.acceptance.max_abs_final_hydro_moment_x_n_m = 0.1;
+  scenario.acceptance.max_abs_final_hydro_moment_y_n_m = 0.1;
+
+  auto result = make_success_result();
+  result.summary.final_hull_position_z_m = 0.03;
+  result.summary.final_hydro_force_world_n = {.x = 0.0, .y = 0.0, .z = 2.0};
+  result.summary.final_hydro_moment_world_n_m = {.x = 0.2, .y = -0.3, .z = 0.0};
+
+  const auto evaluation = project::evaluate_scenario_result(scenario, result);
+
+  ASSERT_FALSE(evaluation.ok());
+  EXPECT_FALSE(evaluation.issues.empty());
 }
 
 /**

@@ -18,11 +18,6 @@ namespace {
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
 
-double drive_oar_rate_radps(const project::SimulatorConfig &config) {
-  return (config.stroke.release_angle_rad - config.stroke.catch_angle_rad) /
-         config.stroke.drive_duration_s;
-}
-
 class FixedClock final : public project::Clock {
 public:
   explicit FixedClock(
@@ -67,11 +62,33 @@ Json read_json_file(const std::filesystem::path &path) {
   return document;
 }
 
+project::StrokePropulsionHydroCoefficients
+make_hydro_coefficients(const project::ScenarioDefinition &scenario) {
+  project::StrokePropulsionHydroCoefficients coefficients;
+  coefficients.full_blade_immersion_depth_m =
+      scenario.provider.full_blade_immersion_depth_m;
+  coefficients.drag_coefficient_n_s2_per_m2 =
+      scenario.provider.drag_coefficient_n_s2_per_m2;
+  coefficients.hydrostatic_heave_stiffness_n_per_m =
+      scenario.provider.hydrostatic_heave_stiffness_n_per_m;
+  coefficients.hydrostatic_heave_damping_n_s_per_m =
+      scenario.provider.hydrostatic_heave_damping_n_s_per_m;
+  coefficients.roll_restoring_moment_n_m_per_rad =
+      scenario.provider.roll_restoring_moment_n_m_per_rad;
+  coefficients.roll_damping_moment_n_m_s_per_rad =
+      scenario.provider.roll_damping_moment_n_m_s_per_rad;
+  coefficients.pitch_restoring_moment_n_m_per_rad =
+      scenario.provider.pitch_restoring_moment_n_m_per_rad;
+  coefficients.pitch_damping_moment_n_m_s_per_rad =
+      scenario.provider.pitch_damping_moment_n_m_s_per_rad;
+  return coefficients;
+}
+
 } // namespace
 
 /**
  * @test QT-012
- * @verifies [R-012, R-018]
+ * @verifies [R-011, R-012, R-018]
  * @notes Given the checked-in calm-water stroke scenario artifact, when the
  * shared run path executes with the deterministic propulsion provider, then
  * the acceptance envelope passes and the emitted speed, blade-load, and power
@@ -85,9 +102,7 @@ TEST(CalmWaterScenarioSystem, ScenarioPassesAcceptanceAndFiniteOutputChecks) {
 
   project::StrokePropulsionPlaceholderHydroProvider hydro(
       loaded.scenario->provider.blade_force_coefficient_n_s_per_m,
-      loaded.scenario->config.oars.port.outboard_length_m,
-      loaded.scenario->config.oars.starboard.outboard_length_m,
-      drive_oar_rate_radps(loaded.scenario->config));
+      make_hydro_coefficients(*loaded.scenario));
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h + 1s});
@@ -152,9 +167,7 @@ TEST(CalmWaterScenarioSystem, DisablingBladeLoadsReducesMeanBoatSpeed) {
 
   project::StrokePropulsionPlaceholderHydroProvider hydro(
       loaded.scenario->provider.blade_force_coefficient_n_s_per_m,
-      loaded.scenario->config.oars.port.outboard_length_m,
-      loaded.scenario->config.oars.starboard.outboard_length_m,
-      drive_oar_rate_radps(loaded.scenario->config));
+      make_hydro_coefficients(*loaded.scenario));
   FixedClock propelled_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h + 2min,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h + 2min +

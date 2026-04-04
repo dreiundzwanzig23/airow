@@ -191,14 +191,15 @@ Milestone framing:
   - A passive float test completes without non-finite values or runaway drift.
   - Output includes equilibrium draft or immersion-related diagnostics.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: The first passive-float scenario harness slice is now in place
-  with deterministic placeholder hydro signals and acceptance-envelope checks.
-  Full hydrostatic equilibrium physics depth remains open behind `A-004`.
+- **Notes**: The baseline `A-004` slice now reports deterministic reduced
+  hydrostatic heave and restoring-moment behavior around the nominal waterline,
+  with passive-float acceptance checks on final vertical force, restoring
+  moments, and final hull `z` diagnostics.
 
 ## R-010 — Reduced Hull-Water Resistance
 - **Title**: Apply a reduced hydrodynamic resistance model to hull motion
@@ -208,15 +209,14 @@ Milestone framing:
   - At zero forward speed, the forward drag component is zero or within a documented near-zero tolerance.
   - A tow-test scenario produces a reproducible drag-versus-speed curve.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: The first tow scenario harness slice now verifies deterministic
-  placeholder tow-drag direction and monotonic drag-speed behavior through
-  checked-in acceptance envelopes; richer reduced-model physics remains open
-  behind `A-004`.
+- **Notes**: The baseline `A-004` slice now applies deterministic reduced
+  quadratic hull drag through the shared hydro seam while preserving the
+  checked-in tow scenario envelope and monotonic drag-speed evidence.
 
 ## R-011 — Reduced Blade-Water Force Model
 - **Title**: Compute blade hydrodynamic loads from blade state and relative water motion
@@ -226,15 +226,15 @@ Milestone framing:
   - At fixed immersion and orientation, increasing relative blade-water speed increases force magnitude over a documented range.
   - The blade force provider can be exercised independently in automated tests.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: The current `A-004` slice propagates deterministic placeholder
-  blade loads through calm-water stroke scenarios, but immersion-aware
-  blade-water force physics and a requirement-closing system-level acceptance
-  lane remain open.
+- **Notes**: The baseline `A-004` slice now computes deterministic reduced
+  blade-water loads from explicit blade immersion, handle-angle orientation
+  surrogate, and relative blade-water speed, with dry-blade and monotonic
+  speed evidence plus calm-water scenario coverage.
 
 ## R-012 — Self-Propelled Stroke Response
 - **Title**: Produce forward motion from a valid stroke in calm water
@@ -262,9 +262,9 @@ Milestone framing:
   - With zero ambient wind, apparent wind equals the negative of the boat air-relative velocity within tolerance.
   - Unit tests cover headwind, tailwind, and crosswind direction cases.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
 
@@ -276,9 +276,9 @@ Milestone framing:
   - Increasing headwind at fixed stroke conditions reduces mean boat speed relative to a calm-air baseline.
   - Mirroring a steady crosswind direction changes the sign of the yawing moment.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
 

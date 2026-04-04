@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Changed
+- Raised the baseline `A-004` hydro slice from placeholder behavior to
+  deterministic reduced hydrostatic restoring, widened hydro force or moment
+  propagation, explicit blade immersion or blade-tip-velocity state, and
+  immersion-aware blade-water loads with new evidence (`D-028`, `D-029`,
+  `UT-105..UT-112`, `IT-011`) that closes `R-009`, `R-010`, and `R-011`.
 - Landed the first `A-005` steady-wind aero slice with explicit ambient-wind
   configuration, a public baseline aero-provider header, structured
   apparent-wind plus aerodynamic force or moment samples in run outputs, and

@@ -12,11 +12,6 @@
 
 namespace {
 
-double drive_oar_rate_radps(const project::SimulatorConfig &config) {
-  return (config.stroke.release_angle_rad - config.stroke.catch_angle_rad) /
-         config.stroke.drive_duration_s;
-}
-
 project::SimulatorConfig make_config(double duration_s = 2.4,
                                      double time_step_s = 0.12) {
   return {
@@ -65,6 +60,8 @@ project::SimulatorConfig make_config(double duration_s = 2.4,
               .drive_duration_s = 0.48,
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
+              .drive_blade_depth_m = 0.12,
+              .recovery_blade_depth_m = 0.0,
           },
       .environment = {},
   };
@@ -104,12 +101,16 @@ project::SimulationRunResult make_success_result() {
               .handle_angle_rad = 0.2,
               .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
               .blade_tip_position_world_m = {.x = 2.0, .y = -0.82, .z = 0.18},
+              .blade_tip_velocity_world_mps = {.x = -0.6, .y = 0.0, .z = 0.0},
+              .blade_immersion_depth_m = 0.12,
           },
       .starboard_oar =
           {
               .handle_angle_rad = 0.2,
               .oarlock_position_body_m = {.x = 0.25, .y = 0.82, .z = 0.18},
               .blade_tip_position_world_m = {.x = 2.0, .y = 0.82, .z = 0.18},
+              .blade_tip_velocity_world_mps = {.x = -0.6, .y = 0.0, .z = 0.0},
+              .blade_immersion_depth_m = 0.12,
           },
       .seat =
           {
@@ -137,9 +138,13 @@ public:
   project::HydroLoadSample
   sample_load(const project::StepContext & /*context*/) override {
     return {
-        .hull_force_x_n = 0.0,
-        .port_blade_force_x_n = std::numeric_limits<double>::quiet_NaN(),
-        .starboard_blade_force_x_n = 0.0,
+        .hull_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .hull_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .port_blade_force_world_n =
+            {.x = std::numeric_limits<double>::quiet_NaN(), .y = 0.0, .z = 0.0},
+        .starboard_blade_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .port_blade_immersion_depth_m = 0.0,
+        .starboard_blade_immersion_depth_m = 0.0,
     };
   }
 };
@@ -148,16 +153,13 @@ public:
 
 /**
  * @test UT-071
- * @verifies [D-025]
+ * @verifies [D-028]
  * @notes Given the deterministic calm-water propulsion provider, when the
  * stroke is in drive versus recovery, then it returns positive symmetric
  * blade loads during drive and zero blade loads during recovery.
  */
 TEST(HydroRuntimeModels, StrokePropulsionProviderTracksStrokePhase) {
-  const auto config = make_config();
-  project::StrokePropulsionPlaceholderHydroProvider provider(
-      4.0, config.oars.port.outboard_length_m,
-      config.oars.starboard.outboard_length_m, drive_oar_rate_radps(config));
+  project::StrokePropulsionPlaceholderHydroProvider provider(4.0);
 
   auto drive_state = make_success_result().state_history.back();
   drive_state.stroke.phase = project::StrokePhase::drive;
@@ -169,12 +171,14 @@ TEST(HydroRuntimeModels, StrokePropulsionProviderTracksStrokePhase) {
   const auto recovery_load = provider.sample_load(
       project::StepContext{.time_s = 0.72, .state = recovery_state});
 
-  EXPECT_DOUBLE_EQ(drive_load.hull_force_x_n, 0.0);
-  EXPECT_GT(drive_load.port_blade_force_x_n, 0.0);
-  EXPECT_DOUBLE_EQ(drive_load.port_blade_force_x_n,
-                   drive_load.starboard_blade_force_x_n);
-  EXPECT_DOUBLE_EQ(recovery_load.port_blade_force_x_n, 0.0);
-  EXPECT_DOUBLE_EQ(recovery_load.starboard_blade_force_x_n, 0.0);
+  EXPECT_DOUBLE_EQ(drive_load.hull_force_world_n.x, 0.0);
+  EXPECT_GT(drive_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(drive_load.port_blade_force_world_n.x,
+                   drive_load.starboard_blade_force_world_n.x);
+  EXPECT_GT(drive_load.port_blade_immersion_depth_m, 0.0);
+  EXPECT_DOUBLE_EQ(recovery_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(recovery_load.starboard_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(recovery_load.port_blade_immersion_depth_m, 0.0);
 }
 
 /**
@@ -296,4 +300,175 @@ TEST(HydroRuntimeModels, RejectsNonFiniteBladeLoadComponents) {
   EXPECT_EQ(result.status, project::RunStatus::runtime_error);
   EXPECT_EQ(result.diagnostics.front().subsystem, "hydro");
   EXPECT_EQ(result.diagnostics.front().code, "invalid_provider_output");
+}
+
+/**
+ * @test UT-107
+ * @verifies [D-028]
+ * @notes Given the passive baseline hydro provider and hull states displaced in
+ * heave, roll, or pitch, when the provider samples them, then the returned
+ * hydro force or restoring moments oppose the displacement signs.
+ */
+TEST(HydroRuntimeModels, PassiveProviderReturnsHydrostaticRestoringLoads) {
+  project::PassivePlaceholderHydroProvider provider;
+  auto state = make_success_result().state_history.back();
+  state.hull.position_world_m.z = 0.15;
+  state.hull.angular_velocity_body_radps = {.x = 0.0, .y = 0.0, .z = 0.0};
+  state.hull.orientation_world_from_body = {
+      .x = 0.1, .y = -0.05, .z = 0.0, .w = 0.9937303457};
+
+  const auto load = provider.sample_load(
+      project::StepContext{.time_s = 0.12, .state = state});
+
+  EXPECT_LT(load.hull_force_world_n.z, 0.0);
+  EXPECT_LT(load.hull_moment_world_n_m.x, 0.0);
+  EXPECT_GT(load.hull_moment_world_n_m.y, 0.0);
+}
+
+/**
+ * @test UT-108
+ * @verifies [D-028]
+ * @notes Given the reduced calm-water propulsion provider, when blade
+ * immersion is zero, then the blade-water load returns near zero even during
+ * drive.
+ */
+TEST(HydroRuntimeModels, StrokeProviderReturnsZeroLoadForDryBlades) {
+  project::StrokePropulsionPlaceholderHydroProvider provider(4.0);
+
+  auto state = make_success_result().state_history.back();
+  state.stroke.phase = project::StrokePhase::drive;
+  state.port_oar.blade_immersion_depth_m = 0.0;
+  state.starboard_oar.blade_immersion_depth_m = 0.0;
+
+  const auto load = provider.sample_load(
+      project::StepContext{.time_s = 0.12, .state = state});
+
+  EXPECT_DOUBLE_EQ(load.port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(load.starboard_blade_force_world_n.x, 0.0);
+}
+
+/**
+ * @test UT-109
+ * @verifies [D-028]
+ * @notes Given fixed immersion and drive phase, when relative blade-water
+ * speed increases or the handle angle changes, then the reduced blade-force
+ * magnitude increases with speed and changes deterministically with
+ * orientation.
+ */
+TEST(HydroRuntimeModels, StrokeProviderTracksSpeedAndOrientationSensitivity) {
+  project::StrokePropulsionPlaceholderHydroProvider provider(4.0);
+
+  auto low_speed = make_success_result().state_history.back();
+  low_speed.stroke.phase = project::StrokePhase::drive;
+  low_speed.port_oar.handle_angle_rad = 0.1;
+  low_speed.starboard_oar.handle_angle_rad = 0.1;
+  low_speed.port_oar.blade_immersion_depth_m = 0.12;
+  low_speed.starboard_oar.blade_immersion_depth_m = 0.12;
+  low_speed.port_oar.blade_tip_velocity_world_mps = {
+      .x = -0.4, .y = 0.0, .z = 0.0};
+  low_speed.starboard_oar.blade_tip_velocity_world_mps = {
+      .x = -0.4, .y = 0.0, .z = 0.0};
+
+  auto high_speed = low_speed;
+  high_speed.port_oar.blade_tip_velocity_world_mps.x = -1.2;
+  high_speed.starboard_oar.blade_tip_velocity_world_mps.x = -1.2;
+
+  auto rotated = high_speed;
+  rotated.port_oar.handle_angle_rad = 1.2;
+  rotated.starboard_oar.handle_angle_rad = 1.2;
+
+  const auto low_load = provider.sample_load(
+      project::StepContext{.time_s = 0.12, .state = low_speed});
+  const auto high_load = provider.sample_load(
+      project::StepContext{.time_s = 0.24, .state = high_speed});
+  const auto rotated_load = provider.sample_load(
+      project::StepContext{.time_s = 0.36, .state = rotated});
+
+  EXPECT_GT(high_load.port_blade_force_world_n.x,
+            low_load.port_blade_force_world_n.x);
+  EXPECT_NE(rotated_load.port_blade_force_world_n.x,
+            high_load.port_blade_force_world_n.x);
+}
+
+/**
+ * @test UT-113
+ * @verifies [D-028]
+ * @notes Given the reduced hydro baseline providers, when their identifiers
+ * are queried, then each provider reports a stable runtime identifier string.
+ */
+TEST(HydroRuntimeModels, ProviderIdentifiersRemainStable) {
+  project::PassivePlaceholderHydroProvider passive;
+  project::TowPlaceholderHydroProvider tow(1.5);
+  project::StrokePropulsionPlaceholderHydroProvider stroke(4.0);
+
+  EXPECT_EQ(passive.identifier(), "passive_placeholder");
+  EXPECT_EQ(tow.identifier(), "tow_placeholder");
+  EXPECT_EQ(stroke.identifier(), "stroke_propulsion_placeholder");
+}
+
+/**
+ * @test UT-114
+ * @verifies [D-028]
+ * @notes Given the reduced tow provider with displaced hull state, when it
+ * samples the runtime state, then it returns both opposing x drag and
+ * hydrostatic restoring force components.
+ */
+TEST(HydroRuntimeModels, TowProviderCombinesDragAndRestoringLoads) {
+  project::TowPlaceholderHydroProvider provider(2.0);
+  auto state = make_success_result().state_history.back();
+  state.hull.linear_velocity_world_mps.x = 1.5;
+  state.hull.position_world_m.z = 0.1;
+
+  const auto load = provider.sample_load(
+      project::StepContext{.time_s = 0.12, .state = state});
+
+  EXPECT_LT(provider.drag_force(1.5), 0.0);
+  EXPECT_GT(provider.drag_force(-1.5), 0.0);
+  EXPECT_LT(load.hull_force_world_n.x, 0.0);
+  EXPECT_LT(load.hull_force_world_n.z, 0.0);
+}
+
+/**
+ * @test UT-115
+ * @verifies [D-028]
+ * @notes Given a stroke provider with zero full-immersion scale, when it
+ * samples an immersed drive-phase blade state, then the reduced blade load
+ * deterministically clamps to zero.
+ */
+TEST(HydroRuntimeModels,
+     StrokeProviderReturnsZeroLoadWhenImmersionScaleIsZero) {
+  project::StrokePropulsionHydroCoefficients coefficients;
+  coefficients.full_blade_immersion_depth_m = 0.0;
+  project::StrokePropulsionPlaceholderHydroProvider provider(4.0, coefficients);
+
+  auto state = make_success_result().state_history.back();
+  state.stroke.phase = project::StrokePhase::drive;
+  state.port_oar.blade_immersion_depth_m = 0.12;
+  state.starboard_oar.blade_immersion_depth_m = 0.12;
+
+  const auto load = provider.sample_load(
+      project::StepContext{.time_s = 0.12, .state = state});
+
+  EXPECT_DOUBLE_EQ(load.port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(load.starboard_blade_force_world_n.x, 0.0);
+}
+
+/**
+ * @test UT-116
+ * @verifies [D-028]
+ * @notes Given a near-vertical pitch orientation, when the passive provider
+ * samples the hull state, then the pitch restoring branch remains finite and
+ * opposes the positive pitch displacement.
+ */
+TEST(HydroRuntimeModels, PassiveProviderHandlesPitchLimitOrientation) {
+  project::PassivePlaceholderHydroProvider provider;
+  auto state = make_success_result().state_history.back();
+  state.hull.orientation_world_from_body = {
+      .x = 0.0, .y = 1.0, .z = 0.0, .w = 1.0};
+
+  const auto load = provider.sample_load(
+      project::StepContext{.time_s = 0.12, .state = state});
+
+  EXPECT_TRUE(std::isfinite(load.hull_moment_world_n_m.y));
+  EXPECT_LT(load.hull_moment_world_n_m.y, 0.0);
 }

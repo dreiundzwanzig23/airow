@@ -66,9 +66,8 @@ AeroLoadSample SteadyWindPlaceholderAeroProvider::sample_load(
           {
               .x = 0.0,
               .y = 0.0,
-              .z = quadratic_signed_load(
-                  yaw_moment_coefficient_n_m_s2_per_m2_,
-                  air_relative_velocity.y),
+              .z = quadratic_signed_load(yaw_moment_coefficient_n_m_s2_per_m2_,
+                                         air_relative_velocity.y),
           },
   };
 }

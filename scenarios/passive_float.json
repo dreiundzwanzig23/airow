@@ -2,7 +2,13 @@
   "scenario_id": "passive-float",
   "scenario_type": "passive_float",
   "provider": {
-    "type": "passive_placeholder"
+    "type": "passive_placeholder",
+    "hydrostatic_heave_stiffness_n_per_m": 120.0,
+    "hydrostatic_heave_damping_n_s_per_m": 24.0,
+    "roll_restoring_moment_n_m_per_rad": 18.0,
+    "roll_damping_moment_n_m_s_per_rad": 4.0,
+    "pitch_restoring_moment_n_m_per_rad": 22.0,
+    "pitch_damping_moment_n_m_s_per_rad": 4.5
   },
   "config": {
     "config_id": "passive-float",
@@ -41,11 +47,17 @@
       "cycle_duration_s": 1.2,
       "drive_duration_s": 0.48,
       "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
+      "release_angle_rad": 0.6,
+      "drive_blade_depth_m": 0.12,
+      "recovery_blade_depth_m": 0.0
     }
   },
   "acceptance": {
     "max_abs_distance_m": 1e-9,
-    "max_abs_mean_speed_mps": 1e-9
+    "max_abs_mean_speed_mps": 1e-9,
+    "max_abs_final_hull_position_z_m": 1e-9,
+    "max_abs_final_hydro_force_z_n": 1e-9,
+    "max_abs_final_hydro_moment_x_n_m": 1e-9,
+    "max_abs_final_hydro_moment_y_n_m": 1e-9
   }
 }

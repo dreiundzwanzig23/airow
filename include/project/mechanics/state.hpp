@@ -19,6 +19,8 @@ struct OarState {
   double handle_angle_rad{};
   Vector3 oarlock_position_body_m;
   Vector3 blade_tip_position_world_m;
+  Vector3 blade_tip_velocity_world_mps{};
+  double blade_immersion_depth_m{};
 
   bool operator==(const OarState &) const = default;
 };

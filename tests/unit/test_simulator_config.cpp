@@ -72,6 +72,14 @@ void remove_file_if_present(const std::filesystem::path &path) {
   std::filesystem::remove(path, error);
 }
 
+std::string replace_once(std::string text, std::string_view needle,
+                         std::string_view replacement) {
+  const auto position = text.find(needle);
+  EXPECT_NE(position, std::string::npos);
+  text.replace(position, needle.size(), replacement);
+  return text;
+}
+
 } // namespace
 
 /**
@@ -97,6 +105,8 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
   EXPECT_DOUBLE_EQ(result.config->seat.max_position_m, 0.4);
   EXPECT_DOUBLE_EQ(result.config->stroke.cycle_duration_s, 1.2);
   EXPECT_DOUBLE_EQ(result.config->stroke.drive_duration_s, 0.48);
+  EXPECT_DOUBLE_EQ(result.config->stroke.drive_blade_depth_m, 0.12);
+  EXPECT_DOUBLE_EQ(result.config->stroke.recovery_blade_depth_m, 0.0);
   EXPECT_EQ(result.config->oars.port.oarlock_position_m.y, -0.82);
   EXPECT_EQ(result.config->oars.starboard.oarlock_position_m.y, 0.82);
 
@@ -116,6 +126,52 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
                       project::NormalizedConfigEntry{
                           "$.stroke.drive_duration_s", "0.48", "s"}),
             result.normalized_config.end());
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{
+                          "$.stroke.drive_blade_depth_m", "0.12", "m"}),
+            result.normalized_config.end());
+}
+
+/**
+ * @test UT-110
+ * @verifies [D-001, D-002]
+ * @notes Given explicit prescribed blade-depth fields in the stroke block,
+ * when the config is parsed, then the normalized config preserves the
+ * resolved drive and recovery blade depths deterministically.
+ */
+TEST(SimulatorConfig, ParsesExplicitStrokeBladeDepthSettings) {
+  const auto result = project::parse_simulator_config_text(
+      replace_once(make_valid_config_json(), R"("release_angle_rad": 0.6)",
+                   R"("release_angle_rad": 0.6,
+    "drive_blade_depth_m": 0.18,
+    "recovery_blade_depth_m": 0.01)"));
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.config.has_value());
+  EXPECT_DOUBLE_EQ(result.config->stroke.drive_blade_depth_m, 0.18);
+  EXPECT_DOUBLE_EQ(result.config->stroke.recovery_blade_depth_m, 0.01);
+}
+
+/**
+ * @test UT-111
+ * @verifies [D-018]
+ * @notes Given an invalid stroke blade-depth definition, when recovery depth
+ * exceeds drive depth, then configuration validation rejects it before
+ * runtime.
+ */
+TEST(SimulatorConfig, RejectsInvertedStrokeBladeDepthSettings) {
+  const auto result = project::parse_simulator_config_text(
+      replace_once(make_valid_config_json(), R"("release_angle_rad": 0.6)",
+                   R"("release_angle_rad": 0.6,
+    "drive_blade_depth_m": 0.01,
+    "recovery_blade_depth_m": 0.05)"));
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.config.has_value());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "invalid_numeric_value");
+  EXPECT_EQ(result.diagnostics.front().path, "$.stroke.recovery_blade_depth_m");
 }
 
 /**

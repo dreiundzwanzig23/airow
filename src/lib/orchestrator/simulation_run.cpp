@@ -160,9 +160,20 @@ bool accept_startup_result(SimulationRunResult &result,
 }
 
 bool hydro_load_is_finite(const HydroLoadSample &load) {
+  const auto hull_force_world_n = load.resolved_hull_force_world_n();
+  const auto port_blade_force_world_n =
+      load.resolved_port_blade_force_world_n();
+  const auto starboard_blade_force_world_n =
+      load.resolved_starboard_blade_force_world_n();
   return std::isfinite(load.hull_force_x_n) &&
          std::isfinite(load.port_blade_force_x_n) &&
-         std::isfinite(load.starboard_blade_force_x_n);
+         std::isfinite(load.starboard_blade_force_x_n) &&
+         vector_is_finite(hull_force_world_n) &&
+         vector_is_finite(load.hull_moment_world_n_m) &&
+         vector_is_finite(port_blade_force_world_n) &&
+         vector_is_finite(starboard_blade_force_world_n) &&
+         std::isfinite(load.port_blade_immersion_depth_m) &&
+         std::isfinite(load.starboard_blade_immersion_depth_m);
 }
 
 Vector3 apparent_wind_world(const StepContext &context,
@@ -263,10 +274,20 @@ bool advance_one_step(const SimulatorConfig &config,
   }
   result.load_history.push_back(LoadSample{
       .time_s = state.time_s,
-      .hydro_force_x_n = hydro_load.hull_force_x_n,
-      .port_blade_force_x_n = hydro_load.port_blade_force_x_n,
-      .starboard_blade_force_x_n = hydro_load.starboard_blade_force_x_n,
+      .hydro_force_x_n = hydro_load.resolved_hull_force_world_n().x,
+      .port_blade_force_x_n = hydro_load.resolved_port_blade_force_world_n().x,
+      .starboard_blade_force_x_n =
+          hydro_load.resolved_starboard_blade_force_world_n().x,
       .aero_force_x_n = aero_load.force_world_n.x,
+      .hull_force_world_n = hydro_load.resolved_hull_force_world_n(),
+      .hull_moment_world_n_m = hydro_load.hull_moment_world_n_m,
+      .port_blade_force_world_n =
+          hydro_load.resolved_port_blade_force_world_n(),
+      .starboard_blade_force_world_n =
+          hydro_load.resolved_starboard_blade_force_world_n(),
+      .port_blade_immersion_depth_m = hydro_load.port_blade_immersion_depth_m,
+      .starboard_blade_immersion_depth_m =
+          hydro_load.starboard_blade_immersion_depth_m,
       .apparent_wind_world_mps = aero_load.apparent_wind_world_mps,
       .aero_force_world_n = aero_load.force_world_n,
       .aero_moment_world_n_m = aero_load.moment_world_n_m,
@@ -277,10 +298,22 @@ bool advance_one_step(const SimulatorConfig &config,
       std::min(config.simulation.time_step_s, remaining_time_s);
   const auto advanced = advancer.advance(
       config, state, step_size_s,
-      ExternalLoads{.hydro_force_x_n = hydro_load.total_force_x_n(),
-                    .aero_force_x_n = aero_load.force_world_n.x,
-                    .aero_force_world_n = aero_load.force_world_n,
-                    .aero_moment_world_n_m = aero_load.moment_world_n_m});
+      ExternalLoads{
+          .hydro_force_x_n = hydro_load.total_force_x_n(),
+          .aero_force_x_n = aero_load.force_world_n.x,
+          .hydro_force_world_n =
+              {.x = hydro_load.resolved_hull_force_world_n().x +
+                    hydro_load.resolved_port_blade_force_world_n().x +
+                    hydro_load.resolved_starboard_blade_force_world_n().x,
+               .y = hydro_load.resolved_hull_force_world_n().y +
+                    hydro_load.resolved_port_blade_force_world_n().y +
+                    hydro_load.resolved_starboard_blade_force_world_n().y,
+               .z = hydro_load.resolved_hull_force_world_n().z +
+                    hydro_load.resolved_port_blade_force_world_n().z +
+                    hydro_load.resolved_starboard_blade_force_world_n().z},
+          .hydro_moment_world_n_m = hydro_load.hull_moment_world_n_m,
+          .aero_force_world_n = aero_load.force_world_n,
+          .aero_moment_world_n_m = aero_load.moment_world_n_m});
   if (!advanced.ok()) {
     for (const auto &diagnostic : advanced.diagnostics) {
       append_runtime_failure(result, "state_advancement", diagnostic.path,
@@ -321,6 +354,22 @@ void finalize_summary(SimulationRunResult &result,
   result.summary.distance_m = state.hull.position_world_m.x - initial_x_m;
   result.summary.mean_speed_mps =
       state.time_s > 0.0 ? result.summary.distance_m / state.time_s : 0.0;
+  result.summary.final_hull_position_z_m = state.hull.position_world_m.z;
+  if (!result.load_history.empty()) {
+    const auto &final_load = result.load_history.back();
+    result.summary.final_hydro_force_world_n = {
+        .x = final_load.resolved_hull_force_world_n().x +
+             final_load.resolved_port_blade_force_world_n().x +
+             final_load.resolved_starboard_blade_force_world_n().x,
+        .y = final_load.resolved_hull_force_world_n().y +
+             final_load.resolved_port_blade_force_world_n().y +
+             final_load.resolved_starboard_blade_force_world_n().y,
+        .z = final_load.resolved_hull_force_world_n().z +
+             final_load.resolved_port_blade_force_world_n().z +
+             final_load.resolved_starboard_blade_force_world_n().z};
+    result.summary.final_hydro_moment_world_n_m =
+        final_load.hull_moment_world_n_m;
+  }
 }
 
 } // namespace

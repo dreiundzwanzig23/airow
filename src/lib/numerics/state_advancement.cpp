@@ -23,7 +23,6 @@ constexpr double HALF = 0.5;
  * @title Deterministic helper routines for quaternion math, finite-state
  * checks, and stroke phase progression
  * @satisfies [A-003, A-010]
- * @refines [D-016]
  */
 double quaternion_norm(const Quaternion &value) {
   return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z +
@@ -97,7 +96,9 @@ bool hull_state_is_finite(const HullState &state) {
 bool oar_state_is_finite(const OarState &state) {
   return std::isfinite(state.handle_angle_rad) &&
          vector_is_finite(state.oarlock_position_body_m) &&
-         vector_is_finite(state.blade_tip_position_world_m);
+         vector_is_finite(state.blade_tip_position_world_m) &&
+         vector_is_finite(state.blade_tip_velocity_world_mps) &&
+         std::isfinite(state.blade_immersion_depth_m);
 }
 
 bool seat_state_is_finite(const SeatState &state) {
@@ -160,9 +161,59 @@ double recovery_oar_rate(const SimulatorConfig &config) {
          (config.stroke.cycle_duration_s - config.stroke.drive_duration_s);
 }
 
+double blade_depth_for_phase(const SimulatorConfig &config, StrokePhase phase) {
+  return phase == StrokePhase::drive ? config.stroke.drive_blade_depth_m
+                                     : config.stroke.recovery_blade_depth_m;
+}
+
+double oar_rate_for_phase(const SimulatorConfig &config, StrokePhase phase) {
+  return phase == StrokePhase::drive ? drive_oar_rate(config)
+                                     : recovery_oar_rate(config);
+}
+
+struct ResolvedLoadDynamics {
+  Vector3 total_force_world_n{};
+  Vector3 total_moment_world_n_m{};
+  double acceleration_x_mps2{};
+  double acceleration_z_mps2{};
+  double angular_acceleration_x_radps2{};
+  double angular_acceleration_y_radps2{};
+  double angular_acceleration_z_radps2{};
+};
+
+ResolvedLoadDynamics resolve_load_dynamics(const SimulatorConfig &config,
+                                           const ExternalLoads &loads) {
+  const auto hydro_force_world_n = loads.resolved_hydro_force_world_n();
+  const auto aero_force_world_n = loads.resolved_aero_force_world_n();
+  const Vector3 total_force_world_n{
+      .x = hydro_force_world_n.x + aero_force_world_n.x,
+      .y = hydro_force_world_n.y + aero_force_world_n.y,
+      .z = hydro_force_world_n.z + aero_force_world_n.z,
+  };
+  const Vector3 total_moment_world_n_m{
+      .x = loads.hydro_moment_world_n_m.x + loads.aero_moment_world_n_m.x,
+      .y = loads.hydro_moment_world_n_m.y + loads.aero_moment_world_n_m.y,
+      .z = loads.hydro_moment_world_n_m.z + loads.aero_moment_world_n_m.z,
+  };
+
+  return {
+      .total_force_world_n = total_force_world_n,
+      .total_moment_world_n_m = total_moment_world_n_m,
+      .acceleration_x_mps2 = total_force_world_n.x / config.hull.mass_kg,
+      .acceleration_z_mps2 = total_force_world_n.z / config.hull.mass_kg,
+      .angular_acceleration_x_radps2 =
+          total_moment_world_n_m.x / config.hull.inertia_kg_m2.x,
+      .angular_acceleration_y_radps2 =
+          total_moment_world_n_m.y / config.hull.inertia_kg_m2.y,
+      .angular_acceleration_z_radps2 =
+          total_moment_world_n_m.z / config.hull.inertia_kg_m2.z,
+  };
+}
+
 Vector3 blade_tip_world_position(const MechanicalStateSnapshot &state,
                                  const OarSettings &settings, double side_sign,
-                                 double angle_rad) {
+                                 double angle_rad,
+                                 double blade_immersion_depth_m) {
   const Vector3 blade_offset_body{
       .x = std::cos(angle_rad) * settings.outboard_length_m,
       .y = side_sign * std::sin(angle_rad) * settings.outboard_length_m,
@@ -178,8 +229,104 @@ Vector3 blade_tip_world_position(const MechanicalStateSnapshot &state,
   return {
       .x = state.hull.position_world_m.x + rotated.x,
       .y = state.hull.position_world_m.y + rotated.y,
-      .z = state.hull.position_world_m.z + rotated.z,
+      .z = state.hull.position_world_m.z - blade_immersion_depth_m,
   };
+}
+
+Vector3 blade_tip_world_velocity(const MechanicalStateSnapshot &state,
+                                 const OarSettings &settings, double side_sign,
+                                 double angle_rad, double angle_rate_radps) {
+  const Vector3 blade_offset_velocity_body{
+      .x = -std::sin(angle_rad) * settings.outboard_length_m * angle_rate_radps,
+      .y = side_sign * std::cos(angle_rad) * settings.outboard_length_m *
+           angle_rate_radps,
+      .z = 0.0,
+  };
+  const Vector3 rotated = rotate_vector(state.hull.orientation_world_from_body,
+                                        blade_offset_velocity_body);
+  return {
+      .x = state.hull.linear_velocity_world_mps.x + rotated.x,
+      .y = state.hull.linear_velocity_world_mps.y + rotated.y,
+      .z = state.hull.linear_velocity_world_mps.z,
+  };
+}
+
+void advance_hull_segment(MechanicalStateSnapshot &next, double segment_s,
+                          const ResolvedLoadDynamics &dynamics) {
+  next.hull.position_world_m.x +=
+      next.hull.linear_velocity_world_mps.x * segment_s +
+      HALF * dynamics.acceleration_x_mps2 * segment_s * segment_s;
+  next.hull.position_world_m.y +=
+      next.hull.linear_velocity_world_mps.y * segment_s;
+  next.hull.position_world_m.z +=
+      next.hull.linear_velocity_world_mps.z * segment_s +
+      HALF * dynamics.acceleration_z_mps2 * segment_s * segment_s;
+  next.hull.linear_velocity_world_mps.x +=
+      dynamics.acceleration_x_mps2 * segment_s;
+  next.hull.linear_velocity_world_mps.z +=
+      dynamics.acceleration_z_mps2 * segment_s;
+  next.hull.angular_velocity_body_radps.x +=
+      dynamics.angular_acceleration_x_radps2 * segment_s;
+  next.hull.angular_velocity_body_radps.y +=
+      dynamics.angular_acceleration_y_radps2 * segment_s;
+  next.hull.angular_velocity_body_radps.z +=
+      dynamics.angular_acceleration_z_radps2 * segment_s;
+  next.hull.orientation_world_from_body =
+      integrate_orientation(next.hull.orientation_world_from_body,
+                            next.hull.angular_velocity_body_radps, segment_s);
+}
+
+void advance_prescribed_segment(const SimulatorConfig &config,
+                                StrokePhase active_phase, double segment_s,
+                                MechanicalStateSnapshot &next) {
+  if (active_phase == StrokePhase::drive) {
+    next.seat.velocity_along_rail_mps = drive_seat_velocity(config);
+    next.seat.position_along_rail_m =
+        std::max(config.seat.min_position_m,
+                 next.seat.position_along_rail_m +
+                     next.seat.velocity_along_rail_mps * segment_s);
+    next.port_oar.handle_angle_rad = std::min(
+        config.stroke.release_angle_rad,
+        next.port_oar.handle_angle_rad + drive_oar_rate(config) * segment_s);
+    next.starboard_oar.handle_angle_rad =
+        std::min(config.stroke.release_angle_rad,
+                 next.starboard_oar.handle_angle_rad +
+                     drive_oar_rate(config) * segment_s);
+    return;
+  }
+
+  next.seat.velocity_along_rail_mps = recovery_seat_velocity(config);
+  next.seat.position_along_rail_m =
+      std::min(config.seat.max_position_m,
+               next.seat.position_along_rail_m +
+                   next.seat.velocity_along_rail_mps * segment_s);
+  next.port_oar.handle_angle_rad = std::max(
+      config.stroke.catch_angle_rad,
+      next.port_oar.handle_angle_rad + recovery_oar_rate(config) * segment_s);
+  next.starboard_oar.handle_angle_rad = std::max(
+      config.stroke.catch_angle_rad, next.starboard_oar.handle_angle_rad +
+                                         recovery_oar_rate(config) * segment_s);
+}
+
+void refresh_blade_kinematics(const SimulatorConfig &config,
+                              MechanicalStateSnapshot &next) {
+  next.constraint_residual_max = 0.0;
+  next.port_oar.blade_immersion_depth_m =
+      blade_depth_for_phase(config, next.stroke.phase);
+  next.starboard_oar.blade_immersion_depth_m =
+      blade_depth_for_phase(config, next.stroke.phase);
+  next.port_oar.blade_tip_position_world_m = blade_tip_world_position(
+      next, config.oars.port, -1.0, next.port_oar.handle_angle_rad,
+      next.port_oar.blade_immersion_depth_m);
+  next.starboard_oar.blade_tip_position_world_m = blade_tip_world_position(
+      next, config.oars.starboard, 1.0, next.starboard_oar.handle_angle_rad,
+      next.starboard_oar.blade_immersion_depth_m);
+  next.port_oar.blade_tip_velocity_world_mps = blade_tip_world_velocity(
+      next, config.oars.port, -1.0, next.port_oar.handle_angle_rad,
+      oar_rate_for_phase(config, next.stroke.phase));
+  next.starboard_oar.blade_tip_velocity_world_mps = blade_tip_world_velocity(
+      next, config.oars.starboard, 1.0, next.starboard_oar.handle_angle_rad,
+      oar_rate_for_phase(config, next.stroke.phase));
 }
 
 class DeterministicBaselineStateAdvancer final : public StateAdvancer {
@@ -220,9 +367,12 @@ public:
     state.port_oar.handle_angle_rad = config.stroke.catch_angle_rad;
     state.port_oar.oarlock_position_body_m =
         config.oars.port.oarlock_position_m;
+    state.port_oar.blade_immersion_depth_m = config.stroke.drive_blade_depth_m;
     state.starboard_oar.handle_angle_rad = config.stroke.catch_angle_rad;
     state.starboard_oar.oarlock_position_body_m =
         config.oars.starboard.oarlock_position_m;
+    state.starboard_oar.blade_immersion_depth_m =
+        config.stroke.drive_blade_depth_m;
     state.seat.rail_axis_body = config.seat.rail_axis;
     state.seat.position_along_rail_m = config.seat.initial_position_m;
     state.seat.velocity_along_rail_mps = 0.0;
@@ -231,10 +381,17 @@ public:
     state.stroke.cycle_time_s = 0.0;
     state.constraint_residual_max = 0.0;
     state.port_oar.blade_tip_position_world_m = blade_tip_world_position(
-        state, config.oars.port, -1.0, state.port_oar.handle_angle_rad);
-    state.starboard_oar.blade_tip_position_world_m =
-        blade_tip_world_position(state, config.oars.starboard, 1.0,
-                                 state.starboard_oar.handle_angle_rad);
+        state, config.oars.port, -1.0, state.port_oar.handle_angle_rad,
+        state.port_oar.blade_immersion_depth_m);
+    state.starboard_oar.blade_tip_position_world_m = blade_tip_world_position(
+        state, config.oars.starboard, 1.0, state.starboard_oar.handle_angle_rad,
+        state.starboard_oar.blade_immersion_depth_m);
+    state.port_oar.blade_tip_velocity_world_mps = blade_tip_world_velocity(
+        state, config.oars.port, -1.0, state.port_oar.handle_angle_rad,
+        drive_oar_rate(config));
+    state.starboard_oar.blade_tip_velocity_world_mps = blade_tip_world_velocity(
+        state, config.oars.starboard, 1.0, state.starboard_oar.handle_angle_rad,
+        drive_oar_rate(config));
 
     if (!state_is_finite(state)) {
       return {
@@ -258,9 +415,9 @@ public:
   }
 
   /**
-   * @design D-016 — Deterministic baseline state advancement
-   * @title Internal startup-to-step advancer for hull translation and
-   * prescribed seat or oar kinematics
+   * @design D-029 — Baseline hydro-mechanics state advancement
+   * @title Internal startup-to-step advancer for widened hydro-force coupling,
+   * heave response, and prescribed seat, oar, or blade-immersion kinematics
    * @satisfies [A-003, A-010]
    */
   AdvanceResult advance(const SimulatorConfig &config,
@@ -281,8 +438,7 @@ public:
 
     MechanicalStateSnapshot next = state;
     double remaining_s = step_size_s;
-    const double acceleration_x_n =
-        (loads.hydro_force_x_n + loads.aero_force_x_n) / config.hull.mass_kg;
+    const auto dynamics = resolve_load_dynamics(config, loads);
 
     while (remaining_s > 0.0) {
       const StrokePhase active_phase =
@@ -294,47 +450,8 @@ public:
           phase_end_time_s - next.stroke.cycle_time_s;
       const double segment_s = std::min(remaining_s, time_to_boundary_s);
 
-      next.hull.position_world_m.x +=
-          next.hull.linear_velocity_world_mps.x * segment_s +
-          HALF * acceleration_x_n * segment_s * segment_s;
-      next.hull.position_world_m.y +=
-          next.hull.linear_velocity_world_mps.y * segment_s;
-      next.hull.position_world_m.z +=
-          next.hull.linear_velocity_world_mps.z * segment_s;
-      next.hull.linear_velocity_world_mps.x += acceleration_x_n * segment_s;
-      next.hull.orientation_world_from_body = integrate_orientation(
-          next.hull.orientation_world_from_body,
-          next.hull.angular_velocity_body_radps, segment_s);
-
-      if (active_phase == StrokePhase::drive) {
-        next.seat.velocity_along_rail_mps = drive_seat_velocity(config);
-        next.seat.position_along_rail_m =
-            std::max(config.seat.min_position_m,
-                     next.seat.position_along_rail_m +
-                         next.seat.velocity_along_rail_mps * segment_s);
-        next.port_oar.handle_angle_rad =
-            std::min(config.stroke.release_angle_rad,
-                     next.port_oar.handle_angle_rad +
-                         drive_oar_rate(config) * segment_s);
-        next.starboard_oar.handle_angle_rad =
-            std::min(config.stroke.release_angle_rad,
-                     next.starboard_oar.handle_angle_rad +
-                         drive_oar_rate(config) * segment_s);
-      } else {
-        next.seat.velocity_along_rail_mps = recovery_seat_velocity(config);
-        next.seat.position_along_rail_m =
-            std::min(config.seat.max_position_m,
-                     next.seat.position_along_rail_m +
-                         next.seat.velocity_along_rail_mps * segment_s);
-        next.port_oar.handle_angle_rad =
-            std::max(config.stroke.catch_angle_rad,
-                     next.port_oar.handle_angle_rad +
-                         recovery_oar_rate(config) * segment_s);
-        next.starboard_oar.handle_angle_rad =
-            std::max(config.stroke.catch_angle_rad,
-                     next.starboard_oar.handle_angle_rad +
-                         recovery_oar_rate(config) * segment_s);
-      }
+      advance_hull_segment(next, segment_s, dynamics);
+      advance_prescribed_segment(config, active_phase, segment_s, next);
 
       next.time_s += segment_s;
       next.stroke.cycle_time_s = wrap_cycle_time(
@@ -345,11 +462,7 @@ public:
       remaining_s -= segment_s;
     }
 
-    next.constraint_residual_max = 0.0;
-    next.port_oar.blade_tip_position_world_m = blade_tip_world_position(
-        next, config.oars.port, -1.0, next.port_oar.handle_angle_rad);
-    next.starboard_oar.blade_tip_position_world_m = blade_tip_world_position(
-        next, config.oars.starboard, 1.0, next.starboard_oar.handle_angle_rad);
+    refresh_blade_kinematics(config, next);
 
     if (!state_is_finite(next)) {
       return {

@@ -17,11 +17,11 @@
   diagnostics.
 - `A-004`, `A-005`, and `A-008` now expose public hydro, aero, and
   scenario-harness seams with checked-in passive, tow, calm-water, headwind,
-  and crosswind artifacts plus structured blade-load, apparent-wind, and
-  aerodynamic-moment propagation.
-- `R-009`, `R-010`, and `R-011` remain `IN_PROGRESS` with deterministic
-  scenario-harness evidence and placeholder hydro behavior; fuller reduced
-  hydro model depth remains open in `A-004`.
+  and crosswind artifacts plus structured blade-load, apparent-wind,
+  aerodynamic-moment, hydro-moment, and blade-immersion propagation.
+- `R-009`, `R-010`, and `R-011` are now `DONE` with deterministic reduced
+  hydrostatic restoring, hull-drag, and immersion-aware blade-water behavior
+  under `A-004`, while richer multi-axis hydro fidelity remains open there.
 - `R-013`, `R-014`, `R-018`, and `R-031` are now `DONE` with runtime-backed
   steady-wind evidence, checked-in headwind/crosswind scenario artifacts, and
   frame-aware output coverage.
@@ -53,10 +53,9 @@
   functional loops.
 
 ## Next Actions
-1. Increase `A-004` and `A-005` realism from placeholder behavior to richer
-   reduced hydro and aero runtime models while preserving the scenario-harness
-   contract.
-2. Tighten remaining `P0` requirement closure work around replay,
-   diagnostics, units, startup validity, and traceability evidence.
+1. Tighten remaining `P0` closure work around replay, diagnostics, units,
+   startup validity, and traceability evidence.
+2. Extend `A-005` beyond the first steady-wind baseline while preserving the
+   scenario-harness contract and the current frame-aware output surface.
 3. Revisit external backend wiring for Chrono and SUNDIALS only after the
    expanded baseline scenario evidence set stabilizes.

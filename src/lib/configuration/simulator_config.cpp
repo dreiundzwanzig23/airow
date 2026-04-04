@@ -41,6 +41,8 @@ constexpr NumericFieldSpec NUMERIC_FIELDS[] = {
     {"drive_duration_s", "$.stroke.drive_duration_s"},
     {"catch_angle_rad", "$.stroke.catch_angle_rad"},
     {"release_angle_rad", "$.stroke.release_angle_rad"},
+    {"drive_blade_depth_m", "$.stroke.drive_blade_depth_m"},
+    {"recovery_blade_depth_m", "$.stroke.recovery_blade_depth_m"},
 };
 constexpr int NORMALIZED_DOUBLE_PRECISION = 15;
 constexpr std::size_t VECTOR_COMPONENT_COUNT = 3U;
@@ -49,6 +51,7 @@ constexpr std::size_t NAN_LITERAL_LENGTH = 3;
 constexpr std::size_t INFINITY_LITERAL_LENGTH = 8;
 constexpr std::size_t NEGATIVE_INFINITY_LITERAL_LENGTH = 9;
 constexpr std::size_t INVALID_LITERAL_COUNT = 3U;
+constexpr double DEFAULT_DRIVE_BLADE_DEPTH_M = 0.12;
 
 /**
  * @design D-002 — Configuration result shaping and numeric formatting helpers
@@ -335,6 +338,25 @@ bool require_number_field(const Json &root, std::string_view key,
   return validate_numeric_value(target, path, label, result);
 }
 
+bool parse_optional_non_negative_field(const Json &root, std::string_view key,
+                                       std::string_view path,
+                                       std::string_view label, double &target,
+                                       LoadSimulatorConfigResult &result) {
+  if (!root.contains(key)) {
+    return true;
+  }
+  if (!require_number_field(root, key, path, label, target, result)) {
+    return false;
+  }
+  if (target < 0.0) {
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value", std::string(path),
+                   std::string(label) + " must be non-negative"));
+    return false;
+  }
+  return true;
+}
+
 bool require_non_negative_field(const Json &root, std::string_view key,
                                 std::string_view path, std::string_view label,
                                 double &target,
@@ -594,6 +616,8 @@ bool parse_seat_settings(const Json &root, SimulatorConfig &config,
 bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
                            LoadSimulatorConfigResult &result) {
   const Json *stroke = require_object(root, "stroke", "$.stroke", result);
+  config.stroke.drive_blade_depth_m = DEFAULT_DRIVE_BLADE_DEPTH_M;
+  config.stroke.recovery_blade_depth_m = 0.0;
   if (stroke == nullptr ||
       !require_positive_field(*stroke, "cycle_duration_s",
                               "$.stroke.cycle_duration_s", "cycle_duration_s",
@@ -606,13 +630,27 @@ bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
                             config.stroke.catch_angle_rad, result) ||
       !require_number_field(*stroke, "release_angle_rad",
                             "$.stroke.release_angle_rad", "release_angle_rad",
-                            config.stroke.release_angle_rad, result)) {
+                            config.stroke.release_angle_rad, result) ||
+      !parse_optional_non_negative_field(
+          *stroke, "drive_blade_depth_m", "$.stroke.drive_blade_depth_m",
+          "drive_blade_depth_m", config.stroke.drive_blade_depth_m, result) ||
+      !parse_optional_non_negative_field(
+          *stroke, "recovery_blade_depth_m", "$.stroke.recovery_blade_depth_m",
+          "recovery_blade_depth_m", config.stroke.recovery_blade_depth_m,
+          result)) {
     return false;
   }
   if (config.stroke.drive_duration_s >= config.stroke.cycle_duration_s) {
     result.diagnostics.push_back(
         make_error("invalid_numeric_value", "$.stroke.drive_duration_s",
                    "drive_duration_s must be less than cycle_duration_s"));
+    return false;
+  }
+  if (config.stroke.drive_blade_depth_m <=
+      config.stroke.recovery_blade_depth_m) {
+    result.diagnostics.push_back(make_error(
+        "invalid_numeric_value", "$.stroke.recovery_blade_depth_m",
+        "recovery_blade_depth_m must be less than drive_blade_depth_m"));
     return false;
   }
   return true;
@@ -823,6 +861,10 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.stroke.catch_angle_rad), "rad"},
       {"$.stroke.release_angle_rad",
        format_normalized_double(config.stroke.release_angle_rad), "rad"},
+      {"$.stroke.drive_blade_depth_m",
+       format_normalized_double(config.stroke.drive_blade_depth_m), "m"},
+      {"$.stroke.recovery_blade_depth_m",
+       format_normalized_double(config.stroke.recovery_blade_depth_m), "m"},
       {"$.environment.ambient_wind_world_mps",
        format_vector3(config.environment.ambient_wind_world_mps), "m/s"},
       {"$.output.summary_path", config.output.summary_path, ""},

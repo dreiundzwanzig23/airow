@@ -19,11 +19,6 @@ namespace {
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
 
-double drive_oar_rate_radps(const project::SimulatorConfig &config) {
-  return (config.stroke.release_angle_rad - config.stroke.catch_angle_rad) /
-         config.stroke.drive_duration_s;
-}
-
 class FixedClock final : public project::Clock {
 public:
   explicit FixedClock(
@@ -68,17 +63,37 @@ Json read_json_file(const std::filesystem::path &path) {
   return document;
 }
 
-project::StrokePropulsionPlaceholderHydroProvider make_hydro_provider(
-    const project::ScenarioDefinition &scenario) {
-  return project::StrokePropulsionPlaceholderHydroProvider(
-      scenario.provider.blade_force_coefficient_n_s_per_m,
-      scenario.config.oars.port.outboard_length_m,
-      scenario.config.oars.starboard.outboard_length_m,
-      drive_oar_rate_radps(scenario.config));
+project::StrokePropulsionHydroCoefficients
+make_hydro_coefficients(const project::ScenarioDefinition &scenario) {
+  project::StrokePropulsionHydroCoefficients coefficients;
+  coefficients.full_blade_immersion_depth_m =
+      scenario.provider.full_blade_immersion_depth_m;
+  coefficients.drag_coefficient_n_s2_per_m2 =
+      scenario.provider.drag_coefficient_n_s2_per_m2;
+  coefficients.hydrostatic_heave_stiffness_n_per_m =
+      scenario.provider.hydrostatic_heave_stiffness_n_per_m;
+  coefficients.hydrostatic_heave_damping_n_s_per_m =
+      scenario.provider.hydrostatic_heave_damping_n_s_per_m;
+  coefficients.roll_restoring_moment_n_m_per_rad =
+      scenario.provider.roll_restoring_moment_n_m_per_rad;
+  coefficients.roll_damping_moment_n_m_s_per_rad =
+      scenario.provider.roll_damping_moment_n_m_s_per_rad;
+  coefficients.pitch_restoring_moment_n_m_per_rad =
+      scenario.provider.pitch_restoring_moment_n_m_per_rad;
+  coefficients.pitch_damping_moment_n_m_s_per_rad =
+      scenario.provider.pitch_damping_moment_n_m_s_per_rad;
+  return coefficients;
 }
 
-project::SteadyWindPlaceholderAeroProvider make_aero_provider(
-    const project::ScenarioDefinition &scenario) {
+project::StrokePropulsionPlaceholderHydroProvider
+make_hydro_provider(const project::ScenarioDefinition &scenario) {
+  return project::StrokePropulsionPlaceholderHydroProvider(
+      scenario.provider.blade_force_coefficient_n_s_per_m,
+      make_hydro_coefficients(scenario));
+}
+
+project::SteadyWindPlaceholderAeroProvider
+make_aero_provider(const project::ScenarioDefinition &scenario) {
   return project::SteadyWindPlaceholderAeroProvider(
       scenario.aero_provider.drag_coefficient_n_s2_per_m2,
       scenario.aero_provider.yaw_moment_coefficient_n_m_s2_per_m2);
@@ -115,20 +130,18 @@ TEST(WindScenarioSystem, HeadwindScenarioPassesAndSlowsRelativeToCalmWater) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 11h + 2min +
            1s});
 
-  const auto headwind_result =
-      project::run_simulation(headwind.scenario->config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &headwind_hydro,
-                                  .aero_provider = &headwind_aero,
-                                  .clock = &headwind_clock,
-                              });
-  const auto calm_result =
-      project::run_simulation(calm.scenario->config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &calm_hydro,
-                                  .aero_provider = &calm_aero,
-                                  .clock = &calm_clock,
-                              });
+  const auto headwind_result = project::run_simulation(
+      headwind.scenario->config, project::SimulationDependencies{
+                                     .hydro_provider = &headwind_hydro,
+                                     .aero_provider = &headwind_aero,
+                                     .clock = &headwind_clock,
+                                 });
+  const auto calm_result = project::run_simulation(
+      calm.scenario->config, project::SimulationDependencies{
+                                 .hydro_provider = &calm_hydro,
+                                 .aero_provider = &calm_aero,
+                                 .clock = &calm_clock,
+                             });
   const auto evaluation =
       project::evaluate_scenario_result(*headwind.scenario, headwind_result);
 
@@ -173,13 +186,12 @@ TEST(WindScenarioSystem, CrosswindScenarioMirrorsYawMomentSign) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 11h + 5min +
            1s});
 
-  const auto starboard_result =
-      project::run_simulation(starboard_scenario.config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &starboard_hydro,
-                                  .aero_provider = &starboard_aero,
-                                  .clock = &starboard_clock,
-                              });
+  const auto starboard_result = project::run_simulation(
+      starboard_scenario.config, project::SimulationDependencies{
+                                     .hydro_provider = &starboard_hydro,
+                                     .aero_provider = &starboard_aero,
+                                     .clock = &starboard_clock,
+                                 });
   const auto port_result = project::run_simulation(
       port_scenario.config, project::SimulationDependencies{
                                 .hydro_provider = &port_hydro,
@@ -192,7 +204,8 @@ TEST(WindScenarioSystem, CrosswindScenarioMirrorsYawMomentSign) {
   EXPECT_TRUE(
       project::evaluate_scenario_result(starboard_scenario, starboard_result)
           .ok());
-  EXPECT_TRUE(project::evaluate_scenario_result(port_scenario, port_result).ok());
+  EXPECT_TRUE(
+      project::evaluate_scenario_result(port_scenario, port_result).ok());
 
   ASSERT_FALSE(starboard_result.load_history.empty());
   ASSERT_FALSE(port_result.load_history.empty());
@@ -228,13 +241,12 @@ TEST(WindScenarioSystem, HeadwindScenarioEmitsFiniteWindChannels) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 11h + 6min +
            1s});
 
-  const auto result =
-      project::run_simulation(loaded.scenario->config,
-                              project::SimulationDependencies{
-                                  .hydro_provider = &hydro,
-                                  .aero_provider = &aero,
-                                  .clock = &clock,
-                              });
+  const auto result = project::run_simulation(loaded.scenario->config,
+                                              project::SimulationDependencies{
+                                                  .hydro_provider = &hydro,
+                                                  .aero_provider = &aero,
+                                                  .clock = &clock,
+                                              });
 
   ASSERT_TRUE(result.ok());
   const auto time_series = read_json_file(result.outputs.time_series_path);

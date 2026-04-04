@@ -67,6 +67,9 @@ Current implemented library surface:
   state-advancer seams plus structured state/load history
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
+- structured hydro force or moment vectors, final passive-float equilibrium
+  diagnostics, and explicit blade-immersion or blade-tip-velocity channels in
+  runtime outputs
 - explicit world-frame ambient-wind configuration plus structured
   apparent-wind and aerodynamic-moment channels in runtime outputs
 - output-format selection (`json`, `hdf5`, or both) with deterministic
@@ -79,7 +82,9 @@ Current implemented library surface:
   for checked-in passive-float, tow, calm-water stroke, headwind stroke, and
   crosswind stroke artifacts in `scenarios/*.json`
 - deterministic hydro baseline providers for passive float, tow drag, and
-  calm-water stroke propulsion behind the shared `HydroProvider` seam
+  calm-water stroke propulsion behind the shared `HydroProvider` seam, now
+  including reduced hydrostatic restoring loads and immersion-aware blade
+  forces
 - deterministic aero baseline provider for steady apparent-wind, longitudinal
   drag, and yaw-moment reporting behind the shared `AeroProvider` seam
 

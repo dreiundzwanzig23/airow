@@ -36,11 +36,13 @@ Json read_json_file(const std::filesystem::path &path) {
   return document;
 }
 
-std::string make_valid_config_json_with_output(std::string_view config_id,
-                                               std::string_view summary_path,
-                                               std::string_view time_series_path) {
+std::string
+make_valid_config_json_with_output(std::string_view config_id,
+                                   std::string_view summary_path,
+                                   std::string_view time_series_path) {
   return std::string("{\n") + "  \"config_id\": \"" + std::string(config_id) +
-         "\",\n" + "  \"simulation\": {\n"
+         "\",\n" +
+         "  \"simulation\": {\n"
          "    \"duration_s\": 1.0,\n"
          "    \"time_step_s\": 0.25\n"
          "  },\n"
@@ -82,8 +84,11 @@ std::string make_valid_config_json_with_output(std::string_view config_id,
          "  },\n"
          "  \"output\": {\n"
          "    \"summary_path\": \"" +
-         std::string(summary_path) + "\",\n"
-         "    \"time_series_path\": \"" + std::string(time_series_path) + "\",\n"
+         std::string(summary_path) +
+         "\",\n"
+         "    \"time_series_path\": \"" +
+         std::string(time_series_path) +
+         "\",\n"
          "    \"formats\": [\"json\"],\n"
          "    \"high_frequency_time_series\": true\n"
          "  }\n"
@@ -112,8 +117,9 @@ class RecordingAeroProvider final : public project::AeroProvider {
 public:
   std::string_view identifier() const noexcept override { return "it-aero"; }
 
-  project::AeroLoadSample sample_load(const project::StepContext & /*context*/,
-                                      const project::Vector3 &ambient_wind_world_mps) override {
+  project::AeroLoadSample
+  sample_load(const project::StepContext & /*context*/,
+              const project::Vector3 &ambient_wind_world_mps) override {
     return {
         .apparent_wind_world_mps = ambient_wind_world_mps,
         .force_world_n = {.x = -3.0, .y = 0.0, .z = 0.0},
@@ -142,19 +148,18 @@ TEST(AeroRuntimeIntegration, OutputArtifactsPreserveWindBackedAeroChannels) {
 
   const auto config_path = write_temp_file(
       "airow-it-aero-config.json",
-      make_valid_config_json_with_output("it-aero-output", summary_path.string(),
-                                         time_series_path.string()));
+      make_valid_config_json_with_output(
+          "it-aero-output", summary_path.string(), time_series_path.string()));
 
   RecordingAeroProvider aero;
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 10h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 10h + 1s});
-  const auto result =
-      project::run_simulation_from_config_file(config_path,
-                                               project::SimulationDependencies{
-                                                   .aero_provider = &aero,
-                                                   .clock = &clock,
-                                               });
+  const auto result = project::run_simulation_from_config_file(
+      config_path, project::SimulationDependencies{
+                       .aero_provider = &aero,
+                       .clock = &clock,
+                   });
 
   ASSERT_TRUE(result.ok());
   const auto time_series = read_json_file(time_series_path);
@@ -162,8 +167,9 @@ TEST(AeroRuntimeIntegration, OutputArtifactsPreserveWindBackedAeroChannels) {
 
   EXPECT_EQ(first_record.at("apparent_wind_world_mps").at("vector").at("frame"),
             "world");
-  EXPECT_EQ(first_record.at("aerodynamic_load_world_n").at("vector").at("frame"),
-            "world");
+  EXPECT_EQ(
+      first_record.at("aerodynamic_load_world_n").at("vector").at("frame"),
+      "world");
   EXPECT_EQ(
       first_record.at("aerodynamic_moment_world_n_m").at("vector").at("frame"),
       "world");

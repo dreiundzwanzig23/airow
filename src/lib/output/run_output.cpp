@@ -20,6 +20,7 @@
 
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <hdf5.h>
 #endif
@@ -244,7 +245,17 @@ Json make_summary_document(const SimulationRunResult &result) {
        Json{{"final_simulated_time_s", result.summary.final_simulated_time_s},
             {"executed_step_count", result.summary.executed_step_count},
             {"distance_m", result.summary.distance_m},
-            {"mean_speed_mps", result.summary.mean_speed_mps}}},
+            {"mean_speed_mps", result.summary.mean_speed_mps},
+            {"final_hull_position_z_m",
+             scalar_channel(result.summary.final_hull_position_z_m, "m")},
+            {"final_hydro_force_world_n",
+             Json{{"vector",
+                   vector_channel(result.summary.final_hydro_force_world_n, "N",
+                                  "world")}}},
+            {"final_hydro_moment_world_n_m",
+             Json{{"vector",
+                   vector_channel(result.summary.final_hydro_moment_world_n_m,
+                                  "N*m", "world")}}}}},
       {"metadata", metadata},
       {"diagnostics", diagnostics_json(result)},
       {"outputs", Json{{"summary_path", result.outputs.summary_path},
@@ -253,6 +264,105 @@ Json make_summary_document(const SimulationRunResult &result) {
                        {"formats", output_formats_json(result.outputs)},
                        {"high_frequency_time_series",
                         result.outputs.high_frequency_time_series}}}};
+}
+
+Json orientation_channel(const Quaternion &orientation) {
+  return Json{{"value", Json::array({orientation.x, orientation.y,
+                                     orientation.z, orientation.w})},
+              {"unit", "unit-quaternion"},
+              {"frame", "world_from_body"}};
+}
+
+Json oar_state_json(const OarState &state) {
+  return Json{
+      {"handle_angle_rad", scalar_channel(state.handle_angle_rad, "rad")},
+      {"oarlock_position_body_m",
+       Json{{"vector",
+             vector_channel(state.oarlock_position_body_m, "m", "body")}}},
+      {"blade_tip_position_world_m",
+       Json{{"vector",
+             vector_channel(state.blade_tip_position_world_m, "m", "world")}}},
+      {"blade_tip_velocity_world_mps",
+       Json{{"vector", vector_channel(state.blade_tip_velocity_world_mps, "m/s",
+                                      "world")}}},
+      {"blade_immersion_depth_m",
+       scalar_channel(state.blade_immersion_depth_m, "m")}};
+}
+
+Json time_series_record_json(const MechanicalStateSnapshot &state,
+                             const LoadSample &loads) {
+  const double boat_speed_mps = state.hull.linear_velocity_world_mps.x;
+  const auto hydro_load = loads.resolved_hull_force_world_n();
+  const auto hydro_moment = loads.hull_moment_world_n_m;
+  const auto port_blade_load = loads.resolved_port_blade_force_world_n();
+  const auto starboard_blade_load =
+      loads.resolved_starboard_blade_force_world_n();
+  const auto apparent_wind = loads.apparent_wind_world_mps;
+  const auto aero_load = loads.aero_force_world_n;
+  const auto aero_moment = loads.aero_moment_world_n_m;
+  const double stroke_power_w =
+      (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * boat_speed_mps;
+
+  return Json{
+      {"time_s", state.time_s},
+      {"hull_state",
+       Json{
+           {"position_world_m",
+            Json{{"vector",
+                  vector_channel(state.hull.position_world_m, "m", "world")}}},
+           {"orientation_world_from_body_xyzw",
+            Json{{"value",
+                  orientation_channel(state.hull.orientation_world_from_body)
+                      .at("value")},
+                 {"unit", "unit-quaternion"},
+                 {"frame", "world_from_body"}}},
+           {"linear_velocity_world_mps",
+            Json{{"vector", vector_channel(state.hull.linear_velocity_world_mps,
+                                           "m/s", "world")}}},
+           {"angular_velocity_body_radps",
+            Json{{"vector",
+                  vector_channel(state.hull.angular_velocity_body_radps,
+                                 "rad/s", "body")}}}}},
+      {"oar_state", Json{{"port", oar_state_json(state.port_oar)},
+                         {"starboard", oar_state_json(state.starboard_oar)}}},
+      {"seat_state",
+       Json{{"rail_axis_body",
+             Json{{"vector",
+                   vector_channel(state.seat.rail_axis_body, "axis", "body")}}},
+            {"position_along_rail_m",
+             scalar_channel(state.seat.position_along_rail_m, "m")},
+            {"velocity_along_rail_mps",
+             scalar_channel(state.seat.velocity_along_rail_mps, "m/s")}}},
+      {"boat_speed_mps", scalar_channel(boat_speed_mps, "m/s")},
+      {"hull_water_load_world_n",
+       Json{{"vector", vector_channel(hydro_load, "N", "world")}}},
+      {"hydrodynamic_moment_world_n_m",
+       Json{{"vector", vector_channel(hydro_moment, "N*m", "world")}}},
+      {"blade_load_world_n",
+       Json{{"port",
+             Json{{"vector", vector_channel(port_blade_load, "N", "world")}}},
+            {"starboard", Json{{"vector", vector_channel(starboard_blade_load,
+                                                         "N", "world")}}}}},
+      {"blade_state",
+       Json{{"port",
+             Json{{"immersion_depth_m",
+                   scalar_channel(loads.port_blade_immersion_depth_m, "m")}}},
+            {"starboard",
+             Json{{"immersion_depth_m",
+                   scalar_channel(loads.starboard_blade_immersion_depth_m,
+                                  "m")}}}}},
+      {"apparent_wind_world_mps",
+       Json{{"vector", vector_channel(apparent_wind, "m/s", "world")}}},
+      {"aerodynamic_load_world_n",
+       Json{{"vector", vector_channel(aero_load, "N", "world")}}},
+      {"aerodynamic_moment_world_n_m",
+       Json{{"vector", vector_channel(aero_moment, "N*m", "world")}}},
+      {"stroke_input",
+       Json{{"phase", stroke_phase_text(state.stroke.phase)},
+            {"phase_time_s", scalar_channel(state.stroke.phase_time_s, "s")},
+            {"cycle_time_s", scalar_channel(state.stroke.cycle_time_s, "s")}}},
+      {"stroke_power_w", scalar_channel(stroke_power_w, "W")},
+  };
 }
 
 /**
@@ -267,97 +377,7 @@ Json make_time_series_document(const SimulationRunResult &result,
   for (const auto index : sample_indices(result, high_frequency_time_series)) {
     const auto &state = result.state_history.at(index);
     const auto &loads = load_for_state_index(result, index);
-    const auto boat_speed_mps = state.hull.linear_velocity_world_mps.x;
-    const auto hydro_load =
-        Vector3{.x = loads.hydro_force_x_n, .y = 0.0, .z = 0.0};
-    const auto port_blade_load =
-        Vector3{.x = loads.port_blade_force_x_n, .y = 0.0, .z = 0.0};
-    const auto starboard_blade_load =
-        Vector3{.x = loads.starboard_blade_force_x_n, .y = 0.0, .z = 0.0};
-    const auto apparent_wind = loads.apparent_wind_world_mps;
-    const auto aero_load = loads.aero_force_world_n;
-    const auto aero_moment = loads.aero_moment_world_n_m;
-    const double stroke_power_w =
-        (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * boat_speed_mps;
-
-    records.push_back(Json{
-        {"time_s", state.time_s},
-        {"hull_state",
-         Json{{"position_world_m",
-               Json{{"vector", vector_channel(state.hull.position_world_m, "m",
-                                              "world")}}},
-              {"orientation_world_from_body_xyzw",
-               Json{{"value",
-                     Json::array({state.hull.orientation_world_from_body.x,
-                                  state.hull.orientation_world_from_body.y,
-                                  state.hull.orientation_world_from_body.z,
-                                  state.hull.orientation_world_from_body.w})},
-                    {"unit", "unit-quaternion"},
-                    {"frame", "world_from_body"}}},
-              {"linear_velocity_world_mps",
-               Json{{"vector",
-                     vector_channel(state.hull.linear_velocity_world_mps, "m/s",
-                                    "world")}}},
-              {"angular_velocity_body_radps",
-               Json{{"vector",
-                     vector_channel(state.hull.angular_velocity_body_radps,
-                                    "rad/s", "body")}}}}},
-        {"oar_state",
-         Json{
-             {"port",
-              Json{{"handle_angle_rad",
-                    scalar_channel(state.port_oar.handle_angle_rad, "rad")},
-                   {"oarlock_position_body_m",
-                    Json{{"vector",
-                          vector_channel(state.port_oar.oarlock_position_body_m,
-                                         "m", "body")}}},
-                   {"blade_tip_position_world_m",
-                    Json{{"vector",
-                          vector_channel(
-                              state.port_oar.blade_tip_position_world_m, "m",
-                              "world")}}}}},
-             {"starboard",
-              Json{
-                  {"handle_angle_rad",
-                   scalar_channel(state.starboard_oar.handle_angle_rad, "rad")},
-                  {"oarlock_position_body_m",
-                   Json{{"vector", vector_channel(state.starboard_oar
-                                                      .oarlock_position_body_m,
-                                                  "m", "body")}}},
-                  {"blade_tip_position_world_m",
-                   Json{{"vector",
-                         vector_channel(
-                             state.starboard_oar.blade_tip_position_world_m,
-                             "m", "world")}}}}}}},
-        {"seat_state",
-         Json{{"rail_axis_body",
-               Json{{"vector", vector_channel(state.seat.rail_axis_body, "axis",
-                                              "body")}}},
-              {"position_along_rail_m",
-               scalar_channel(state.seat.position_along_rail_m, "m")},
-              {"velocity_along_rail_mps",
-               scalar_channel(state.seat.velocity_along_rail_mps, "m/s")}}},
-        {"boat_speed_mps", scalar_channel(boat_speed_mps, "m/s")},
-        {"hull_water_load_world_n",
-         Json{{"vector", vector_channel(hydro_load, "N", "world")}}},
-        {"blade_load_world_n",
-         Json{{"port",
-               Json{{"vector", vector_channel(port_blade_load, "N", "world")}}},
-              {"starboard", Json{{"vector", vector_channel(starboard_blade_load,
-                                                           "N", "world")}}}}},
-        {"apparent_wind_world_mps",
-         Json{{"vector", vector_channel(apparent_wind, "m/s", "world")}}},
-        {"aerodynamic_load_world_n",
-         Json{{"vector", vector_channel(aero_load, "N", "world")}}},
-        {"aerodynamic_moment_world_n_m",
-         Json{{"vector", vector_channel(aero_moment, "N*m", "world")}}},
-        {"stroke_input",
-         Json{
-             {"phase", stroke_phase_text(state.stroke.phase)},
-             {"phase_time_s", scalar_channel(state.stroke.phase_time_s, "s")},
-             {"cycle_time_s", scalar_channel(state.stroke.cycle_time_s, "s")}}},
-        {"stroke_power_w", scalar_channel(stroke_power_w, "W")},
-    });
+    records.push_back(time_series_record_json(state, loads));
   }
 
   return Json{{"schema_version", OUTPUT_SCHEMA_VERSION},
@@ -680,7 +700,29 @@ bool write_hdf5_summary_group(hid_t file, const SimulationRunResult &result,
          write_double_scalar_dataset(summary_group.id, "distance_m",
                                      result.summary.distance_m, diagnostic) &&
          write_double_scalar_dataset(summary_group.id, "mean_speed_mps",
-                                     result.summary.mean_speed_mps, diagnostic);
+                                     result.summary.mean_speed_mps,
+                                     diagnostic) &&
+         write_double_scalar_dataset(
+             summary_group.id, "final_hull_position_z_m",
+             result.summary.final_hull_position_z_m, diagnostic) &&
+         write_double_scalar_dataset(
+             summary_group.id, "final_hydro_force_world_n_x",
+             result.summary.final_hydro_force_world_n.x, diagnostic) &&
+         write_double_scalar_dataset(
+             summary_group.id, "final_hydro_force_world_n_y",
+             result.summary.final_hydro_force_world_n.y, diagnostic) &&
+         write_double_scalar_dataset(
+             summary_group.id, "final_hydro_force_world_n_z",
+             result.summary.final_hydro_force_world_n.z, diagnostic) &&
+         write_double_scalar_dataset(
+             summary_group.id, "final_hydro_moment_world_n_m_x",
+             result.summary.final_hydro_moment_world_n_m.x, diagnostic) &&
+         write_double_scalar_dataset(
+             summary_group.id, "final_hydro_moment_world_n_m_y",
+             result.summary.final_hydro_moment_world_n_m.y, diagnostic) &&
+         write_double_scalar_dataset(
+             summary_group.id, "final_hydro_moment_world_n_m_z",
+             result.summary.final_hydro_moment_world_n_m.z, diagnostic);
 }
 
 bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
@@ -752,6 +794,14 @@ struct Hdf5TimeSeriesChannels {
   std::vector<double> hydro_force_x_n;
   std::vector<double> port_blade_force_x_n;
   std::vector<double> starboard_blade_force_x_n;
+  std::vector<double> hydro_force_world_n_x;
+  std::vector<double> hydro_force_world_n_y;
+  std::vector<double> hydro_force_world_n_z;
+  std::vector<double> hydro_moment_world_n_m_x;
+  std::vector<double> hydro_moment_world_n_m_y;
+  std::vector<double> hydro_moment_world_n_m_z;
+  std::vector<double> port_blade_immersion_depth_m;
+  std::vector<double> starboard_blade_immersion_depth_m;
   std::vector<double> aero_force_x_n;
   std::vector<double> apparent_wind_world_mps_x;
   std::vector<double> apparent_wind_world_mps_y;
@@ -766,6 +816,18 @@ struct Hdf5TimeSeriesChannels {
   std::vector<std::string> stroke_phase;
 };
 
+struct DoubleDatasetSpec {
+  const char *name;
+  const std::vector<double> *values;
+};
+
+struct VectorDatasetSpec {
+  const char *prefix;
+  const std::vector<double> *x;
+  const std::vector<double> *y;
+  const std::vector<double> *z;
+};
+
 Hdf5TimeSeriesChannels
 collect_hdf5_time_series_channels(const SimulationRunResult &result,
                                   bool high_frequency_time_series) {
@@ -776,6 +838,14 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
   channels.hydro_force_x_n.reserve(indices.size());
   channels.port_blade_force_x_n.reserve(indices.size());
   channels.starboard_blade_force_x_n.reserve(indices.size());
+  channels.hydro_force_world_n_x.reserve(indices.size());
+  channels.hydro_force_world_n_y.reserve(indices.size());
+  channels.hydro_force_world_n_z.reserve(indices.size());
+  channels.hydro_moment_world_n_m_x.reserve(indices.size());
+  channels.hydro_moment_world_n_m_y.reserve(indices.size());
+  channels.hydro_moment_world_n_m_z.reserve(indices.size());
+  channels.port_blade_immersion_depth_m.reserve(indices.size());
+  channels.starboard_blade_immersion_depth_m.reserve(indices.size());
   channels.aero_force_x_n.reserve(indices.size());
   channels.apparent_wind_world_mps_x.reserve(indices.size());
   channels.apparent_wind_world_mps_y.reserve(indices.size());
@@ -800,6 +870,19 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
     channels.port_blade_force_x_n.push_back(loads.port_blade_force_x_n);
     channels.starboard_blade_force_x_n.push_back(
         loads.starboard_blade_force_x_n);
+    channels.hydro_force_world_n_x.push_back(
+        loads.resolved_hull_force_world_n().x);
+    channels.hydro_force_world_n_y.push_back(
+        loads.resolved_hull_force_world_n().y);
+    channels.hydro_force_world_n_z.push_back(
+        loads.resolved_hull_force_world_n().z);
+    channels.hydro_moment_world_n_m_x.push_back(loads.hull_moment_world_n_m.x);
+    channels.hydro_moment_world_n_m_y.push_back(loads.hull_moment_world_n_m.y);
+    channels.hydro_moment_world_n_m_z.push_back(loads.hull_moment_world_n_m.z);
+    channels.port_blade_immersion_depth_m.push_back(
+        loads.port_blade_immersion_depth_m);
+    channels.starboard_blade_immersion_depth_m.push_back(
+        loads.starboard_blade_immersion_depth_m);
     channels.aero_force_x_n.push_back(loads.aero_force_x_n);
     channels.apparent_wind_world_mps_x.push_back(
         loads.apparent_wind_world_mps.x);
@@ -821,6 +904,63 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
   return channels;
 }
 
+bool write_hdf5_scalar_time_series(hid_t group,
+                                   const Hdf5TimeSeriesChannels &channels,
+                                   RunDiagnostic &diagnostic) {
+  const std::array<DoubleDatasetSpec, 9> scalar_specs{{
+      {"time_s", &channels.time_s},
+      {"boat_speed_mps", &channels.boat_speed_mps},
+      {"hydro_force_x_n", &channels.hydro_force_x_n},
+      {"port_blade_force_x_n", &channels.port_blade_force_x_n},
+      {"starboard_blade_force_x_n", &channels.starboard_blade_force_x_n},
+      {"port_blade_immersion_depth_m", &channels.port_blade_immersion_depth_m},
+      {"starboard_blade_immersion_depth_m",
+       &channels.starboard_blade_immersion_depth_m},
+      {"aero_force_x_n", &channels.aero_force_x_n},
+      {"stroke_power_w", &channels.stroke_power_w},
+  }};
+
+  for (const auto &spec : scalar_specs) {
+    if (!write_double_vector_dataset(group, spec.name, *spec.values,
+                                     diagnostic)) {
+      return false;
+    }
+  }
+  return write_string_vector_dataset(group, "stroke_phase",
+                                     channels.stroke_phase, diagnostic);
+}
+
+bool write_hdf5_vector_time_series(hid_t group,
+                                   const Hdf5TimeSeriesChannels &channels,
+                                   RunDiagnostic &diagnostic) {
+  const std::array<VectorDatasetSpec, 5> vector_specs{{
+      {"hydro_force_world_n", &channels.hydro_force_world_n_x,
+       &channels.hydro_force_world_n_y, &channels.hydro_force_world_n_z},
+      {"hydro_moment_world_n_m", &channels.hydro_moment_world_n_m_x,
+       &channels.hydro_moment_world_n_m_y, &channels.hydro_moment_world_n_m_z},
+      {"apparent_wind_world_mps", &channels.apparent_wind_world_mps_x,
+       &channels.apparent_wind_world_mps_y,
+       &channels.apparent_wind_world_mps_z},
+      {"aero_force_world_n", &channels.aero_force_world_n_x,
+       &channels.aero_force_world_n_y, &channels.aero_force_world_n_z},
+      {"aero_moment_world_n_m", &channels.aero_moment_world_n_m_x,
+       &channels.aero_moment_world_n_m_y, &channels.aero_moment_world_n_m_z},
+  }};
+
+  for (const auto &spec : vector_specs) {
+    const std::string prefix(spec.prefix);
+    if (!write_double_vector_dataset(group, (prefix + "_x").c_str(), *spec.x,
+                                     diagnostic) ||
+        !write_double_vector_dataset(group, (prefix + "_y").c_str(), *spec.y,
+                                     diagnostic) ||
+        !write_double_vector_dataset(group, (prefix + "_z").c_str(), *spec.z,
+                                     diagnostic)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool write_hdf5_time_series_group(hid_t file, const SimulationRunResult &result,
                                   bool high_frequency_time_series,
                                   RunDiagnostic &diagnostic) {
@@ -835,52 +975,10 @@ bool write_hdf5_time_series_group(hid_t file, const SimulationRunResult &result,
 
   const auto channels =
       collect_hdf5_time_series_channels(result, high_frequency_time_series);
-  const auto write_scalar_channels = [&]() {
-    return write_double_vector_dataset(time_series_group.id, "time_s",
-                                       channels.time_s, diagnostic) &&
-           write_double_vector_dataset(time_series_group.id, "boat_speed_mps",
-                                       channels.boat_speed_mps, diagnostic) &&
-           write_double_vector_dataset(time_series_group.id, "hydro_force_x_n",
-                                       channels.hydro_force_x_n, diagnostic) &&
-           write_double_vector_dataset(
-               time_series_group.id, "port_blade_force_x_n",
-               channels.port_blade_force_x_n, diagnostic) &&
-           write_double_vector_dataset(
-               time_series_group.id, "starboard_blade_force_x_n",
-               channels.starboard_blade_force_x_n, diagnostic) &&
-           write_double_vector_dataset(time_series_group.id, "aero_force_x_n",
-                                       channels.aero_force_x_n, diagnostic) &&
-           write_double_vector_dataset(time_series_group.id, "stroke_power_w",
-                                       channels.stroke_power_w, diagnostic) &&
-           write_string_vector_dataset(time_series_group.id, "stroke_phase",
-                                       channels.stroke_phase, diagnostic);
-  };
-  const auto write_vector_channels =
-      [&](const char *prefix, const std::vector<double> &x,
-          const std::vector<double> &y, const std::vector<double> &z) {
-        return write_double_vector_dataset(time_series_group.id,
-                                           (std::string(prefix) + "_x").c_str(),
-                                           x, diagnostic) &&
-               write_double_vector_dataset(time_series_group.id,
-                                           (std::string(prefix) + "_y").c_str(),
-                                           y, diagnostic) &&
-               write_double_vector_dataset(time_series_group.id,
-                                           (std::string(prefix) + "_z").c_str(),
-                                           z, diagnostic);
-      };
-
-  return write_scalar_channels() &&
-         write_vector_channels("apparent_wind_world_mps",
-                               channels.apparent_wind_world_mps_x,
-                               channels.apparent_wind_world_mps_y,
-                               channels.apparent_wind_world_mps_z) &&
-         write_vector_channels(
-             "aero_force_world_n", channels.aero_force_world_n_x,
-             channels.aero_force_world_n_y, channels.aero_force_world_n_z) &&
-         write_vector_channels("aero_moment_world_n_m",
-                               channels.aero_moment_world_n_m_x,
-                               channels.aero_moment_world_n_m_y,
-                               channels.aero_moment_world_n_m_z);
+  return write_hdf5_scalar_time_series(time_series_group.id, channels,
+                                       diagnostic) &&
+         write_hdf5_vector_time_series(time_series_group.id, channels,
+                                       diagnostic);
 }
 
 bool write_hdf5_file(const std::filesystem::path &path,

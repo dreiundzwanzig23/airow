@@ -266,6 +266,175 @@ bool parse_scenario_identity(const Json &root,
   return true;
 }
 
+bool provider_matches_scenario(ScenarioType scenario_type,
+                               ScenarioProviderType provider_type) {
+  if (scenario_type == ScenarioType::passive_float) {
+    return provider_type == ScenarioProviderType::passive_placeholder;
+  }
+  if (scenario_type == ScenarioType::tow_test) {
+    return provider_type == ScenarioProviderType::tow_placeholder;
+  }
+  return provider_type == ScenarioProviderType::stroke_propulsion_placeholder;
+}
+
+std::string provider_mismatch_message(ScenarioType scenario_type) {
+  if (scenario_type == ScenarioType::passive_float) {
+    return "passive_float scenario requires passive_placeholder provider";
+  }
+  if (scenario_type == ScenarioType::tow_test) {
+    return "tow_test scenario requires tow_placeholder provider";
+  }
+  if (scenario_type == ScenarioType::calm_water_stroke) {
+    return "calm_water_stroke scenario requires "
+           "stroke_propulsion_placeholder provider";
+  }
+  return "wind stroke scenarios require stroke_propulsion_placeholder provider";
+}
+
+bool parse_optional_provider_parameter(const Json &provider_object,
+                                       std::string_view key,
+                                       std::string_view path, double &value,
+                                       std::string_view label,
+                                       LoadScenarioDefinitionResult &result) {
+  if (!provider_object.contains(key)) {
+    return true;
+  }
+  return require_positive_number(provider_object, key, path, value, label,
+                                 result);
+}
+
+bool parse_required_provider_parameter(const Json &provider_object,
+                                       std::string_view key,
+                                       std::string_view path, double &value,
+                                       std::string_view label,
+                                       LoadScenarioDefinitionResult &result) {
+  return require_positive_number(provider_object, key, path, value, label,
+                                 result);
+}
+
+bool parse_common_provider_parameters(const Json &provider_object,
+                                      ScenarioProviderConfig &provider,
+                                      LoadScenarioDefinitionResult &result) {
+  return parse_optional_provider_parameter(
+             provider_object, "hydrostatic_heave_stiffness_n_per_m",
+             "$.provider.hydrostatic_heave_stiffness_n_per_m",
+             provider.hydrostatic_heave_stiffness_n_per_m,
+             "hydrostatic heave stiffness", result) &&
+         parse_optional_provider_parameter(
+             provider_object, "hydrostatic_heave_damping_n_s_per_m",
+             "$.provider.hydrostatic_heave_damping_n_s_per_m",
+             provider.hydrostatic_heave_damping_n_s_per_m,
+             "hydrostatic heave damping", result) &&
+         parse_optional_provider_parameter(
+             provider_object, "roll_restoring_moment_n_m_per_rad",
+             "$.provider.roll_restoring_moment_n_m_per_rad",
+             provider.roll_restoring_moment_n_m_per_rad,
+             "roll restoring moment", result) &&
+         parse_optional_provider_parameter(
+             provider_object, "roll_damping_moment_n_m_s_per_rad",
+             "$.provider.roll_damping_moment_n_m_s_per_rad",
+             provider.roll_damping_moment_n_m_s_per_rad, "roll damping moment",
+             result) &&
+         parse_optional_provider_parameter(
+             provider_object, "pitch_restoring_moment_n_m_per_rad",
+             "$.provider.pitch_restoring_moment_n_m_per_rad",
+             provider.pitch_restoring_moment_n_m_per_rad,
+             "pitch restoring moment", result) &&
+         parse_optional_provider_parameter(
+             provider_object, "pitch_damping_moment_n_m_s_per_rad",
+             "$.provider.pitch_damping_moment_n_m_s_per_rad",
+             provider.pitch_damping_moment_n_m_s_per_rad,
+             "pitch damping moment", result) &&
+         parse_optional_provider_parameter(
+             provider_object, "full_blade_immersion_depth_m",
+             "$.provider.full_blade_immersion_depth_m",
+             provider.full_blade_immersion_depth_m,
+             "full blade immersion depth", result);
+}
+
+bool parse_passive_acceptance(const Json &acceptance,
+                              ScenarioAcceptanceEnvelope &envelope,
+                              LoadScenarioDefinitionResult &result) {
+  return require_non_negative_number(acceptance, "max_abs_distance_m",
+                                     "$.acceptance.max_abs_distance_m",
+                                     envelope.max_abs_distance_m,
+                                     "max_abs_distance_m", result) &&
+         require_non_negative_number(acceptance, "max_abs_mean_speed_mps",
+                                     "$.acceptance.max_abs_mean_speed_mps",
+                                     envelope.max_abs_mean_speed_mps,
+                                     "max_abs_mean_speed_mps", result) &&
+         require_non_negative_number(
+             acceptance, "max_abs_final_hull_position_z_m",
+             "$.acceptance.max_abs_final_hull_position_z_m",
+             envelope.max_abs_final_hull_position_z_m,
+             "max_abs_final_hull_position_z_m", result) &&
+         require_non_negative_number(
+             acceptance, "max_abs_final_hydro_force_z_n",
+             "$.acceptance.max_abs_final_hydro_force_z_n",
+             envelope.max_abs_final_hydro_force_z_n,
+             "max_abs_final_hydro_force_z_n", result) &&
+         require_non_negative_number(
+             acceptance, "max_abs_final_hydro_moment_x_n_m",
+             "$.acceptance.max_abs_final_hydro_moment_x_n_m",
+             envelope.max_abs_final_hydro_moment_x_n_m,
+             "max_abs_final_hydro_moment_x_n_m", result) &&
+         require_non_negative_number(
+             acceptance, "max_abs_final_hydro_moment_y_n_m",
+             "$.acceptance.max_abs_final_hydro_moment_y_n_m",
+             envelope.max_abs_final_hydro_moment_y_n_m,
+             "max_abs_final_hydro_moment_y_n_m", result);
+}
+
+bool parse_calm_acceptance(const Json &acceptance,
+                           ScenarioAcceptanceEnvelope &envelope,
+                           LoadScenarioDefinitionResult &result) {
+  return require_non_negative_number(
+             acceptance, "min_distance_m", "$.acceptance.min_distance_m",
+             envelope.min_distance_m, "min_distance_m", result) &&
+         require_non_negative_number(acceptance, "min_mean_speed_mps",
+                                     "$.acceptance.min_mean_speed_mps",
+                                     envelope.min_mean_speed_mps,
+                                     "min_mean_speed_mps", result);
+}
+
+bool parse_headwind_acceptance(const Json &acceptance,
+                               ScenarioAcceptanceEnvelope &envelope,
+                               LoadScenarioDefinitionResult &result) {
+  return require_non_negative_number(
+             acceptance, "min_distance_m", "$.acceptance.min_distance_m",
+             envelope.min_distance_m, "min_distance_m", result) &&
+         require_non_negative_number(acceptance, "max_mean_speed_mps",
+                                     "$.acceptance.max_mean_speed_mps",
+                                     envelope.max_mean_speed_mps,
+                                     "max_mean_speed_mps", result);
+}
+
+bool parse_crosswind_acceptance(const Json &acceptance,
+                                ScenarioAcceptanceEnvelope &envelope,
+                                LoadScenarioDefinitionResult &result) {
+  return require_non_negative_number(
+             acceptance, "min_distance_m", "$.acceptance.min_distance_m",
+             envelope.min_distance_m, "min_distance_m", result) &&
+         require_non_negative_number(acceptance, "min_abs_yaw_moment_z_n_m",
+                                     "$.acceptance.min_abs_yaw_moment_z_n_m",
+                                     envelope.min_abs_yaw_moment_z_n_m,
+                                     "min_abs_yaw_moment_z_n_m", result) &&
+         parse_expected_sign(acceptance, envelope, result);
+}
+
+bool parse_tow_acceptance(const Json &acceptance,
+                          ScenarioAcceptanceEnvelope &envelope,
+                          LoadScenarioDefinitionResult &result) {
+  return require_non_negative_number(
+             acceptance, "min_distance_m", "$.acceptance.min_distance_m",
+             envelope.min_distance_m, "min_distance_m", result) &&
+         require_non_negative_number(acceptance, "max_final_speed_mps",
+                                     "$.acceptance.max_final_speed_mps",
+                                     envelope.max_final_speed_mps,
+                                     "max_final_speed_mps", result) &&
+         parse_speed_samples(acceptance, envelope, result);
+}
+
 bool parse_scenario_provider(const Json &root,
                              LoadScenarioDefinitionResult &result,
                              ScenarioDefinition &scenario) {
@@ -289,58 +458,40 @@ bool parse_scenario_provider(const Json &root,
   }
   scenario.provider.type = *parsed_provider_type;
 
-  const auto require_provider_parameter =
-      [&](std::string_view key, std::string_view path, double &value,
-          std::string_view label) {
-        return require_positive_number(*provider_object, key, path, value,
-                                       label, result);
-      };
-  const auto provider_matches_scenario = [&]() {
-    if (scenario.type == ScenarioType::passive_float) {
-      return scenario.provider.type ==
-             ScenarioProviderType::passive_placeholder;
-    }
-    if (scenario.type == ScenarioType::tow_test) {
-      return scenario.provider.type == ScenarioProviderType::tow_placeholder;
-    }
-    return scenario.provider.type ==
-           ScenarioProviderType::stroke_propulsion_placeholder;
-  };
-  const auto mismatch_message = [&]() {
-    if (scenario.type == ScenarioType::passive_float) {
-      return std::string("passive_float scenario requires "
-                         "passive_placeholder provider");
-    }
-    if (scenario.type == ScenarioType::tow_test) {
-      return std::string("tow_test scenario requires tow_placeholder provider");
-    }
-    if (scenario.type == ScenarioType::calm_water_stroke) {
-      return std::string("calm_water_stroke scenario requires "
-                         "stroke_propulsion_placeholder provider");
-    }
-    return std::string("wind stroke scenarios require "
-                       "stroke_propulsion_placeholder provider");
-  };
-
   if (scenario.provider.type == ScenarioProviderType::tow_placeholder &&
-      !require_provider_parameter(
-          "drag_coefficient_n_s2_per_m2",
+      !parse_required_provider_parameter(
+          *provider_object, "drag_coefficient_n_s2_per_m2",
           "$.provider.drag_coefficient_n_s2_per_m2",
-          scenario.provider.drag_coefficient_n_s2_per_m2, "drag coefficient")) {
+          scenario.provider.drag_coefficient_n_s2_per_m2, "drag coefficient",
+          result)) {
     return false;
   }
   if (scenario.provider.type ==
           ScenarioProviderType::stroke_propulsion_placeholder &&
-      !require_provider_parameter(
-          "blade_force_coefficient_n_s_per_m",
+      !parse_required_provider_parameter(
+          *provider_object, "blade_force_coefficient_n_s_per_m",
           "$.provider.blade_force_coefficient_n_s_per_m",
           scenario.provider.blade_force_coefficient_n_s_per_m,
-          "blade force coefficient")) {
+          "blade force coefficient", result)) {
     return false;
   }
-  if (!provider_matches_scenario()) {
+  if (scenario.provider.type ==
+          ScenarioProviderType::stroke_propulsion_placeholder &&
+      !parse_optional_provider_parameter(
+          *provider_object, "drag_coefficient_n_s2_per_m2",
+          "$.provider.drag_coefficient_n_s2_per_m2",
+          scenario.provider.drag_coefficient_n_s2_per_m2, "drag coefficient",
+          result)) {
+    return false;
+  }
+  if (!parse_common_provider_parameters(*provider_object, scenario.provider,
+                                        result)) {
+    return false;
+  }
+  if (!provider_matches_scenario(scenario.type, scenario.provider.type)) {
     result.diagnostics.push_back(
-        make_error("invalid_value", "$.provider.type", mismatch_message()));
+        make_error("invalid_value", "$.provider.type",
+                   provider_mismatch_message(scenario.type)));
     return false;
   }
   return true;
@@ -434,57 +585,18 @@ bool parse_scenario_acceptance(const Json &root,
   }
 
   if (scenario.type == ScenarioType::passive_float) {
-    return require_non_negative_number(*acceptance, "max_abs_distance_m",
-                                       "$.acceptance.max_abs_distance_m",
-                                       scenario.acceptance.max_abs_distance_m,
-                                       "max_abs_distance_m", result) &&
-           require_non_negative_number(
-               *acceptance, "max_abs_mean_speed_mps",
-               "$.acceptance.max_abs_mean_speed_mps",
-               scenario.acceptance.max_abs_mean_speed_mps,
-               "max_abs_mean_speed_mps", result);
+    return parse_passive_acceptance(*acceptance, scenario.acceptance, result);
   }
-
   if (scenario.type == ScenarioType::calm_water_stroke) {
-    return require_non_negative_number(
-               *acceptance, "min_distance_m", "$.acceptance.min_distance_m",
-               scenario.acceptance.min_distance_m, "min_distance_m", result) &&
-           require_non_negative_number(*acceptance, "min_mean_speed_mps",
-                                       "$.acceptance.min_mean_speed_mps",
-                                       scenario.acceptance.min_mean_speed_mps,
-                                       "min_mean_speed_mps", result);
+    return parse_calm_acceptance(*acceptance, scenario.acceptance, result);
   }
-
   if (scenario.type == ScenarioType::headwind_stroke) {
-    return require_non_negative_number(
-               *acceptance, "min_distance_m", "$.acceptance.min_distance_m",
-               scenario.acceptance.min_distance_m, "min_distance_m", result) &&
-           require_non_negative_number(*acceptance, "max_mean_speed_mps",
-                                       "$.acceptance.max_mean_speed_mps",
-                                       scenario.acceptance.max_mean_speed_mps,
-                                       "max_mean_speed_mps", result);
+    return parse_headwind_acceptance(*acceptance, scenario.acceptance, result);
   }
-
   if (scenario.type == ScenarioType::crosswind_stroke) {
-    return require_non_negative_number(
-               *acceptance, "min_distance_m", "$.acceptance.min_distance_m",
-               scenario.acceptance.min_distance_m, "min_distance_m", result) &&
-           require_non_negative_number(
-               *acceptance, "min_abs_yaw_moment_z_n_m",
-               "$.acceptance.min_abs_yaw_moment_z_n_m",
-               scenario.acceptance.min_abs_yaw_moment_z_n_m,
-               "min_abs_yaw_moment_z_n_m", result) &&
-           parse_expected_sign(*acceptance, scenario.acceptance, result);
+    return parse_crosswind_acceptance(*acceptance, scenario.acceptance, result);
   }
-
-  return require_non_negative_number(
-             *acceptance, "min_distance_m", "$.acceptance.min_distance_m",
-             scenario.acceptance.min_distance_m, "min_distance_m", result) &&
-         require_non_negative_number(*acceptance, "max_final_speed_mps",
-                                     "$.acceptance.max_final_speed_mps",
-                                     scenario.acceptance.max_final_speed_mps,
-                                     "max_final_speed_mps", result) &&
-         parse_speed_samples(*acceptance, scenario.acceptance, result);
+  return parse_tow_acceptance(*acceptance, scenario.acceptance, result);
 }
 
 bool parse_scenario_definition(const Json &root,
@@ -576,6 +688,34 @@ void evaluate_passive_float(const ScenarioDefinition &scenario,
         evaluation, "scenario_mean_speed_out_of_envelope",
         "$.result.summary.mean_speed_mps",
         "passive-float mean speed exceeded max_abs_mean_speed_mps envelope");
+  }
+  if (std::abs(result.summary.final_hull_position_z_m) >
+      scenario.acceptance.max_abs_final_hull_position_z_m) {
+    append_issue(evaluation, "scenario_hull_position_z_out_of_envelope",
+                 "$.result.summary.final_hull_position_z_m",
+                 "passive-float final hull z exceeded "
+                 "max_abs_final_hull_position_z_m envelope");
+  }
+  if (std::abs(result.summary.final_hydro_force_world_n.z) >
+      scenario.acceptance.max_abs_final_hydro_force_z_n) {
+    append_issue(evaluation, "scenario_hydro_force_z_out_of_envelope",
+                 "$.result.summary.final_hydro_force_world_n.z",
+                 "passive-float final hydro force z exceeded "
+                 "max_abs_final_hydro_force_z_n envelope");
+  }
+  if (std::abs(result.summary.final_hydro_moment_world_n_m.x) >
+      scenario.acceptance.max_abs_final_hydro_moment_x_n_m) {
+    append_issue(evaluation, "scenario_hydro_moment_x_out_of_envelope",
+                 "$.result.summary.final_hydro_moment_world_n_m.x",
+                 "passive-float final hydro moment x exceeded "
+                 "max_abs_final_hydro_moment_x_n_m envelope");
+  }
+  if (std::abs(result.summary.final_hydro_moment_world_n_m.y) >
+      scenario.acceptance.max_abs_final_hydro_moment_y_n_m) {
+    append_issue(evaluation, "scenario_hydro_moment_y_out_of_envelope",
+                 "$.result.summary.final_hydro_moment_world_n_m.y",
+                 "passive-float final hydro moment y exceeded "
+                 "max_abs_final_hydro_moment_y_n_m envelope");
   }
 }
 

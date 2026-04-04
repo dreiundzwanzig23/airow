@@ -56,6 +56,8 @@ project::SimulatorConfig make_config() {
               .drive_duration_s = 0.48,
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
+              .drive_blade_depth_m = 0.12,
+              .recovery_blade_depth_m = 0.0,
           },
       .environment = {},
   };
@@ -83,6 +85,9 @@ TEST(StateAdvancement, InitializesFiniteMechanicalState) {
   EXPECT_DOUBLE_EQ(startup.state->hull.position_world_m.x, 0.0);
   EXPECT_DOUBLE_EQ(startup.state->seat.position_along_rail_m, 0.4);
   EXPECT_DOUBLE_EQ(startup.state->port_oar.handle_angle_rad, -0.9);
+  EXPECT_GT(startup.state->port_oar.blade_tip_velocity_world_mps.x, 1.5);
+  EXPECT_DOUBLE_EQ(startup.state->port_oar.blade_immersion_depth_m, 0.12);
+  EXPECT_DOUBLE_EQ(startup.state->starboard_oar.blade_immersion_depth_m, 0.12);
   EXPECT_EQ(startup.state->stroke.phase, project::StrokePhase::drive);
 }
 
@@ -112,7 +117,7 @@ TEST(StateAdvancement, RejectsZeroNormInitialOrientation) {
 
 /**
  * @test UT-021
- * @verifies [D-016]
+ * @verifies [D-029]
  * @notes Given a valid initialized mechanics state, when the default state
  * advancer advances through drive and recovery, then hull translation, seat
  * travel, oar motion, and stroke-phase transitions remain deterministic.
@@ -136,6 +141,9 @@ TEST(StateAdvancement, AdvancesHullSeatAndOarStateDeterministically) {
             startup.state->seat.position_along_rail_m);
   EXPECT_GT(first.state->port_oar.handle_angle_rad,
             startup.state->port_oar.handle_angle_rad);
+  EXPECT_GT(first.state->port_oar.blade_immersion_depth_m, 0.0);
+  EXPECT_TRUE(
+      std::isfinite(first.state->port_oar.blade_tip_velocity_world_mps.x));
   EXPECT_EQ(first.state->stroke.phase, project::StrokePhase::drive);
 
   const auto second =
@@ -145,11 +153,13 @@ TEST(StateAdvancement, AdvancesHullSeatAndOarStateDeterministically) {
   EXPECT_DOUBLE_EQ(second.state->time_s, 0.55);
   EXPECT_EQ(second.state->stroke.phase, project::StrokePhase::recovery);
   EXPECT_GT(second.state->seat.velocity_along_rail_mps, 0.0);
+  EXPECT_DOUBLE_EQ(second.state->port_oar.blade_immersion_depth_m, 0.0);
+  EXPECT_DOUBLE_EQ(second.state->starboard_oar.blade_immersion_depth_m, 0.0);
 }
 
 /**
  * @test UT-023
- * @verifies [D-015, D-016]
+ * @verifies [D-015, D-020, D-029]
  * @notes Given non-finite startup or runtime inputs, when the baseline state
  * advancer initializes or advances, then it rejects them deterministically
  * without exposing an invalid mechanics snapshot.
@@ -160,6 +170,34 @@ TEST(StateAdvancement, RejectsNonFiniteStartupOrRuntimeInputs) {
   {
     auto config = make_config();
     config.hull.initial_position_m.x = std::numeric_limits<double>::quiet_NaN();
+
+    const auto startup = advancer.initialize(config);
+
+    ASSERT_FALSE(startup.ok());
+    ASSERT_FALSE(startup.state.has_value());
+    ASSERT_EQ(startup.diagnostics.size(), 1U);
+    EXPECT_EQ(startup.diagnostics.front().code, "startup_invalid_state");
+    EXPECT_EQ(startup.diagnostics.front().path, "$.startup.state");
+    EXPECT_EQ(startup.solver_status, "non_finite_startup_state");
+  }
+
+  {
+    auto config = make_config();
+    config.hull.initial_position_m.y = std::numeric_limits<double>::quiet_NaN();
+
+    const auto startup = advancer.initialize(config);
+
+    ASSERT_FALSE(startup.ok());
+    ASSERT_FALSE(startup.state.has_value());
+    ASSERT_EQ(startup.diagnostics.size(), 1U);
+    EXPECT_EQ(startup.diagnostics.front().code, "startup_invalid_state");
+    EXPECT_EQ(startup.diagnostics.front().path, "$.startup.state");
+    EXPECT_EQ(startup.solver_status, "non_finite_startup_state");
+  }
+
+  {
+    auto config = make_config();
+    config.hull.initial_position_m.z = std::numeric_limits<double>::quiet_NaN();
 
     const auto startup = advancer.initialize(config);
 
@@ -210,7 +248,11 @@ TEST(StateAdvancement, RejectsNonFiniteStartupOrRuntimeInputs) {
     const auto invalid_load = advancer.advance(
         make_config(), *startup.state, 0.25,
         project::ExternalLoads{
-            .hydro_force_x_n = std::numeric_limits<double>::infinity(),
+            .hydro_force_world_n = {.x =
+                                        std::numeric_limits<double>::infinity(),
+                                    .y = 0.0,
+                                    .z = 0.0},
+            .hydro_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
             .aero_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
             .aero_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
         });
@@ -225,7 +267,7 @@ TEST(StateAdvancement, RejectsNonFiniteStartupOrRuntimeInputs) {
 
 /**
  * @test UT-024
- * @verifies [D-016]
+ * @verifies [D-020, D-029]
  * @notes Given a valid mechanics startup state and a step spanning more than
  * one stroke cycle, when the baseline advancer runs, then it wraps cycle time,
  * preserves finite orientation, and continues from the wrapped stroke phase
@@ -256,4 +298,96 @@ TEST(StateAdvancement, WrapsCycleTimeAcrossLongStepsDeterministically) {
   EXPECT_NE(advanced.state->hull.orientation_world_from_body.w,
             startup.state->hull.orientation_world_from_body.w);
   EXPECT_NE(advanced.state->hull.orientation_world_from_body.z, 0.0);
+}
+
+/**
+ * @test UT-105
+ * @verifies [D-029]
+ * @notes Given a valid baseline mechanics startup state, when the baseline
+ * advancer initializes it, then each oar snapshot includes finite explicit
+ * blade-tip velocity and immersion state for hydro-provider consumption.
+ */
+TEST(StateAdvancement, InitializesBladeVelocityAndImmersionState) {
+  auto &advancer = project::default_state_advancer();
+
+  const auto startup = advancer.initialize(make_config());
+
+  ASSERT_TRUE(startup.ok());
+  ASSERT_TRUE(startup.state.has_value());
+  EXPECT_TRUE(
+      std::isfinite(startup.state->port_oar.blade_tip_velocity_world_mps.x));
+  EXPECT_TRUE(
+      std::isfinite(startup.state->port_oar.blade_tip_velocity_world_mps.y));
+  EXPECT_TRUE(
+      std::isfinite(startup.state->port_oar.blade_tip_velocity_world_mps.z));
+  EXPECT_LT(startup.state->port_oar.blade_tip_position_world_m.z, 0.0);
+  EXPECT_DOUBLE_EQ(startup.state->port_oar.blade_immersion_depth_m, 0.12);
+  EXPECT_DOUBLE_EQ(startup.state->starboard_oar.blade_immersion_depth_m, 0.12);
+}
+
+/**
+ * @test UT-106
+ * @verifies [D-029]
+ * @notes Given a valid mechanics state and structured hydro world-force or
+ * moment loads, when the baseline advancer advances one step, then it couples
+ * vertical motion plus roll and pitch response into the hull state.
+ */
+TEST(StateAdvancement, CouplesHydroHeaveRollAndPitchLoads) {
+  auto &advancer = project::default_state_advancer();
+  const auto startup = advancer.initialize(make_config());
+
+  ASSERT_TRUE(startup.ok());
+  ASSERT_TRUE(startup.state.has_value());
+
+  const auto advanced = advancer.advance(
+      make_config(), *startup.state, 0.25,
+      project::ExternalLoads{
+          .hydro_force_world_n = {.x = 0.0, .y = 0.0, .z = 28.0},
+          .hydro_moment_world_n_m = {.x = 1.1, .y = -2.4, .z = 0.0},
+          .aero_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+          .aero_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+      });
+
+  ASSERT_TRUE(advanced.ok());
+  ASSERT_TRUE(advanced.state.has_value());
+  EXPECT_GT(advanced.state->hull.position_world_m.z,
+            startup.state->hull.position_world_m.z);
+  EXPECT_GT(advanced.state->hull.linear_velocity_world_mps.z,
+            startup.state->hull.linear_velocity_world_mps.z);
+  EXPECT_NE(advanced.state->hull.angular_velocity_body_radps.x, 0.0);
+  EXPECT_NE(advanced.state->hull.angular_velocity_body_radps.y, 0.0);
+  EXPECT_NE(advanced.state->hull.orientation_world_from_body.x, 0.0);
+  EXPECT_NE(advanced.state->hull.orientation_world_from_body.y, 0.0);
+}
+
+/**
+ * @test UT-117
+ * @verifies [D-029]
+ * @notes Given a mechanics snapshot with a negative cycle-time offset, when
+ * the baseline advancer advances one short step, then it wraps the stroke
+ * cycle back into the valid positive interval deterministically.
+ */
+TEST(StateAdvancement, WrapsNegativeCycleTimeIntoValidInterval) {
+  auto config = make_config();
+  auto &advancer = project::default_state_advancer();
+  const auto startup = advancer.initialize(config);
+
+  ASSERT_TRUE(startup.ok());
+  ASSERT_TRUE(startup.state.has_value());
+
+  auto invalid_state = *startup.state;
+  invalid_state.stroke.cycle_time_s = -0.05;
+  invalid_state.stroke.phase_time_s = -0.05;
+  invalid_state.stroke.phase = project::StrokePhase::drive;
+
+  const auto advanced =
+      advancer.advance(config, invalid_state, 0.02, project::ExternalLoads{});
+
+  ASSERT_TRUE(advanced.ok());
+  ASSERT_TRUE(advanced.state.has_value());
+  EXPECT_GE(advanced.state->stroke.cycle_time_s, 0.0);
+  EXPECT_LT(advanced.state->stroke.cycle_time_s,
+            config.stroke.cycle_duration_s);
+  EXPECT_NEAR(advanced.state->stroke.cycle_time_s, 1.17, 1e-12);
+  EXPECT_EQ(advanced.state->stroke.phase, project::StrokePhase::recovery);
 }
