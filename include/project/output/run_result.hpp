@@ -51,6 +51,9 @@ struct LoadSample {
   double port_blade_force_x_n{};
   double starboard_blade_force_x_n{};
   double aero_force_x_n{};
+  Vector3 apparent_wind_world_mps;
+  Vector3 aero_force_world_n;
+  Vector3 aero_moment_world_n_m;
 
   [[nodiscard]] double total_hydro_force_x_n() const noexcept {
     return hydro_force_x_n + port_blade_force_x_n + starboard_blade_force_x_n;

@@ -86,8 +86,9 @@ The current stable building-block view is organized around ten subsystem owners.
 | `A-010` | Numerical Integration and State Advancement | Own consistent initialization, backend abstraction, and solver-facing diagnostics |
 
 Current implementation emphasis:
-- active: `A-001`, `A-002`, `A-003`, `A-004`, `A-007`, `A-008`, `A-010`,
-- open: `A-005`, `A-006`, `A-009`.
+- active: `A-001`, `A-002`, `A-003`, `A-004`, `A-005`, `A-007`, `A-008`,
+  `A-010`,
+- open: `A-006`, `A-009`.
 
 ## Runtime View
 
@@ -236,7 +237,7 @@ Still planned or incomplete:
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models
 - **Satisfies**: [R-013, R-014, R-020, R-021, R-022, R-023, R-024, R-029, R-031, R-033]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Compute apparent wind and reduced aerodynamic loads for routine runtime execution.
 - **Owned Concepts**: Apparent wind computation; aero load providers; wind-direction interpretation at runtime boundaries; provider validity metadata; steady and time-varying wind handling; disturbance-to-aero coupling.
 - **Inputs**: Mechanics state; ambient wind definitions; optional calibration datasets; selected aero provider.
@@ -246,7 +247,12 @@ Still planned or incomplete:
 - **Invariants**: Zero apparent wind yields near-zero loads; mirrored crosswind directions produce deterministic sign changes under the documented frame conventions; runtime behavior stays independent of optional truth-model tooling.
 - **Allocation Rationale**: Keeps aero behavior replaceable and decoupled from hydro and orchestration instead of creating mixed fluid-load feature containers.
 - **Future Absorption**: Gust models, richer aero coefficients, and calibrated aero providers should extend this subsystem.
-- **Interfaces**: Planned apparent-wind contract and aerodynamic load provider contract.
+- **Interfaces**: Public aero-provider seam in the shared run path now returns
+  structured apparent-wind, aerodynamic-force, and aerodynamic-moment samples
+  for deterministic steady-wind baseline behavior. The current realization
+  slice propagates full aero vectors and yaw-sign information through outputs
+  and scenario evaluation while keeping dynamic state advancement coupled only
+  to the longitudinal aero-force component.
 
 ## A-006 — Control and Stroke Input
 - **Title**: Stroke scheduling and low-order control subsystem
@@ -300,8 +306,9 @@ Still planned or incomplete:
 - **Interfaces**: Public scenario-harness contract in
   `include/project/orchestrator/scenario_harness.hpp` for deterministic
   checked-in scenario definition loading and acceptance-envelope evaluation
-  against runtime results, with passive-float, tow, and calm-water stroke
-  scenario artifacts under `scenarios/`.
+  against runtime results, with passive-float, tow, calm-water stroke,
+  headwind stroke, and crosswind stroke scenario artifacts under
+  `scenarios/`.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

@@ -70,6 +70,7 @@ project::SimulatorConfig make_config() {
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
       .output =
           {
               .summary_path = {},
@@ -124,10 +125,10 @@ Json read_json_file(const std::filesystem::path &path) {
  */
 TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
   auto config = make_config();
-  const auto summary_path = std::filesystem::temp_directory_path() /
-                            "airow-it-hydro-summary.json";
-  const auto time_series_path = std::filesystem::temp_directory_path() /
-                                "airow-it-hydro-timeseries.json";
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-it-hydro-summary.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() / "airow-it-hydro-timeseries.json";
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
   config.output.summary_path = summary_path.string();
@@ -141,9 +142,8 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 1s});
 
   const auto result = project::run_simulation(
-      config,
-      project::SimulationDependencies{.hydro_provider = &hydro,
-                                      .clock = &clock});
+      config, project::SimulationDependencies{.hydro_provider = &hydro,
+                                              .clock = &clock});
 
   ASSERT_TRUE(result.ok());
   ASSERT_TRUE(result.outputs.time_series_written);
@@ -167,15 +167,16 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
   bool observed_positive_blade_channel = false;
   bool observed_positive_propulsive_power = false;
   for (const auto &record : records) {
-    const auto port_blade_force =
-        record.at("blade_load_world_n").at("port").at("vector").at("value")[0]
-            .get<double>();
-    const auto starboard_blade_force =
-        record.at("blade_load_world_n")
-            .at("starboard")
-            .at("vector")
-            .at("value")[0]
-            .get<double>();
+    const auto port_blade_force = record.at("blade_load_world_n")
+                                      .at("port")
+                                      .at("vector")
+                                      .at("value")[0]
+                                      .get<double>();
+    const auto starboard_blade_force = record.at("blade_load_world_n")
+                                           .at("starboard")
+                                           .at("vector")
+                                           .at("value")[0]
+                                           .get<double>();
     if (port_blade_force > 0.0) {
       observed_positive_blade_channel = true;
       EXPECT_DOUBLE_EQ(port_blade_force, starboard_blade_force);

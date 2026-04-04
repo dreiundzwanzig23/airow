@@ -72,8 +72,10 @@ public:
     return "scenario-null-aero";
   }
 
-  double sample_load(const project::StepContext & /*context*/) override {
-    return 0.0;
+  project::AeroLoadSample
+  sample_load(const project::StepContext & /*context*/,
+              const project::Vector3 & /*ambient_wind_world_mps*/) override {
+    return {};
   }
 };
 

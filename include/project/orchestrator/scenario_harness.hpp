@@ -10,13 +10,21 @@
 
 namespace project {
 
-enum class ScenarioType { passive_float, tow_test, calm_water_stroke };
+enum class ScenarioType {
+  passive_float,
+  tow_test,
+  calm_water_stroke,
+  headwind_stroke,
+  crosswind_stroke
+};
 
 enum class ScenarioProviderType {
   passive_placeholder,
   tow_placeholder,
   stroke_propulsion_placeholder
 };
+
+enum class ScenarioAeroProviderType { none, steady_wind_placeholder };
 
 struct ScenarioProviderConfig {
   ScenarioProviderType type{ScenarioProviderType::passive_placeholder};
@@ -26,13 +34,24 @@ struct ScenarioProviderConfig {
   bool operator==(const ScenarioProviderConfig &) const = default;
 };
 
+struct ScenarioAeroProviderConfig {
+  ScenarioAeroProviderType type{ScenarioAeroProviderType::none};
+  double drag_coefficient_n_s2_per_m2{};
+  double yaw_moment_coefficient_n_m_s2_per_m2{};
+
+  bool operator==(const ScenarioAeroProviderConfig &) const = default;
+};
+
 struct ScenarioAcceptanceEnvelope {
   double max_abs_distance_m{};
   double max_abs_mean_speed_mps{};
   double min_distance_m{};
   double min_mean_speed_mps{};
+  double max_mean_speed_mps{};
   double max_final_speed_mps{};
+  double min_abs_yaw_moment_z_n_m{};
   std::vector<double> drag_speed_samples_mps;
+  std::string expected_yaw_moment_z_sign;
 
   bool operator==(const ScenarioAcceptanceEnvelope &) const = default;
 };
@@ -42,6 +61,7 @@ struct ScenarioDefinition {
   ScenarioType type{ScenarioType::passive_float};
   SimulatorConfig config;
   ScenarioProviderConfig provider;
+  ScenarioAeroProviderConfig aero_provider;
   ScenarioAcceptanceEnvelope acceptance;
 
   bool operator==(const ScenarioDefinition &) const = default;

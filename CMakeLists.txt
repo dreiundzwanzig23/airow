@@ -57,6 +57,7 @@ include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
+    src/lib/aero/baseline_providers.cpp
     src/lib/configuration/simulator_config.cpp
     src/lib/hydro/baseline_providers.cpp
     src/lib/numerics/state_advancement.cpp
@@ -125,6 +126,7 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
 
     add_executable(project_tests_unit
+        tests/unit/test_aero_runtime_models.cpp
         tests/unit/test_hydro_runtime_models.cpp
         tests/unit/test_state_advancement.cpp
         tests/unit/test_simulator_config.cpp
@@ -141,6 +143,7 @@ if(BUILD_TESTING)
 
     add_executable(project_tests_integration
         tests/integration/test_hydro_runtime_integration.cpp
+        tests/integration/test_aero_runtime_integration.cpp
         tests/integration/test_simulator_config_integration.cpp
         tests/integration/test_orchestrator_integration.cpp
         tests/integration/test_run_outputs_integration.cpp
@@ -156,6 +159,7 @@ if(BUILD_TESTING)
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
         tests/system/test_scenario_harness_system.cpp
+        tests/system/test_wind_scenario_system.cpp
     )
     target_link_libraries(project_tests_system PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_system)
@@ -167,6 +171,7 @@ if(BUILD_TESTING)
     )
 
     add_executable(project_tests_aux_headers
+        tests/aux/include_aero_providers.cpp
         tests/aux/header_self_containment_main.cpp
         tests/aux/include_cli.cpp
         tests/aux/include_geometry.cpp

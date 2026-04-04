@@ -5,6 +5,7 @@
 
 #include "project/hydro/provider.hpp"
 #include "project/mechanics/state.hpp"
+#include "project/mechanics/step_context.hpp"
 
 namespace project {
 
@@ -55,18 +56,20 @@ double TowPlaceholderHydroProvider::drag_force(double forward_speed_mps) const {
 HydroLoadSample
 TowPlaceholderHydroProvider::sample_load(const StepContext &context) {
   return {
-      .hull_force_x_n = drag_force(context.state.hull.linear_velocity_world_mps.x),
+      .hull_force_x_n =
+          drag_force(context.state.hull.linear_velocity_world_mps.x),
       .port_blade_force_x_n = 0.0,
       .starboard_blade_force_x_n = 0.0,
   };
 }
 
-StrokePropulsionPlaceholderHydroProvider::StrokePropulsionPlaceholderHydroProvider(
-    double blade_force_coefficient_n_s_per_m, double port_outboard_length_m,
-    double starboard_outboard_length_m, double drive_oar_rate_radps)
-    : port_drive_blade_force_x_n_(drive_blade_force_x_n(
-          blade_force_coefficient_n_s_per_m, port_outboard_length_m,
-          drive_oar_rate_radps)),
+StrokePropulsionPlaceholderHydroProvider::
+    StrokePropulsionPlaceholderHydroProvider(
+        double blade_force_coefficient_n_s_per_m, double port_outboard_length_m,
+        double starboard_outboard_length_m, double drive_oar_rate_radps)
+    : port_drive_blade_force_x_n_(
+          drive_blade_force_x_n(blade_force_coefficient_n_s_per_m,
+                                port_outboard_length_m, drive_oar_rate_radps)),
       starboard_drive_blade_force_x_n_(drive_blade_force_x_n(
           blade_force_coefficient_n_s_per_m, starboard_outboard_length_m,
           drive_oar_rate_radps)) {}

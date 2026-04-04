@@ -1,8 +1,10 @@
 #include "project/orchestrator/simulation_run.hpp"
+#include "project/aero/provider.hpp"
 #include "project/configuration/simulator_config.hpp"
 #include "project/core/geometry.hpp"
 #include "project/hydro/provider.hpp"
 #include "project/mechanics/state.hpp"
+#include "project/mechanics/step_context.hpp"
 #include "project/numerics/state_advancement.hpp"
 #include "project/output/run_output.hpp"
 #include "project/output/run_result.hpp"
@@ -163,6 +165,24 @@ bool hydro_load_is_finite(const HydroLoadSample &load) {
          std::isfinite(load.starboard_blade_force_x_n);
 }
 
+Vector3 apparent_wind_world(const StepContext &context,
+                            const Vector3 &ambient_wind_world_mps) {
+  return {
+      .x = ambient_wind_world_mps.x -
+           context.state.hull.linear_velocity_world_mps.x,
+      .y = ambient_wind_world_mps.y -
+           context.state.hull.linear_velocity_world_mps.y,
+      .z = ambient_wind_world_mps.z -
+           context.state.hull.linear_velocity_world_mps.z,
+  };
+}
+
+bool aero_load_is_finite(const AeroLoadSample &load) {
+  return vector_is_finite(load.apparent_wind_world_mps) &&
+         vector_is_finite(load.force_world_n) &&
+         vector_is_finite(load.moment_world_n_m);
+}
+
 bool sample_hydro_load(HydroProvider *provider, const StepContext &context,
                        const std::string &provider_id,
                        SimulationRunResult &result, HydroLoadSample &load) {
@@ -193,10 +213,18 @@ bool sample_hydro_load(HydroProvider *provider, const StepContext &context,
 
 bool sample_aero_load(AeroProvider *provider, const StepContext &context,
                       const std::string &provider_id,
-                      SimulationRunResult &result, double &load_value) {
+                      const Vector3 &ambient_wind_world_mps,
+                      SimulationRunResult &result, AeroLoadSample &load) {
   try {
-    load_value = provider != nullptr ? provider->sample_load(context) : 0.0;
-    if (!std::isfinite(load_value)) {
+    load = provider != nullptr
+               ? provider->sample_load(context, ambient_wind_world_mps)
+               : AeroLoadSample{
+                     .apparent_wind_world_mps =
+                         apparent_wind_world(context, ambient_wind_world_mps),
+                     .force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+                     .moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+                 };
+    if (!aero_load_is_finite(load)) {
       append_runtime_failure(result, "aero", "$.runtime.aero",
                              "invalid_provider_output",
                              "aero provider '" + provider_id +
@@ -224,13 +252,13 @@ bool advance_one_step(const SimulatorConfig &config,
                       MechanicalStateSnapshot &state) {
   const StepContext context{.time_s = state.time_s, .state = state};
   HydroLoadSample hydro_load;
-  double aero_force_x_n = 0.0;
+  AeroLoadSample aero_load;
   if (!sample_hydro_load(dependencies.hydro_provider, context,
                          result.metadata.hydro_provider_id, result,
                          hydro_load) ||
-      !sample_aero_load(dependencies.aero_provider, context,
-                        result.metadata.aero_provider_id, result,
-                        aero_force_x_n)) {
+      !sample_aero_load(
+          dependencies.aero_provider, context, result.metadata.aero_provider_id,
+          config.environment.ambient_wind_world_mps, result, aero_load)) {
     return false;
   }
   result.load_history.push_back(LoadSample{
@@ -238,7 +266,10 @@ bool advance_one_step(const SimulatorConfig &config,
       .hydro_force_x_n = hydro_load.hull_force_x_n,
       .port_blade_force_x_n = hydro_load.port_blade_force_x_n,
       .starboard_blade_force_x_n = hydro_load.starboard_blade_force_x_n,
-      .aero_force_x_n = aero_force_x_n,
+      .aero_force_x_n = aero_load.force_world_n.x,
+      .apparent_wind_world_mps = aero_load.apparent_wind_world_mps,
+      .aero_force_world_n = aero_load.force_world_n,
+      .aero_moment_world_n_m = aero_load.moment_world_n_m,
   });
 
   const double remaining_time_s = config.simulation.duration_s - state.time_s;
@@ -247,7 +278,9 @@ bool advance_one_step(const SimulatorConfig &config,
   const auto advanced = advancer.advance(
       config, state, step_size_s,
       ExternalLoads{.hydro_force_x_n = hydro_load.total_force_x_n(),
-                    .aero_force_x_n = aero_force_x_n});
+                    .aero_force_x_n = aero_load.force_world_n.x,
+                    .aero_force_world_n = aero_load.force_world_n,
+                    .aero_moment_world_n_m = aero_load.moment_world_n_m});
   if (!advanced.ok()) {
     for (const auto &diagnostic : advanced.diagnostics) {
       append_runtime_failure(result, "state_advancement", diagnostic.path,

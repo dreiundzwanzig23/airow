@@ -70,6 +70,7 @@ project::SimulatorConfig make_config(std::string_view config_id = "ut-output",
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
       .output =
           {
               .summary_path = {},

@@ -50,6 +50,7 @@ the distinction between direct example configs and the scenario-harness
 artifacts under `scenarios/`.
 
 Current implemented library surface:
+- `include/project/aero/baseline_providers.hpp`
 - `include/project/configuration/simulator_config.hpp`
 - `include/project/hydro/baseline_providers.hpp`
 - `include/project/mechanics/state.hpp`
@@ -66,6 +67,8 @@ Current implemented library surface:
   state-advancer seams plus structured state/load history
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
+- explicit world-frame ambient-wind configuration plus structured
+  apparent-wind and aerodynamic-moment channels in runtime outputs
 - output-format selection (`json`, `hdf5`, or both) with deterministic
   configuration rejection when HDF5 is requested but unavailable in the build
 - configuration-controlled high-frequency time-series emission
@@ -73,10 +76,12 @@ Current implemented library surface:
 - stable run-result contract now lives in `include/project/output/run_result.hpp`
   with output-writer seams in `include/project/output/run_output.hpp`
 - deterministic scenario-definition loading and acceptance-envelope evaluation
-  for checked-in passive-float, tow, and calm-water stroke artifacts in
-  `scenarios/*.json`
+  for checked-in passive-float, tow, calm-water stroke, headwind stroke, and
+  crosswind stroke artifacts in `scenarios/*.json`
 - deterministic hydro baseline providers for passive float, tow drag, and
   calm-water stroke propulsion behind the shared `HydroProvider` seam
+- deterministic aero baseline provider for steady apparent-wind, longitudinal
+  drag, and yaw-moment reporting behind the shared `AeroProvider` seam
 
 ## Project Direction
 
@@ -116,13 +121,14 @@ Current implemented slice:
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission and optional HDF5
   parity behind the same output contract,
+- `A-005 Aero Runtime Models` is now in progress with the first steady-wind
+  apparent-wind and aerodynamic-load slice,
 - `A-008 Scenario Harness and Validation` is now in progress with a public
-  scenario-harness API and runtime-backed passive-float/tow/calm-water `QT-*`
-  evidence,
+  scenario-harness API and runtime-backed passive-float/tow/calm-water/
+  headwind/crosswind `QT-*` evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- remaining scenario evidence (headwind, crosswind) and richer runtime
-  physics providers remain future work after the first mechanics-startup
-  baseline.
+- richer runtime provider fidelity, provider selection, and post-`v0.1`
+  follow-on work remain after the first mechanics-startup baseline.
 
 ## Validation Lanes
 

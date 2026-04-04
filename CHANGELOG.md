@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 ### Changed
+- Landed the first `A-005` steady-wind aero slice with explicit ambient-wind
+  configuration, a public baseline aero-provider header, structured
+  apparent-wind plus aerodynamic force or moment samples in run outputs, and
+  new evidence (`D-026`, `UT-075..UT-079`, `UT-104`, `IT-010`) that closes
+  `R-013` and `R-014`.
+- Completed the `v0.1` reference scenario set with checked-in
+  `scenarios/headwind_stroke.json` and `scenarios/crosswind_stroke.json`,
+  extended scenario-harness loading or evaluation for wind-backed envelopes,
+  and new evidence (`D-027`, `UT-080..UT-103`, `QT-016..QT-018`) that closes
+  `R-018` and `R-031`.
 - Expanded `docs/process/ARCHITECTURE.md` with an arc42-lite overview section
   ahead of the traceable `A-*` catalog, adding compact system-context,
   building-block, runtime-view, cross-cutting-concept, and

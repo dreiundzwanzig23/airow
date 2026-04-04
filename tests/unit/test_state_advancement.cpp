@@ -57,6 +57,7 @@ project::SimulatorConfig make_config() {
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
   };
 }
 
@@ -210,6 +211,8 @@ TEST(StateAdvancement, RejectsNonFiniteStartupOrRuntimeInputs) {
         make_config(), *startup.state, 0.25,
         project::ExternalLoads{
             .hydro_force_x_n = std::numeric_limits<double>::infinity(),
+            .aero_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+            .aero_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
         });
 
     ASSERT_FALSE(invalid_load.ok());

@@ -93,9 +93,8 @@ TEST(CalmWaterScenarioSystem, ScenarioPassesAcceptanceAndFiniteOutputChecks) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h + 1s});
 
   const auto result = project::run_simulation(
-      loaded.scenario->config,
-      project::SimulationDependencies{.hydro_provider = &hydro,
-                                      .clock = &clock});
+      loaded.scenario->config, project::SimulationDependencies{
+                                   .hydro_provider = &hydro, .clock = &clock});
   const auto evaluation =
       project::evaluate_scenario_result(*loaded.scenario, result);
 
@@ -111,20 +110,21 @@ TEST(CalmWaterScenarioSystem, ScenarioPassesAcceptanceAndFiniteOutputChecks) {
 
   bool observed_positive_blade_load = false;
   for (const auto &record : records) {
-    EXPECT_TRUE(std::isfinite(record.at("boat_speed_mps").at("value")
-                                  .get<double>()));
-    EXPECT_TRUE(std::isfinite(record.at("stroke_power_w").at("value")
-                                  .get<double>()));
+    EXPECT_TRUE(
+        std::isfinite(record.at("boat_speed_mps").at("value").get<double>()));
+    EXPECT_TRUE(
+        std::isfinite(record.at("stroke_power_w").at("value").get<double>()));
 
-    const auto port_blade_force =
-        record.at("blade_load_world_n").at("port").at("vector").at("value")[0]
-            .get<double>();
-    const auto starboard_blade_force =
-        record.at("blade_load_world_n")
-            .at("starboard")
-            .at("vector")
-            .at("value")[0]
-            .get<double>();
+    const auto port_blade_force = record.at("blade_load_world_n")
+                                      .at("port")
+                                      .at("vector")
+                                      .at("value")[0]
+                                      .get<double>();
+    const auto starboard_blade_force = record.at("blade_load_world_n")
+                                           .at("starboard")
+                                           .at("vector")
+                                           .at("value")[0]
+                                           .get<double>();
     EXPECT_TRUE(std::isfinite(port_blade_force));
     EXPECT_TRUE(std::isfinite(starboard_blade_force));
     if (port_blade_force > 0.0) {
@@ -169,8 +169,8 @@ TEST(CalmWaterScenarioSystem, DisablingBladeLoadsReducesMeanBoatSpeed) {
       project::SimulationDependencies{.hydro_provider = &hydro,
                                       .clock = &propelled_clock});
   const auto disabled = project::run_simulation(
-      loaded.scenario->config, project::SimulationDependencies{.clock =
-                                                                   &disabled_clock});
+      loaded.scenario->config,
+      project::SimulationDependencies{.clock = &disabled_clock});
 
   ASSERT_TRUE(propelled.ok());
   ASSERT_TRUE(disabled.ok());

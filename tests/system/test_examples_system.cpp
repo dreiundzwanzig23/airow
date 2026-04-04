@@ -64,8 +64,8 @@ void remove_file_if_present(const std::filesystem::path &path) {
 }
 
 void clear_example_output(std::string_view example_name) {
-  const auto output_dir = kProjectSourceDir / "examples" / "output" /
-                          std::string(example_name);
+  const auto output_dir =
+      kProjectSourceDir / "examples" / "output" / std::string(example_name);
   remove_file_if_present(output_dir / "summary.json");
   remove_file_if_present(output_dir / "time_series.json");
 }
@@ -134,12 +134,11 @@ TEST(ExamplesSystem, DirectCliRunUsesCheckedInExampleConfig) {
   remove_file_if_present(stdout_path);
   remove_file_if_present(stderr_path);
 
-  const auto command =
-      "cd " + shell_quote(kProjectSourceDir.string()) + " && " +
-      shell_quote(kProjectAppPath.string()) +
-      " --config examples/passive_float/config.json > " +
-      shell_quote(stdout_path.string()) + " 2> " +
-      shell_quote(stderr_path.string());
+  const auto command = "cd " + shell_quote(kProjectSourceDir.string()) +
+                       " && " + shell_quote(kProjectAppPath.string()) +
+                       " --config examples/passive_float/config.json > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
   const auto status = std::system(command.c_str());
 
   EXPECT_EQ(decode_exit_code(status), 0);

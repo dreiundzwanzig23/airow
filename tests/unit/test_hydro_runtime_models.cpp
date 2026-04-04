@@ -66,6 +66,7 @@ project::SimulatorConfig make_config(double duration_s = 2.4,
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
   };
 }
 
@@ -160,15 +161,13 @@ TEST(HydroRuntimeModels, StrokePropulsionProviderTracksStrokePhase) {
 
   auto drive_state = make_success_result().state_history.back();
   drive_state.stroke.phase = project::StrokePhase::drive;
-  const auto drive_load =
-      provider.sample_load(project::StepContext{.time_s = 0.12,
-                                                .state = drive_state});
+  const auto drive_load = provider.sample_load(
+      project::StepContext{.time_s = 0.12, .state = drive_state});
 
   auto recovery_state = drive_state;
   recovery_state.stroke.phase = project::StrokePhase::recovery;
-  const auto recovery_load =
-      provider.sample_load(project::StepContext{.time_s = 0.72,
-                                                .state = recovery_state});
+  const auto recovery_load = provider.sample_load(
+      project::StepContext{.time_s = 0.72, .state = recovery_state});
 
   EXPECT_DOUBLE_EQ(drive_load.hull_force_x_n, 0.0);
   EXPECT_GT(drive_load.port_blade_force_x_n, 0.0);
@@ -186,9 +185,9 @@ TEST(HydroRuntimeModels, StrokePropulsionProviderTracksStrokePhase) {
  * propulsion acceptance envelope deterministically.
  */
 TEST(HydroRuntimeModels, LoadsCalmWaterStrokeScenarioDefinition) {
-  const auto scenario_path = write_temp_file(
-      "airow-ut-calm-water-scenario.json",
-      R"({
+  const auto scenario_path =
+      write_temp_file("airow-ut-calm-water-scenario.json",
+                      R"({
     "scenario_id": "calm-water-stroke",
     "scenario_type": "calm_water_stroke",
     "provider": {

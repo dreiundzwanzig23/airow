@@ -377,6 +377,9 @@ TEST(ScenarioHarnessUnit, ReportsTowEnvelopeAndDragViolations) {
       .time_s = 0.0,
       .hydro_force_x_n = 1.0,
       .aero_force_x_n = 0.0,
+      .apparent_wind_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
+      .aero_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+      .aero_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
   });
 
   const auto evaluation = project::evaluate_scenario_result(scenario, result);

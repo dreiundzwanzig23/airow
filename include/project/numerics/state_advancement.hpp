@@ -13,6 +13,8 @@ namespace project {
 struct ExternalLoads {
   double hydro_force_x_n{};
   double aero_force_x_n{};
+  Vector3 aero_force_world_n;
+  Vector3 aero_moment_world_n_m;
 
   bool operator==(const ExternalLoads &) const = default;
 };

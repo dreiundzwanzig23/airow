@@ -81,6 +81,12 @@ struct StrokeSettings {
   bool operator==(const StrokeSettings &) const = default;
 };
 
+struct EnvironmentSettings {
+  Vector3 ambient_wind_world_mps;
+
+  bool operator==(const EnvironmentSettings &) const = default;
+};
+
 struct OutputSettings {
   std::string summary_path;
   std::string time_series_path;
@@ -99,6 +105,7 @@ struct SimulatorConfig {
   OarPairSettings oars;
   SeatSettings seat;
   StrokeSettings stroke;
+  EnvironmentSettings environment;
   OutputSettings output{};
 
   bool operator==(const SimulatorConfig &) const = default;

@@ -115,11 +115,15 @@ Milestone framing:
   - Output record ordering is deterministic.
   - A replay test exists that runs the same case at least twice and compares the results.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline runtime now accepts explicit world-frame ambient wind
+  input, computes apparent wind deterministically through the shared aero seam,
+  and includes unit coverage for headwind, tailwind, and crosswind direction
+  cases.
 
 ## R-005 — Single-Scull 3D Hull Model
 - **Title**: Represent the shell as a 3D rigid body with configurable mass properties
@@ -222,11 +226,15 @@ Milestone framing:
   - At fixed immersion and orientation, increasing relative blade-water speed increases force magnitude over a documented range.
   - The blade force provider can be exercised independently in automated tests.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The current `A-004` slice propagates deterministic placeholder
+  blade loads through calm-water stroke scenarios, but immersion-aware
+  blade-water force physics and a requirement-closing system-level acceptance
+  lane remain open.
 
 ## R-012 — Self-Propelled Stroke Response
 - **Title**: Produce forward motion from a valid stroke in calm water
@@ -331,14 +339,14 @@ Milestone framing:
   - Reference scenarios are runnable headlessly in automated verification.
   - A failed acceptance check causes the verification job to fail.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Passive float, tow test, and calm-water stroke are now checked-in
-  and runtime-backed. Headwind and crosswind remain the open `v0.1` scenario
-  work.
+- **Notes**: Passive float, tow test, calm-water stroke, headwind stroke, and
+  crosswind stroke are now checked in with documented envelopes and
+  runtime-backed verification coverage.
 
 ## R-019 — Verification Traceability for P0 Requirements
 - **Title**: Trace each P0 requirement to at least one automated verification artifact
@@ -531,11 +539,14 @@ Milestone framing:
   - Wind, load, and moment direction cases are interpreted consistently with the documented conventions.
   - Automated verification covers at least one mirrored port and starboard direction case and one headwind, tailwind, or crosswind interpretation case.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-02
-- **Updated**: 2026-04-02
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: `docs/process/STATE_CONVENTIONS.md` remains the source of truth,
+  and the runtime now carries frame-annotated apparent-wind, aerodynamic-load,
+  and aerodynamic-moment channels with mirrored crosswind verification.
 
 ## R-032 — Consistent Initialization and Startup Validity
 - **Title**: Start each run from a numerically and mechanically valid initial state

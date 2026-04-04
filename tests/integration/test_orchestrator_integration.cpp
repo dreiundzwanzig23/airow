@@ -82,6 +82,7 @@ project::SimulatorConfig make_config(std::string_view config_id,
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
   };
 }
 
@@ -179,9 +180,11 @@ public:
 
   std::string_view identifier() const noexcept override { return identifier_; }
 
-  double sample_load(const project::StepContext &context) override {
+  project::AeroLoadSample
+  sample_load(const project::StepContext &context,
+              const project::Vector3 & /*ambient_wind_world_mps*/) override {
     observed_times_s.push_back(context.time_s);
-    return 0.0;
+    return {};
   }
 
   std::vector<double> observed_times_s;

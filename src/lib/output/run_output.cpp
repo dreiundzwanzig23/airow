@@ -274,8 +274,9 @@ Json make_time_series_document(const SimulationRunResult &result,
         Vector3{.x = loads.port_blade_force_x_n, .y = 0.0, .z = 0.0};
     const auto starboard_blade_load =
         Vector3{.x = loads.starboard_blade_force_x_n, .y = 0.0, .z = 0.0};
-    const auto aero_load =
-        Vector3{.x = loads.aero_force_x_n, .y = 0.0, .z = 0.0};
+    const auto apparent_wind = loads.apparent_wind_world_mps;
+    const auto aero_load = loads.aero_force_world_n;
+    const auto aero_moment = loads.aero_moment_world_n_m;
     const double stroke_power_w =
         (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * boat_speed_mps;
 
@@ -344,8 +345,12 @@ Json make_time_series_document(const SimulationRunResult &result,
                Json{{"vector", vector_channel(port_blade_load, "N", "world")}}},
               {"starboard", Json{{"vector", vector_channel(starboard_blade_load,
                                                            "N", "world")}}}}},
+        {"apparent_wind_world_mps",
+         Json{{"vector", vector_channel(apparent_wind, "m/s", "world")}}},
         {"aerodynamic_load_world_n",
          Json{{"vector", vector_channel(aero_load, "N", "world")}}},
+        {"aerodynamic_moment_world_n_m",
+         Json{{"vector", vector_channel(aero_moment, "N*m", "world")}}},
         {"stroke_input",
          Json{
              {"phase", stroke_phase_text(state.stroke.phase)},
@@ -748,6 +753,15 @@ struct Hdf5TimeSeriesChannels {
   std::vector<double> port_blade_force_x_n;
   std::vector<double> starboard_blade_force_x_n;
   std::vector<double> aero_force_x_n;
+  std::vector<double> apparent_wind_world_mps_x;
+  std::vector<double> apparent_wind_world_mps_y;
+  std::vector<double> apparent_wind_world_mps_z;
+  std::vector<double> aero_force_world_n_x;
+  std::vector<double> aero_force_world_n_y;
+  std::vector<double> aero_force_world_n_z;
+  std::vector<double> aero_moment_world_n_m_x;
+  std::vector<double> aero_moment_world_n_m_y;
+  std::vector<double> aero_moment_world_n_m_z;
   std::vector<double> stroke_power_w;
   std::vector<std::string> stroke_phase;
 };
@@ -763,6 +777,15 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
   channels.port_blade_force_x_n.reserve(indices.size());
   channels.starboard_blade_force_x_n.reserve(indices.size());
   channels.aero_force_x_n.reserve(indices.size());
+  channels.apparent_wind_world_mps_x.reserve(indices.size());
+  channels.apparent_wind_world_mps_y.reserve(indices.size());
+  channels.apparent_wind_world_mps_z.reserve(indices.size());
+  channels.aero_force_world_n_x.reserve(indices.size());
+  channels.aero_force_world_n_y.reserve(indices.size());
+  channels.aero_force_world_n_z.reserve(indices.size());
+  channels.aero_moment_world_n_m_x.reserve(indices.size());
+  channels.aero_moment_world_n_m_y.reserve(indices.size());
+  channels.aero_moment_world_n_m_z.reserve(indices.size());
   channels.stroke_power_w.reserve(indices.size());
   channels.stroke_phase.reserve(indices.size());
 
@@ -778,6 +801,18 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
     channels.starboard_blade_force_x_n.push_back(
         loads.starboard_blade_force_x_n);
     channels.aero_force_x_n.push_back(loads.aero_force_x_n);
+    channels.apparent_wind_world_mps_x.push_back(
+        loads.apparent_wind_world_mps.x);
+    channels.apparent_wind_world_mps_y.push_back(
+        loads.apparent_wind_world_mps.y);
+    channels.apparent_wind_world_mps_z.push_back(
+        loads.apparent_wind_world_mps.z);
+    channels.aero_force_world_n_x.push_back(loads.aero_force_world_n.x);
+    channels.aero_force_world_n_y.push_back(loads.aero_force_world_n.y);
+    channels.aero_force_world_n_z.push_back(loads.aero_force_world_n.z);
+    channels.aero_moment_world_n_m_x.push_back(loads.aero_moment_world_n_m.x);
+    channels.aero_moment_world_n_m_y.push_back(loads.aero_moment_world_n_m.y);
+    channels.aero_moment_world_n_m_z.push_back(loads.aero_moment_world_n_m.z);
     channels.stroke_power_w.push_back(
         (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * speed);
     channels.stroke_phase.push_back(stroke_phase_text(state.stroke.phase));
@@ -800,24 +835,52 @@ bool write_hdf5_time_series_group(hid_t file, const SimulationRunResult &result,
 
   const auto channels =
       collect_hdf5_time_series_channels(result, high_frequency_time_series);
-  return write_double_vector_dataset(time_series_group.id, "time_s",
-                                     channels.time_s, diagnostic) &&
-         write_double_vector_dataset(time_series_group.id, "boat_speed_mps",
-                                     channels.boat_speed_mps, diagnostic) &&
-         write_double_vector_dataset(time_series_group.id, "hydro_force_x_n",
-                                     channels.hydro_force_x_n, diagnostic) &&
-         write_double_vector_dataset(
-             time_series_group.id, "port_blade_force_x_n",
-             channels.port_blade_force_x_n, diagnostic) &&
-         write_double_vector_dataset(
-             time_series_group.id, "starboard_blade_force_x_n",
-             channels.starboard_blade_force_x_n, diagnostic) &&
-         write_double_vector_dataset(time_series_group.id, "aero_force_x_n",
-                                     channels.aero_force_x_n, diagnostic) &&
-         write_double_vector_dataset(time_series_group.id, "stroke_power_w",
-                                     channels.stroke_power_w, diagnostic) &&
-         write_string_vector_dataset(time_series_group.id, "stroke_phase",
-                                     channels.stroke_phase, diagnostic);
+  const auto write_scalar_channels = [&]() {
+    return write_double_vector_dataset(time_series_group.id, "time_s",
+                                       channels.time_s, diagnostic) &&
+           write_double_vector_dataset(time_series_group.id, "boat_speed_mps",
+                                       channels.boat_speed_mps, diagnostic) &&
+           write_double_vector_dataset(time_series_group.id, "hydro_force_x_n",
+                                       channels.hydro_force_x_n, diagnostic) &&
+           write_double_vector_dataset(
+               time_series_group.id, "port_blade_force_x_n",
+               channels.port_blade_force_x_n, diagnostic) &&
+           write_double_vector_dataset(
+               time_series_group.id, "starboard_blade_force_x_n",
+               channels.starboard_blade_force_x_n, diagnostic) &&
+           write_double_vector_dataset(time_series_group.id, "aero_force_x_n",
+                                       channels.aero_force_x_n, diagnostic) &&
+           write_double_vector_dataset(time_series_group.id, "stroke_power_w",
+                                       channels.stroke_power_w, diagnostic) &&
+           write_string_vector_dataset(time_series_group.id, "stroke_phase",
+                                       channels.stroke_phase, diagnostic);
+  };
+  const auto write_vector_channels =
+      [&](const char *prefix, const std::vector<double> &x,
+          const std::vector<double> &y, const std::vector<double> &z) {
+        return write_double_vector_dataset(time_series_group.id,
+                                           (std::string(prefix) + "_x").c_str(),
+                                           x, diagnostic) &&
+               write_double_vector_dataset(time_series_group.id,
+                                           (std::string(prefix) + "_y").c_str(),
+                                           y, diagnostic) &&
+               write_double_vector_dataset(time_series_group.id,
+                                           (std::string(prefix) + "_z").c_str(),
+                                           z, diagnostic);
+      };
+
+  return write_scalar_channels() &&
+         write_vector_channels("apparent_wind_world_mps",
+                               channels.apparent_wind_world_mps_x,
+                               channels.apparent_wind_world_mps_y,
+                               channels.apparent_wind_world_mps_z) &&
+         write_vector_channels(
+             "aero_force_world_n", channels.aero_force_world_n_x,
+             channels.aero_force_world_n_y, channels.aero_force_world_n_z) &&
+         write_vector_channels("aero_moment_world_n_m",
+                               channels.aero_moment_world_n_m_x,
+                               channels.aero_moment_world_n_m_y,
+                               channels.aero_moment_world_n_m_z);
 }
 
 bool write_hdf5_file(const std::filesystem::path &path,

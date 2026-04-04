@@ -64,6 +64,7 @@ project::SimulatorConfig make_config(double duration_s = 1.0,
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
   };
 }
 
@@ -329,7 +330,9 @@ public:
     return "unknown-aero";
   }
 
-  double sample_load(const project::StepContext & /*context*/) override {
+  project::AeroLoadSample
+  sample_load(const project::StepContext & /*context*/,
+              const project::Vector3 & /*ambient_wind_world_mps*/) override {
     throw 9;
   }
 };

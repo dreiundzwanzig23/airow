@@ -2,16 +2,9 @@
 
 #include <string_view>
 
-#include "project/mechanics/state.hpp"
+#include "project/mechanics/step_context.hpp"
 
 namespace project {
-
-struct StepContext {
-  double time_s{};
-  MechanicalStateSnapshot state;
-
-  bool operator==(const StepContext &) const = default;
-};
 
 struct HydroLoadSample {
   double hull_force_x_n{};

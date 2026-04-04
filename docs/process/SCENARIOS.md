@@ -34,6 +34,33 @@ acceptance-envelope intent.
   - `min_mean_speed_mps = 0.6`
 - Verification lane: `QT-012` plus propulsion-disabled comparison `QT-013`
 
-## Remaining v0.1 Scenario Work
-- Add checked-in headwind stroke scenario artifact and envelope.
-- Add checked-in crosswind stroke scenario artifact and envelope.
+### Headwind Stroke (`scenarios/headwind_stroke.json`)
+- Scenario id: `headwind-stroke`
+- Current hydro provider mode: deterministic `stroke_propulsion_placeholder`
+- Current aero provider mode: deterministic `steady_wind_placeholder`
+- Provider parameters:
+  - `blade_force_coefficient_n_s_per_m = 4.0`
+  - `drag_coefficient_n_s2_per_m2 = 1.5`
+  - `yaw_moment_coefficient_n_m_s2_per_m2 = 0.75`
+- Ambient wind:
+  - `ambient_wind_world_mps = [-3.0, 0.0, 0.0]`
+- Acceptance envelope:
+  - `min_distance_m = 1.2`
+  - `max_mean_speed_mps = 0.9`
+- Verification lane: `QT-016` plus finite wind-channel check `QT-018`
+
+### Crosswind Stroke (`scenarios/crosswind_stroke.json`)
+- Scenario id: `crosswind-stroke`
+- Current hydro provider mode: deterministic `stroke_propulsion_placeholder`
+- Current aero provider mode: deterministic `steady_wind_placeholder`
+- Provider parameters:
+  - `blade_force_coefficient_n_s_per_m = 4.0`
+  - `drag_coefficient_n_s2_per_m2 = 1.5`
+  - `yaw_moment_coefficient_n_m_s2_per_m2 = 0.75`
+- Ambient wind:
+  - `ambient_wind_world_mps = [0.0, 2.0, 0.0]`
+- Acceptance envelope:
+  - `min_distance_m = 1.5`
+  - `expected_yaw_moment_z_sign = positive`
+  - `min_abs_yaw_moment_z_n_m = 0.8`
+- Verification lane: `QT-017`

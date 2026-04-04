@@ -66,6 +66,7 @@ project::SimulatorConfig make_config(double duration_s = 1.0,
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
   };
 }
 
@@ -177,9 +178,11 @@ public:
 
   std::string_view identifier() const noexcept override { return identifier_; }
 
-  double sample_load(const project::StepContext &context) override {
+  project::AeroLoadSample
+  sample_load(const project::StepContext &context,
+              const project::Vector3 & /*ambient_wind_world_mps*/) override {
     observed_times_s.push_back(context.time_s);
-    return 0.0;
+    return {};
   }
 
   std::vector<double> observed_times_s;
@@ -202,7 +205,9 @@ class ThrowingAeroProvider final : public project::AeroProvider {
 public:
   std::string_view identifier() const noexcept override { return "bad-aero"; }
 
-  double sample_load(const project::StepContext & /*context*/) override {
+  project::AeroLoadSample
+  sample_load(const project::StepContext & /*context*/,
+              const project::Vector3 & /*ambient_wind_world_mps*/) override {
     throw std::runtime_error("boom");
   }
 };
@@ -225,8 +230,16 @@ public:
     return "invalid-aero";
   }
 
-  double sample_load(const project::StepContext & /*context*/) override {
-    return std::numeric_limits<double>::quiet_NaN();
+  project::AeroLoadSample
+  sample_load(const project::StepContext & /*context*/,
+              const project::Vector3 & /*ambient_wind_world_mps*/) override {
+    return {
+        .apparent_wind_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .force_world_n = {.x = std::numeric_limits<double>::quiet_NaN(),
+                          .y = 0.0,
+                          .z = 0.0},
+        .moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+    };
   }
 };
 
@@ -716,4 +729,38 @@ TEST(SimulationRun, HeadlessCliWrapperMapsRuntimeFailure) {
             3);
   EXPECT_NE(stderr_stream.str().find("runtime_error"), std::string::npos);
   remove_file_if_present(path);
+}
+
+/**
+ * @test UT-104
+ * @verifies [D-010, D-012]
+ * @notes Given a zero-duration config and recording providers, when the run
+ * loop executes, then it skips provider sampling and reports a zero-time,
+ * zero-distance summary deterministically.
+ */
+TEST(SimulationRun, ZeroDurationRunSkipsSamplingAndReportsZeroSummary) {
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h + 1s});
+  RecordingHydroProvider hydro("zero-duration-hydro");
+  RecordingAeroProvider aero("zero-duration-aero");
+
+  const auto result = project::run_simulation(make_config(0.0, 0.25),
+                                              project::SimulationDependencies{
+                                                  .hydro_provider = &hydro,
+                                                  .aero_provider = &aero,
+                                                  .clock = &clock,
+                                              });
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_TRUE(hydro.observed_times_s.empty());
+  EXPECT_TRUE(aero.observed_times_s.empty());
+  EXPECT_TRUE(result.load_history.empty());
+  EXPECT_EQ(result.summary.executed_step_count, 0ULL);
+  EXPECT_DOUBLE_EQ(result.summary.final_simulated_time_s, 0.0);
+  EXPECT_DOUBLE_EQ(result.summary.distance_m, 0.0);
+  EXPECT_DOUBLE_EQ(result.summary.mean_speed_mps, 0.0);
+  ASSERT_EQ(result.state_history.size(), 1U);
+  EXPECT_EQ(result.metadata.start_timestamp_utc, "2026-04-04T09:00:00Z");
+  EXPECT_EQ(result.metadata.end_timestamp_utc, "2026-04-04T09:00:01Z");
 }

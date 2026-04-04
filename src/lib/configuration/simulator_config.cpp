@@ -48,6 +48,7 @@ constexpr std::size_t QUATERNION_COMPONENT_COUNT = 4U;
 constexpr std::size_t NAN_LITERAL_LENGTH = 3;
 constexpr std::size_t INFINITY_LITERAL_LENGTH = 8;
 constexpr std::size_t NEGATIVE_INFINITY_LITERAL_LENGTH = 9;
+constexpr std::size_t INVALID_LITERAL_COUNT = 3U;
 
 /**
  * @design D-002 — Configuration result shaping and numeric formatting helpers
@@ -143,39 +144,109 @@ Vector3 normalize_vector(const Vector3 &value) {
  * @satisfies [A-001]
  */
 std::optional<ValidationDiagnostic>
-find_invalid_numeric_literal(std::string_view text) {
-  for (const auto &field : NUMERIC_FIELDS) {
-    const auto key_token = std::string("\"") + std::string(field.key) + "\"";
-    const auto key_pos = text.find(key_token);
-    if (key_pos == std::string_view::npos) {
-      continue;
-    }
-    const auto colon_pos = text.find(':', key_pos + key_token.size());
-    if (colon_pos == std::string_view::npos) {
-      continue;
-    }
+find_invalid_numeric_literal(std::string_view text);
 
-    auto value_pos = colon_pos + 1;
-    while (value_pos < text.size() &&
-           std::isspace(static_cast<unsigned char>(text[value_pos])) != 0) {
-      ++value_pos;
-    }
+std::optional<ValidationDiagnostic>
+find_invalid_scalar_literal(std::string_view text,
+                            const NumericFieldSpec &field) {
+  const auto key_token = std::string("\"") + std::string(field.key) + "\"";
+  const auto key_pos = text.find(key_token);
+  if (key_pos == std::string_view::npos) {
+    return std::nullopt;
+  }
+  const auto colon_pos = text.find(':', key_pos + key_token.size());
+  if (colon_pos == std::string_view::npos) {
+    return std::nullopt;
+  }
 
-    if (text.substr(value_pos, NAN_LITERAL_LENGTH) == "NaN") {
-      return make_error("invalid_numeric_literal", std::string(field.path),
-                        "invalid numeric literal NaN");
-    }
-    if (text.substr(value_pos, INFINITY_LITERAL_LENGTH) == "Infinity") {
-      return make_error("invalid_numeric_literal", std::string(field.path),
-                        "invalid numeric literal Infinity");
-    }
-    if (text.substr(value_pos, NEGATIVE_INFINITY_LITERAL_LENGTH) ==
-        "-Infinity") {
-      return make_error("invalid_numeric_literal", std::string(field.path),
-                        "invalid numeric literal -Infinity");
-    }
+  auto value_pos = colon_pos + 1U;
+  while (value_pos < text.size() &&
+         std::isspace(static_cast<unsigned char>(text[value_pos])) != 0) {
+    ++value_pos;
+  }
+
+  if (text.substr(value_pos, NAN_LITERAL_LENGTH) == "NaN") {
+    return make_error("invalid_numeric_literal", std::string(field.path),
+                      "invalid numeric literal NaN");
+  }
+  if (text.substr(value_pos, INFINITY_LITERAL_LENGTH) == "Infinity") {
+    return make_error("invalid_numeric_literal", std::string(field.path),
+                      "invalid numeric literal Infinity");
+  }
+  if (text.substr(value_pos, NEGATIVE_INFINITY_LITERAL_LENGTH) == "-Infinity") {
+    return make_error("invalid_numeric_literal", std::string(field.path),
+                      "invalid numeric literal -Infinity");
   }
   return std::nullopt;
+}
+
+std::optional<std::pair<std::size_t, std::string_view>>
+find_first_invalid_array_literal(std::string_view array_text) {
+  constexpr std::string_view invalid_literals[INVALID_LITERAL_COUNT] = {
+      "NaN", "Infinity", "-Infinity"};
+  std::size_t best_position = std::string_view::npos;
+  std::string_view best_literal;
+  for (const auto literal : invalid_literals) {
+    const auto position = array_text.find(literal);
+    if (position != std::string_view::npos &&
+        (best_position == std::string_view::npos || position < best_position)) {
+      best_position = position;
+      best_literal = literal;
+    }
+  }
+  if (best_position == std::string_view::npos) {
+    return std::nullopt;
+  }
+  return std::pair{best_position, best_literal};
+}
+
+std::optional<ValidationDiagnostic>
+find_invalid_array_literal(std::string_view text, std::string_view key,
+                           std::string_view path) {
+  const auto key_token = std::string("\"") + std::string(key) + "\"";
+  const auto key_pos = text.find(key_token);
+  if (key_pos == std::string_view::npos) {
+    return std::nullopt;
+  }
+
+  const auto open_bracket = text.find('[', key_pos + key_token.size());
+  if (open_bracket == std::string_view::npos) {
+    return std::nullopt;
+  }
+  const auto close_bracket = text.find(']', open_bracket);
+  if (close_bracket == std::string_view::npos) {
+    return std::nullopt;
+  }
+
+  const auto array_text =
+      text.substr(open_bracket + 1U, close_bracket - open_bracket - 1U);
+  const auto invalid = find_first_invalid_array_literal(array_text);
+  if (!invalid.has_value()) {
+    return std::nullopt;
+  }
+
+  std::size_t component_index = 0U;
+  for (std::size_t index = 0U; index < invalid->first; ++index) {
+    if (array_text.at(index) == ',') {
+      ++component_index;
+    }
+  }
+  return make_error("invalid_numeric_literal",
+                    std::string(path) + "[" + std::to_string(component_index) +
+                        "]",
+                    "invalid numeric literal " + std::string(invalid->second));
+}
+
+std::optional<ValidationDiagnostic>
+find_invalid_numeric_literal(std::string_view text) {
+  for (const auto &field : NUMERIC_FIELDS) {
+    if (const auto diagnostic = find_invalid_scalar_literal(text, field);
+        diagnostic.has_value()) {
+      return diagnostic;
+    }
+  }
+  return find_invalid_array_literal(text, "ambient_wind_world_mps",
+                                    "$.environment.ambient_wind_world_mps");
 }
 
 /**
@@ -547,6 +618,22 @@ bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
   return true;
 }
 
+bool parse_environment_settings(const Json &root, SimulatorConfig &config,
+                                LoadSimulatorConfigResult &result) {
+  config.environment.ambient_wind_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0};
+  if (!root.contains("environment")) {
+    return true;
+  }
+
+  const Json *environment =
+      require_object(root, "environment", "$.environment", result);
+  return environment != nullptr &&
+         require_vector3_field(
+             *environment, "ambient_wind_world_mps",
+             "$.environment.ambient_wind_world_mps", "ambient_wind_world_mps",
+             config.environment.ambient_wind_world_mps, result);
+}
+
 bool parse_optional_output_string_field(const Json &output,
                                         std::string_view key,
                                         std::string_view path,
@@ -736,6 +823,8 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.stroke.catch_angle_rad), "rad"},
       {"$.stroke.release_angle_rad",
        format_normalized_double(config.stroke.release_angle_rad), "rad"},
+      {"$.environment.ambient_wind_world_mps",
+       format_vector3(config.environment.ambient_wind_world_mps), "m/s"},
       {"$.output.summary_path", config.output.summary_path, ""},
       {"$.output.time_series_path", config.output.time_series_path, ""},
       {"$.output.hdf5_path", config.output.hdf5_path, ""},
@@ -784,6 +873,7 @@ parse_simulator_config_text(std::string_view json_text,
       parse_oar_pair_settings(root, config, result) &&
       parse_seat_settings(root, config, result) &&
       parse_stroke_settings(root, config, result) &&
+      parse_environment_settings(root, config, result) &&
       parse_output_settings(root, config, result)) {
     result.normalized_config = normalize_simulator_config(config);
     result.config = std::move(config);

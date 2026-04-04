@@ -142,9 +142,11 @@ class RecordingAeroProvider final : public project::AeroProvider {
 public:
   std::string_view identifier() const noexcept override { return "qt-aero"; }
 
-  double sample_load(const project::StepContext & /*context*/) override {
+  project::AeroLoadSample
+  sample_load(const project::StepContext & /*context*/,
+              const project::Vector3 & /*ambient_wind_world_mps*/) override {
     ++call_count;
-    return 0.0;
+    return {};
   }
 
   std::size_t call_count{0};
@@ -307,6 +309,7 @@ TEST(HeadlessSimulationSystem, InMemoryApiReturnsStructuredRunResult) {
               .catch_angle_rad = -0.9,
               .release_angle_rad = 0.6,
           },
+      .environment = {},
   };
   RecordingHydroProvider hydro;
   RecordingAeroProvider aero;
