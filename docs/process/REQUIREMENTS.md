@@ -236,11 +236,15 @@ Milestone framing:
   - Disabling blade hydrodynamic forces while keeping the same stroke reduces mean boat speed relative to the baseline case.
   - A calm-water propulsion scenario is included in automated regression tests.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline runtime now includes deterministic structured blade
+  load propagation, a calm-water stroke scenario artifact, and regression
+  coverage proving positive mean propulsion with placeholder blade loads plus
+  reduced mean speed when those blade loads are disabled.
 
 ## R-013 — Apparent Wind Computation
 - **Title**: Compute apparent wind from ambient wind and boat motion
@@ -329,10 +333,12 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: IN_PROGRESS
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement is intentionally verification-heavy to support agentic development.
+- **Notes**: Passive float, tow test, and calm-water stroke are now checked-in
+  and runtime-backed. Headwind and crosswind remain the open `v0.1` scenario
+  work.
 
 ## R-019 — Verification Traceability for P0 Requirements
 - **Title**: Trace each P0 requirement to at least one automated verification artifact

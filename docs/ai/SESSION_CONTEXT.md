@@ -3,8 +3,9 @@
 ## Snapshot
 - **Date**: 2026-04-04
 - **Branch**: `main`
-- **Current Objective**: Extend the first named scenario evidence slice from
-  passive-float and tow toward remaining `v0.1` baseline scenarios.
+- **Current Objective**: Extend the baseline scenario evidence slice from the
+  new calm-water propulsion scenario toward the remaining wind-backed `v0.1`
+  scenarios.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
@@ -19,9 +20,19 @@
   `include/project/orchestrator/scenario_harness.hpp` and first checked-in
   scenario artifacts under `scenarios/passive_float.json` and
   `scenarios/tow_test.json`.
+- `A-004` is now active with a public hydro baseline-provider header in
+  `include/project/hydro/baseline_providers.hpp`, structured hull/blade load
+  sampling through the shared run path, and first deterministic calm-water
+  propulsion placeholder behavior.
 - `R-009`, `R-010`, and `R-018` are now `IN_PROGRESS` with deterministic
   scenario-harness evidence and placeholder hydro behavior; fuller reduced
   hydro model depth remains open in `A-004`.
+- `R-012` is now `DONE` with checked-in `scenarios/calm_water_stroke.json`,
+  runtime-backed `QT-012`/`QT-013` evidence, and real blade-load plus stroke
+  power propagation in machine-readable outputs.
+- The repo now has a tracked `examples/` surface with direct CLI configs for
+  passive float, tow test, and calm-water stroke plus a helper script that
+  keeps output paths stable under `examples/output/`.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
   `R-025`) remain intentionally deferred behind the `v0.1` cut line and
   should not block near-term scenario delivery work.
@@ -48,9 +59,10 @@
   functional loops.
 
 ## Next Actions
-1. Expand `A-008` beyond passive/tow by landing calm-water stroke, headwind
-   stroke, and crosswind stroke checked-in scenario artifacts plus envelopes.
-2. Increase `A-004` hydro realism from placeholder behavior to richer reduced
-   runtime models while preserving the scenario-harness contract.
+1. Expand `A-008` beyond calm-water by landing headwind stroke and crosswind
+   stroke checked-in scenario artifacts plus envelopes.
+2. Increase `A-004` and `A-005` realism from placeholder behavior to richer
+   reduced hydro and aero runtime models while preserving the scenario-harness
+   contract.
 3. Revisit external backend wiring for Chrono and SUNDIALS only after the
-   baseline scenario evidence set stabilizes.
+   expanded baseline scenario evidence set stabilizes.

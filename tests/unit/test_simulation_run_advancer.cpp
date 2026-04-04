@@ -317,7 +317,8 @@ public:
     return "unknown-hydro";
   }
 
-  double sample_load(const project::StepContext & /*context*/) override {
+  project::HydroLoadSample
+  sample_load(const project::StepContext & /*context*/) override {
     throw 7;
   }
 };

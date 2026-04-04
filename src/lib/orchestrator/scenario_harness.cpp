@@ -136,6 +136,9 @@ std::optional<ScenarioType> parse_scenario_type(std::string_view value) {
   if (value == "tow_test") {
     return ScenarioType::tow_test;
   }
+  if (value == "calm_water_stroke") {
+    return ScenarioType::calm_water_stroke;
+  }
   return std::nullopt;
 }
 
@@ -146,6 +149,9 @@ parse_provider_type(std::string_view value) {
   }
   if (value == "tow_placeholder") {
     return ScenarioProviderType::tow_placeholder;
+  }
+  if (value == "stroke_propulsion_placeholder") {
+    return ScenarioProviderType::stroke_propulsion_placeholder;
   }
   return std::nullopt;
 }
@@ -257,6 +263,15 @@ bool parse_scenario_provider(const Json &root,
                                "drag coefficient", result)) {
     return false;
   }
+  if (scenario.provider.type ==
+          ScenarioProviderType::stroke_propulsion_placeholder &&
+      !require_positive_number(
+          *provider_object, "blade_force_coefficient_n_s_per_m",
+          "$.provider.blade_force_coefficient_n_s_per_m",
+          scenario.provider.blade_force_coefficient_n_s_per_m,
+          "blade force coefficient", result)) {
+    return false;
+  }
 
   if (scenario.type == ScenarioType::passive_float &&
       scenario.provider.type != ScenarioProviderType::passive_placeholder) {
@@ -270,6 +285,15 @@ bool parse_scenario_provider(const Json &root,
     result.diagnostics.push_back(
         make_error("invalid_value", "$.provider.type",
                    "tow_test scenario requires tow_placeholder provider"));
+    return false;
+  }
+  if (scenario.type == ScenarioType::calm_water_stroke &&
+      scenario.provider.type !=
+          ScenarioProviderType::stroke_propulsion_placeholder) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", "$.provider.type",
+                   "calm_water_stroke scenario requires "
+                   "stroke_propulsion_placeholder provider"));
     return false;
   }
   return true;
@@ -321,6 +345,16 @@ bool parse_scenario_acceptance(const Json &root,
                "$.acceptance.max_abs_mean_speed_mps",
                scenario.acceptance.max_abs_mean_speed_mps,
                "max_abs_mean_speed_mps", result);
+  }
+
+  if (scenario.type == ScenarioType::calm_water_stroke) {
+    return require_non_negative_number(
+               *acceptance, "min_distance_m", "$.acceptance.min_distance_m",
+               scenario.acceptance.min_distance_m, "min_distance_m", result) &&
+           require_non_negative_number(*acceptance, "min_mean_speed_mps",
+                                       "$.acceptance.min_mean_speed_mps",
+                                       scenario.acceptance.min_mean_speed_mps,
+                                       "min_mean_speed_mps", result);
   }
 
   return require_non_negative_number(
@@ -484,6 +518,23 @@ void evaluate_tow_drag_curve(const ScenarioDefinition &scenario,
   }
 }
 
+void evaluate_calm_water_stroke(const ScenarioDefinition &scenario,
+                                const SimulationRunResult &result,
+                                ScenarioEvaluationResult &evaluation) {
+  if (result.summary.distance_m < scenario.acceptance.min_distance_m) {
+    append_issue(evaluation, "scenario_distance_out_of_envelope",
+                 "$.result.summary.distance_m",
+                 "calm-water stroke distance is below min_distance_m "
+                 "envelope");
+  }
+  if (result.summary.mean_speed_mps < scenario.acceptance.min_mean_speed_mps) {
+    append_issue(evaluation, "scenario_mean_speed_out_of_envelope",
+                 "$.result.summary.mean_speed_mps",
+                 "calm-water stroke mean speed is below "
+                 "min_mean_speed_mps envelope");
+  }
+}
+
 } // namespace
 
 LoadScenarioDefinitionResult
@@ -509,6 +560,11 @@ evaluate_scenario_result(const ScenarioDefinition &scenario,
 
   if (scenario.type == ScenarioType::passive_float) {
     evaluate_passive_float(scenario, result, evaluation);
+    return evaluation;
+  }
+
+  if (scenario.type == ScenarioType::calm_water_stroke) {
+    evaluate_calm_water_stroke(scenario, result, evaluation);
     return evaluation;
   }
 

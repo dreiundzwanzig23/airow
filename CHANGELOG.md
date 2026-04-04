@@ -21,6 +21,15 @@
   coverage (`D-023`, `D-024`, `UT-052..UT-070`, `QT-009..QT-011`) while
   intentionally staging hydro behavior through deterministic placeholder
   providers.
+- Landed the first real `A-004` hydro runtime slice with structured hydro load
+  samples, deterministic passive/tow/calm-water placeholder providers, real
+  blade-load propagation into run outputs, and a checked-in calm-water stroke
+  scenario with new evidence (`D-025`, `UT-071..UT-074`, `IT-009`,
+  `QT-012..QT-013`) that closes `R-012`.
+- Added a tracked `examples/` catalog with runnable passive-float, tow-test,
+  and calm-water CLI configs, a `run_example.sh` helper, documented output
+  locations under `examples/output/`, and system coverage for both the helper
+  script and direct example-config execution.
 - Completed the next `A-007` output slice and closed `R-015` with
   format-selectable machine-readable artifacts (`json`, `hdf5`, or both),
   deterministic JSON summary/time-series emission, optional HDF5 artifact

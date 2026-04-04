@@ -1,6 +1,7 @@
 #include "project/orchestrator/simulation_run.hpp"
 #include "project/configuration/simulator_config.hpp"
 #include "project/core/geometry.hpp"
+#include "project/hydro/provider.hpp"
 #include "project/mechanics/state.hpp"
 #include "project/numerics/state_advancement.hpp"
 #include "project/output/run_output.hpp"
@@ -156,34 +157,62 @@ bool accept_startup_result(SimulationRunResult &result,
   return true;
 }
 
-template <typename Provider>
-bool sample_provider_load(Provider *provider, const StepContext &context,
-                          const std::string &provider_id,
-                          std::string_view subsystem,
-                          SimulationRunResult &result, double &load_value) {
+bool hydro_load_is_finite(const HydroLoadSample &load) {
+  return std::isfinite(load.hull_force_x_n) &&
+         std::isfinite(load.port_blade_force_x_n) &&
+         std::isfinite(load.starboard_blade_force_x_n);
+}
+
+bool sample_hydro_load(HydroProvider *provider, const StepContext &context,
+                       const std::string &provider_id,
+                       SimulationRunResult &result, HydroLoadSample &load) {
+  try {
+    load = provider != nullptr ? provider->sample_load(context)
+                               : HydroLoadSample{};
+    if (!hydro_load_is_finite(load)) {
+      append_runtime_failure(result, "hydro", "$.runtime.hydro",
+                             "invalid_provider_output",
+                             "hydro provider '" + provider_id +
+                                 "' returned a non-finite load sample");
+      return false;
+    }
+  } catch (const std::exception &error) {
+    append_runtime_failure(result, "hydro", "$.runtime.hydro",
+                           "provider_exception",
+                           "hydro provider '" + provider_id +
+                               "' threw exception: " + error.what());
+    return false;
+  } catch (...) {
+    append_runtime_failure(
+        result, "hydro", "$.runtime.hydro", "provider_exception",
+        "hydro provider '" + provider_id + "' threw an unknown exception");
+    return false;
+  }
+  return true;
+}
+
+bool sample_aero_load(AeroProvider *provider, const StepContext &context,
+                      const std::string &provider_id,
+                      SimulationRunResult &result, double &load_value) {
   try {
     load_value = provider != nullptr ? provider->sample_load(context) : 0.0;
     if (!std::isfinite(load_value)) {
-      append_runtime_failure(
-          result, std::string(subsystem), "$.runtime." + std::string(subsystem),
-          "invalid_provider_output",
-          std::string(subsystem) + " provider '" + provider_id +
-              "' returned a non-finite load sample");
+      append_runtime_failure(result, "aero", "$.runtime.aero",
+                             "invalid_provider_output",
+                             "aero provider '" + provider_id +
+                                 "' returned a non-finite load "
+                                 "sample");
       return false;
     }
   } catch (const std::exception &error) {
     append_runtime_failure(
-        result, std::string(subsystem), "$.runtime." + std::string(subsystem),
-        "provider_exception",
-        std::string(subsystem) + " provider '" + provider_id +
-            "' threw exception: " + error.what());
+        result, "aero", "$.runtime.aero", "provider_exception",
+        "aero provider '" + provider_id + "' threw exception: " + error.what());
     return false;
   } catch (...) {
-    append_runtime_failure(result, std::string(subsystem),
-                           "$.runtime." + std::string(subsystem),
-                           "provider_exception",
-                           std::string(subsystem) + " provider '" +
-                               provider_id + "' threw an unknown exception");
+    append_runtime_failure(
+        result, "aero", "$.runtime.aero", "provider_exception",
+        "aero provider '" + provider_id + "' threw an unknown exception");
     return false;
   }
   return true;
@@ -194,29 +223,31 @@ bool advance_one_step(const SimulatorConfig &config,
                       StateAdvancer &advancer, SimulationRunResult &result,
                       MechanicalStateSnapshot &state) {
   const StepContext context{.time_s = state.time_s, .state = state};
-  double hydro_force_x_n = 0.0;
+  HydroLoadSample hydro_load;
   double aero_force_x_n = 0.0;
-  if (!sample_provider_load(dependencies.hydro_provider, context,
-                            result.metadata.hydro_provider_id, "hydro", result,
-                            hydro_force_x_n) ||
-      !sample_provider_load(dependencies.aero_provider, context,
-                            result.metadata.aero_provider_id, "aero", result,
-                            aero_force_x_n)) {
+  if (!sample_hydro_load(dependencies.hydro_provider, context,
+                         result.metadata.hydro_provider_id, result,
+                         hydro_load) ||
+      !sample_aero_load(dependencies.aero_provider, context,
+                        result.metadata.aero_provider_id, result,
+                        aero_force_x_n)) {
     return false;
   }
   result.load_history.push_back(LoadSample{
       .time_s = state.time_s,
-      .hydro_force_x_n = hydro_force_x_n,
+      .hydro_force_x_n = hydro_load.hull_force_x_n,
+      .port_blade_force_x_n = hydro_load.port_blade_force_x_n,
+      .starboard_blade_force_x_n = hydro_load.starboard_blade_force_x_n,
       .aero_force_x_n = aero_force_x_n,
   });
 
   const double remaining_time_s = config.simulation.duration_s - state.time_s;
   const double step_size_s =
       std::min(config.simulation.time_step_s, remaining_time_s);
-  const auto advanced =
-      advancer.advance(config, state, step_size_s,
-                       ExternalLoads{.hydro_force_x_n = hydro_force_x_n,
-                                     .aero_force_x_n = aero_force_x_n});
+  const auto advanced = advancer.advance(
+      config, state, step_size_s,
+      ExternalLoads{.hydro_force_x_n = hydro_load.total_force_x_n(),
+                    .aero_force_x_n = aero_force_x_n});
   if (!advanced.ok()) {
     for (const auto &diagnostic : advanced.diagnostics) {
       append_runtime_failure(result, "state_advancement", diagnostic.path,

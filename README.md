@@ -16,8 +16,10 @@ validates an expanded hull, oar, seat, and stroke configuration; assembles a
 deterministic rigid-body startup state; advances that state through a baseline
 internal state-advancer seam; and exposes structured metadata, diagnostics,
 and in-memory state history. The first scenario-harness slice is now present
-for passive-float and tow baseline artifacts; richer hydro and aero runtime
-providers remain future work behind the same boundary.
+for passive-float, tow, and calm-water stroke baseline artifacts. The first
+real hydro runtime slice now propagates structured hull and blade loads
+through the shared run path; richer hydro and aero providers remain future
+work behind the same boundary.
 
 ## Quick Start
 
@@ -36,8 +38,20 @@ Run one headless baseline case:
 ./build/project_app --config /path/to/config.json
 ```
 
+Runnable example catalog:
+```bash
+./examples/run_example.sh passive_float
+./examples/run_example.sh tow_test
+./examples/run_example.sh calm_water_stroke
+```
+
+See `examples/README.md` for the checked-in CLI configs, output locations, and
+the distinction between direct example configs and the scenario-harness
+artifacts under `scenarios/`.
+
 Current implemented library surface:
 - `include/project/configuration/simulator_config.hpp`
+- `include/project/hydro/baseline_providers.hpp`
 - `include/project/mechanics/state.hpp`
 - `include/project/numerics/state_advancement.hpp`
 - `include/project/orchestrator/simulation_run.hpp`
@@ -59,7 +73,10 @@ Current implemented library surface:
 - stable run-result contract now lives in `include/project/output/run_result.hpp`
   with output-writer seams in `include/project/output/run_output.hpp`
 - deterministic scenario-definition loading and acceptance-envelope evaluation
-  for checked-in passive-float and tow artifacts in `scenarios/*.json`
+  for checked-in passive-float, tow, and calm-water stroke artifacts in
+  `scenarios/*.json`
+- deterministic hydro baseline providers for passive float, tow drag, and
+  calm-water stroke propulsion behind the shared `HydroProvider` seam
 
 ## Project Direction
 
@@ -100,10 +117,11 @@ Current implemented slice:
   machine-readable summary/time-series artifact emission and optional HDF5
   parity behind the same output contract,
 - `A-008 Scenario Harness and Validation` is now in progress with a public
-  scenario-harness API and runtime-backed passive-float/tow `QT-*` evidence,
+  scenario-harness API and runtime-backed passive-float/tow/calm-water `QT-*`
+  evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- reduced runtime physics providers and remaining scenario evidence (calm-water,
-  headwind, crosswind) remain future work after the first mechanics-startup
+- remaining scenario evidence (headwind, crosswind) and richer runtime
+  physics providers remain future work after the first mechanics-startup
   baseline.
 
 ## Validation Lanes

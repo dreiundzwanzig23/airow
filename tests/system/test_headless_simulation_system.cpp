@@ -129,9 +129,10 @@ class RecordingHydroProvider final : public project::HydroProvider {
 public:
   std::string_view identifier() const noexcept override { return "qt-hydro"; }
 
-  double sample_load(const project::StepContext & /*context*/) override {
+  project::HydroLoadSample
+  sample_load(const project::StepContext & /*context*/) override {
     ++call_count;
-    return 0.0;
+    return {};
   }
 
   std::size_t call_count{0};

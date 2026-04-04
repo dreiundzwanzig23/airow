@@ -160,9 +160,10 @@ public:
 
   std::string_view identifier() const noexcept override { return identifier_; }
 
-  double sample_load(const project::StepContext &context) override {
+  project::HydroLoadSample
+  sample_load(const project::StepContext &context) override {
     observed_times_s.push_back(context.time_s);
-    return 0.0;
+    return {};
   }
 
   std::vector<double> observed_times_s;

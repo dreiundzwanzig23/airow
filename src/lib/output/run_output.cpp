@@ -270,11 +270,14 @@ Json make_time_series_document(const SimulationRunResult &result,
     const auto boat_speed_mps = state.hull.linear_velocity_world_mps.x;
     const auto hydro_load =
         Vector3{.x = loads.hydro_force_x_n, .y = 0.0, .z = 0.0};
+    const auto port_blade_load =
+        Vector3{.x = loads.port_blade_force_x_n, .y = 0.0, .z = 0.0};
+    const auto starboard_blade_load =
+        Vector3{.x = loads.starboard_blade_force_x_n, .y = 0.0, .z = 0.0};
     const auto aero_load =
         Vector3{.x = loads.aero_force_x_n, .y = 0.0, .z = 0.0};
-    const auto blade_load_zero = Vector3{.x = 0.0, .y = 0.0, .z = 0.0};
     const double stroke_power_w =
-        (loads.hydro_force_x_n + loads.aero_force_x_n) * boat_speed_mps;
+        (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * boat_speed_mps;
 
     records.push_back(Json{
         {"time_s", state.time_s},
@@ -338,9 +341,9 @@ Json make_time_series_document(const SimulationRunResult &result,
          Json{{"vector", vector_channel(hydro_load, "N", "world")}}},
         {"blade_load_world_n",
          Json{{"port",
-               Json{{"vector", vector_channel(blade_load_zero, "N", "world")}}},
-              {"starboard", Json{{"vector", vector_channel(blade_load_zero, "N",
-                                                           "world")}}}}},
+               Json{{"vector", vector_channel(port_blade_load, "N", "world")}}},
+              {"starboard", Json{{"vector", vector_channel(starboard_blade_load,
+                                                           "N", "world")}}}}},
         {"aerodynamic_load_world_n",
          Json{{"vector", vector_channel(aero_load, "N", "world")}}},
         {"stroke_input",
@@ -742,6 +745,8 @@ struct Hdf5TimeSeriesChannels {
   std::vector<double> time_s;
   std::vector<double> boat_speed_mps;
   std::vector<double> hydro_force_x_n;
+  std::vector<double> port_blade_force_x_n;
+  std::vector<double> starboard_blade_force_x_n;
   std::vector<double> aero_force_x_n;
   std::vector<double> stroke_power_w;
   std::vector<std::string> stroke_phase;
@@ -755,6 +760,8 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
   channels.time_s.reserve(indices.size());
   channels.boat_speed_mps.reserve(indices.size());
   channels.hydro_force_x_n.reserve(indices.size());
+  channels.port_blade_force_x_n.reserve(indices.size());
+  channels.starboard_blade_force_x_n.reserve(indices.size());
   channels.aero_force_x_n.reserve(indices.size());
   channels.stroke_power_w.reserve(indices.size());
   channels.stroke_phase.reserve(indices.size());
@@ -767,9 +774,12 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
     channels.time_s.push_back(state.time_s);
     channels.boat_speed_mps.push_back(speed);
     channels.hydro_force_x_n.push_back(loads.hydro_force_x_n);
+    channels.port_blade_force_x_n.push_back(loads.port_blade_force_x_n);
+    channels.starboard_blade_force_x_n.push_back(
+        loads.starboard_blade_force_x_n);
     channels.aero_force_x_n.push_back(loads.aero_force_x_n);
     channels.stroke_power_w.push_back(
-        (loads.hydro_force_x_n + loads.aero_force_x_n) * speed);
+        (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * speed);
     channels.stroke_phase.push_back(stroke_phase_text(state.stroke.phase));
   }
 
@@ -796,6 +806,12 @@ bool write_hdf5_time_series_group(hid_t file, const SimulationRunResult &result,
                                      channels.boat_speed_mps, diagnostic) &&
          write_double_vector_dataset(time_series_group.id, "hydro_force_x_n",
                                      channels.hydro_force_x_n, diagnostic) &&
+         write_double_vector_dataset(
+             time_series_group.id, "port_blade_force_x_n",
+             channels.port_blade_force_x_n, diagnostic) &&
+         write_double_vector_dataset(
+             time_series_group.id, "starboard_blade_force_x_n",
+             channels.starboard_blade_force_x_n, diagnostic) &&
          write_double_vector_dataset(time_series_group.id, "aero_force_x_n",
                                      channels.aero_force_x_n, diagnostic) &&
          write_double_vector_dataset(time_series_group.id, "stroke_power_w",

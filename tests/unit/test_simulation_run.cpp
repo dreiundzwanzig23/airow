@@ -158,9 +158,10 @@ public:
 
   std::string_view identifier() const noexcept override { return identifier_; }
 
-  double sample_load(const project::StepContext &context) override {
+  project::HydroLoadSample
+  sample_load(const project::StepContext &context) override {
     observed_times_s.push_back(context.time_s);
-    return 0.0;
+    return {};
   }
 
   std::vector<double> observed_times_s;
@@ -191,8 +192,9 @@ class InvalidHydroProvider final : public project::HydroProvider {
 public:
   std::string_view identifier() const noexcept override { return "bad-hydro"; }
 
-  double sample_load(const project::StepContext & /*context*/) override {
-    return std::numeric_limits<double>::infinity();
+  project::HydroLoadSample
+  sample_load(const project::StepContext & /*context*/) override {
+    return {.hull_force_x_n = std::numeric_limits<double>::infinity()};
   }
 };
 
@@ -211,7 +213,8 @@ public:
     return "throwing-hydro";
   }
 
-  double sample_load(const project::StepContext & /*context*/) override {
+  project::HydroLoadSample
+  sample_load(const project::StepContext & /*context*/) override {
     throw std::runtime_error("hydro-boom");
   }
 };
@@ -233,8 +236,9 @@ public:
     return "cli-invalid-hydro";
   }
 
-  double sample_load(const project::StepContext & /*context*/) override {
-    return std::numeric_limits<double>::infinity();
+  project::HydroLoadSample
+  sample_load(const project::StepContext & /*context*/) override {
+    return {.hull_force_x_n = std::numeric_limits<double>::infinity()};
   }
 };
 

@@ -24,7 +24,16 @@ acceptance-envelope intent.
   - `drag_speed_samples_mps = [0.0, 0.5, 1.0, 2.0, 3.0]`
 - Verification lane: `QT-010` plus deterministic replay check `QT-011`
 
+### Calm-Water Stroke (`scenarios/calm_water_stroke.json`)
+- Scenario id: `calm-water-stroke`
+- Current hydro provider mode: deterministic `stroke_propulsion_placeholder`
+- Provider parameter:
+  - `blade_force_coefficient_n_s_per_m = 4.0`
+- Acceptance envelope:
+  - `min_distance_m = 1.5`
+  - `min_mean_speed_mps = 0.6`
+- Verification lane: `QT-012` plus propulsion-disabled comparison `QT-013`
+
 ## Remaining v0.1 Scenario Work
-- Add checked-in calm-water stroke scenario artifact and envelope.
 - Add checked-in headwind stroke scenario artifact and envelope.
 - Add checked-in crosswind stroke scenario artifact and envelope.

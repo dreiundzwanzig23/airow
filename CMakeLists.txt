@@ -58,6 +58,7 @@ include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
     src/lib/configuration/simulator_config.cpp
+    src/lib/hydro/baseline_providers.cpp
     src/lib/numerics/state_advancement.cpp
     src/lib/output/run_output.cpp
     src/lib/orchestrator/cli.cpp
@@ -124,6 +125,7 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
 
     add_executable(project_tests_unit
+        tests/unit/test_hydro_runtime_models.cpp
         tests/unit/test_state_advancement.cpp
         tests/unit/test_simulator_config.cpp
         tests/unit/test_simulator_config_mechanics.cpp
@@ -138,6 +140,7 @@ if(BUILD_TESTING)
     enable_sanitizers(project_tests_unit)
 
     add_executable(project_tests_integration
+        tests/integration/test_hydro_runtime_integration.cpp
         tests/integration/test_simulator_config_integration.cpp
         tests/integration/test_orchestrator_integration.cpp
         tests/integration/test_run_outputs_integration.cpp
@@ -147,6 +150,8 @@ if(BUILD_TESTING)
     enable_sanitizers(project_tests_integration)
 
     add_executable(project_tests_system
+        tests/system/test_calm_water_scenario_system.cpp
+        tests/system/test_examples_system.cpp
         tests/system/test_simulator_config_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
@@ -165,6 +170,8 @@ if(BUILD_TESTING)
         tests/aux/header_self_containment_main.cpp
         tests/aux/include_cli.cpp
         tests/aux/include_geometry.cpp
+        tests/aux/include_hydro_provider.cpp
+        tests/aux/include_hydro_providers.cpp
         tests/aux/include_mechanics_state.cpp
         tests/aux/include_run_output.cpp
         tests/aux/include_run_result.cpp

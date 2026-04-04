@@ -1,6 +1,7 @@
 # Generated build directories.
 /build/
 /build-*/
+/examples/output/
 .vscode
 __pycache__/
 *.py[cod]

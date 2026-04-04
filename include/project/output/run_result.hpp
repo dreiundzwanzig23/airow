@@ -48,7 +48,13 @@ struct RunSummary {
 struct LoadSample {
   double time_s{};
   double hydro_force_x_n{};
+  double port_blade_force_x_n{};
+  double starboard_blade_force_x_n{};
   double aero_force_x_n{};
+
+  [[nodiscard]] double total_hydro_force_x_n() const noexcept {
+    return hydro_force_x_n + port_blade_force_x_n + starboard_blade_force_x_n;
+  }
 
   bool operator==(const LoadSample &) const = default;
 };

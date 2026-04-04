@@ -86,8 +86,8 @@ The current stable building-block view is organized around ten subsystem owners.
 | `A-010` | Numerical Integration and State Advancement | Own consistent initialization, backend abstraction, and solver-facing diagnostics |
 
 Current implementation emphasis:
-- active: `A-001`, `A-002`, `A-003`, `A-007`, `A-008`, `A-010`,
-- open: `A-004`, `A-005`, `A-006`, `A-009`.
+- active: `A-001`, `A-002`, `A-003`, `A-004`, `A-007`, `A-008`, `A-010`,
+- open: `A-005`, `A-006`, `A-009`.
 
 ## Runtime View
 
@@ -153,13 +153,16 @@ Implemented baseline today:
 - shared headless CLI and in-memory single-run orchestration,
 - boundary-visible hull, oar, seat, and stroke state contracts,
 - deterministic internal startup and state advancement seam,
+- structured hydro-provider samples with deterministic passive, tow, and
+  calm-water propulsion placeholder providers,
 - structured JSON output and optional HDF5 output contract,
-- checked-in passive-float and tow-test scenario evaluation.
+- checked-in passive-float, tow-test, and calm-water stroke scenario
+  evaluation.
 
 Still planned or incomplete:
-- richer reduced hydro runtime models,
+- richer reduced hydro runtime models beyond the first placeholder providers,
 - apparent wind and reduced aero models,
-- calm-water stroke, headwind, and crosswind scenario artifacts,
+- headwind and crosswind scenario artifacts,
 - runtime-selectable provider families,
 - external calibration ingestion and provenance propagation,
 - concrete Chrono and SUNDIALS backend wiring behind existing seams.
@@ -215,7 +218,7 @@ Still planned or incomplete:
 ## A-004 — Hydro Runtime Models
 - **Title**: Reduced hydrodynamic runtime models
 - **Satisfies**: [R-009, R-010, R-011, R-012, R-020, R-021, R-022, R-024, R-029, R-033]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Compute hydrostatic and reduced hydrodynamic loads for the hull and blades during default runtime execution.
 - **Owned Concepts**: Hull flotation model; hull resistance providers; blade-water load providers; provider validity metadata; disturbance-to-water-load coupling points.
 - **Inputs**: Mechanics state; validated provider selection; optional calibration datasets; optional disturbance definitions.
@@ -225,7 +228,10 @@ Still planned or incomplete:
 - **Invariants**: Reduced-model providers remain callable without optional high-fidelity tooling; dry or zero-speed limits behave deterministically; provider outputs stay finite or fail deterministically; each provider carries explicit validity metadata suitable for run reporting.
 - **Allocation Rationale**: Concentrates water-load logic into one subsystem so runtime hydro behavior evolves through replaceable providers instead of requirement-specific patches.
 - **Future Absorption**: Additional resistance, blade, wave, and lookup-driven hydro providers should be absorbed here behind shared contracts.
-- **Interfaces**: Planned hull-load provider and blade-load provider contracts with runtime-selectable implementations.
+- **Interfaces**: Public hydro-provider seam in the shared run path that now
+  returns structured hull and per-blade load samples for deterministic
+  baseline passive, tow, and calm-water propulsion providers, plus follow-on
+  provider-selection contracts that remain future work.
 
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models
@@ -274,8 +280,9 @@ Still planned or incomplete:
   time-series artifact emission plus optional HDF5 artifact emission selected
   at runtime configuration (`json`, `hdf5`, or both). The output contract
   preserves explicit unit/frame annotations for boundary-visible vectors,
-  force/power accounting channels, deterministic sampling policy, and stable
-  diagnostics when requested formats are unavailable.
+  structured hull/blade force channels, force/power accounting channels,
+  deterministic sampling policy, and stable diagnostics when requested
+  formats are unavailable.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
@@ -293,8 +300,8 @@ Still planned or incomplete:
 - **Interfaces**: Public scenario-harness contract in
   `include/project/orchestrator/scenario_harness.hpp` for deterministic
   checked-in scenario definition loading and acceptance-envelope evaluation
-  against runtime results, with first passive-float and tow scenario artifacts
-  under `scenarios/`.
+  against runtime results, with passive-float, tow, and calm-water stroke
+  scenario artifacts under `scenarios/`.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

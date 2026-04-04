@@ -37,8 +37,9 @@ public:
     return "scenario-passive-placeholder";
   }
 
-  double sample_load(const project::StepContext & /*context*/) override {
-    return 0.0;
+  project::HydroLoadSample
+  sample_load(const project::StepContext & /*context*/) override {
+    return {};
   }
 };
 
@@ -51,8 +52,10 @@ public:
     return "scenario-tow-placeholder";
   }
 
-  double sample_load(const project::StepContext &context) override {
-    return drag_force(context.state.hull.linear_velocity_world_mps.x);
+  project::HydroLoadSample
+  sample_load(const project::StepContext &context) override {
+    return {.hull_force_x_n =
+                drag_force(context.state.hull.linear_velocity_world_mps.x)};
   }
 
   [[nodiscard]] double drag_force(double forward_speed_mps) const {

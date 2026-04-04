@@ -10,13 +10,18 @@
 
 namespace project {
 
-enum class ScenarioType { passive_float, tow_test };
+enum class ScenarioType { passive_float, tow_test, calm_water_stroke };
 
-enum class ScenarioProviderType { passive_placeholder, tow_placeholder };
+enum class ScenarioProviderType {
+  passive_placeholder,
+  tow_placeholder,
+  stroke_propulsion_placeholder
+};
 
 struct ScenarioProviderConfig {
   ScenarioProviderType type{ScenarioProviderType::passive_placeholder};
   double drag_coefficient_n_s2_per_m2{};
+  double blade_force_coefficient_n_s_per_m{};
 
   bool operator==(const ScenarioProviderConfig &) const = default;
 };
@@ -25,6 +30,7 @@ struct ScenarioAcceptanceEnvelope {
   double max_abs_distance_m{};
   double max_abs_mean_speed_mps{};
   double min_distance_m{};
+  double min_mean_speed_mps{};
   double max_final_speed_mps{};
   std::vector<double> drag_speed_samples_mps;
 
