@@ -70,6 +70,11 @@ Primary planning and process sources:
 - `docs/process/TECHNOLOGY_STACK.md`
 - `docs/ai/DECISIONS.md`
 
+Architecture note: `docs/process/ARCHITECTURE.md` now starts with a compact
+overview of system context, building blocks, runtime flows, cross-cutting
+concepts, and current implementation status before the normative `A-*`
+ownership catalog.
+
 Current intent:
 - single-scull simulator first,
 - headless executable plus reusable library API,

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 ### Changed
+- Expanded `docs/process/ARCHITECTURE.md` with an arc42-lite overview section
+  ahead of the traceable `A-*` catalog, adding compact system-context,
+  building-block, runtime-view, cross-cutting-concept, and
+  implemented-versus-planned summaries for faster architectural orientation.
 - Added a dedicated `.agents/skills/unit-test-design/SKILL.md` playbook for
   behavior-focused `UT-*` design, boundary and equivalence-class case
   selection, Given/When/Then notes, and explicit expected-output guidance,

@@ -1,7 +1,7 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-03
+- **Date**: 2026-04-04
 - **Branch**: `main`
 - **Current Objective**: Extend the first named scenario evidence slice from
   passive-float and tow toward remaining `v0.1` baseline scenarios.
@@ -31,6 +31,10 @@
 - Workflow policy now treats functional changes as explicit red-green-refactor
   loops with a mandatory refactor phase and warning-mode marker checks in
   `test_tdd.sh` and `verify.sh`.
+- `docs/process/ARCHITECTURE.md` now includes a compact arc42-lite overview
+  section so readers can see system context, building blocks, runtime flows,
+  and implemented-versus-planned status before dropping into the `A-*`
+  ownership catalog.
 
 ## Guardrails
 - Keep active AI docs compact and non-duplicative.

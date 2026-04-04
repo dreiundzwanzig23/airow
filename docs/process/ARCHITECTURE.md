@@ -36,6 +36,134 @@ Real simulator architecture items use `A-001..A-010`.
 The `A-900` range remains reserved for temporary bootstrap-only artifacts and
 must not become the architectural home for simulator requirements.
 
+## Architecture Overview
+
+This document has two roles:
+- provide a compact architecture narrative for humans,
+- provide the stable `A-*` ownership catalog used by traceability and TDD.
+
+Use the overview sections below to understand the current system shape quickly.
+Use the `A-*` sections as the normative ownership and allocation record.
+
+## System Context
+
+The baseline system is a headless single-scull rowing simulator with one shared
+runtime path for CLI and in-memory execution.
+
+Primary external inputs:
+- machine-readable run configuration,
+- checked-in scenario definitions and acceptance envelopes,
+- optional future calibration or truth-model artifacts.
+
+Primary external outputs:
+- run status and diagnostics,
+- machine-readable summary and time-series artifacts,
+- scenario pass or fail results for automated verification.
+
+Protected external boundaries:
+- the default runtime must remain usable without optional high-fidelity or
+  calibration toolchains,
+- requirements stay technology-neutral even when preferred libraries are named
+  elsewhere,
+- frame, sign, unit, and validity metadata must stay explicit at simulator
+  boundaries.
+
+## Building Blocks
+
+The current stable building-block view is organized around ten subsystem owners.
+
+| ID | Subsystem | Current role |
+|---|---|---|
+| `A-001` | Configuration and Validation | Parse, validate, normalize, and reject unsupported scope before runtime starts |
+| `A-002` | Simulation Orchestrator | Own run lifecycle, composition, CLI and in-memory entry points, and stable failure handling |
+| `A-003` | Mechanics Subsystem | Own hull, oars, seat, stroke state, and mechanics-facing startup contracts |
+| `A-004` | Hydro Runtime Models | Own reduced hull and blade water loads for the default runtime path |
+| `A-005` | Aero Runtime Models | Own apparent wind and reduced aerodynamic loads |
+| `A-006` | Control and Stroke Input | Own prescribed stroke scheduling and later low-order control |
+| `A-007` | Output and Diagnostics | Own summary and time-series artifacts, metadata, and stable diagnostics |
+| `A-008` | Scenario Harness and Validation | Own named scenarios, envelopes, and validation pass or fail logic |
+| `A-009` | External Calibration Integration | Own optional artifact ingestion and provenance semantics |
+| `A-010` | Numerical Integration and State Advancement | Own consistent initialization, backend abstraction, and solver-facing diagnostics |
+
+Current implementation emphasis:
+- active: `A-001`, `A-002`, `A-003`, `A-007`, `A-008`, `A-010`,
+- open: `A-004`, `A-005`, `A-006`, `A-009`.
+
+## Runtime View
+
+### Baseline Single Run
+1. `A-001` validates and normalizes the input configuration.
+2. `A-002` stamps metadata, wires dependencies, and owns lifecycle behavior.
+3. `A-010` initializes the first valid mechanics state through a stable
+   advancer contract.
+4. `A-003` provides the boundary-visible mechanical state carried through the
+   run loop.
+5. `A-002` samples hydro and aero provider seams and advances the state.
+6. `A-007` emits structured outputs and stable diagnostics.
+
+### Scenario Validation Run
+1. `A-008` loads a checked-in scenario definition and acceptance envelope.
+2. `A-002` executes the scenario through the same shared run path used by the
+   CLI and in-memory API.
+3. `A-008` evaluates the resulting summary and history against deterministic
+   acceptance rules.
+
+### Backend Evolution Path
+- The current mechanics and state-advancement slice is backed by a deterministic
+  internal baseline implementation.
+- Preferred external backends such as Project Chrono and SUNDIALS remain behind
+  `A-003` and `A-010` seams and are not the current boundary contracts.
+- Higher-fidelity hydro, aero, and calibration paths are intended to plug in
+  behind their subsystem contracts without changing requirement wording or the
+  shared orchestration path.
+
+## Cross-Cutting Concepts
+
+### Determinism and Replay
+- The same validated run definition should execute through the same
+  orchestration path for CLI and in-memory use.
+- Deterministic behavior is scoped to the same executable and platform unless a
+  broader guarantee is documented.
+
+### Traceability and Verification
+- Requirements allocate into cohesive subsystem owners, not one-to-one feature
+  containers.
+- `UT-*`, `IT-*`, and `QT-*` evidence attach to design, architecture, and
+  requirement layers separately.
+- Named scenarios are first-class evidence, not only convenience regression
+  cases.
+
+### Runtime vs Truth-Model Separation
+- The default runtime path must stay independent of optional SPH, CFD, and
+  calibration-generation toolchains.
+- External truth-model workflows are expected to support calibration,
+  comparison, or surrogate generation rather than become mandatory runtime
+  dependencies.
+
+### State, Frame, and Numerics Discipline
+- Frame and sign conventions are explicit and must remain stable at boundaries.
+- Numerical integration ownership is separate from mechanics ownership.
+- Validity metadata and deterministic diagnostics are part of the boundary
+  contract, not implementation details.
+
+## Implementation Status Snapshot
+
+Implemented baseline today:
+- deterministic JSON configuration loading and validation,
+- shared headless CLI and in-memory single-run orchestration,
+- boundary-visible hull, oar, seat, and stroke state contracts,
+- deterministic internal startup and state advancement seam,
+- structured JSON output and optional HDF5 output contract,
+- checked-in passive-float and tow-test scenario evaluation.
+
+Still planned or incomplete:
+- richer reduced hydro runtime models,
+- apparent wind and reduced aero models,
+- calm-water stroke, headwind, and crosswind scenario artifacts,
+- runtime-selectable provider families,
+- external calibration ingestion and provenance propagation,
+- concrete Chrono and SUNDIALS backend wiring behind existing seams.
+
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem
 - **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-025, R-028, R-029, R-030, R-031, R-032, R-033]

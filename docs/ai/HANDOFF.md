@@ -1,9 +1,13 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-03
+- 2026-04-04
 
 ## What Changed In This Session
+- Expanded `docs/process/ARCHITECTURE.md` with a compact arc42-lite overview
+  section ahead of the stable `A-*` ownership catalog, covering system
+  context, building blocks, runtime views, cross-cutting concepts, and current
+  implementation status.
 - Tightened workflow policy and skills to enforce explicit red-green-refactor
   loops with a mandatory refactor phase (including explicit no-op rationale
   when no cleanup edit is needed).
