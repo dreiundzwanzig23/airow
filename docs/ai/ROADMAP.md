@@ -1,5 +1,11 @@
 # ROADMAP.md
 
+## Status
+- The `v0.1` cut line is complete as of 2026-04-05.
+- Current work should focus on post-`v0.1` fidelity, provider selection,
+  validity metadata, and deferred backlog items rather than reopening the
+  baseline milestone.
+
 ## v0.1 Cut Line
 
 ### In
@@ -41,6 +47,6 @@
 - Land runtime-selectable provider variants only after the first baseline
   provider for each force family is stable.
 - Re-open external calibration ingestion, provenance propagation, and
-  validity-metadata expansion after `v0.1` is running end to end.
+  validity-metadata expansion now that `v0.1` is complete.
 - Add simulator-specific auxiliary and regression lanes only when they improve
   local verification without polluting the baseline runtime path.

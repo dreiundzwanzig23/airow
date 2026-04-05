@@ -133,12 +133,14 @@ Milestone framing:
   - A static initialization with valid parameters completes without non-finite state values.
   - Invalid hull mass properties are rejected during configuration validation.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Initial scope is single scull only. The current implementation slice introduces a validated rigid-body hull state contract with configurable mass properties and deterministic finite startup or stepping behavior; richer scenario-facing outputs remain for later slices.
+- **Notes**: Initial scope is single scull only. The `v0.1` closure now
+  includes requirement-level evidence for finite hull startup, emitted 3D hull
+  state channels, and deterministic rejection of invalid hull mass properties.
 
 ## R-006 — Port and Starboard Oar Kinematics
 - **Title**: Model two independent sculling oars with configurable geometry
@@ -148,11 +150,15 @@ Milestone framing:
   - Time-series outputs include each oar’s kinematic state.
   - Constraint or geometry residuals remain below a documented tolerance in a nominal run.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence that
+  port and starboard oar state is emitted separately through the public output
+  contract and that nominal constraint residuals remain bounded in the
+  deterministic baseline run path.
 
 ## R-007 — Seat Translation Model
 - **Title**: Model seat motion along a configurable rail axis
@@ -162,11 +168,15 @@ Milestone framing:
   - Time-series outputs include seat position and velocity.
   - An out-of-range initial seat position is rejected before simulation begins.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence for
+  emitted seat position or velocity channels, bounded seat travel during
+  nominal runs, and deterministic rejection of out-of-range initial seat
+  positions.
 
 ## R-008 — Prescribed Stroke Schedule
 - **Title**: Drive the system with a deterministic prescribed stroke input
@@ -176,12 +186,14 @@ Milestone framing:
   - Invalid schedules, including non-positive cycle time or inconsistent phase durations, are rejected.
   - A nominal stroke test produces finite seat and oar trajectories for the full run.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: Initial scope uses prescribed motion or control, not full musculoskeletal actuation. The current slice introduces deterministic periodic stroke timing and baseline oar or seat kinematic replay behind the mechanics seam before propulsion scenarios land.
+  The `v0.1` closure now includes ten-cycle requirement-level replay evidence
+  with deterministic phase wrapping and schedule-rejection coverage.
 
 ## R-009 — Hydrostatic Float Equilibrium
 - **Title**: Support calm-water floating equilibrium for the hull
@@ -310,11 +322,14 @@ Milestone framing:
   - A failed run terminates with a stable diagnostic code and subsystem-specific message.
   - Automated tests induce at least one representative failure mode and verify the reported diagnostic.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence for
+  deterministic provider-failure diagnostics, detection of non-finite
+  boundary-visible runtime state, and stable subsystem-specific error mapping.
 
 ## R-017 — Units and Numeric Safety
 - **Title**: Enforce SI units and numeric safety constraints at the simulator boundary
@@ -324,12 +339,16 @@ Milestone framing:
   - Invalid or ambiguous unit-bearing inputs are rejected before time stepping starts.
   - Automated checks verify that core scenario configurations use only documented units.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement is complemented by repo-level numerics policy but remains externally verifiable.
+- **Notes**: This requirement is complemented by repo-level numerics policy and
+  is now closed for `v0.1` with requirement-level evidence that checked-in
+  baseline scenarios normalize to the documented unit set, output artifacts
+  carry explicit units or frames, and ambiguous typed inputs are rejected
+  deterministically.
 
 ## R-018 — Reference Validation Scenarios
 - **Title**: Provide a baseline set of repeatable validation scenarios
@@ -356,12 +375,15 @@ Milestone framing:
   - The trace from requirement identifier to verification artifact is machine-searchable in the repository.
   - Missing trace for any P0 requirement causes a verification check to fail.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This is a workflow-support requirement rather than a physics requirement.
+- **Notes**: This is a workflow-support requirement rather than a physics
+  requirement. The `v0.1` closure now includes requirement-level evidence that
+  `tools/tracecheck.py --json` exposes machine-searchable trace data and that
+  every `P0` requirement has requirement-level `QT-*` coverage.
 
 ## R-020 — Runtime-Selectable Hydro and Aero Providers
 - **Title**: Select reduced-model providers at runtime without recompilation
@@ -556,11 +578,14 @@ Milestone framing:
   - Startup diagnostics report whether initialization succeeded and include solver or convergence status when applicable.
   - Automated verification includes at least one valid startup case and one rejected startup case.
 - **Priority**: P0
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Created**: 2026-04-02
-- **Updated**: 2026-04-03
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence for
+  both valid startup success metadata and deterministic startup-specific
+  failure before time stepping begins.
 
 ## R-033 — Runtime Model Validity Metadata
 - **Title**: Preserve validity-range metadata for reduced runtime providers

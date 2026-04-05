@@ -4,22 +4,18 @@ AIRow is an open-source C++ rowing simulator project focused on a physically
 serious single-scull simulator with strict red-green-refactor TDD, traceability
 (`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
 
-The repository now includes the first two simulator-facing runtime slices:
-deterministic JSON configuration loading plus a shared in-memory and CLI
-single-run orchestration path for the baseline single-scull runtime. The
-broader rowing simulator direction remains defined in the requirements,
-architecture, technology stack, and decision records, including explicit
-state-convention and numerical-integration ownership.
+The `v0.1` cut line is now complete: the repository ships a deterministic
+headless single-scull baseline with validated configuration loading, shared
+in-memory and CLI execution, mechanics-backed startup and stepping, reduced
+hydro and steady-wind aero runtime models, machine-readable outputs, and
+runtime-backed passive-float, tow, calm-water, headwind, and crosswind
+evidence.
 
-The current run path is now mechanics-backed for the first startup slice. It
-validates an expanded hull, oar, seat, and stroke configuration; assembles a
-deterministic rigid-body startup state; advances that state through a baseline
-internal state-advancer seam; and exposes structured metadata, diagnostics,
-and in-memory state history. The first scenario-harness slice is now present
-for passive-float, tow, and calm-water stroke baseline artifacts. The first
-real hydro runtime slice now propagates structured hull and blade loads
-through the shared run path; richer hydro and aero providers remain future
-work behind the same boundary.
+The broader rowing simulator direction remains defined in the requirements,
+architecture, technology stack, and decision records, including explicit
+state-convention and numerical-integration ownership. Post-`v0.1` work now
+centers on richer provider fidelity, runtime-selectable provider variants,
+validity metadata, and deferred calibration or truth-model workflows.
 
 ## Quick Start
 
@@ -114,7 +110,8 @@ Current intent:
 - real simulator code should now land inside the hardened architecture-first
   workflow rather than extending the bootstrap sample.
 
-Current implemented slice:
+Current implementation status:
+- the `v0.1` roadmap cut line is complete at the requirement level,
 - `A-001 Configuration and Validation` is now in progress with a real public
   contract for deterministic JSON loading and validation of mechanics-startup
   inputs,
@@ -133,7 +130,7 @@ Current implemented slice:
   headwind/crosswind `QT-*` evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
 - richer runtime provider fidelity, provider selection, and post-`v0.1`
-  follow-on work remain after the first mechanics-startup baseline.
+  follow-on work remain on the existing subsystem seams.
 
 ## Validation Lanes
 

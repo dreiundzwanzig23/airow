@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 ### Changed
+- Closed the remaining `v0.1` cut-line requirements with new
+  requirement-level evidence (`QT-019..QT-026`) covering hull or oar or seat
+  mechanics closure, ten-cycle stroke replay, runtime diagnostics, unit or
+  traceability checks, and startup validity, promoting `R-005`, `R-006`,
+  `R-007`, `R-008`, `R-016`, `R-017`, `R-019`, and `R-032` to `DONE`.
+- Tightened the shared run-path state validator so non-finite boundary-visible
+  oar blade-tip velocity or immersion state now fails deterministically under
+  `state_advancement` rather than slipping through runtime validation.
+- Updated `tools/tracecheck.py --json` to emit clean JSON for automation
+  consumers and synchronized the roadmap, session, handoff, and README docs to
+  record that the `v0.1` cut line is complete.
 - Raised the baseline `A-004` hydro slice from placeholder behavior to
   deterministic reduced hydrostatic restoring, widened hydro force or moment
   propagation, explicit blade immersion or blade-tip-velocity state, and

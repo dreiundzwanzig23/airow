@@ -69,7 +69,9 @@ bool hull_state_is_finite(const HullState &state) {
 bool oar_state_is_finite(const OarState &state) {
   return std::isfinite(state.handle_angle_rad) &&
          vector_is_finite(state.oarlock_position_body_m) &&
-         vector_is_finite(state.blade_tip_position_world_m);
+         vector_is_finite(state.blade_tip_position_world_m) &&
+         vector_is_finite(state.blade_tip_velocity_world_mps) &&
+         std::isfinite(state.blade_immersion_depth_m);
 }
 
 bool seat_state_is_finite(const SeatState &state) {

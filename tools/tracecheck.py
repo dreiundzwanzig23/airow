@@ -925,6 +925,7 @@ def main(argv: List[str]) -> int:
 
     if "--json" in argv:
         print(json.dumps({"problems": problems, "warnings": warnings, "data": data}, indent=2))
+        return 1 if problems else 0
 
     if problems:
         print("TRACE CHECK FAILED:")

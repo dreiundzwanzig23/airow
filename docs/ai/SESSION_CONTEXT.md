@@ -1,10 +1,10 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-04
-- **Branch**: `main`
-- **Current Objective**: Raise reduced-model fidelity and trace completeness
-  now that the baseline `v0.1` steady-wind scenario set is running end to end.
+- **Date**: 2026-04-05
+- **Branch**: `First_implementations`
+- **Current Objective**: Advance post-`v0.1` reduced-model fidelity and
+  provider-selection readiness now that the milestone cut line is complete.
 
 ## Current State
 - The project direction is now defined around a single-scull rowing simulator
@@ -25,9 +25,17 @@
 - `R-013`, `R-014`, `R-018`, and `R-031` are now `DONE` with runtime-backed
   steady-wind evidence, checked-in headwind/crosswind scenario artifacts, and
   frame-aware output coverage.
+- `R-005`, `R-006`, `R-007`, `R-008`, `R-016`, `R-017`, `R-019`, and `R-032`
+  are now `DONE` with new requirement-level `QT-019..QT-026` evidence, so the
+  `v0.1` cut line is fully closed at the requirement level.
 - The repo now has a tracked `examples/` surface with direct CLI configs for
   passive float, tow test, and calm-water stroke plus a helper script that
   keeps output paths stable under `examples/output/`.
+- `tools/tracecheck.py --json` is now machine-consumable without trailing text,
+  which lets system-level traceability checks consume repo state directly.
+- The shared runtime path now rejects non-finite boundary-visible oar
+  blade-tip velocity or immersion state instead of allowing those invalid
+  samples to pass through `state_advancement`.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
   `R-025`) remain intentionally deferred behind the `v0.1` cut line and
   should not block near-term scenario delivery work.
@@ -53,9 +61,10 @@
   functional loops.
 
 ## Next Actions
-1. Tighten remaining `P0` closure work around replay, diagnostics, units,
-   startup validity, and traceability evidence.
-2. Extend `A-005` beyond the first steady-wind baseline while preserving the
+1. Extend `A-005` beyond the first steady-wind baseline while preserving the
    scenario-harness contract and the current frame-aware output surface.
+2. Land runtime-selectable provider variants and validity-metadata propagation
+   behind the existing hydro or aero seams without regressing the baseline
+   deterministic path.
 3. Revisit external backend wiring for Chrono and SUNDIALS only after the
-   expanded baseline scenario evidence set stabilizes.
+   post-`v0.1` baseline scenario evidence set stabilizes.

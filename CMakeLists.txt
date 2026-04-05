@@ -160,6 +160,7 @@ if(BUILD_TESTING)
         tests/system/test_headless_outputs_system.cpp
         tests/system/test_scenario_harness_system.cpp
         tests/system/test_wind_scenario_system.cpp
+        tests/system/test_v0_1_closure_system.cpp
     )
     target_link_libraries(project_tests_system PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_system)

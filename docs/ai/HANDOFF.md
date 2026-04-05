@@ -1,48 +1,37 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-04
+- 2026-04-05
 
 ## What Changed In This Session
-- Landed the broader `A-004` reduced-hydro slice with widened hydro force or
-  moment samples, reduced passive-float restoring behavior, explicit
-  blade-tip velocity or immersion state, and immersion-aware blade-water loads
-  through the shared run path and machine-readable outputs.
-- Added `D-028`, `D-029`, `UT-105..UT-112`, and `IT-011`; updated the passive
-  float or stroke scenario artifacts and re-baselined the headwind envelope to
-  the new reduced hydro runtime.
-- Updated requirement state: `R-009`, `R-010`, and `R-011` -> `DONE`, and
-  corrected stale `REQUIREMENTS.md` entries so `R-013` and `R-014` now match
-  the already-landed wind slice.
-- Landed the first `A-005` runtime slice with a new public aero baseline
-  provider header in `include/project/aero/baseline_providers.hpp`, explicit
-  ambient-wind configuration, deterministic apparent-wind computation, and
-  structured aerodynamic force or moment propagation through the shared run
-  path and machine-readable outputs.
-- Added `scenarios/headwind_stroke.json` and `scenarios/crosswind_stroke.json`
-  plus new evidence `D-026`, `D-027`, `UT-075..UT-104`, `IT-010`, and
-  `QT-016..QT-018`.
-- Updated requirement and architecture state: `R-013`, `R-014`, `R-018`, and
-  `R-031` -> `DONE`; `A-005` -> `IN_PROGRESS`.
-- Existing `A-004` hydro, `A-008` scenario-harness, workflow, and examples
-  slices remain in place; this session built on them rather than changing
-  their scope.
+- Added `tests/system/test_v0_1_closure_system.cpp` and `QT-019..QT-026` to
+  close the remaining `v0.1` cut-line requirements at the requirement-evidence
+  layer.
+- Tightened runtime safety in `src/lib/orchestrator/simulation_run.cpp` so the
+  shared run path rejects non-finite boundary-visible oar blade-tip velocity or
+  immersion state during `state_advancement`.
+- Updated `tools/tracecheck.py --json` to emit JSON-only output for automation
+  consumers, which the new `R-019` system test now uses directly.
+- Updated requirement state: `R-005`, `R-006`, `R-007`, `R-008`, `R-016`,
+  `R-017`, `R-019`, and `R-032` -> `DONE`, which closes the full `v0.1` cut
+  line.
+- Synced release-facing and AI context docs to reflect that `v0.1` is complete
+  and that follow-on work is now post-`v0.1`.
 
 ## Current Technical Posture
-- `A-001`, `A-002`, `A-003`, `A-005`, `A-007`, `A-008`, and `A-010` are now
-  active with public contracts in `include/project/**`.
-- Scenario loading and acceptance evaluation are now centralized under the
-  scenario harness seam, while scenario execution continues through the shared
-  in-memory run path in `A-002`.
-- Passive-float, tow, calm-water, headwind, and crosswind scenarios are now
-  checked in and runtime-backed; hydro and aero behavior now include reduced
-  hydrostatic restoring, structured blade immersion, hydro moments,
-  apparent-wind, and aerodynamic-moment propagation.
-- Full required local gates, depcheck, and tracecheck are green with the
-  updated scenario slice.
+- The `v0.1` milestone is now closed at the requirement level: the baseline
+  runtime, outputs, startup validity, mechanics assembly, units, and
+  traceability evidence all have direct `QT-*` coverage.
+- `A-001`, `A-002`, `A-003`, `A-005`, `A-007`, `A-008`, and `A-010` remain
+  the active subsystem seams for post-`v0.1` fidelity or provider work; this
+  session did not widen their ownership boundaries.
+- The traceability toolchain remains green and now exposes a clean JSON mode
+  for system-level verification.
 
 ## Immediate Next Steps
-1. Tighten remaining `P0` requirement closure work around replay,
-   diagnostics, units, startup validity, and traceability coverage.
-2. Revisit concrete Chrono and SUNDIALS wiring only after the expanded
-   baseline scenario evidence set stabilizes.
+1. Extend `A-005` beyond the first steady-wind baseline while preserving the
+   current scenario-harness and output contracts.
+2. Land runtime-selectable provider variants and validity metadata on the
+   existing configuration or output seams.
+3. Revisit concrete Chrono and SUNDIALS wiring only after the post-`v0.1`
+   baseline remains stable.
