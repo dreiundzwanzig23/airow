@@ -14,8 +14,10 @@ evidence.
 The broader rowing simulator direction remains defined in the requirements,
 architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership. Post-`v0.1` work now
-centers on richer provider fidelity, runtime-selectable provider variants,
-validity metadata, and deferred calibration or truth-model workflows.
+centers on an explicit slice order: runtime-selectable provider variants plus
+validity metadata first, reduced-model fidelity expansion second, external
+backend wiring for Chrono or SUNDIALS third, and only then deferred
+calibration or time-varying environment workflows.
 
 ## Quick Start
 
@@ -129,8 +131,10 @@ Current implementation status:
   scenario-harness API and runtime-backed passive-float/tow/calm-water/
   headwind/crosswind `QT-*` evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- richer runtime provider fidelity, provider selection, and post-`v0.1`
-  follow-on work remain on the existing subsystem seams.
+- richer runtime provider fidelity, provider selection, and later backend
+  wiring remain staged on the existing subsystem seams, with Chrono or
+  SUNDIALS reserved for a later `A-010` backend slice rather than near-term
+  hydro or aero provider selection.
 
 ## Validation Lanes
 

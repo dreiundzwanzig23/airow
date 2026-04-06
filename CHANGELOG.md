@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Changed
+- Replaced the generic post-`v0.1` backlog in `docs/ai/ROADMAP.md` with four
+  explicit follow-on slices and clarified across the roadmap, session, handoff,
+  and README docs that Chrono or SUNDIALS belong to a later external-backend
+  slice under `A-010`, not to the near-term hydro or aero provider-selection
+  work.
 - Closed the remaining `v0.1` cut-line requirements with new
   requirement-level evidence (`QT-019..QT-026`) covering hull or oar or seat
   mechanics closure, ten-cycle stroke replay, runtime diagnostics, unit or

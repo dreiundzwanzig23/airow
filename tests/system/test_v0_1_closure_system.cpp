@@ -232,8 +232,9 @@ public:
   project::HydroLoadSample
   sample_load(const project::StepContext & /*context*/) override {
     return {
-        .hull_force_world_n =
-            {.x = std::numeric_limits<double>::quiet_NaN(), .y = 0.0, .z = 0.0},
+        .hull_force_world_n = {.x = std::numeric_limits<double>::quiet_NaN(),
+                               .y = 0.0,
+                               .z = 0.0},
     };
   }
 };
@@ -249,13 +250,12 @@ public:
     return project::default_state_advancer().initialize(config);
   }
 
-  project::AdvanceResult
-  advance(const project::SimulatorConfig &config,
-          const project::MechanicalStateSnapshot &state, double step_size_s,
-          const project::ExternalLoads &loads) override {
-    auto advanced =
-        project::default_state_advancer().advance(config, state, step_size_s,
-                                                  loads);
+  project::AdvanceResult advance(const project::SimulatorConfig &config,
+                                 const project::MechanicalStateSnapshot &state,
+                                 double step_size_s,
+                                 const project::ExternalLoads &loads) override {
+    auto advanced = project::default_state_advancer().advance(
+        config, state, step_size_s, loads);
     if (advanced.state.has_value()) {
       advanced.state->port_oar.blade_tip_velocity_world_mps.x =
           std::numeric_limits<double>::quiet_NaN();
@@ -388,15 +388,21 @@ TEST(V0_1ClosureSystem, OarKinematicsOutputsCloseR006) {
             Json("world"));
   EXPECT_EQ(starboard.at("blade_tip_position_world_m").at("vector").at("frame"),
             Json("world"));
-  EXPECT_LT(port.at("oarlock_position_body_m").at("vector").at("value").at(1)
+  EXPECT_LT(port.at("oarlock_position_body_m")
+                .at("vector")
+                .at("value")
+                .at(1)
                 .get<double>(),
             0.0);
-  EXPECT_GT(
-      starboard.at("oarlock_position_body_m").at("vector").at("value").at(1)
-          .get<double>(),
-      0.0);
-  EXPECT_NE(port.at("blade_tip_position_world_m").at("vector").at("value"),
-            starboard.at("blade_tip_position_world_m").at("vector").at("value"));
+  EXPECT_GT(starboard.at("oarlock_position_body_m")
+                .at("vector")
+                .at("value")
+                .at(1)
+                .get<double>(),
+            0.0);
+  EXPECT_NE(
+      port.at("blade_tip_position_world_m").at("vector").at("value"),
+      starboard.at("blade_tip_position_world_m").at("vector").at("value"));
 
   for (const auto &state : result.state_history) {
     EXPECT_LE(std::abs(state.constraint_residual_max), 1e-12);
@@ -491,7 +497,8 @@ TEST(V0_1ClosureSystem, TenCycleStrokeReplayClosesR008) {
   ASSERT_TRUE(run_a.ok());
   ASSERT_TRUE(run_b.ok());
   ASSERT_EQ(run_a.state_history.size(), run_b.state_history.size());
-  EXPECT_EQ(run_a.summary.executed_step_count, run_b.summary.executed_step_count);
+  EXPECT_EQ(run_a.summary.executed_step_count,
+            run_b.summary.executed_step_count);
   EXPECT_GE(run_a.summary.executed_step_count, 100U);
   ASSERT_FALSE(run_a.state_history.empty());
 
@@ -509,10 +516,10 @@ TEST(V0_1ClosureSystem, TenCycleStrokeReplayClosesR008) {
     EXPECT_TRUE(std::isfinite(state.starboard_oar.handle_angle_rad));
   }
 
-  const auto invalid_path = write_temp_file(
-      "airow-qt-r008-invalid-schedule.json",
-      make_valid_config_json("qt-r008-invalid-schedule", 1.0, 0.25, 14.0, 0.0,
-                             1.2));
+  const auto invalid_path =
+      write_temp_file("airow-qt-r008-invalid-schedule.json",
+                      make_valid_config_json("qt-r008-invalid-schedule", 1.0,
+                                             0.25, 14.0, 0.0, 1.2));
   const auto invalid_result = project::load_simulator_config_file(invalid_path);
 
   ASSERT_FALSE(invalid_result.ok());
@@ -539,10 +546,10 @@ TEST(V0_1ClosureSystem, RuntimeDiagnosticsCloseR016) {
         {std::chrono::sys_days{std::chrono::year{2026} / 4 / 5} + 13h,
          std::chrono::sys_days{std::chrono::year{2026} / 4 / 5} + 13h + 1s});
 
-    const auto result = project::run_simulation(
-        make_valid_config("qt-r016-hydro"),
-        project::SimulationDependencies{.hydro_provider = &hydro,
-                                        .clock = &clock});
+    const auto result =
+        project::run_simulation(make_valid_config("qt-r016-hydro"),
+                                project::SimulationDependencies{
+                                    .hydro_provider = &hydro, .clock = &clock});
 
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
@@ -586,8 +593,8 @@ TEST(V0_1ClosureSystem, RuntimeDiagnosticsCloseR016) {
  */
 TEST(V0_1ClosureSystem, UnitsAndNumericSafetyCloseR017) {
   const std::set<std::string> allowed_config_units = {
-      "",        "bool",          "body-axis", "kg",   "kg*m^2", "m",
-      "m/s",     "rad",           "rad/s",     "s",    "unit-quaternion",
+      "",    "bool", "body-axis", "kg", "kg*m^2",          "m",
+      "m/s", "rad",  "rad/s",     "s",  "unit-quaternion",
   };
 
   for (const auto &file_name :
@@ -601,7 +608,8 @@ TEST(V0_1ClosureSystem, UnitsAndNumericSafetyCloseR017) {
     const auto normalized =
         project::normalize_simulator_config(loaded.scenario->config);
     for (const auto &entry : normalized) {
-      EXPECT_NE(allowed_config_units.find(entry.unit), allowed_config_units.end())
+      EXPECT_NE(allowed_config_units.find(entry.unit),
+                allowed_config_units.end())
           << file_name << " -> " << entry.key << " uses undocumented unit '"
           << entry.unit << "'";
     }
@@ -627,30 +635,25 @@ TEST(V0_1ClosureSystem, UnitsAndNumericSafetyCloseR017) {
   ASSERT_TRUE(result.ok());
   const auto time_series = read_json_file(time_series_path);
   const auto &record = time_series.at("records").front();
-  EXPECT_EQ(record.at("hull_state")
-                .at("position_world_m")
-                .at("vector")
-                .at("unit"),
-            Json("m"));
-  EXPECT_EQ(record.at("hull_state")
-                .at("position_world_m")
-                .at("vector")
-                .at("frame"),
-            Json("world"));
-  EXPECT_EQ(record.at("hull_state")
-                .at("orientation_world_from_body_xyzw")
-                .at("unit"),
-            Json("unit-quaternion"));
+  EXPECT_EQ(
+      record.at("hull_state").at("position_world_m").at("vector").at("unit"),
+      Json("m"));
+  EXPECT_EQ(
+      record.at("hull_state").at("position_world_m").at("vector").at("frame"),
+      Json("world"));
+  EXPECT_EQ(
+      record.at("hull_state").at("orientation_world_from_body_xyzw").at("unit"),
+      Json("unit-quaternion"));
   EXPECT_EQ(record.at("seat_state").at("position_along_rail_m").at("unit"),
             Json("m"));
   EXPECT_EQ(record.at("oar_state").at("port").at("handle_angle_rad").at("unit"),
             Json("rad"));
   EXPECT_EQ(record.at("boat_speed_mps").at("unit"), Json("m/s"));
 
-  const auto invalid_path = write_temp_file(
-      "airow-qt-r017-ambiguous-units.json",
-      make_valid_config_json("qt-r017-ambiguous", 1.0, 0.25, 14.0, 0.0, 0.48,
-                             R"("14 kg")"));
+  const auto invalid_path =
+      write_temp_file("airow-qt-r017-ambiguous-units.json",
+                      make_valid_config_json("qt-r017-ambiguous", 1.0, 0.25,
+                                             14.0, 0.0, 0.48, R"("14 kg")"));
   const auto invalid_result = project::load_simulator_config_file(invalid_path);
 
   ASSERT_FALSE(invalid_result.ok());
@@ -743,10 +746,8 @@ TEST(V0_1ClosureSystem, StartupValidityClosesR032) {
 
   {
     auto config = make_valid_config("qt-r032-invalid");
-    config.hull.initial_orientation_xyzw = {.x = 0.0,
-                                            .y = 0.0,
-                                            .z = 0.0,
-                                            .w = 0.0};
+    config.hull.initial_orientation_xyzw = {
+        .x = 0.0, .y = 0.0, .z = 0.0, .w = 0.0};
     FixedClock clock(
         {std::chrono::sys_days{std::chrono::year{2026} / 4 / 5} + 15h + 2min,
          std::chrono::sys_days{std::chrono::year{2026} / 4 / 5} + 15h + 2min +
@@ -757,7 +758,8 @@ TEST(V0_1ClosureSystem, StartupValidityClosesR032) {
     ASSERT_FALSE(result.ok());
     EXPECT_EQ(result.status, project::RunStatus::runtime_error);
     EXPECT_EQ(result.metadata.startup_status, "failed");
-    EXPECT_EQ(result.metadata.startup_solver_status, "invalid_initial_orientation");
+    EXPECT_EQ(result.metadata.startup_solver_status,
+              "invalid_initial_orientation");
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "startup_invalid_state");
     EXPECT_EQ(result.diagnostics.front().subsystem, "startup");

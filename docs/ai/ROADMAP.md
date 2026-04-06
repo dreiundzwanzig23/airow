@@ -2,51 +2,45 @@
 
 ## Status
 - The `v0.1` cut line is complete as of 2026-04-05.
-- Current work should focus on post-`v0.1` fidelity, provider selection,
-  validity metadata, and deferred backlog items rather than reopening the
-  baseline milestone.
+- Current work should focus on explicit post-`v0.1` slices rather than on a
+  loose backlog or reopening the baseline milestone.
 
-## v0.1 Cut Line
+## Post-`v0.1` Slices
 
-### In
-- Replace the bootstrap sample code with the first headless simulator slice.
-- Land the first real subsystem-owned `D-*`, `UT-*`, `IT-*`, and `QT-*`
-  evidence inside `A-001..A-010`.
-- Implement validated configuration, in-memory API and CLI execution, explicit
-  frame conventions, and numerical startup-validity diagnostics.
-- Implement the first stable 3D single-scull mechanics assembly for hull, oars,
-  seat, and prescribed stroke input.
-- Implement reduced baseline runtime models for hull flotation or drag,
-  blade-water loading, and steady-wind aero.
-- Add named runtime-backed baseline scenarios for passive float, tow,
-  calm-water stroke, headwind stroke, and crosswind stroke.
-- Preserve strict TDD, traceability, deterministic replay expectations on the
-  same executable or platform, and machine-readable outputs.
+### Slice 1 — Runtime-Selectable Providers and Validity Metadata
+- Close `R-020` and `R-033`.
+- Add runtime-selectable hydro and aero provider variants, deterministic
+  unknown-provider rejection, and machine-readable validity-metadata
+  propagation for reduced runtime providers.
+- Extend `A-001`, `A-002`, `A-004`, `A-005`, and `A-007` without reopening
+  solver or backend selection.
 
-### Out
-- External calibration dataset ingestion and calibration provenance workflows.
-- Time-varying wind and gust studies.
-- Batch parameter sweeps.
-- Low-order balance control.
-- Flexible oars.
-- Disturbance inputs beyond the steady baseline environment.
-- Optional truth-model export or import work beyond protecting the separation
-  boundary.
+### Slice 2 — Reduced-Model Fidelity Expansion
+- Deepen reduced hydro and steady-wind aero behavior behind the existing
+  provider seams while preserving the current deterministic headless run path.
+- Keep `A-004` and `A-005` as the primary owners for richer reduced-model
+  variants and stronger observable scenario fidelity.
 
-## Sequencing
-1. Configuration, units, frame conventions, and startup validity.
-2. Library API plus CLI orchestration for a single deterministic run.
-3. Mechanics assembly and constrained initialization.
-4. Passive float and tow scenarios with structured outputs.
-5. Self-propelled calm-water stroke.
-6. Steady headwind and crosswind scenarios.
+### Slice 3 — External Backend Wiring and Backend Selection
+- Revisit concrete Chrono and SUNDIALS adoption behind the existing mechanics
+  and state-advancer seams.
+- Anchor this work in `A-010`, with coordinated changes in `A-003` and
+  `A-002` where backend wiring touches mechanics realization or run lifecycle.
+- Keep this slice separate from hydro or aero provider selection.
 
-## Backlog
+### Slice 4 — Calibration and Time-Varying Environment
+- Re-open `R-021`, `R-022`, and `R-023` after provider selection and backend
+  seams are stable.
+- Add external calibration ingestion, provenance propagation, and
+  deterministic time-varying wind support without collapsing the runtime
+  versus truth-model separation boundary.
+
+## Later Backlog
+- Keep `R-024` and `R-026` as cross-cutting guardrails across the post-`v0.1`
+  slices rather than as the next headline delivery items.
+- `R-025`, `R-027`, `R-028`, `R-029`, and `R-030` remain deferred until the
+  four near-term slices above settle.
 - Add real component-prefixed code paths so component-level depcheck rules
   become active in production code.
-- Land runtime-selectable provider variants only after the first baseline
-  provider for each force family is stable.
-- Re-open external calibration ingestion, provenance propagation, and
-  validity-metadata expansion now that `v0.1` is complete.
 - Add simulator-specific auxiliary and regression lanes only when they improve
   local verification without polluting the baseline runtime path.
