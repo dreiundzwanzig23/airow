@@ -732,6 +732,54 @@ TEST(SimulationRun, HeadlessCliWrapperMapsRuntimeFailure) {
 }
 
 /**
+ * @test UT-120
+ * @verifies [D-031]
+ * @notes Given a valid config file and the compact report flag, when the
+ * headless CLI wrapper runs, then it keeps the stable exit mapping and appends
+ * a human-readable analysis report for successful runs.
+ */
+TEST(SimulationRun, HeadlessCliWrapperCanRenderCompactReport) {
+  std::ostringstream stdout_stream;
+  std::ostringstream stderr_stream;
+
+  const auto path = write_temp_file("airow-unit-cli-report-config.json",
+                                    make_valid_config_json("unit-cli-report"));
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 1s});
+  const auto path_text = path.string();
+  const std::vector<std::string_view> args = {"--config", path_text, "--report",
+                                              "compact"};
+
+  EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
+                                      project::CliDependencies{
+                                          .simulation = {.clock = &clock},
+                                      }),
+            0);
+  EXPECT_NE(stdout_stream.str().find("Run Analysis"), std::string::npos);
+  EXPECT_NE(stdout_stream.str().find("Coverage"), std::string::npos);
+  EXPECT_TRUE(stderr_stream.str().empty());
+  remove_file_if_present(path);
+}
+
+/**
+ * @test UT-121
+ * @verifies [D-031]
+ * @notes Given an unsupported report mode, when the headless CLI wrapper runs,
+ * then it rejects usage deterministically instead of executing the run path.
+ */
+TEST(SimulationRun, HeadlessCliWrapperRejectsUnknownReportMode) {
+  std::ostringstream stdout_stream;
+  std::ostringstream stderr_stream;
+
+  const std::vector<std::string_view> args = {"--config", "ignored.json",
+                                              "--report", "verbose"};
+
+  EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream), 64);
+  EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
+}
+
+/**
  * @test UT-104
  * @verifies [D-010, D-012]
  * @notes Given a zero-duration config and recording providers, when the run

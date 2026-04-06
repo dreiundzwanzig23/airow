@@ -2,10 +2,20 @@
 
 ## Status
 - The `v0.1` cut line is complete as of 2026-04-05.
-- Current work should focus on explicit post-`v0.1` slices rather than on a
-  loose backlog or reopening the baseline milestone.
+- Slice 0 for human-readable run analysis closed on 2026-04-06 with `R-034`,
+  additive summary-analysis output, optional CLI report modes, and the first
+  offline static report tool.
+- Current work should resume on the explicit post-`v0.1` roadmap slices rather
+  than on a loose backlog or reopening the baseline milestone.
 
 ## Post-`v0.1` Slices
+
+### Slice 0 — Human-Readable Run Analysis
+- Closed `R-034`.
+- Added compact and full human-readable CLI report modes plus derived
+  single-run analysis metrics in the JSON summary artifact.
+- Added a standard-library-only offline report generator for static HTML and
+  SVG inspection from emitted JSON artifacts.
 
 ### Slice 1 — Runtime-Selectable Providers and Validity Metadata
 - Close `R-020` and `R-033`.

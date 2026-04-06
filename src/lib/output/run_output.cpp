@@ -3,6 +3,7 @@
 #include "project/configuration/simulator_config.hpp"
 #include "project/core/geometry.hpp"
 #include "project/mechanics/state.hpp"
+#include "project/output/run_analysis.hpp"
 #include "project/output/run_result.hpp"
 
 #include <cstddef>
@@ -204,6 +205,86 @@ Json diagnostics_json(const SimulationRunResult &result) {
   return diagnostics;
 }
 
+Json analysis_envelope_json(const ScalarEnvelope &envelope,
+                            std::string_view unit) {
+  return Json{{"min", envelope.min},
+              {"max", envelope.max},
+              {"unit", unit},
+              {"has_samples", envelope.has_samples}};
+}
+
+Json analysis_peak_json(const TimedValue &peak, std::string_view unit) {
+  return Json{{"value", peak.value},
+              {"time_s", peak.time_s},
+              {"unit", unit},
+              {"has_sample", peak.has_sample}};
+}
+
+Json analysis_json(const SimulationRunResult &result) {
+  const auto analysis = analyze_run_result(result);
+  Json final_state{
+      {"time_s", scalar_channel(analysis.final_time_s, "s")},
+      {"boat_speed_mps", scalar_channel(analysis.final_boat_speed_mps, "m/s")},
+      {"hull_position_z_m",
+       scalar_channel(analysis.final_hull_position_z_m, "m")},
+      {"seat_position_m", scalar_channel(analysis.final_seat_position_m, "m")},
+      {"apparent_wind_speed_mps",
+       scalar_channel(analysis.final_apparent_wind_speed_mps, "m/s")},
+      {"stroke_power_w", scalar_channel(analysis.final_stroke_power_w, "W")}};
+  if (!result.state_history.empty()) {
+    final_state["stroke_phase"] =
+        stroke_phase_text(result.state_history.back().stroke.phase);
+    final_state["phase_time_s"] =
+        scalar_channel(result.state_history.back().stroke.phase_time_s, "s");
+  }
+
+  return Json{
+      {"coverage",
+       Json{{"state_sample_count", analysis.state_sample_count},
+            {"load_sample_count", analysis.load_sample_count},
+            {"emitted_time_series_record_count",
+             analysis.emitted_time_series_record_count},
+            {"high_frequency_time_series",
+             analysis.emitted_high_frequency_time_series},
+            {"drive_sample_count", analysis.drive_sample_count},
+            {"recovery_sample_count", analysis.recovery_sample_count},
+            {"recovery_to_drive_transition_count",
+             analysis.recovery_to_drive_transition_count}}},
+      {"final_state", final_state},
+      {"motion_envelope",
+       Json{{"boat_speed_mps",
+             analysis_envelope_json(analysis.boat_speed_mps, "m/s")},
+            {"hull_position_z_m",
+             analysis_envelope_json(analysis.hull_position_z_m, "m")}}},
+      {"stroke_envelope",
+       Json{
+           {"seat_position_m",
+            analysis_envelope_json(analysis.seat_position_m, "m")},
+           {"port_handle_angle_rad",
+            analysis_envelope_json(analysis.port_handle_angle_rad, "rad")},
+           {"starboard_handle_angle_rad",
+            analysis_envelope_json(analysis.starboard_handle_angle_rad, "rad")},
+           {"port_blade_immersion_depth_m",
+            analysis_envelope_json(analysis.port_blade_immersion_depth_m, "m")},
+           {"starboard_blade_immersion_depth_m",
+            analysis_envelope_json(analysis.starboard_blade_immersion_depth_m,
+                                   "m")}}},
+      {"wind_envelope",
+       Json{{"apparent_wind_speed_mps",
+             analysis_envelope_json(analysis.apparent_wind_speed_mps, "m/s")}}},
+      {"load_peaks",
+       Json{{"peak_total_hydro_force_n",
+             analysis_peak_json(analysis.peak_total_hydro_force_n, "N")},
+            {"peak_aero_force_n",
+             analysis_peak_json(analysis.peak_aero_force_n, "N")},
+            {"peak_port_blade_force_n",
+             analysis_peak_json(analysis.peak_port_blade_force_n, "N")},
+            {"peak_starboard_blade_force_n",
+             analysis_peak_json(analysis.peak_starboard_blade_force_n, "N")},
+            {"peak_stroke_power_w",
+             analysis_peak_json(analysis.peak_stroke_power_w, "W")}}}};
+}
+
 Json output_formats_json(const OutputArtifacts &outputs) {
   Json formats = Json::array();
   if (outputs.emit_json) {
@@ -256,6 +337,7 @@ Json make_summary_document(const SimulationRunResult &result) {
              Json{{"vector",
                    vector_channel(result.summary.final_hydro_moment_world_n_m,
                                   "N*m", "world")}}}}},
+      {"analysis", analysis_json(result)},
       {"metadata", metadata},
       {"diagnostics", diagnostics_json(result)},
       {"outputs", Json{{"summary_path", result.outputs.summary_path},

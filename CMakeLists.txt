@@ -61,6 +61,7 @@ add_library(project_lib
     src/lib/configuration/simulator_config.cpp
     src/lib/hydro/baseline_providers.cpp
     src/lib/numerics/state_advancement.cpp
+    src/lib/output/run_analysis.cpp
     src/lib/output/run_output.cpp
     src/lib/orchestrator/cli.cpp
     src/lib/orchestrator/scenario_harness.cpp
@@ -128,6 +129,7 @@ if(BUILD_TESTING)
     add_executable(project_tests_unit
         tests/unit/test_aero_runtime_models.cpp
         tests/unit/test_hydro_runtime_models.cpp
+        tests/unit/test_run_analysis.cpp
         tests/unit/test_state_advancement.cpp
         tests/unit/test_simulator_config.cpp
         tests/unit/test_simulator_config_mechanics.cpp
@@ -156,6 +158,7 @@ if(BUILD_TESTING)
         tests/system/test_calm_water_scenario_system.cpp
         tests/system/test_examples_system.cpp
         tests/system/test_simulator_config_system.cpp
+        tests/system/test_run_analysis_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
         tests/system/test_scenario_harness_system.cpp
@@ -179,6 +182,7 @@ if(BUILD_TESTING)
         tests/aux/include_hydro_provider.cpp
         tests/aux/include_hydro_providers.cpp
         tests/aux/include_mechanics_state.cpp
+        tests/aux/include_run_analysis.cpp
         tests/aux/include_run_output.cpp
         tests/aux/include_run_result.cpp
         tests/aux/include_scenario_harness.cpp

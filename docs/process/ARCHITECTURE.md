@@ -186,7 +186,7 @@ Still planned or incomplete:
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
-- **Satisfies**: [R-002, R-003, R-004, R-016, R-020, R-023, R-024, R-025]
+- **Satisfies**: [R-002, R-003, R-004, R-016, R-020, R-023, R-024, R-025, R-034]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Coordinate one or more simulation runs, lifecycle transitions, provider wiring, failure handling, and deterministic replay.
 - **Owned Concepts**: Run lifecycle; in-memory simulation API; CLI entry wiring; provider registry binding; batch execution flow.
@@ -199,8 +199,9 @@ Still planned or incomplete:
 - **Future Absorption**: Parallel batch scheduling, checkpoint/restart, and richer orchestration policies should extend this subsystem.
 - **Interfaces**: CLI entry contract and in-memory run API that share one
   deterministic single-run execution path, plus injected hydro and aero stub
-  provider seams, stable run-result metadata, and exit-code mapping for the
-  first headless baseline.
+  provider seams, stable run-result metadata, exit-code mapping for the first
+  headless baseline, and optional human-readable report rendering modes for
+  successful single-run inspection.
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
@@ -275,10 +276,10 @@ Still planned or incomplete:
 
 ## A-007 — Output and Diagnostics
 - **Title**: Structured outputs and runtime diagnostics subsystem
-- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033]
+- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034]
 - **Status**: IN_PROGRESS
-- **Responsibility**: Capture machine-readable summaries, time series, metadata, and actionable diagnostics for single and batch runs.
-- **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs.
+- **Responsibility**: Capture machine-readable summaries, time series, metadata, actionable diagnostics, and human-readable derived analysis for single and batch runs.
+- **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs; derived run-analysis summaries; offline report generation contracts.
 - **Inputs**: Run lifecycle events; mechanics, hydro, aero, control, and numerical integration outputs; calibration provenance identifiers.
 - **Outputs**: Summary artifacts; time-series artifacts; diagnostic records; per-case batch result summaries.
 - **Depends On**: Orchestrator lifecycle contracts; subsystem output contracts; configuration metadata; provenance metadata.
@@ -291,8 +292,9 @@ Still planned or incomplete:
   at runtime configuration (`json`, `hdf5`, or both). The output contract
   preserves explicit unit/frame annotations for boundary-visible vectors,
   structured hull/blade force channels, force/power accounting channels,
-  deterministic sampling policy, and stable diagnostics when requested
-  formats are unavailable.
+  deterministic sampling policy, stable diagnostics when requested formats are
+  unavailable, and additive derived-analysis summaries suitable for CLI and
+  offline single-run inspection.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem

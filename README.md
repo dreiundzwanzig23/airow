@@ -36,6 +36,11 @@ Run one headless baseline case:
 ./build/project_app --config /path/to/config.json
 ```
 
+Run one case with the human-readable compact report:
+```bash
+./build/project_app --config /path/to/config.json --report compact
+```
+
 Runnable example catalog:
 ```bash
 ./examples/run_example.sh passive_float
@@ -56,6 +61,7 @@ Current implemented library surface:
 - `include/project/orchestrator/simulation_run.hpp`
 - `include/project/orchestrator/cli.hpp`
 - `include/project/orchestrator/scenario_harness.hpp`
+- `include/project/output/run_analysis.hpp`
 - JSON file or in-memory loading for baseline simulation, hull, oar, seat, and
   prescribed-stroke startup fields
 - deterministic diagnostics and normalized configuration metadata for `R-001`
@@ -76,6 +82,8 @@ Current implemented library surface:
 - headless CLI wrapper with stable exit-code behavior for `R-002` and `R-003`
 - stable run-result contract now lives in `include/project/output/run_result.hpp`
   with output-writer seams in `include/project/output/run_output.hpp`
+- derived single-run analysis summaries and human-readable report formatting in
+  `include/project/output/run_analysis.hpp`
 - deterministic scenario-definition loading and acceptance-envelope evaluation
   for checked-in passive-float, tow, calm-water stroke, headwind stroke, and
   crosswind stroke artifacts in `scenarios/*.json`
@@ -85,6 +93,11 @@ Current implemented library surface:
   forces
 - deterministic aero baseline provider for steady apparent-wind, longitudinal
   drag, and yaw-moment reporting behind the shared `AeroProvider` seam
+- optional `--report compact|full` CLI output for human-readable run-state and
+  load-envelope inspection
+- offline `python3 tools/run_analysis.py --summary <path> --time-series <path>
+  --output-dir <dir>` report generation with static HTML and SVG plots from
+  emitted JSON artifacts
 
 ## Project Direction
 

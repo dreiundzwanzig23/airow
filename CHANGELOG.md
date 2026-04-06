@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Changed
+- Added a human-readable run-analysis slice (`R-034`) with a public
+  `run_analysis` contract, additive summary-analysis JSON, optional
+  `project_app --report compact|full` output, and a dependency-light
+  `tools/run_analysis.py` static HTML or SVG post-processing tool for
+  single-run inspection.
 - Replaced the generic post-`v0.1` backlog in `docs/ai/ROADMAP.md` with four
   explicit follow-on slices and clarified across the roadmap, session, handoff,
   and README docs that Chrono or SUNDIALS belong to a later external-backend

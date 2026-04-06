@@ -41,6 +41,21 @@ You can also call the CLI directly from the repo root:
 ./build/project_app --config examples/calm_water_stroke/config.json
 ```
 
+For a compact human-readable overview of one run:
+
+```bash
+./build/project_app --config examples/calm_water_stroke/config.json --report compact
+```
+
+For a static HTML plus SVG report from the emitted JSON artifacts:
+
+```bash
+python3 tools/run_analysis.py \
+  --summary examples/output/calm_water_stroke/summary.json \
+  --time-series examples/output/calm_water_stroke/timeseries.json \
+  --output-dir examples/output/calm_water_stroke/report
+```
+
 ## Relationship To `scenarios/`
 
 The files under `scenarios/` are validation artifacts for the scenario

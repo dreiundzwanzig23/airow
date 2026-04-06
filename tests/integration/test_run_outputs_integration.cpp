@@ -273,3 +273,62 @@ TEST(RunOutputsIntegration, DualFormatEmissionIncludesHdf5WhenSupported) {
   remove_file_if_present(mem_time_series_path);
   remove_file_if_present(mem_hdf5_path);
 }
+
+/**
+ * @test IT-012
+ * @verifies [A-007]
+ * @notes Given low-frequency JSON output, when the shared run path emits the
+ * summary artifact, then it includes derived analysis metrics computed from
+ * the full in-memory run result rather than from the sparse emitted records.
+ */
+TEST(RunOutputsIntegration, SummaryArtifactIncludesDerivedAnalysisBlock) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-it-analysis-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-it-analysis-timeseries.json";
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  auto loaded = project::parse_simulator_config_text(
+      make_valid_config_json_with_output("it-analysis", summary_path.string(),
+                                         time_series_path.string(), false));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.config.has_value());
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 10h + 1s});
+  const auto result = project::run_simulation(
+      *loaded.config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  const auto summary = read_json_file(summary_path);
+  const auto &analysis = summary.at("analysis");
+
+  EXPECT_EQ(analysis.at("coverage").at("state_sample_count").get<std::size_t>(),
+            result.state_history.size());
+  EXPECT_EQ(analysis.at("coverage")
+                .at("emitted_time_series_record_count")
+                .get<std::size_t>(),
+            2U);
+  EXPECT_EQ(
+      analysis.at("coverage").at("high_frequency_time_series").get<bool>(),
+      false);
+  EXPECT_EQ(
+      analysis.at("final_state").at("boat_speed_mps").at("value").get<double>(),
+      result.state_history.back().hull.linear_velocity_world_mps.x);
+  double max_boat_speed_mps = 0.0;
+  for (const auto &state : result.state_history) {
+    max_boat_speed_mps =
+        std::max(max_boat_speed_mps, state.hull.linear_velocity_world_mps.x);
+  }
+  EXPECT_EQ(analysis.at("motion_envelope")
+                .at("boat_speed_mps")
+                .at("max")
+                .get<double>(),
+            max_boat_speed_mps);
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}

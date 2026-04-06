@@ -600,3 +600,19 @@ Milestone framing:
 - **Updated**: 2026-04-02
 - **Change-Type**: none
 - **Needs-Review**: no
+
+## R-034 — Human-Readable Run Analysis
+- **Title**: Surface simulator state and result envelopes in human-readable reports
+- **Acceptance Criteria**:
+  - A successful run can emit a human-readable compact report that highlights startup health, final state, and key state or load envelopes without requiring manual JSON inspection.
+  - Machine-readable summary output includes derived analysis metrics computed from the full in-memory run result, including sample coverage, state envelopes, load envelopes, and peak timestamps.
+  - An offline repository tool can turn emitted JSON artifacts into a static analysis report bundle with summary tables and plots for single-run inspection.
+  - Low-frequency time-series output still preserves useful derived analysis metrics in the summary report.
+- **Priority**: P1
+- **Status**: DONE
+- **Created**: 2026-04-06
+- **Updated**: 2026-04-06
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This slice is intentionally limited to single-run understanding.
+  Run-to-run comparison and batch sweep analysis remain separate follow-on work.
