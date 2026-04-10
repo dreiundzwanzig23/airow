@@ -61,6 +61,37 @@ private:
   double drag_coefficient_n_s2_per_m2_{};
 };
 
+class QuadraticDragPlaceholderHullResistanceProvider final
+    : public HydroProvider {
+public:
+  explicit QuadraticDragPlaceholderHullResistanceProvider(
+      double drag_coefficient_n_s2_per_m2 = 2.0);
+
+  [[nodiscard]] std::string_view identifier() const noexcept override;
+  HydroLoadSample sample_load(const StepContext &context) override;
+  [[nodiscard]] double drag_force(double forward_speed_mps) const;
+
+private:
+  double drag_coefficient_n_s2_per_m2_{};
+};
+
+class StrokePropulsionPlaceholderBladeForceProvider final
+    : public HydroProvider {
+public:
+  StrokePropulsionPlaceholderBladeForceProvider(
+      double blade_force_coefficient_n_s_per_m = 4.0,
+      double full_blade_immersion_depth_m = 0.12);
+
+  [[nodiscard]] std::string_view identifier() const noexcept override;
+  HydroLoadSample sample_load(const StepContext &context) override;
+
+private:
+  [[nodiscard]] double blade_force_x_n(const OarState &oar) const;
+
+  double blade_force_coefficient_n_s_per_m_{};
+  double full_blade_immersion_depth_m_{};
+};
+
 class StrokePropulsionPlaceholderHydroProvider final : public HydroProvider {
 public:
   StrokePropulsionPlaceholderHydroProvider(
@@ -71,12 +102,9 @@ public:
   HydroLoadSample sample_load(const StepContext &context) override;
 
 private:
-  [[nodiscard]] double blade_force_x_n(const OarState &oar) const;
-
   PassivePlaceholderHydroProvider restoring_provider_;
-  double drag_coefficient_n_s2_per_m2_{};
-  double blade_force_coefficient_n_s_per_m_{};
-  double full_blade_immersion_depth_m_{};
+  QuadraticDragPlaceholderHullResistanceProvider hull_resistance_provider_;
+  StrokePropulsionPlaceholderBladeForceProvider blade_force_provider_;
 };
 
 } // namespace project

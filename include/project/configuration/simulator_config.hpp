@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "project/configuration/provider_catalog.hpp"
 #include "project/core/geometry.hpp"
 
 namespace project {
@@ -89,6 +90,14 @@ struct EnvironmentSettings {
   bool operator==(const EnvironmentSettings &) const = default;
 };
 
+struct ProviderSelectionSettings {
+  std::string hull_resistance{"none"};
+  std::string blade_force{"none"};
+  std::string aero_load{"none"};
+
+  bool operator==(const ProviderSelectionSettings &) const = default;
+};
+
 struct OutputSettings {
   std::string summary_path;
   std::string time_series_path;
@@ -108,6 +117,7 @@ struct SimulatorConfig {
   SeatSettings seat;
   StrokeSettings stroke;
   EnvironmentSettings environment;
+  ProviderSelectionSettings providers{};
   OutputSettings output{};
 
   bool operator==(const SimulatorConfig &) const = default;

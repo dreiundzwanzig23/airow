@@ -4,30 +4,29 @@
 - 2026-04-06
 
 ## What Changed In This Session
-- Added the human-readable run-analysis slice and closed `R-034` with a public
-  `run_analysis` contract, additive summary-analysis metrics, and optional
-  compact or full CLI report modes.
-- Added `tools/run_analysis.py` for static HTML and SVG post-processing from
-  emitted JSON summary and time-series artifacts without new Python
-  dependencies.
-- Updated `ROADMAP.md`, `SESSION_CONTEXT.md`, `README.md`, `examples/README.md`,
-  and `CHANGELOG.md` so the observability slice is recorded as complete before
-  provider-selection work resumes.
+- Closed Slice 1 by landing the top-level `providers` config block,
+  config-driven built-in reduced-provider construction on the shared run path,
+  and structured per-role provider validity metadata in summary outputs.
+- Added new parser, orchestrator, output, integration, and system evidence for
+  runtime-selectable reduced providers and validity metadata (`UT-122..UT-126`,
+  `IT-013..IT-015`, `QT-029..QT-030`).
+- Updated roadmap, session, handoff, README, examples, requirements,
+  architecture, and changelog docs so the provider-selection slice is recorded
+  as complete and fidelity expansion becomes the next active slice.
 
 ## Current Technical Posture
-- `v0.1` remains closed; the active planning surface is now the landed
-  observability slice followed by the ordered post-`v0.1` roadmap.
-- Near-term work is explicitly centered on `R-020` plus `R-033` first, with
-  the new run-analysis surface treated as a compatibility constraint for later
-  provider and fidelity work.
+- `v0.1`, the observability slice, and the provider-selection slice are now
+  all closed on the main roadmap.
+- The shared run path now has two stable compatibility surfaces for later
+  work: the human-readable run-analysis feature set and the structured
+  provider-selection plus validity-metadata contract.
 - External solver adoption remains deferred until the dedicated backend slice.
 
 ## Immediate Next Steps
-1. Land runtime-selectable provider variants and validity metadata on the
-   existing configuration and output seams without regressing the human-readable
-   analysis outputs.
-2. Extend reduced hydro and steady-wind aero fidelity behind the current
-   provider contracts while preserving the current report and summary-analysis
-   surface.
+1. Extend reduced hydro and steady-wind aero fidelity behind the landed
+   provider-selection contracts while preserving the structured provider
+   metadata and current report or summary-analysis surface.
+2. Decide which richer reduced-model variants should become the next built-in
+   catalog entries for Slice 2 without reopening solver or backend selection.
 3. Revisit concrete Chrono and SUNDIALS wiring only in the later backend slice
    under `A-010`.

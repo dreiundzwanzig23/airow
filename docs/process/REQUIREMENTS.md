@@ -393,11 +393,15 @@ Milestone framing:
   - Providers that implement the same contract satisfy a shared integration test suite.
   - Selecting an unknown provider causes deterministic configuration rejection.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-06
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The runtime now validates a top-level `providers` block for
+  `hull_resistance`, `blade_force`, and `aero_load`, constructs the selected
+  built-in reduced providers without recompilation on the shared run path, and
+  records the selected role ids in structured run metadata.
 
 ## R-021 — External Calibration Dataset Ingestion
 - **Title**: Load external calibration data for hydrodynamic or aerodynamic models
@@ -595,11 +599,15 @@ Milestone framing:
   - Provider definitions that omit required validity metadata are rejected deterministically before execution.
   - Automated verification checks that validity metadata is propagated into machine-readable outputs for at least one run.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-02
-- **Updated**: 2026-04-02
+- **Updated**: 2026-04-06
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: Built-in reduced runtime providers now expose catalog-backed
+  validity metadata, configuration rejects unknown provider ids before
+  execution, and machine-readable summary output propagates structured
+  per-role provider validity descriptors.
 
 ## R-034 — Human-Readable Run Analysis
 - **Title**: Surface simulator state and result envelopes in human-readable reports

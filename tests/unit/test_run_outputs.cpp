@@ -1002,3 +1002,49 @@ TEST(RunOutputs, EmitsJsonAndReportsHdf5FailureWhenUnavailable) {
   remove_file_if_present(time_series_path);
   remove_file_if_present(hdf5_path);
 }
+
+/**
+ * @test UT-125
+ * @verifies [D-034]
+ * @notes Given runtime-selectable built-in providers, when a JSON summary is
+ * emitted, then structured provider metadata is preserved and the legacy flat
+ * provider-id fields are absent.
+ */
+TEST(RunOutputs, SummaryArtifactEmitsStructuredProviderMetadata) {
+  auto config = make_config("ut-output-providers", 0.5, 0.25);
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-ut-output-providers-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-ut-output-providers-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  config.providers.hull_resistance = "quadratic_drag_placeholder";
+  config.providers.blade_force = "stroke_propulsion_placeholder";
+  config.providers.aero_load = "steady_wind_placeholder";
+  config.output.summary_path = summary_path.string();
+  config.output.time_series_path = time_series_path.string();
+  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0};
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 9h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 9h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  const Json summary = read_json_file(summary_path);
+  const auto &providers = summary.at("metadata").at("providers");
+  EXPECT_EQ(providers.at("hull_resistance").at("id").get<std::string>(),
+            "quadratic_drag_placeholder");
+  EXPECT_EQ(providers.at("blade_force").at("id").get<std::string>(),
+            "stroke_propulsion_placeholder");
+  EXPECT_EQ(providers.at("aero_load").at("id").get<std::string>(),
+            "steady_wind_placeholder");
+  EXPECT_TRUE(summary.at("metadata").contains("providers"));
+  EXPECT_FALSE(summary.at("metadata").contains("hydro_provider_id"));
+  EXPECT_FALSE(summary.at("metadata").contains("aero_provider_id"));
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}

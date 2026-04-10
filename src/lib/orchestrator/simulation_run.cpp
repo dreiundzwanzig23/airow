@@ -1,7 +1,10 @@
 #include "project/orchestrator/simulation_run.hpp"
+#include "project/aero/baseline_providers.hpp"
 #include "project/aero/provider.hpp"
+#include "project/configuration/provider_catalog.hpp"
 #include "project/configuration/simulator_config.hpp"
 #include "project/core/geometry.hpp"
+#include "project/hydro/baseline_providers.hpp"
 #include "project/hydro/provider.hpp"
 #include "project/mechanics/state.hpp"
 #include "project/mechanics/step_context.hpp"
@@ -17,6 +20,7 @@
 #include <exception>
 #include <filesystem>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -26,12 +30,162 @@ namespace project {
 
 namespace {
 
-constexpr std::string_view DEFAULT_HYDRO_PROVIDER_ID = "baseline-null-hydro";
-constexpr std::string_view DEFAULT_AERO_PROVIDER_ID = "baseline-null-aero";
-
 #ifndef PROJECT_VERSION_STRING
 #define PROJECT_VERSION_STRING "0.0.0"
 #endif
+
+constexpr double DEFAULT_STEADY_WIND_DRAG_COEFFICIENT_N_S2_PER_M2 = 1.5;
+constexpr double DEFAULT_STEADY_WIND_YAW_MOMENT_COEFFICIENT_N_M_S2_PER_M2 =
+    0.75;
+
+/**
+ * @design D-033 — Built-in runtime provider composition and factory binding
+ * @title Fallback metadata shaping for externally supplied provider selections
+ * @satisfies [A-002, A-004, A-005]
+ */
+ProviderMetadata fallback_provider_metadata(std::string_view id,
+                                            std::string_view role_label) {
+  return {
+      .id = std::string(id),
+      .validity_id = "external-selection",
+      .validity_description =
+          "Externally supplied or manually constructed " +
+          std::string(role_label) +
+          " provider selection outside the built-in runtime catalog.",
+  };
+}
+
+ProviderMetadata selected_provider_metadata(ProviderRole role,
+                                            std::string_view id,
+                                            std::string_view role_label) {
+  if (const auto metadata = lookup_builtin_provider_metadata(role, id);
+      metadata.has_value()) {
+    return *metadata;
+  }
+  return fallback_provider_metadata(id, role_label);
+}
+
+ProviderSelectionMetadata
+selected_provider_metadata(const SimulatorConfig &config) {
+  return {
+      .hull_resistance = selected_provider_metadata(
+          ProviderRole::hull_resistance, config.providers.hull_resistance,
+          "hull-resistance"),
+      .blade_force = selected_provider_metadata(ProviderRole::blade_force,
+                                                config.providers.blade_force,
+                                                "blade-force"),
+      .aero_load = selected_provider_metadata(
+          ProviderRole::aero_load, config.providers.aero_load, "aero-load"),
+  };
+}
+
+std::string
+format_hydro_provider_label(const ProviderSelectionMetadata &metadata) {
+  return "hull_resistance=" + metadata.hull_resistance.id +
+         ", blade_force=" + metadata.blade_force.id;
+}
+
+std::string
+format_aero_provider_label(const ProviderSelectionMetadata &metadata) {
+  return "aero_load=" + metadata.aero_load.id;
+}
+
+Vector3 sum_vectors(const Vector3 &lhs, const Vector3 &rhs) {
+  return {.x = lhs.x + rhs.x, .y = lhs.y + rhs.y, .z = lhs.z + rhs.z};
+}
+
+class CompositeHydroProvider final : public HydroProvider {
+public:
+  CompositeHydroProvider(
+      std::unique_ptr<HydroProvider> hull_resistance_provider,
+      std::unique_ptr<HydroProvider> blade_force_provider)
+      : hull_resistance_provider_(std::move(hull_resistance_provider)),
+        blade_force_provider_(std::move(blade_force_provider)) {}
+
+  [[nodiscard]] std::string_view identifier() const noexcept override {
+    return "composite_hydro_runtime";
+  }
+
+  HydroLoadSample sample_load(const StepContext &context) override {
+    auto load = restoring_provider_.sample_restoring_load(context);
+    if (hull_resistance_provider_ != nullptr) {
+      const auto hull_load = hull_resistance_provider_->sample_load(context);
+      load.hull_force_x_n += hull_load.hull_force_x_n;
+      load.hull_force_world_n = sum_vectors(
+          load.hull_force_world_n, hull_load.resolved_hull_force_world_n());
+      load.hull_moment_world_n_m = sum_vectors(load.hull_moment_world_n_m,
+                                               hull_load.hull_moment_world_n_m);
+    }
+    if (blade_force_provider_ != nullptr) {
+      const auto blade_load = blade_force_provider_->sample_load(context);
+      load.port_blade_force_x_n += blade_load.port_blade_force_x_n;
+      load.starboard_blade_force_x_n += blade_load.starboard_blade_force_x_n;
+      load.port_blade_force_world_n =
+          sum_vectors(load.port_blade_force_world_n,
+                      blade_load.resolved_port_blade_force_world_n());
+      load.starboard_blade_force_world_n =
+          sum_vectors(load.starboard_blade_force_world_n,
+                      blade_load.resolved_starboard_blade_force_world_n());
+      load.port_blade_immersion_depth_m =
+          blade_load.port_blade_immersion_depth_m;
+      load.starboard_blade_immersion_depth_m =
+          blade_load.starboard_blade_immersion_depth_m;
+    }
+    return load;
+  }
+
+private:
+  PassivePlaceholderHydroProvider restoring_provider_;
+  std::unique_ptr<HydroProvider> hull_resistance_provider_;
+  std::unique_ptr<HydroProvider> blade_force_provider_;
+};
+
+std::unique_ptr<HydroProvider>
+make_hull_resistance_provider(std::string_view id) {
+  if (id == "none") {
+    return nullptr;
+  }
+  if (id == "quadratic_drag_placeholder") {
+    return std::make_unique<QuadraticDragPlaceholderHullResistanceProvider>();
+  }
+  return nullptr;
+}
+
+std::unique_ptr<HydroProvider> make_blade_force_provider(std::string_view id) {
+  if (id == "none") {
+    return nullptr;
+  }
+  if (id == "stroke_propulsion_placeholder") {
+    return std::make_unique<StrokePropulsionPlaceholderBladeForceProvider>();
+  }
+  return nullptr;
+}
+
+std::unique_ptr<AeroProvider> make_aero_provider(std::string_view id) {
+  if (id == "none") {
+    return nullptr;
+  }
+  if (id == "steady_wind_placeholder") {
+    return std::make_unique<SteadyWindPlaceholderAeroProvider>(
+        DEFAULT_STEADY_WIND_DRAG_COEFFICIENT_N_S2_PER_M2,
+        DEFAULT_STEADY_WIND_YAW_MOMENT_COEFFICIENT_N_M_S2_PER_M2);
+  }
+  return nullptr;
+}
+
+struct RuntimeOwnedProviders {
+  std::unique_ptr<HydroProvider> hydro_provider;
+  std::unique_ptr<AeroProvider> aero_provider;
+};
+
+RuntimeOwnedProviders build_runtime_providers(const SimulatorConfig &config) {
+  RuntimeOwnedProviders providers;
+  providers.hydro_provider = std::make_unique<CompositeHydroProvider>(
+      make_hull_resistance_provider(config.providers.hull_resistance),
+      make_blade_force_provider(config.providers.blade_force));
+  providers.aero_provider = make_aero_provider(config.providers.aero_load);
+  return providers;
+}
 
 /**
  * @design D-019 — Orchestration helper contracts
@@ -107,21 +261,13 @@ void append_runtime_failure(SimulationRunResult &result, std::string subsystem,
 
 void stamp_run_metadata(SimulationRunResult &result,
                         const SimulatorConfig &config,
-                        const SimulationDependencies &dependencies,
                         std::string start_timestamp_utc,
                         std::string_view state_advancer_id) {
   result.status = RunStatus::success;
   result.metadata.simulator_version = PROJECT_VERSION_STRING;
   result.metadata.config_id = config.config_id;
   result.metadata.start_timestamp_utc = std::move(start_timestamp_utc);
-  result.metadata.hydro_provider_id =
-      dependencies.hydro_provider != nullptr
-          ? std::string(dependencies.hydro_provider->identifier())
-          : std::string(DEFAULT_HYDRO_PROVIDER_ID);
-  result.metadata.aero_provider_id =
-      dependencies.aero_provider != nullptr
-          ? std::string(dependencies.aero_provider->identifier())
-          : std::string(DEFAULT_AERO_PROVIDER_ID);
+  result.metadata.providers = selected_provider_metadata(config);
   result.metadata.state_advancer_id = std::string(state_advancer_id);
   result.metadata.normalized_config = normalize_simulator_config(config);
 }
@@ -260,18 +406,20 @@ bool sample_aero_load(AeroProvider *provider, const StepContext &context,
 }
 
 bool advance_one_step(const SimulatorConfig &config,
-                      const SimulationDependencies &dependencies,
-                      StateAdvancer &advancer, SimulationRunResult &result,
+                      HydroProvider *hydro_provider,
+                      AeroProvider *aero_provider, StateAdvancer &advancer,
+                      SimulationRunResult &result,
                       MechanicalStateSnapshot &state) {
   const StepContext context{.time_s = state.time_s, .state = state};
   HydroLoadSample hydro_load;
   AeroLoadSample aero_load;
-  if (!sample_hydro_load(dependencies.hydro_provider, context,
-                         result.metadata.hydro_provider_id, result,
-                         hydro_load) ||
-      !sample_aero_load(
-          dependencies.aero_provider, context, result.metadata.aero_provider_id,
-          config.environment.ambient_wind_world_mps, result, aero_load)) {
+  if (!sample_hydro_load(hydro_provider, context,
+                         format_hydro_provider_label(result.metadata.providers),
+                         result, hydro_load) ||
+      !sample_aero_load(aero_provider, context,
+                        format_aero_provider_label(result.metadata.providers),
+                        config.environment.ambient_wind_world_mps, result,
+                        aero_load)) {
     return false;
   }
   result.load_history.push_back(LoadSample{
@@ -393,6 +541,14 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
     return format_timestamp(instant);
   };
 
+  auto owned_providers = build_runtime_providers(config);
+  HydroProvider *hydro_provider = dependencies.hydro_provider != nullptr
+                                      ? dependencies.hydro_provider
+                                      : owned_providers.hydro_provider.get();
+  AeroProvider *aero_provider = dependencies.aero_provider != nullptr
+                                    ? dependencies.aero_provider
+                                    : owned_providers.aero_provider.get();
+
   auto &advancer = dependencies.state_advancer != nullptr
                        ? *dependencies.state_advancer
                        : default_state_advancer();
@@ -403,7 +559,7 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    * @title Stable version, timestamp, provider, and normalized-config metadata
    * @satisfies [A-002]
    */
-  stamp_run_metadata(result, config, dependencies, current_timestamp(),
+  stamp_run_metadata(result, config, current_timestamp(),
                      advancer.identifier());
 
   const auto startup = advancer.initialize(config);
@@ -439,7 +595,8 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    * @satisfies [A-002]
    */
   while (state.time_s < config.simulation.duration_s && result.ok()) {
-    if (!advance_one_step(config, dependencies, advancer, result, state)) {
+    if (!advance_one_step(config, hydro_provider, aero_provider, advancer,
+                          result, state)) {
       break;
     }
     ++executed_step_count;

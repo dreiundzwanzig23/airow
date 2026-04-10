@@ -131,6 +131,71 @@ make_valid_config_json(std::string_view config_id,
   return stream.str();
 }
 
+std::string make_provider_selection_config_json(
+    std::string_view config_id, std::string_view summary_path,
+    std::string_view time_series_path, std::string_view providers_json,
+    std::string_view ambient_wind_json = "[0.0, 0.0, 0.0]",
+    double initial_speed_x_mps = 0.0) {
+  std::ostringstream stream;
+  stream << R"({
+        "config_id": ")"
+         << config_id << R"(",
+        "simulation": {
+          "duration_s": 1.0,
+          "time_step_s": 0.25
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [)"
+         << initial_speed_x_mps << R"(, 0.0, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        },
+        "environment": {
+          "ambient_wind_world_mps": )"
+         << ambient_wind_json << R"(
+        },
+        "providers": )"
+         << providers_json << R"(,
+        "output": {
+          "summary_path": ")"
+         << summary_path << R"(",
+          "time_series_path": ")"
+         << time_series_path << R"(",
+          "formats": ["json"],
+          "high_frequency_time_series": true
+        }
+      })";
+  return stream.str();
+}
+
 } // namespace
 
 /**
@@ -247,4 +312,142 @@ TEST(HeadlessOutputsSystem, CliHandlesHdf5OutputAvailabilityDeterministically) {
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
   remove_file_if_present(hdf5_path);
+}
+
+/**
+ * @test QT-029
+ * @verifies [R-020]
+ * @notes Given explicit runtime provider selections, when the CLI executes a
+ * run then selected provider ids are preserved in metadata, and when an
+ * unknown provider id is configured then configuration validation rejects it
+ * deterministically.
+ */
+TEST(HeadlessOutputsSystem, CliSupportsRuntimeProviderSelectionAndRejection) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-qt-provider-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-provider-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto config_path =
+      write_temp_file("airow-qt-provider-config.json",
+                      make_provider_selection_config_json(
+                          "qt-provider-selection", summary_path.string(),
+                          time_series_path.string(),
+                          R"({
+            "hull_resistance": "quadratic_drag_placeholder",
+            "blade_force": "stroke_propulsion_placeholder",
+            "aero_load": "steady_wind_placeholder"
+          })",
+                          "[-2.0, 1.0, 0.0]", 1.0));
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-provider.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-provider.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  const Json summary = Json::parse(read_file(summary_path));
+  const auto &providers = summary.at("metadata").at("providers");
+  EXPECT_EQ(providers.at("hull_resistance").at("id").get<std::string>(),
+            "quadratic_drag_placeholder");
+  EXPECT_EQ(providers.at("blade_force").at("id").get<std::string>(),
+            "stroke_propulsion_placeholder");
+  EXPECT_EQ(providers.at("aero_load").at("id").get<std::string>(),
+            "steady_wind_placeholder");
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto invalid_config_path =
+      write_temp_file("airow-qt-provider-invalid-config.json",
+                      make_provider_selection_config_json(
+                          "qt-provider-invalid", summary_path.string(),
+                          time_series_path.string(),
+                          R"({
+            "aero_load": "unsupported_provider"
+          })"));
+  const auto invalid_stdout_path = std::filesystem::temp_directory_path() /
+                                   "airow-qt-provider-invalid.stdout";
+  const auto invalid_stderr_path = std::filesystem::temp_directory_path() /
+                                   "airow-qt-provider-invalid.stderr";
+  const auto invalid_command =
+      shell_quote(kProjectAppPath.string()) + " --config " +
+      shell_quote(invalid_config_path.string()) + " > " +
+      shell_quote(invalid_stdout_path.string()) + " 2> " +
+      shell_quote(invalid_stderr_path.string());
+  const auto invalid_status = std::system(invalid_command.c_str());
+
+  EXPECT_EQ(decode_exit_code(invalid_status), 2);
+  const auto invalid_stderr = read_file(invalid_stderr_path);
+  EXPECT_NE(invalid_stderr.find("$.providers.aero_load"), std::string::npos);
+
+  remove_file_if_present(invalid_config_path);
+  remove_file_if_present(invalid_stdout_path);
+  remove_file_if_present(invalid_stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test QT-030
+ * @verifies [R-033]
+ * @notes Given selectable built-in runtime providers, when the CLI emits a
+ * summary artifact then each selected provider includes non-empty validity
+ * metadata in the machine-readable output.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsProviderValidityMetadata) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-qt-validity-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-validity-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto config_path =
+      write_temp_file("airow-qt-validity-config.json",
+                      make_provider_selection_config_json(
+                          "qt-provider-validity", summary_path.string(),
+                          time_series_path.string(),
+                          R"({
+            "hull_resistance": "quadratic_drag_placeholder",
+            "blade_force": "stroke_propulsion_placeholder",
+            "aero_load": "steady_wind_placeholder"
+          })",
+                          "[-2.0, 1.0, 0.0]", 1.0));
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-validity.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-validity.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  const Json summary = Json::parse(read_file(summary_path));
+  const auto &providers = summary.at("metadata").at("providers");
+  for (const auto &role : {"hull_resistance", "blade_force", "aero_load"}) {
+    const auto &provider = providers.at(role);
+    EXPECT_FALSE(provider.at("validity_id").get<std::string>().empty());
+    EXPECT_FALSE(
+        provider.at("validity_description").get<std::string>().empty());
+  }
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
 }

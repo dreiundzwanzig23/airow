@@ -30,6 +30,8 @@ Each example writes machine-readable JSON artifacts under:
 
 The helper script keeps the working directory anchored at the repo root so the
 relative output paths in the example configs resolve consistently.
+Each checked-in example now includes an explicit `providers` block so the
+shared run path exercises config-driven reduced-provider selection directly.
 
 ## Run The Config Directly
 

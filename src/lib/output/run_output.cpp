@@ -1,5 +1,6 @@
 #include "project/output/run_output.hpp"
 
+#include "project/configuration/provider_catalog.hpp"
 #include "project/configuration/simulator_config.hpp"
 #include "project/core/geometry.hpp"
 #include "project/mechanics/state.hpp"
@@ -32,8 +33,8 @@ namespace {
 
 using Json = nlohmann::json;
 
-constexpr std::string_view OUTPUT_SCHEMA_VERSION = "a007-json-v1";
-constexpr std::string_view HDF5_SCHEMA_VERSION = "a007-hdf5-v1";
+constexpr std::string_view HDF5_SCHEMA_VERSION = "a007-hdf5-v2";
+constexpr std::string_view OUTPUT_SCHEMA_VERSION_V2 = "a007-json-v2";
 
 [[nodiscard]] bool build_has_hdf5_support() noexcept {
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
@@ -296,19 +297,36 @@ Json output_formats_json(const OutputArtifacts &outputs) {
   return formats;
 }
 
+/**
+ * @design D-034 — Structured runtime provider metadata emission
+ * @title Deterministic structured provider-id and validity-metadata shaping
+ * for machine-readable run outputs
+ * @satisfies [A-007]
+ */
+Json provider_metadata_json(const ProviderMetadata &provider) {
+  return Json{{"id", provider.id},
+              {"validity_id", provider.validity_id},
+              {"validity_description", provider.validity_description}};
+}
+
 Json make_summary_document(const SimulationRunResult &result) {
-  Json metadata =
-      Json{{"config_id", result.metadata.config_id},
-           {"simulator_version", result.metadata.simulator_version},
-           {"start_timestamp_utc", result.metadata.start_timestamp_utc},
-           {"end_timestamp_utc", result.metadata.end_timestamp_utc},
-           {"hydro_provider_id", result.metadata.hydro_provider_id},
-           {"aero_provider_id", result.metadata.aero_provider_id},
-           {"state_advancer_id", result.metadata.state_advancer_id},
-           {"startup_status", result.metadata.startup_status},
-           {"startup_solver_status", result.metadata.startup_solver_status},
-           {"startup_constraint_residual_max",
-            result.metadata.startup_constraint_residual_max}};
+  Json metadata = Json{
+      {"config_id", result.metadata.config_id},
+      {"simulator_version", result.metadata.simulator_version},
+      {"start_timestamp_utc", result.metadata.start_timestamp_utc},
+      {"end_timestamp_utc", result.metadata.end_timestamp_utc},
+      {"providers",
+       Json{{"hull_resistance",
+             provider_metadata_json(result.metadata.providers.hull_resistance)},
+            {"blade_force",
+             provider_metadata_json(result.metadata.providers.blade_force)},
+            {"aero_load",
+             provider_metadata_json(result.metadata.providers.aero_load)}}},
+      {"state_advancer_id", result.metadata.state_advancer_id},
+      {"startup_status", result.metadata.startup_status},
+      {"startup_solver_status", result.metadata.startup_solver_status},
+      {"startup_constraint_residual_max",
+       result.metadata.startup_constraint_residual_max}};
 
   Json normalized_config = Json::array();
   for (const auto &entry : result.metadata.normalized_config) {
@@ -318,7 +336,7 @@ Json make_summary_document(const SimulationRunResult &result) {
   metadata["normalized_config"] = normalized_config;
 
   return Json{
-      {"schema_version", OUTPUT_SCHEMA_VERSION},
+      {"schema_version", OUTPUT_SCHEMA_VERSION_V2},
       {"config_id", result.metadata.config_id},
       {"simulator_version", result.metadata.simulator_version},
       {"status", run_status_text(result.status)},
@@ -462,7 +480,7 @@ Json make_time_series_document(const SimulationRunResult &result,
     records.push_back(time_series_record_json(state, loads));
   }
 
-  return Json{{"schema_version", OUTPUT_SCHEMA_VERSION},
+  return Json{{"schema_version", OUTPUT_SCHEMA_VERSION_V2},
               {"config_id", result.metadata.config_id},
               {"simulator_version", result.metadata.simulator_version},
               {"status", run_status_text(result.status)},
@@ -747,6 +765,59 @@ bool write_double_vector_dataset(hid_t group, const char *name,
   return true;
 }
 
+bool write_provider_metadata_group(hid_t parent, const char *name,
+                                   const ProviderMetadata &provider,
+                                   RunDiagnostic &diagnostic) {
+  H5ScopedHandle provider_group(
+      H5Gcreate2(parent, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+      H5Gclose);
+  if (!provider_group.valid()) {
+    diagnostic = make_output_diagnostic("$.output.hdf5_path",
+                                        "failed to create HDF5 provider group");
+    return false;
+  }
+
+  return write_string_attribute(provider_group.id, "id", provider.id,
+                                diagnostic) &&
+         write_string_attribute(provider_group.id, "validity_id",
+                                provider.validity_id, diagnostic) &&
+         write_string_attribute(provider_group.id, "validity_description",
+                                provider.validity_description, diagnostic);
+}
+
+bool write_hdf5_normalized_config_group(hid_t metadata_group,
+                                        const SimulationRunResult &result,
+                                        RunDiagnostic &diagnostic) {
+  H5ScopedHandle normalized_group(H5Gcreate2(metadata_group,
+                                             "normalized_config", H5P_DEFAULT,
+                                             H5P_DEFAULT, H5P_DEFAULT),
+                                  H5Gclose);
+  if (!normalized_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path", "failed to create HDF5 normalized_config group");
+    return false;
+  }
+
+  std::vector<std::string> normalized_keys;
+  std::vector<std::string> normalized_values;
+  std::vector<std::string> normalized_units;
+  normalized_keys.reserve(result.metadata.normalized_config.size());
+  normalized_values.reserve(result.metadata.normalized_config.size());
+  normalized_units.reserve(result.metadata.normalized_config.size());
+  for (const auto &entry : result.metadata.normalized_config) {
+    normalized_keys.push_back(entry.key);
+    normalized_values.push_back(entry.value);
+    normalized_units.push_back(entry.unit);
+  }
+
+  return write_string_vector_dataset(normalized_group.id, "key",
+                                     normalized_keys, diagnostic) &&
+         write_string_vector_dataset(normalized_group.id, "value",
+                                     normalized_values, diagnostic) &&
+         write_string_vector_dataset(normalized_group.id, "unit",
+                                     normalized_units, diagnostic);
+}
+
 bool write_hdf5_root_attributes(hid_t file, const SimulationRunResult &result,
                                 bool high_frequency_time_series,
                                 RunDiagnostic &diagnostic) {
@@ -823,10 +894,6 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
                                diagnostic) &&
         write_string_attribute(metadata_group.id, "end_timestamp_utc",
                                result.metadata.end_timestamp_utc, diagnostic) &&
-        write_string_attribute(metadata_group.id, "hydro_provider_id",
-                               result.metadata.hydro_provider_id, diagnostic) &&
-        write_string_attribute(metadata_group.id, "aero_provider_id",
-                               result.metadata.aero_provider_id, diagnostic) &&
         write_string_attribute(metadata_group.id, "state_advancer_id",
                                result.metadata.state_advancer_id, diagnostic) &&
         write_string_attribute(metadata_group.id, "startup_status",
@@ -840,34 +907,29 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
     return false;
   }
 
-  H5ScopedHandle normalized_group(H5Gcreate2(metadata_group.id,
-                                             "normalized_config", H5P_DEFAULT,
-                                             H5P_DEFAULT, H5P_DEFAULT),
-                                  H5Gclose);
-  if (!normalized_group.valid()) {
+  H5ScopedHandle providers_group(H5Gcreate2(metadata_group.id, "providers",
+                                            H5P_DEFAULT, H5P_DEFAULT,
+                                            H5P_DEFAULT),
+                                 H5Gclose);
+  if (!providers_group.valid()) {
     diagnostic = make_output_diagnostic(
-        "$.output.hdf5_path", "failed to create HDF5 normalized_config group");
+        "$.output.hdf5_path", "failed to create HDF5 providers group");
+    return false;
+  }
+  if (!(write_provider_metadata_group(providers_group.id, "hull_resistance",
+                                      result.metadata.providers.hull_resistance,
+                                      diagnostic) &&
+        write_provider_metadata_group(providers_group.id, "blade_force",
+                                      result.metadata.providers.blade_force,
+                                      diagnostic) &&
+        write_provider_metadata_group(providers_group.id, "aero_load",
+                                      result.metadata.providers.aero_load,
+                                      diagnostic))) {
     return false;
   }
 
-  std::vector<std::string> normalized_keys;
-  std::vector<std::string> normalized_values;
-  std::vector<std::string> normalized_units;
-  normalized_keys.reserve(result.metadata.normalized_config.size());
-  normalized_values.reserve(result.metadata.normalized_config.size());
-  normalized_units.reserve(result.metadata.normalized_config.size());
-  for (const auto &entry : result.metadata.normalized_config) {
-    normalized_keys.push_back(entry.key);
-    normalized_values.push_back(entry.value);
-    normalized_units.push_back(entry.unit);
-  }
-
-  return write_string_vector_dataset(normalized_group.id, "key",
-                                     normalized_keys, diagnostic) &&
-         write_string_vector_dataset(normalized_group.id, "value",
-                                     normalized_values, diagnostic) &&
-         write_string_vector_dataset(normalized_group.id, "unit",
-                                     normalized_units, diagnostic);
+  return write_hdf5_normalized_config_group(metadata_group.id, result,
+                                            diagnostic);
 }
 
 struct Hdf5TimeSeriesChannels {
@@ -1111,10 +1173,10 @@ void emit_run_outputs(const SimulatorConfig &config,
                       SimulationRunResult &result) {
   result.outputs.schema_version =
       config.output.emit_json && config.output.emit_hdf5
-          ? std::string(OUTPUT_SCHEMA_VERSION) + "+" +
+          ? std::string(OUTPUT_SCHEMA_VERSION_V2) + "+" +
                 std::string(HDF5_SCHEMA_VERSION)
           : (config.output.emit_hdf5 ? std::string(HDF5_SCHEMA_VERSION)
-                                     : std::string(OUTPUT_SCHEMA_VERSION));
+                                     : std::string(OUTPUT_SCHEMA_VERSION_V2));
   result.outputs.high_frequency_time_series =
       config.output.high_frequency_time_series;
   result.outputs.emit_json = config.output.emit_json;

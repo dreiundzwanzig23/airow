@@ -58,6 +58,7 @@ include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
     src/lib/aero/baseline_providers.cpp
+    src/lib/configuration/provider_catalog.cpp
     src/lib/configuration/simulator_config.cpp
     src/lib/hydro/baseline_providers.cpp
     src/lib/numerics/state_advancement.cpp

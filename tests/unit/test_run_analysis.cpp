@@ -8,13 +8,11 @@
 
 namespace {
 
-project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps,
-                                            double hull_z_m,
-                                            double seat_position_m,
-                                            double port_handle_angle_rad,
-                                            double starboard_handle_angle_rad,
-                                            project::StrokePhase phase,
-                                            double phase_time_s) {
+project::MechanicalStateSnapshot
+make_state(double time_s, double boat_speed_mps, double hull_z_m,
+           double seat_position_m, double port_handle_angle_rad,
+           double starboard_handle_angle_rad, project::StrokePhase phase,
+           double phase_time_s) {
   return {
       .time_s = time_s,
       .hull =
@@ -22,8 +20,9 @@ project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps
               .position_world_m = {.x = time_s, .y = 0.0, .z = hull_z_m},
               .orientation_world_from_body =
                   {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
-              .linear_velocity_world_mps =
-                  {.x = boat_speed_mps, .y = 0.0, .z = 0.0},
+              .linear_velocity_world_mps = {.x = boat_speed_mps,
+                                            .y = 0.0,
+                                            .z = 0.0},
               .angular_velocity_body_radps = {.x = 0.0, .y = 0.0, .z = 0.0},
           },
       .port_oar =
@@ -31,8 +30,9 @@ project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps
               .handle_angle_rad = port_handle_angle_rad,
               .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
               .blade_tip_position_world_m = {.x = time_s, .y = -1.0, .z = 0.0},
-              .blade_tip_velocity_world_mps =
-                  {.x = boat_speed_mps, .y = 0.0, .z = 0.0},
+              .blade_tip_velocity_world_mps = {.x = boat_speed_mps,
+                                               .y = 0.0,
+                                               .z = 0.0},
               .blade_immersion_depth_m = 0.0,
           },
       .starboard_oar =
@@ -40,8 +40,9 @@ project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps
               .handle_angle_rad = starboard_handle_angle_rad,
               .oarlock_position_body_m = {.x = 0.25, .y = 0.82, .z = 0.18},
               .blade_tip_position_world_m = {.x = time_s, .y = 1.0, .z = 0.0},
-              .blade_tip_velocity_world_mps =
-                  {.x = boat_speed_mps, .y = 0.0, .z = 0.0},
+              .blade_tip_velocity_world_mps = {.x = boat_speed_mps,
+                                               .y = 0.0,
+                                               .z = 0.0},
               .blade_immersion_depth_m = 0.0,
           },
       .seat =
@@ -70,9 +71,8 @@ project::SimulationRunResult make_result() {
 
   result.state_history.push_back(make_state(0.0, 0.3, 0.02, 0.0, -0.6, -0.55,
                                             project::StrokePhase::drive, 0.0));
-  result.state_history.push_back(
-      make_state(0.5, 0.7, -0.01, 0.15, 0.2, 0.25,
-                 project::StrokePhase::recovery, 0.1));
+  result.state_history.push_back(make_state(
+      0.5, 0.7, -0.01, 0.15, 0.2, 0.25, project::StrokePhase::recovery, 0.1));
   result.state_history.push_back(make_state(1.0, 0.4, 0.01, -0.05, -0.2, -0.15,
                                             project::StrokePhase::drive, 0.0));
 

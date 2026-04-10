@@ -5,8 +5,12 @@
 - Slice 0 for human-readable run analysis closed on 2026-04-06 with `R-034`,
   additive summary-analysis output, optional CLI report modes, and the first
   offline static report tool.
-- Current work should resume on the explicit post-`v0.1` roadmap slices rather
-  than on a loose backlog or reopening the baseline milestone.
+- Slice 1 for runtime-selectable providers and structured validity metadata
+  closed on 2026-04-06 with top-level config-driven provider selection,
+  built-in provider composition on the shared run path, and structured
+  provider validity metadata in machine-readable outputs.
+- Current work should now advance to reduced-model fidelity expansion rather
+  than reopening the baseline milestone or the landed provider-selection slice.
 
 ## Post-`v0.1` Slices
 
@@ -18,12 +22,14 @@
   SVG inspection from emitted JSON artifacts.
 
 ### Slice 1 — Runtime-Selectable Providers and Validity Metadata
-- Close `R-020` and `R-033`.
-- Add runtime-selectable hydro and aero provider variants, deterministic
-  unknown-provider rejection, and machine-readable validity-metadata
-  propagation for reduced runtime providers.
-- Extend `A-001`, `A-002`, `A-004`, `A-005`, and `A-007` without reopening
-  solver or backend selection.
+- Closed `R-020` and `R-033`.
+- Added a top-level `providers` config block for built-in
+  `hull_resistance`, `blade_force`, and `aero_load` selection with
+  deterministic unknown-provider rejection.
+- Added config-driven built-in provider construction on the shared run path,
+  while keeping injected provider seams available for focused tests.
+- Replaced flat provider-id output metadata with structured per-role provider
+  metadata that includes validity identifiers and descriptions.
 
 ### Slice 2 — Reduced-Model Fidelity Expansion
 - Deepen reduced hydro and steady-wind aero behavior behind the existing

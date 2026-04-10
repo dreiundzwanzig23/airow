@@ -279,8 +279,9 @@ TEST(SimulationRun, ReturnsDeterministicMetadataAndSummary) {
   EXPECT_EQ(result.metadata.start_timestamp_utc, "2026-04-03T12:00:00Z");
   EXPECT_EQ(result.metadata.end_timestamp_utc, "2026-04-03T12:00:01Z");
   EXPECT_FALSE(result.metadata.simulator_version.empty());
-  EXPECT_EQ(result.metadata.hydro_provider_id, "baseline-null-hydro");
-  EXPECT_EQ(result.metadata.aero_provider_id, "baseline-null-aero");
+  EXPECT_EQ(result.metadata.providers.hull_resistance.id, "none");
+  EXPECT_EQ(result.metadata.providers.blade_force.id, "none");
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "none");
   EXPECT_EQ(result.metadata.state_advancer_id,
             "deterministic-baseline-state-advancer");
   EXPECT_EQ(result.metadata.startup_status, "success");
@@ -309,19 +310,23 @@ TEST(SimulationRun, AdvancesTimeAndInvokesProvidersDeterministically) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 13h + 2s});
   RecordingHydroProvider hydro("stub-hydro");
   RecordingAeroProvider aero("stub-aero");
+  auto config = make_config(1.05, 0.5);
+  config.providers.hull_resistance = "stub-hydro";
+  config.providers.aero_load = "stub-aero";
 
-  const auto result = project::run_simulation(make_config(1.05, 0.5),
-                                              project::SimulationDependencies{
-                                                  .hydro_provider = &hydro,
-                                                  .aero_provider = &aero,
-                                                  .clock = &clock,
-                                              });
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
 
   ASSERT_TRUE(result.ok());
   EXPECT_EQ(result.summary.final_simulated_time_s, 1.05);
   EXPECT_EQ(result.summary.executed_step_count, 3ULL);
-  EXPECT_EQ(result.metadata.hydro_provider_id, "stub-hydro");
-  EXPECT_EQ(result.metadata.aero_provider_id, "stub-aero");
+  EXPECT_EQ(result.metadata.providers.hull_resistance.id, "stub-hydro");
+  EXPECT_EQ(result.metadata.providers.blade_force.id, "none");
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "stub-aero");
   EXPECT_EQ(hydro.observed_times_s, (std::vector<double>{0.0, 0.5, 1.0}));
   EXPECT_EQ(aero.observed_times_s, (std::vector<double>{0.0, 0.5, 1.0}));
   ASSERT_EQ(result.state_history.size(), 4U);
@@ -811,4 +816,38 @@ TEST(SimulationRun, ZeroDurationRunSkipsSamplingAndReportsZeroSummary) {
   ASSERT_EQ(result.state_history.size(), 1U);
   EXPECT_EQ(result.metadata.start_timestamp_utc, "2026-04-04T09:00:00Z");
   EXPECT_EQ(result.metadata.end_timestamp_utc, "2026-04-04T09:00:01Z");
+}
+
+/**
+ * @test UT-126
+ * @verifies [D-033]
+ * @notes Given built-in provider selections in the validated in-memory
+ * config, when the shared run path executes without injected load providers,
+ * then the orchestrator constructs the built-in runtime providers and records
+ * deterministic structured provider metadata.
+ */
+TEST(SimulationRun, BuildsConfiguredBuiltInProvidersWithoutInjectedProviders) {
+  auto config = make_config(0.8, 0.4);
+  config.hull.initial_linear_velocity_mps = {.x = 1.0, .y = 0.0, .z = 0.0};
+  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0};
+  config.providers.hull_resistance = "quadratic_drag_placeholder";
+  config.providers.blade_force = "stroke_propulsion_placeholder";
+  config.providers.aero_load = "steady_wind_placeholder";
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 8h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 8h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.providers.hull_resistance.id,
+            "quadratic_drag_placeholder");
+  EXPECT_EQ(result.metadata.providers.blade_force.id,
+            "stroke_propulsion_placeholder");
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "steady_wind_placeholder");
+  ASSERT_FALSE(result.load_history.empty());
+  EXPECT_NE(result.load_history.front().hull_force_world_n.x, 0.0);
+  EXPECT_GT(result.load_history.front().port_blade_force_world_n.x, 0.0);
+  EXPECT_NE(result.load_history.front().aero_force_world_n.x, 0.0);
 }

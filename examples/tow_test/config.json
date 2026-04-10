@@ -37,6 +37,11 @@
     "catch_angle_rad": -0.9,
     "release_angle_rad": 0.6
   },
+  "providers": {
+    "hull_resistance": "quadratic_drag_placeholder",
+    "blade_force": "none",
+    "aero_load": "none"
+  },
   "output": {
     "summary_path": "examples/output/tow_test/summary.json",
     "time_series_path": "examples/output/tow_test/time_series.json",

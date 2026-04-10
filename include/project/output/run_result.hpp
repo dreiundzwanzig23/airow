@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "project/configuration/provider_catalog.hpp"
 #include "project/configuration/simulator_config.hpp"
 #include "project/mechanics/state.hpp"
 
@@ -25,8 +26,7 @@ struct RunMetadata {
   std::string config_id;
   std::string start_timestamp_utc;
   std::string end_timestamp_utc;
-  std::string hydro_provider_id;
-  std::string aero_provider_id;
+  ProviderSelectionMetadata providers;
   std::string state_advancer_id;
   std::string startup_status;
   std::string startup_solver_status;

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -328,10 +329,7 @@ TEST(OrchestratorIntegration, FileBackedAndInMemoryRunsShareCorePath) {
             direct_result.metadata.start_timestamp_utc);
   EXPECT_EQ(file_result.metadata.end_timestamp_utc,
             direct_result.metadata.end_timestamp_utc);
-  EXPECT_EQ(file_result.metadata.hydro_provider_id,
-            direct_result.metadata.hydro_provider_id);
-  EXPECT_EQ(file_result.metadata.aero_provider_id,
-            direct_result.metadata.aero_provider_id);
+  EXPECT_EQ(file_result.metadata.providers, direct_result.metadata.providers);
   EXPECT_EQ(file_result.state_history, direct_result.state_history);
 }
 
@@ -345,6 +343,8 @@ TEST(OrchestratorIntegration, FileBackedAndInMemoryRunsShareCorePath) {
 TEST(OrchestratorIntegration, InMemoryApiSupportsInjectedStubProviders) {
   auto config = make_config("it-in-memory", 1.2, 0.4);
   config.hull.mass_kg = 13.9;
+  config.providers.hull_resistance = "stub-hydro-it";
+  config.providers.aero_load = "stub-aero-it";
   RecordingHydroProvider hydro("stub-hydro-it");
   RecordingAeroProvider aero("stub-aero-it");
   FixedClock clock(
@@ -359,8 +359,9 @@ TEST(OrchestratorIntegration, InMemoryApiSupportsInjectedStubProviders) {
                                       });
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.hydro_provider_id, "stub-hydro-it");
-  EXPECT_EQ(result.metadata.aero_provider_id, "stub-aero-it");
+  EXPECT_EQ(result.metadata.providers.hull_resistance.id, "stub-hydro-it");
+  EXPECT_EQ(result.metadata.providers.blade_force.id, "none");
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "stub-aero-it");
   EXPECT_EQ(result.summary.executed_step_count, 3ULL);
   EXPECT_EQ(hydro.observed_times_s, (std::vector<double>{0.0, 0.4, 0.8}));
   EXPECT_EQ(aero.observed_times_s, (std::vector<double>{0.0, 0.4, 0.8}));
@@ -502,5 +503,183 @@ TEST(OrchestratorIntegration, CliWrapperMapsStatusesToStableExitCodes) {
               0);
     EXPECT_NE(stdout_stream.str().find("status=success"), std::string::npos);
     remove_file_if_present(path);
+  }
+}
+
+/**
+ * @test IT-013
+ * @verifies [A-002, A-004, A-005]
+ * @notes Given a file-backed config with built-in provider selections, when
+ * the shared run path executes without injected load providers, then runtime
+ * provider construction is driven from configuration and produces observable
+ * hydro and aero loads.
+ */
+TEST(OrchestratorIntegration,
+     FileBackedRunsConstructBuiltInProvidersFromConfig) {
+  const auto path =
+      write_temp_file("airow-built-in-provider-config.json", std::string(R"({
+        "config_id": "it-built-in-providers",
+        "simulation": {
+          "duration_s": 1.2,
+          "time_step_s": 0.4
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [1.0, 0.0, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        },
+        "environment": {
+          "ambient_wind_world_mps": [-2.0, 1.0, 0.0]
+        },
+        "providers": {
+          "hull_resistance": "quadratic_drag_placeholder",
+          "blade_force": "stroke_propulsion_placeholder",
+          "aero_load": "steady_wind_placeholder"
+        }
+      })"));
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h + 1s});
+
+  const auto result = project::run_simulation_from_config_file(
+      path, project::SimulationDependencies{.clock = &clock});
+  remove_file_if_present(path);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.providers.hull_resistance.id,
+            "quadratic_drag_placeholder");
+  EXPECT_EQ(result.metadata.providers.blade_force.id,
+            "stroke_propulsion_placeholder");
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "steady_wind_placeholder");
+  ASSERT_FALSE(result.load_history.empty());
+
+  bool observed_blade_force = false;
+  bool observed_aero_force = false;
+  for (const auto &sample : result.load_history) {
+    if (sample.port_blade_force_world_n.x > 0.0) {
+      observed_blade_force = true;
+    }
+    if (sample.aero_force_world_n.x != 0.0 ||
+        sample.aero_moment_world_n_m.z != 0.0) {
+      observed_aero_force = true;
+    }
+  }
+  EXPECT_TRUE(observed_blade_force);
+  EXPECT_TRUE(observed_aero_force);
+}
+
+/**
+ * @test IT-014
+ * @verifies [A-002, A-004]
+ * @notes Given each built-in hull-resistance selection, when the shared run
+ * path executes the same integration contract, then each selection produces a
+ * successful deterministic run and role-specific metadata.
+ */
+TEST(OrchestratorIntegration, BuiltInHullResistanceProvidersShareOneContract) {
+  for (const auto provider_id :
+       {std::string_view{"none"},
+        std::string_view{"quadratic_drag_placeholder"}}) {
+    auto config = make_config("it-hull-contract", 0.8, 0.4);
+    config.hull.initial_linear_velocity_mps = {.x = 1.2, .y = 0.0, .z = 0.0};
+    config.providers.hull_resistance = std::string(provider_id);
+
+    FixedClock clock(
+        {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 11h,
+         std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 11h + 1s});
+    const auto result = project::run_simulation(
+        config, project::SimulationDependencies{.clock = &clock});
+
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(result.metadata.providers.hull_resistance.id, provider_id);
+    ASSERT_FALSE(result.load_history.empty());
+    if (provider_id == "none") {
+      EXPECT_DOUBLE_EQ(result.load_history.front().hull_force_world_n.x, 0.0);
+    } else {
+      EXPECT_NE(result.load_history.front().hull_force_world_n.x, 0.0);
+    }
+  }
+}
+
+/**
+ * @test IT-015
+ * @verifies [A-002, A-004, A-005]
+ * @notes Given each built-in blade-force or aero-load selection, when the
+ * shared run path executes the same integration contract, then each selection
+ * produces deterministic role-specific metadata and finite load samples.
+ */
+TEST(OrchestratorIntegration, BuiltInBladeAndAeroProvidersShareContracts) {
+  for (const auto provider_id :
+       {std::string_view{"none"},
+        std::string_view{"stroke_propulsion_placeholder"}}) {
+    auto config = make_config("it-blade-contract", 0.8, 0.4);
+    config.providers.blade_force = std::string(provider_id);
+
+    FixedClock clock(
+        {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h,
+         std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h + 1s});
+    const auto result = project::run_simulation(
+        config, project::SimulationDependencies{.clock = &clock});
+
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(result.metadata.providers.blade_force.id, provider_id);
+    ASSERT_FALSE(result.load_history.empty());
+    if (provider_id == "none") {
+      EXPECT_DOUBLE_EQ(result.load_history.front().port_blade_force_world_n.x,
+                       0.0);
+    } else {
+      EXPECT_GT(result.load_history.front().port_blade_force_world_n.x, 0.0);
+    }
+  }
+
+  for (const auto provider_id : {std::string_view{"none"},
+                                 std::string_view{"steady_wind_placeholder"}}) {
+    auto config = make_config("it-aero-contract", 0.8, 0.4);
+    config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0};
+    config.providers.aero_load = std::string(provider_id);
+
+    FixedClock clock(
+        {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 13h,
+         std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 13h + 1s});
+    const auto result = project::run_simulation(
+        config, project::SimulationDependencies{.clock = &clock});
+
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(result.metadata.providers.aero_load.id, provider_id);
+    ASSERT_FALSE(result.load_history.empty());
+    EXPECT_TRUE(
+        std::isfinite(result.load_history.front().aero_force_world_n.x));
+    if (provider_id == "none") {
+      EXPECT_DOUBLE_EQ(result.load_history.front().aero_force_world_n.x, 0.0);
+    } else {
+      EXPECT_NE(result.load_history.front().aero_force_world_n.x, 0.0);
+    }
   }
 }

@@ -82,8 +82,8 @@ std::string format_envelope(std::string_view name, const ScalarEnvelope &range,
   if (!range.has_samples) {
     stream << "n/a";
   } else {
-    stream << "[" << format_double(range.min) << ", " << format_double(range.max)
-           << "]";
+    stream << "[" << format_double(range.min) << ", "
+           << format_double(range.max) << "]";
   }
   if (!unit.empty()) {
     stream << " " << unit;
@@ -109,13 +109,13 @@ double boat_speed_for_load(const SimulationRunResult &result,
   if (result.state_history.empty()) {
     return 0.0;
   }
-  const auto state_index = std::min(load_index, result.state_history.size() - 1U);
+  const auto state_index =
+      std::min(load_index, result.state_history.size() - 1U);
   return result.state_history.at(state_index).hull.linear_velocity_world_mps.x;
 }
 
 double stroke_power_for_load(const SimulationRunResult &result,
-                             std::size_t load_index,
-                             const LoadSample &sample) {
+                             std::size_t load_index, const LoadSample &sample) {
   const auto boat_speed_mps = boat_speed_for_load(result, load_index);
   return (sample.total_hydro_force_x_n() + sample.aero_force_world_n.x) *
          boat_speed_mps;
@@ -159,16 +159,17 @@ RunAnalysis analyze_run_result(const SimulationRunResult &result) {
     const auto &load = result.load_history.at(index);
     const auto total_hydro_force_world_n = Vector3{
         .x = load.resolved_hull_force_world_n().x +
-              load.resolved_port_blade_force_world_n().x +
-              load.resolved_starboard_blade_force_world_n().x,
+             load.resolved_port_blade_force_world_n().x +
+             load.resolved_starboard_blade_force_world_n().x,
         .y = load.resolved_hull_force_world_n().y +
-              load.resolved_port_blade_force_world_n().y +
-              load.resolved_starboard_blade_force_world_n().y,
+             load.resolved_port_blade_force_world_n().y +
+             load.resolved_starboard_blade_force_world_n().y,
         .z = load.resolved_hull_force_world_n().z +
-              load.resolved_port_blade_force_world_n().z +
-              load.resolved_starboard_blade_force_world_n().z,
+             load.resolved_port_blade_force_world_n().z +
+             load.resolved_starboard_blade_force_world_n().z,
     };
-    const auto total_hydro_force_n = vector_magnitude(total_hydro_force_world_n);
+    const auto total_hydro_force_n =
+        vector_magnitude(total_hydro_force_world_n);
     const auto aero_force_n = vector_magnitude(load.aero_force_world_n);
     const auto port_blade_force_n =
         vector_magnitude(load.resolved_port_blade_force_world_n());
@@ -237,7 +238,8 @@ std::string format_run_analysis_report(const SimulationRunResult &result,
   report << "Final State\n";
   report << "  time_s=" << format_double(analysis.final_time_s)
          << " boat_speed_mps=" << format_double(analysis.final_boat_speed_mps)
-         << " hull_position_z_m=" << format_double(analysis.final_hull_position_z_m)
+         << " hull_position_z_m="
+         << format_double(analysis.final_hull_position_z_m)
          << " seat_position_m=" << format_double(analysis.final_seat_position_m)
          << " apparent_wind_speed_mps="
          << format_double(analysis.final_apparent_wind_speed_mps)
@@ -250,14 +252,17 @@ std::string format_run_analysis_report(const SimulationRunResult &result,
   report << "\n\n";
 
   report << "Motion Envelope\n";
-  report << "  " << format_envelope("boat_speed_mps", analysis.boat_speed_mps, "m/s")
+  report << "  "
+         << format_envelope("boat_speed_mps", analysis.boat_speed_mps, "m/s")
          << "\n";
   report << "  "
-         << format_envelope("hull_position_z_m", analysis.hull_position_z_m, "m")
+         << format_envelope("hull_position_z_m", analysis.hull_position_z_m,
+                            "m")
          << "\n\n";
 
   report << "Stroke Envelope\n";
-  report << "  " << format_envelope("seat_position_m", analysis.seat_position_m, "m")
+  report << "  "
+         << format_envelope("seat_position_m", analysis.seat_position_m, "m")
          << "\n";
   report << "  "
          << format_envelope("port_handle_angle_rad",
@@ -300,12 +305,14 @@ std::string format_run_analysis_report(const SimulationRunResult &result,
                           analysis.peak_starboard_blade_force_n, "N")
            << "\n";
     report << "  "
-           << format_peak("peak_stroke_power_w", analysis.peak_stroke_power_w, "W")
+           << format_peak("peak_stroke_power_w", analysis.peak_stroke_power_w,
+                          "W")
            << "\n";
   } else {
     report << "Load Envelope\n";
     report << "  "
-           << format_peak("peak_stroke_power_w", analysis.peak_stroke_power_w, "W")
+           << format_peak("peak_stroke_power_w", analysis.peak_stroke_power_w,
+                          "W")
            << "\n";
   }
 

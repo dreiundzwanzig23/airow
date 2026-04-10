@@ -183,6 +183,9 @@ Still planned or incomplete:
 - **Allocation Rationale**: Centralizes all boundary validation so requirements about deterministic rejection, units, provider selection, and scope control do not fragment across runtime subsystems.
 - **Future Absorption**: Additional model toggles, boat-class expansion gates, richer artifact schemas, and future frame-bearing configuration definitions should be absorbed here before touching runtime logic.
 - **Interfaces**: File-backed and in-memory JSON configuration loading contract returning validated `SimulatorConfig`, deterministic diagnostics, and normalized configuration metadata suitable for later runtime orchestration.
+  The current slice also validates the optional top-level `providers` block
+  (`hull_resistance`, `blade_force`, `aero_load`) against the built-in runtime
+  provider catalog and rejects unknown selections before execution.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -200,8 +203,9 @@ Still planned or incomplete:
 - **Interfaces**: CLI entry contract and in-memory run API that share one
   deterministic single-run execution path, plus injected hydro and aero stub
   provider seams, stable run-result metadata, exit-code mapping for the first
-  headless baseline, and optional human-readable report rendering modes for
-  successful single-run inspection.
+  headless baseline, config-driven built-in provider construction when injected
+  provider seams are absent, and optional human-readable report rendering
+  modes for successful single-run inspection.
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
@@ -234,10 +238,12 @@ Still planned or incomplete:
 - **Interfaces**: Public hydro-provider seam in the shared run path that now
   returns structured hull force or moment plus per-blade world-force and
   immersion samples for deterministic reduced passive, tow, and calm-water
-  propulsion providers. The current realization slice couples longitudinal and
-  vertical hydro-force components plus roll or pitch restoring moments into the
-  internal baseline advancer while leaving fuller sway or yaw hydro dynamics
-  for later work.
+  propulsion providers. The current realization slice composes always-on
+  passive restoring behavior with independently selected built-in hull
+  resistance and blade-force roles, couples longitudinal and vertical
+  hydro-force components plus roll or pitch restoring moments into the
+  internal baseline advancer, and leaves fuller sway or yaw hydro dynamics for
+  later work.
 
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models
@@ -255,9 +261,10 @@ Still planned or incomplete:
 - **Interfaces**: Public aero-provider seam in the shared run path now returns
   structured apparent-wind, aerodynamic-force, and aerodynamic-moment samples
   for deterministic steady-wind baseline behavior. The current realization
-  slice propagates full aero vectors and yaw-sign information through outputs
-  and scenario evaluation while keeping dynamic state advancement coupled only
-  to the longitudinal aero-force component.
+  slice resolves the built-in `steady_wind_placeholder` or `none` provider from
+  configuration, propagates full aero vectors and yaw-sign information through
+  outputs and scenario evaluation, and keeps dynamic state advancement coupled
+  only to the longitudinal aero-force component.
 
 ## A-006 — Control and Stroke Input
 - **Title**: Stroke scheduling and low-order control subsystem
@@ -292,9 +299,10 @@ Still planned or incomplete:
   at runtime configuration (`json`, `hdf5`, or both). The output contract
   preserves explicit unit/frame annotations for boundary-visible vectors,
   structured hull/blade force channels, force/power accounting channels,
-  deterministic sampling policy, stable diagnostics when requested formats are
-  unavailable, and additive derived-analysis summaries suitable for CLI and
-  offline single-run inspection.
+  deterministic sampling policy, structured per-role provider metadata with
+  validity descriptors in JSON or HDF5 summaries, stable diagnostics when
+  requested formats are unavailable, and additive derived-analysis summaries
+  suitable for CLI and offline single-run inspection.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem

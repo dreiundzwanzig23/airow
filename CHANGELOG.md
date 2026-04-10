@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 ### Changed
+- Closed the provider-selection slice (`R-020`, `R-033`) with a top-level
+  `providers` config block, built-in reduced hull-resistance or blade-force or
+  aero provider construction on the shared run path, structured provider
+  validity metadata in JSON/HDF5 summaries, updated example configs, and new
+  evidence (`D-032..D-034`, `UT-122..UT-126`, `IT-013..IT-015`,
+  `QT-029..QT-030`).
 - Added a human-readable run-analysis slice (`R-034`) with a public
   `run_analysis` contract, additive summary-analysis JSON, optional
   `project_app --report compact|full` output, and a dependency-light

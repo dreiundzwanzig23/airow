@@ -15,6 +15,8 @@ namespace {
 
 constexpr std::string_view PASSIVE_PLACEHOLDER_ID = "passive_placeholder";
 constexpr std::string_view TOW_PLACEHOLDER_ID = "tow_placeholder";
+constexpr std::string_view QUADRATIC_DRAG_PLACEHOLDER_ID =
+    "quadratic_drag_placeholder";
 constexpr std::string_view STROKE_PROPULSION_PLACEHOLDER_ID =
     "stroke_propulsion_placeholder";
 constexpr double HALF_PI = 1.5707963267948966;
@@ -27,6 +29,26 @@ double clamp_unit(double value) { return std::max(0.0, std::min(1.0, value)); }
  * immersion-aware blade-water provider behavior for the widened `A-004` slice
  * @satisfies [A-004]
  */
+double quadratic_drag_force(double drag_coefficient_n_s2_per_m2,
+                            double forward_speed_mps) {
+  return -drag_coefficient_n_s2_per_m2 * forward_speed_mps *
+         std::abs(forward_speed_mps);
+}
+
+double blade_force_x_n(double blade_force_coefficient_n_s_per_m,
+                       double full_blade_immersion_depth_m,
+                       const OarState &oar) {
+  const double immersion_ratio = full_blade_immersion_depth_m > 0.0
+                                     ? clamp_unit(oar.blade_immersion_depth_m /
+                                                  full_blade_immersion_depth_m)
+                                     : 0.0;
+  const double alignment = std::max(0.0, std::cos(oar.handle_angle_rad));
+  const double relative_speed_mps =
+      std::abs(oar.blade_tip_velocity_world_mps.x);
+  return blade_force_coefficient_n_s_per_m * immersion_ratio * alignment *
+         relative_speed_mps;
+}
+
 double quaternion_roll_rad(const Quaternion &orientation) {
   const double sinr_cosp =
       2.0 * (orientation.w * orientation.x + orientation.y * orientation.z);
@@ -141,8 +163,7 @@ std::string_view TowPlaceholderHydroProvider::identifier() const noexcept {
 }
 
 double TowPlaceholderHydroProvider::drag_force(double forward_speed_mps) const {
-  return -drag_coefficient_n_s2_per_m2_ * forward_speed_mps *
-         std::abs(forward_speed_mps);
+  return quadratic_drag_force(drag_coefficient_n_s2_per_m2_, forward_speed_mps);
 }
 
 HydroLoadSample
@@ -152,6 +173,93 @@ TowPlaceholderHydroProvider::sample_load(const StepContext &context) {
       drag_force(context.state.hull.linear_velocity_world_mps.x);
   load.hull_force_world_n.x = load.hull_force_x_n;
   return load;
+}
+
+QuadraticDragPlaceholderHullResistanceProvider::
+    QuadraticDragPlaceholderHullResistanceProvider(
+        double drag_coefficient_n_s2_per_m2)
+    : drag_coefficient_n_s2_per_m2_(drag_coefficient_n_s2_per_m2) {}
+
+std::string_view
+QuadraticDragPlaceholderHullResistanceProvider::identifier() const noexcept {
+  return QUADRATIC_DRAG_PLACEHOLDER_ID;
+}
+
+double QuadraticDragPlaceholderHullResistanceProvider::drag_force(
+    double forward_speed_mps) const {
+  return quadratic_drag_force(drag_coefficient_n_s2_per_m2_, forward_speed_mps);
+}
+
+HydroLoadSample QuadraticDragPlaceholderHullResistanceProvider::sample_load(
+    const StepContext &context) {
+  const auto load_x_n =
+      drag_force(context.state.hull.linear_velocity_world_mps.x);
+  return {
+      .hull_force_x_n = load_x_n,
+      .port_blade_force_x_n = 0.0,
+      .starboard_blade_force_x_n = 0.0,
+      .hull_force_world_n = {.x = load_x_n, .y = 0.0, .z = 0.0},
+      .hull_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+      .port_blade_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+      .starboard_blade_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+      .port_blade_immersion_depth_m =
+          context.state.port_oar.blade_immersion_depth_m,
+      .starboard_blade_immersion_depth_m =
+          context.state.starboard_oar.blade_immersion_depth_m,
+  };
+}
+
+StrokePropulsionPlaceholderBladeForceProvider::
+    StrokePropulsionPlaceholderBladeForceProvider(
+        double blade_force_coefficient_n_s_per_m,
+        double full_blade_immersion_depth_m)
+    : blade_force_coefficient_n_s_per_m_(blade_force_coefficient_n_s_per_m),
+      full_blade_immersion_depth_m_(full_blade_immersion_depth_m) {}
+
+std::string_view
+StrokePropulsionPlaceholderBladeForceProvider::identifier() const noexcept {
+  return STROKE_PROPULSION_PLACEHOLDER_ID;
+}
+
+double StrokePropulsionPlaceholderBladeForceProvider::blade_force_x_n(
+    const OarState &oar) const {
+  return project::blade_force_x_n(blade_force_coefficient_n_s_per_m_,
+                                  full_blade_immersion_depth_m_, oar);
+}
+
+HydroLoadSample StrokePropulsionPlaceholderBladeForceProvider::sample_load(
+    const StepContext &context) {
+  if (context.state.stroke.phase != StrokePhase::drive) {
+    return {
+        .hull_force_x_n = 0.0,
+        .port_blade_force_x_n = 0.0,
+        .starboard_blade_force_x_n = 0.0,
+        .hull_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .hull_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .port_blade_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .starboard_blade_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .port_blade_immersion_depth_m = 0.0,
+        .starboard_blade_immersion_depth_m = 0.0,
+    };
+  }
+
+  const auto port_force_x_n = blade_force_x_n(context.state.port_oar);
+  const auto starboard_force_x_n = blade_force_x_n(context.state.starboard_oar);
+  return {
+      .hull_force_x_n = 0.0,
+      .port_blade_force_x_n = port_force_x_n,
+      .starboard_blade_force_x_n = starboard_force_x_n,
+      .hull_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+      .hull_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+      .port_blade_force_world_n = {.x = port_force_x_n, .y = 0.0, .z = 0.0},
+      .starboard_blade_force_world_n = {.x = starboard_force_x_n,
+                                        .y = 0.0,
+                                        .z = 0.0},
+      .port_blade_immersion_depth_m =
+          context.state.port_oar.blade_immersion_depth_m,
+      .starboard_blade_immersion_depth_m =
+          context.state.starboard_oar.blade_immersion_depth_m,
+  };
 }
 
 StrokePropulsionPlaceholderHydroProvider::
@@ -164,48 +272,32 @@ StrokePropulsionPlaceholderHydroProvider::
                           coefficients.roll_damping_moment_n_m_s_per_rad,
                           coefficients.pitch_restoring_moment_n_m_per_rad,
                           coefficients.pitch_damping_moment_n_m_s_per_rad),
-      drag_coefficient_n_s2_per_m2_(coefficients.drag_coefficient_n_s2_per_m2),
-      blade_force_coefficient_n_s_per_m_(blade_force_coefficient_n_s_per_m),
-      full_blade_immersion_depth_m_(coefficients.full_blade_immersion_depth_m) {
-}
+      hull_resistance_provider_(coefficients.drag_coefficient_n_s2_per_m2),
+      blade_force_provider_(blade_force_coefficient_n_s_per_m,
+                            coefficients.full_blade_immersion_depth_m) {}
 
 std::string_view
 StrokePropulsionPlaceholderHydroProvider::identifier() const noexcept {
   return STROKE_PROPULSION_PLACEHOLDER_ID;
 }
 
-double StrokePropulsionPlaceholderHydroProvider::blade_force_x_n(
-    const OarState &oar) const {
-  const double immersion_ratio = full_blade_immersion_depth_m_ > 0.0
-                                     ? clamp_unit(oar.blade_immersion_depth_m /
-                                                  full_blade_immersion_depth_m_)
-                                     : 0.0;
-  const double alignment = std::max(0.0, std::cos(oar.handle_angle_rad));
-  const double relative_speed_mps =
-      std::abs(oar.blade_tip_velocity_world_mps.x);
-  return blade_force_coefficient_n_s_per_m_ * immersion_ratio * alignment *
-         relative_speed_mps;
-}
-
 HydroLoadSample StrokePropulsionPlaceholderHydroProvider::sample_load(
     const StepContext &context) {
   auto load = restoring_provider_.sample_restoring_load(context);
-  load.hull_force_x_n =
-      -drag_coefficient_n_s2_per_m2_ *
-      context.state.hull.linear_velocity_world_mps.x *
-      std::abs(context.state.hull.linear_velocity_world_mps.x);
-  load.hull_force_world_n.x = load.hull_force_x_n;
-  if (context.state.stroke.phase != StrokePhase::drive) {
-    load.port_blade_immersion_depth_m = 0.0;
-    load.starboard_blade_immersion_depth_m = 0.0;
-    return load;
-  }
-  load.port_blade_force_x_n = blade_force_x_n(context.state.port_oar);
-  load.starboard_blade_force_x_n = blade_force_x_n(context.state.starboard_oar);
-  load.port_blade_force_world_n = {
-      .x = load.port_blade_force_x_n, .y = 0.0, .z = 0.0};
-  load.starboard_blade_force_world_n = {
-      .x = load.starboard_blade_force_x_n, .y = 0.0, .z = 0.0};
+  const auto hull_resistance_load =
+      hull_resistance_provider_.sample_load(context);
+  const auto blade_force_load = blade_force_provider_.sample_load(context);
+  load.hull_force_x_n = hull_resistance_load.hull_force_x_n;
+  load.hull_force_world_n.x = hull_resistance_load.hull_force_world_n.x;
+  load.port_blade_force_x_n = blade_force_load.port_blade_force_x_n;
+  load.starboard_blade_force_x_n = blade_force_load.starboard_blade_force_x_n;
+  load.port_blade_force_world_n = blade_force_load.port_blade_force_world_n;
+  load.starboard_blade_force_world_n =
+      blade_force_load.starboard_blade_force_world_n;
+  load.port_blade_immersion_depth_m =
+      blade_force_load.port_blade_immersion_depth_m;
+  load.starboard_blade_immersion_depth_m =
+      blade_force_load.starboard_blade_immersion_depth_m;
   return load;
 }
 

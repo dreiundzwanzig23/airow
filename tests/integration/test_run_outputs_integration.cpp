@@ -184,10 +184,8 @@ TEST(RunOutputsIntegration, FileBackedAndInMemoryEmissionMatch) {
             mem_summary.at("metadata").at("start_timestamp_utc"));
   EXPECT_EQ(file_summary.at("metadata").at("end_timestamp_utc"),
             mem_summary.at("metadata").at("end_timestamp_utc"));
-  EXPECT_EQ(file_summary.at("metadata").at("hydro_provider_id"),
-            mem_summary.at("metadata").at("hydro_provider_id"));
-  EXPECT_EQ(file_summary.at("metadata").at("aero_provider_id"),
-            mem_summary.at("metadata").at("aero_provider_id"));
+  EXPECT_EQ(file_summary.at("metadata").at("providers"),
+            mem_summary.at("metadata").at("providers"));
   EXPECT_EQ(file_summary.at("metadata").at("state_advancer_id"),
             mem_summary.at("metadata").at("state_advancer_id"));
   EXPECT_EQ(file_time_series.at("records"), mem_time_series.at("records"));

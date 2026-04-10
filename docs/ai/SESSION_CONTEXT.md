@@ -4,8 +4,9 @@
 - **Date**: 2026-04-06
 - **Branch**: `First_implementations`
 - **Current Objective**: Resume the post-`v0.1` roadmap after the landed
-  observability slice: provider selection first, then fidelity expansion, then
-  external backend wiring, then calibration and time-varying environment work.
+  observability and provider-selection slices: reduced-model fidelity
+  expansion first, then external backend wiring, then calibration and
+  time-varying environment work.
 
 ## Current State
 - The project is now a single-scull headless-first simulator with a
@@ -20,12 +21,17 @@
   analysis: derived summary metrics in JSON, optional compact or full CLI
   report modes, and an offline static HTML or SVG report tool for emitted JSON
   artifacts.
+- The shared run path now validates a top-level `providers` block, constructs
+  built-in reduced hull-resistance, blade-force, and aero providers from
+  configuration when injected seams are absent, and emits structured
+  per-role provider metadata with validity descriptors in machine-readable
+  outputs.
 - `v0.1` is closed at the requirement level, including `QT-019..QT-026` for
   the remaining cut-line closure items.
-- The roadmap is now staged around a completed observability slice followed by
-  four post-`v0.1` slices: provider selection plus validity metadata,
-  reduced-model fidelity expansion, external backend wiring, and only then
-  calibration plus time-varying environment work.
+- `R-020` and `R-033` are now closed, so the roadmap moves from the landed
+  observability and provider-selection slices into reduced-model fidelity
+  expansion before external backend wiring and later calibration or
+  time-varying environment work.
 - Chrono and SUNDIALS are explicitly part of the later external backend
   wiring slice under `A-010`, not part of hydro or aero provider selection.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
@@ -46,11 +52,10 @@
   functional loops.
 
 ## Next Actions
-1. Land runtime-selectable provider variants and validity-metadata propagation
-   behind the existing hydro or aero seams without regressing the baseline
-   deterministic path or the new run-analysis surface.
-2. Extend `A-004` and `A-005` beyond the first reduced hydro and steady-wind
-   baselines while preserving the scenario-harness contract and current
-   frame-aware or analysis-facing output surface.
+1. Extend `A-004` and `A-005` beyond the landed provider-selection slice with
+   richer reduced hydro and steady-wind behavior while preserving the current
+   config-driven provider catalog and structured output metadata.
+2. Protect the new structured provider metadata and example-config provider
+   selections as compatibility constraints while reduced-model fidelity grows.
 3. Revisit external backend wiring for Chrono and SUNDIALS under `A-010` only
    after the provider-selection and fidelity slices stabilize.

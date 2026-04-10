@@ -164,8 +164,9 @@ TEST(RunAnalysisSystem, CliCanPrintCompactHumanReadableReport) {
 
   const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
                        shell_quote(config_path.string()) +
-                       " --report compact > " + shell_quote(stdout_path.string()) +
-                       " 2> " + shell_quote(stderr_path.string());
+                       " --report compact > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
   const auto status = std::system(command.c_str());
 
   EXPECT_EQ(decode_exit_code(status), 0);
@@ -205,10 +206,10 @@ TEST(RunAnalysisSystem, PythonToolGeneratesStaticReportBundle) {
                                "airow-qt-analysis-tool-cli.stderr";
   const auto report_dir =
       std::filesystem::temp_directory_path() / "airow-qt-analysis-report";
-  const auto tool_stdout_path = std::filesystem::temp_directory_path() /
-                                "airow-qt-analysis-tool.stdout";
-  const auto tool_stderr_path = std::filesystem::temp_directory_path() /
-                                "airow-qt-analysis-tool.stderr";
+  const auto tool_stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-analysis-tool.stdout";
+  const auto tool_stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-analysis-tool.stderr";
   const auto tool_path = kProjectSourceDir / "tools" / "run_analysis.py";
 
   remove_file_if_present(summary_path);
@@ -219,16 +220,16 @@ TEST(RunAnalysisSystem, PythonToolGeneratesStaticReportBundle) {
   remove_file_if_present(tool_stderr_path);
   remove_directory_if_present(report_dir);
 
-  const auto cli_command = shell_quote(kProjectAppPath.string()) + " --config " +
-                           shell_quote(config_path.string()) + " > " +
-                           shell_quote(cli_stdout_path.string()) + " 2> " +
-                           shell_quote(cli_stderr_path.string());
+  const auto cli_command = shell_quote(kProjectAppPath.string()) +
+                           " --config " + shell_quote(config_path.string()) +
+                           " > " + shell_quote(cli_stdout_path.string()) +
+                           " 2> " + shell_quote(cli_stderr_path.string());
   ASSERT_EQ(decode_exit_code(std::system(cli_command.c_str())), 0);
   ASSERT_TRUE(read_file(cli_stderr_path).empty());
 
   const auto tool_command =
-      std::string("python3 ") + shell_quote(tool_path.string()) + " --summary " +
-      shell_quote(summary_path.string()) + " --time-series " +
+      std::string("python3 ") + shell_quote(tool_path.string()) +
+      " --summary " + shell_quote(summary_path.string()) + " --time-series " +
       shell_quote(time_series_path.string()) + " --output-dir " +
       shell_quote(report_dir.string()) + " > " +
       shell_quote(tool_stdout_path.string()) + " 2> " +

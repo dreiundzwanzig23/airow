@@ -13,10 +13,10 @@ evidence.
 
 The broader rowing simulator direction remains defined in the requirements,
 architecture, technology stack, and decision records, including explicit
-state-convention and numerical-integration ownership. Post-`v0.1` work now
-centers on an explicit slice order: runtime-selectable provider variants plus
-validity metadata first, reduced-model fidelity expansion second, external
-backend wiring for Chrono or SUNDIALS third, and only then deferred
+state-convention and numerical-integration ownership. Post-`v0.1` work has now
+landed both the observability slice and the runtime provider-selection slice;
+the current roadmap focus is reduced-model fidelity expansion first, external
+backend wiring for Chrono or SUNDIALS second, and only then deferred
 calibration or time-varying environment workflows.
 
 ## Quick Start
@@ -54,6 +54,7 @@ artifacts under `scenarios/`.
 
 Current implemented library surface:
 - `include/project/aero/baseline_providers.hpp`
+- `include/project/configuration/provider_catalog.hpp`
 - `include/project/configuration/simulator_config.hpp`
 - `include/project/hydro/baseline_providers.hpp`
 - `include/project/mechanics/state.hpp`
@@ -69,6 +70,8 @@ Current implemented library surface:
   `A-003` and `A-010` slice
 - reusable in-memory single-run API with injected hydro, aero, and
   state-advancer seams plus structured state/load history
+- top-level config-driven built-in provider selection for
+  `hull_resistance`, `blade_force`, and `aero_load`
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
 - structured hydro force or moment vectors, final passive-float equilibrium
@@ -93,6 +96,8 @@ Current implemented library surface:
   forces
 - deterministic aero baseline provider for steady apparent-wind, longitudinal
   drag, and yaw-moment reporting behind the shared `AeroProvider` seam
+- structured provider metadata in run summaries with per-role provider ids plus
+  validity identifiers and descriptions
 - optional `--report compact|full` CLI output for human-readable run-state and
   load-envelope inspection
 - offline `python3 tools/run_analysis.py --summary <path> --time-series <path>
@@ -129,25 +134,27 @@ Current implementation status:
 - the `v0.1` roadmap cut line is complete at the requirement level,
 - `A-001 Configuration and Validation` is now in progress with a real public
   contract for deterministic JSON loading and validation of mechanics-startup
-  inputs,
+  inputs plus the top-level built-in provider-selection schema,
 - `A-002 Simulation Orchestrator` is now in progress with a shared single-run
-  path for CLI and in-memory execution,
+  path for CLI and in-memory execution plus config-driven built-in provider
+  construction when injected seams are absent,
 - `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
   Advancement` are now in progress through a deterministic internal baseline
   state-advancer seam,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
-  machine-readable summary/time-series artifact emission and optional HDF5
-  parity behind the same output contract,
+  machine-readable summary/time-series artifact emission, structured provider
+  metadata propagation, and optional HDF5 parity behind the same output
+  contract,
 - `A-005 Aero Runtime Models` is now in progress with the first steady-wind
-  apparent-wind and aerodynamic-load slice,
+  apparent-wind and aerodynamic-load slice plus runtime-selectable built-in
+  provider wiring,
 - `A-008 Scenario Harness and Validation` is now in progress with a public
   scenario-harness API and runtime-backed passive-float/tow/calm-water/
   headwind/crosswind `QT-*` evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- richer runtime provider fidelity, provider selection, and later backend
-  wiring remain staged on the existing subsystem seams, with Chrono or
-  SUNDIALS reserved for a later `A-010` backend slice rather than near-term
-  hydro or aero provider selection.
+- richer runtime provider fidelity and later backend wiring remain staged on
+  the existing subsystem seams, with Chrono or SUNDIALS reserved for a later
+  `A-010` backend slice rather than the landed provider-selection work.
 
 ## Validation Lanes
 

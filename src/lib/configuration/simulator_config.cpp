@@ -1,4 +1,5 @@
 #include "project/configuration/simulator_config.hpp"
+#include "project/configuration/provider_catalog.hpp"
 #include "project/core/geometry.hpp"
 
 #include <cctype>
@@ -126,6 +127,12 @@ std::string format_output_formats(const OutputSettings &output) {
     return "[json]";
   }
   return "[]";
+}
+
+std::string unsupported_provider_message(std::string_view role,
+                                         std::string_view provider_id) {
+  return "unknown " + std::string(role) + " provider '" +
+         std::string(provider_id) + "'";
 }
 
 double vector_norm(const Vector3 &value) {
@@ -672,6 +679,66 @@ bool parse_environment_settings(const Json &root, SimulatorConfig &config,
              config.environment.ambient_wind_world_mps, result);
 }
 
+bool parse_provider_selection_field(const Json &providers, std::string_view key,
+                                    std::string_view path, ProviderRole role,
+                                    std::string &target,
+                                    LoadSimulatorConfigResult &result) {
+  if (!providers.contains(key)) {
+    return true;
+  }
+  const auto &value = providers.at(key);
+  if (!value.is_string()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected string"));
+    return false;
+  }
+
+  target = value.get<std::string>();
+  const auto metadata = lookup_builtin_provider_metadata(role, target);
+  if (!metadata.has_value()) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", std::string(path),
+                   unsupported_provider_message(key, target)));
+    return false;
+  }
+  if (metadata->validity_id.empty() || metadata->validity_description.empty()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", std::string(path),
+        std::string(key) + " provider is missing required validity metadata"));
+    return false;
+  }
+  return true;
+}
+
+/**
+ * @design D-032 — Runtime provider-selection schema and validity-catalog
+ * validation
+ * @title Deterministic built-in provider id validation and normalized
+ * selection capture for runtime-selectable reduced providers
+ * @satisfies [A-001]
+ */
+bool parse_provider_settings(const Json &root, SimulatorConfig &config,
+                             LoadSimulatorConfigResult &result) {
+  config.providers = {};
+  if (!root.contains("providers")) {
+    return true;
+  }
+
+  const Json *providers =
+      require_object(root, "providers", "$.providers", result);
+  return providers != nullptr &&
+         parse_provider_selection_field(
+             *providers, "hull_resistance", "$.providers.hull_resistance",
+             ProviderRole::hull_resistance, config.providers.hull_resistance,
+             result) &&
+         parse_provider_selection_field(
+             *providers, "blade_force", "$.providers.blade_force",
+             ProviderRole::blade_force, config.providers.blade_force, result) &&
+         parse_provider_selection_field(
+             *providers, "aero_load", "$.providers.aero_load",
+             ProviderRole::aero_load, config.providers.aero_load, result);
+}
+
 bool parse_optional_output_string_field(const Json &output,
                                         std::string_view key,
                                         std::string_view path,
@@ -867,6 +934,9 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.stroke.recovery_blade_depth_m), "m"},
       {"$.environment.ambient_wind_world_mps",
        format_vector3(config.environment.ambient_wind_world_mps), "m/s"},
+      {"$.providers.hull_resistance", config.providers.hull_resistance, ""},
+      {"$.providers.blade_force", config.providers.blade_force, ""},
+      {"$.providers.aero_load", config.providers.aero_load, ""},
       {"$.output.summary_path", config.output.summary_path, ""},
       {"$.output.time_series_path", config.output.time_series_path, ""},
       {"$.output.hdf5_path", config.output.hdf5_path, ""},
@@ -916,6 +986,7 @@ parse_simulator_config_text(std::string_view json_text,
       parse_seat_settings(root, config, result) &&
       parse_stroke_settings(root, config, result) &&
       parse_environment_settings(root, config, result) &&
+      parse_provider_settings(root, config, result) &&
       parse_output_settings(root, config, result)) {
     result.normalized_config = normalize_simulator_config(config);
     result.config = std::move(config);
