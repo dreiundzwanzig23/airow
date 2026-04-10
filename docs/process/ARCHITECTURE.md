@@ -162,10 +162,13 @@ Implemented baseline today:
   crosswind stroke scenario evaluation.
 
 Still planned or incomplete:
-- richer reduced hydro runtime models beyond the first widened baseline
-  providers,
-- apparent wind and reduced aero models beyond the first steady-wind slice,
-- runtime-selectable provider families,
+- deeper reduced hydro runtime fidelity beyond the first widened baseline
+  providers is the current active post-provider-selection slice,
+- apparent wind and reduced aero models beyond the current steady-wind
+  refinement,
+- the steady-wind aero follow-on step is now underway on the existing built-in
+  aero id without changing the current provider-selection or metadata
+  contracts,
 - external calibration ingestion and provenance propagation,
 - concrete Chrono and SUNDIALS backend wiring behind existing seams.
 
@@ -243,7 +246,11 @@ Still planned or incomplete:
   resistance and blade-force roles, couples longitudinal and vertical
   hydro-force components plus roll or pitch restoring moments into the
   internal baseline advancer, and leaves fuller sway or yaw hydro dynamics for
-  later work.
+  later work. The next fidelity pass keeps the existing built-in
+  `quadratic_drag_placeholder` and `stroke_propulsion_placeholder` ids stable
+  while deepening them in place with richer low-speed hull damping plus
+  speed-squared resistance and stronger phase- and immersion-shaped blade
+  propulsion behavior.
 
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models
@@ -264,7 +271,12 @@ Still planned or incomplete:
   slice resolves the built-in `steady_wind_placeholder` or `none` provider from
   configuration, propagates full aero vectors and yaw-sign information through
   outputs and scenario evaluation, and keeps dynamic state advancement coupled
-  only to the longitudinal aero-force component.
+  only to the longitudinal aero-force component. The current fidelity follow-on
+  keeps the existing built-in `steady_wind_placeholder` id stable while
+  deepening it in place with richer steady headwind drag sensitivity and
+  stronger steady crosswind lateral or yaw behavior, without opening
+  time-varying wind support or broadening the current state-advancer coupling
+  boundary.
 
 ## A-006 — Control and Stroke Input
 - **Title**: Stroke scheduling and low-order control subsystem
@@ -302,7 +314,10 @@ Still planned or incomplete:
   deterministic sampling policy, structured per-role provider metadata with
   validity descriptors in JSON or HDF5 summaries, stable diagnostics when
   requested formats are unavailable, and additive derived-analysis summaries
-  suitable for CLI and offline single-run inspection.
+  suitable for CLI and offline single-run inspection. Hydro fidelity work must
+  preserve the existing structured provider metadata and emitted artifact
+  schema while updating only the numeric contents implied by the richer runtime
+  providers.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem

@@ -223,12 +223,14 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-04
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: The baseline `A-004` slice now applies deterministic reduced
-  quadratic hull drag through the shared hydro seam while preserving the
-  checked-in tow scenario envelope and monotonic drag-speed evidence.
+  hull drag through the shared hydro seam with monotonic speed-squared
+  resistance plus a low-speed damping term on the built-in runtime provider,
+  while preserving the checked-in tow scenario envelope and monotonic
+  drag-speed evidence.
 
 ## R-011 — Reduced Blade-Water Force Model
 - **Title**: Compute blade hydrodynamic loads from blade state and relative water motion
@@ -240,13 +242,13 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-04
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: The baseline `A-004` slice now computes deterministic reduced
-  blade-water loads from explicit blade immersion, handle-angle orientation
-  surrogate, and relative blade-water speed, with dry-blade and monotonic
-  speed evidence plus calm-water scenario coverage.
+  blade-water loads from explicit blade immersion, drive-phase shaping,
+  handle-angle orientation surrogate, and relative blade-water speed, with
+  dry-blade and monotonic speed evidence plus calm-water scenario coverage.
 
 ## R-012 — Self-Propelled Stroke Response
 - **Title**: Produce forward motion from a valid stroke in calm water
@@ -258,13 +260,13 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-04
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: The baseline runtime now includes deterministic structured blade
   load propagation, a calm-water stroke scenario artifact, and regression
-  coverage proving positive mean propulsion with placeholder blade loads plus
-  reduced mean speed when those blade loads are disabled.
+  coverage proving positive mean propulsion with phase-shaped placeholder
+  blade loads plus reduced mean speed when those blade loads are disabled.
 
 ## R-013 — Apparent Wind Computation
 - **Title**: Compute apparent wind from ambient wind and boat motion
@@ -290,9 +292,15 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-04
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline `A-005` slice now applies deterministic reduced
+  steady-wind loads through the shared aero seam with explicit apparent-wind
+  reporting, stronger low-apparent-wind headwind drag sensitivity, explicit
+  lateral crosswind force, and mirrored yaw-sign behavior on the built-in
+  runtime provider while preserving the existing provider id and structured
+  output metadata.
 
 ## R-015 — Machine-Readable Outputs
 - **Title**: Emit structured outputs for analysis and regression testing

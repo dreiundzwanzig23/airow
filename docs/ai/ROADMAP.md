@@ -9,8 +9,11 @@
   closed on 2026-04-06 with top-level config-driven provider selection,
   built-in provider composition on the shared run path, and structured
   provider validity metadata in machine-readable outputs.
-- Current work should now advance to reduced-model fidelity expansion rather
-  than reopening the baseline milestone or the landed provider-selection slice.
+- Slice 2 is now underway across both hydro and steady-wind aero increments:
+  the existing built-in hydro ids have been deepened in place, the existing
+  built-in `steady_wind_placeholder` aero id has been refined in place, and
+  the checked-in wind-backed scenario envelopes have been refreshed against
+  the richer deterministic baseline.
 
 ## Post-`v0.1` Slices
 
@@ -36,6 +39,11 @@
   provider seams while preserving the current deterministic headless run path.
 - Keep `A-004` and `A-005` as the primary owners for richer reduced-model
   variants and stronger observable scenario fidelity.
+- The current sub-slices keep the existing built-in ids stable:
+  `quadratic_drag_placeholder` and `stroke_propulsion_placeholder` have been
+  refined in place on the hydro side, and `steady_wind_placeholder` is now
+  being refined in place on the aero side without changing the current config
+  or structured metadata schema.
 
 ### Slice 3 — External Backend Wiring and Backend Selection
 - Revisit concrete Chrono and SUNDIALS adoption behind the existing mechanics

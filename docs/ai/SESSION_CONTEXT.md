@@ -1,37 +1,36 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-06
+- **Date**: 2026-04-10
 - **Branch**: `First_implementations`
-- **Current Objective**: Resume the post-`v0.1` roadmap after the landed
-  observability and provider-selection slices: reduced-model fidelity
-  expansion first, then external backend wiring, then calibration and
-  time-varying environment work.
+- **Current Objective**: Continue the post-`v0.1` roadmap: reduced-model
+  fidelity first, external backend wiring second, calibration or
+  time-varying environment later.
 
 ## Current State
 - The project is now a single-scull headless-first simulator with a
-  mechanics-backed run path, reduced hydro and aero models, and later
+  mechanics-backed run path, reduced hydro or aero models, and later
   calibration or truth-model workflows.
 - `A-001`, `A-002`, `A-003`, `A-004`, `A-005`, `A-007`, `A-008`, and `A-010`
   are active with public contracts under `include/project/**`.
 - The baseline runtime includes deterministic startup and stepping, structured
-  JSON/HDF5-capable outputs, and checked-in passive, tow, calm-water,
-  headwind, and crosswind scenario artifacts.
-- The baseline output surface now also includes additive human-readable run
-  analysis: derived summary metrics in JSON, optional compact or full CLI
-  report modes, and an offline static HTML or SVG report tool for emitted JSON
-  artifacts.
-- The shared run path now validates a top-level `providers` block, constructs
-  built-in reduced hull-resistance, blade-force, and aero providers from
-  configuration when injected seams are absent, and emits structured
-  per-role provider metadata with validity descriptors in machine-readable
-  outputs.
+  JSON/HDF5-capable outputs, checked-in passive or tow or calm-water or
+  headwind or crosswind scenarios, and additive human-readable run analysis.
+- The shared run path validates the top-level `providers` block, constructs
+  built-in reduced hull-resistance or blade-force or aero providers when
+  injected seams are absent, and emits structured per-role validity metadata.
+- The landed `A-004` follow-on deepens the existing hydro ids in place with
+  low-speed-damped hull drag, phase-shaped blade propulsion, and refreshed
+  calm-water or headwind or crosswind scenario envelopes.
+- The landed `A-005` follow-on deepens the existing
+  `steady_wind_placeholder` id in place with stronger low-apparent-wind
+  headwind drag, explicit lateral crosswind force, speed-shaped yaw, and
+  refreshed headwind or crosswind scenario envelopes.
 - `v0.1` is closed at the requirement level, including `QT-019..QT-026` for
   the remaining cut-line closure items.
-- `R-020` and `R-033` are now closed, so the roadmap moves from the landed
-  observability and provider-selection slices into reduced-model fidelity
-  expansion before external backend wiring and later calibration or
-  time-varying environment work.
+- `R-020` and `R-033` are closed, so the roadmap now moves from landed
+  observability or provider-selection work into reduced-model fidelity before
+  external backend wiring and later calibration or time-varying environment.
 - Chrono and SUNDIALS are explicitly part of the later external backend
   wiring slice under `A-010`, not part of hydro or aero provider selection.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
@@ -52,10 +51,11 @@
   functional loops.
 
 ## Next Actions
-1. Extend `A-004` and `A-005` beyond the landed provider-selection slice with
-   richer reduced hydro and steady-wind behavior while preserving the current
-   config-driven provider catalog and structured output metadata.
-2. Protect the new structured provider metadata and example-config provider
-   selections as compatibility constraints while reduced-model fidelity grows.
-3. Revisit external backend wiring for Chrono and SUNDIALS under `A-010` only
-   after the provider-selection and fidelity slices stabilize.
+1. Continue Slice 2 only with further reduced-model fidelity work that keeps
+   the current built-in hydro and aero provider ids stable and preserves the
+   structured provider metadata contract.
+2. Revisit external backend wiring for Chrono and SUNDIALS under `A-010` now
+   that the provider-selection slice and the first hydro or aero fidelity
+   increments are both landed.
+3. Re-open deferred calibration or time-varying environment work only after
+   backend direction and reduced-model stability are clearer.

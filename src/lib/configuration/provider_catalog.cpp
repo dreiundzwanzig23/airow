@@ -35,8 +35,9 @@ constexpr std::array<ProviderCatalogEntry, 2U> BLADE_FORCE_PROVIDERS{{
 }};
 
 constexpr std::array<ProviderCatalogEntry, 2U> AERO_LOAD_PROVIDERS{{
-    {"none", {"not_applicable",
-              "No aerodynamic runtime provider is selected for this run."}},
+    {"none",
+     {"not_applicable",
+      "No aerodynamic runtime provider is selected for this run."}},
     {"steady_wind_placeholder",
      {"baseline-steady-wind-v1",
       "Reduced steady apparent-wind aero model intended for deterministic "

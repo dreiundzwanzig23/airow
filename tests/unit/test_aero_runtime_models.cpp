@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -261,6 +262,65 @@ TEST(AeroRuntimeModels, ProviderMirrorsCrosswindYawMomentSign) {
   EXPECT_GT(starboard.moment_world_n_m.z, 0.0);
   EXPECT_LT(port.moment_world_n_m.z, 0.0);
   EXPECT_DOUBLE_EQ(starboard.moment_world_n_m.z, -port.moment_world_n_m.z);
+}
+
+/**
+ * @test UT-129
+ * @verifies [D-038]
+ * @notes Given the built-in steady-wind provider, when a low and a higher
+ * pure headwind apparent-wind case are sampled, then the returned
+ * longitudinal drag remains finite, opposes forward motion, exceeds the pure
+ * speed-squared term at low apparent wind, and grows monotonically in
+ * magnitude.
+ */
+TEST(AeroRuntimeModels, ProviderAddsLowApparentWindHeadwindSensitivity) {
+  project::SteadyWindPlaceholderAeroProvider provider(1.5, 0.75);
+
+  const auto low_speed_sample = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 0.4, .y = 0.0, .z = 0.0})},
+      {.x = 0.0, .y = 0.0, .z = 0.0});
+  const auto high_speed_sample = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 1.2, .y = 0.0, .z = 0.0})},
+      {.x = 0.0, .y = 0.0, .z = 0.0});
+
+  EXPECT_LT(low_speed_sample.force_world_n.x, 0.0);
+  EXPECT_GT(std::abs(low_speed_sample.force_world_n.x), 1.5 * 0.4 * 0.4);
+  EXPECT_GT(std::abs(high_speed_sample.force_world_n.x),
+            std::abs(low_speed_sample.force_world_n.x));
+}
+
+/**
+ * @test UT-130
+ * @verifies [D-039]
+ * @notes Given the built-in steady-wind provider, when the same crosswind is
+ * sampled for a stationary hull and a forward-moving hull, then the provider
+ * returns mirrored lateral force signs for port versus starboard wind and a
+ * stronger yaw moment when forward motion increases total apparent wind.
+ */
+TEST(AeroRuntimeModels, ProviderAddsLateralForceAndSpeedAmplifiedYaw) {
+  project::SteadyWindPlaceholderAeroProvider provider(1.5, 0.75);
+
+  const auto stationary_starboard = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 0.0, .y = 0.0, .z = 0.0})},
+      {.x = 0.0, .y = 2.0, .z = 0.0});
+  const auto moving_starboard = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 1.0, .y = 0.0, .z = 0.0})},
+      {.x = 0.0, .y = 2.0, .z = 0.0});
+  const auto stationary_port = provider.sample_load(
+      project::StepContext{.time_s = 0.0,
+                           .state = make_state({.x = 0.0, .y = 0.0, .z = 0.0})},
+      {.x = 0.0, .y = -2.0, .z = 0.0});
+
+  EXPECT_GT(stationary_starboard.force_world_n.y, 0.0);
+  EXPECT_LT(stationary_port.force_world_n.y, 0.0);
+  EXPECT_DOUBLE_EQ(stationary_starboard.force_world_n.y,
+                   -stationary_port.force_world_n.y);
+  EXPECT_GT(moving_starboard.moment_world_n_m.z,
+            stationary_starboard.moment_world_n_m.z);
 }
 
 /**

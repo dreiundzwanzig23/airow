@@ -13,6 +13,8 @@ namespace {
 
 constexpr std::string_view STEADY_WIND_PLACEHOLDER_ID =
     "steady_wind_placeholder";
+constexpr double AERO_REFERENCE_SPEED_MPS = 0.35;
+constexpr double LATERAL_FORCE_SCALE = 0.5;
 
 /**
  * @design D-026 — Steady-wind baseline aero providers
@@ -31,8 +33,39 @@ Vector3 apparent_wind(const StepContext &context,
            context.state.hull.linear_velocity_world_mps.z,
   };
 }
-double quadratic_signed_load(double coefficient, double component) {
-  return coefficient * component * std::abs(component);
+
+double vector_magnitude(const Vector3 &value) {
+  return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
+}
+
+/**
+ * @design D-038 — Low-apparent-wind steady headwind drag shaping
+ * @title Deterministic steady headwind drag shaping for the built-in
+ * `steady_wind_placeholder` provider with stronger low-apparent-wind
+ * sensitivity on the current runtime seam
+ * @satisfies [A-005]
+ */
+double steady_signed_drag_force(double coefficient, double component,
+                                double apparent_speed_mps) {
+  return coefficient * component *
+         (AERO_REFERENCE_SPEED_MPS + apparent_speed_mps);
+}
+
+/**
+ * @design D-039 — Crosswind lateral-force and yaw shaping
+ * @title Deterministic steady crosswind lateral-force and yaw shaping for the
+ * built-in `steady_wind_placeholder` provider on the current runtime seam
+ * @satisfies [A-005]
+ */
+double steady_signed_lateral_force(double coefficient, double component,
+                                   double apparent_speed_mps) {
+  return LATERAL_FORCE_SCALE *
+         steady_signed_drag_force(coefficient, component, apparent_speed_mps);
+}
+
+double steady_signed_yaw_moment(double coefficient, double component,
+                                double apparent_speed_mps) {
+  return coefficient * component * apparent_speed_mps;
 }
 
 } // namespace
@@ -53,21 +86,26 @@ AeroLoadSample SteadyWindPlaceholderAeroProvider::sample_load(
     const StepContext &context, const Vector3 &ambient_wind_world_mps) {
   const auto air_relative_velocity =
       apparent_wind(context, ambient_wind_world_mps);
+  const auto apparent_speed_mps = vector_magnitude(air_relative_velocity);
   return {
       .apparent_wind_world_mps = air_relative_velocity,
       .force_world_n =
           {
-              .x = quadratic_signed_load(drag_coefficient_n_s2_per_m2_,
-                                         air_relative_velocity.x),
-              .y = 0.0,
+              .x = steady_signed_drag_force(drag_coefficient_n_s2_per_m2_,
+                                            air_relative_velocity.x,
+                                            apparent_speed_mps),
+              .y = steady_signed_lateral_force(drag_coefficient_n_s2_per_m2_,
+                                               air_relative_velocity.y,
+                                               apparent_speed_mps),
               .z = 0.0,
           },
       .moment_world_n_m =
           {
               .x = 0.0,
               .y = 0.0,
-              .z = quadratic_signed_load(yaw_moment_coefficient_n_m_s2_per_m2_,
-                                         air_relative_velocity.y),
+              .z = steady_signed_yaw_moment(
+                  yaw_moment_coefficient_n_m_s2_per_m2_,
+                  air_relative_velocity.y, apparent_speed_mps),
           },
   };
 }

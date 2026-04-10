@@ -14,10 +14,11 @@ evidence.
 The broader rowing simulator direction remains defined in the requirements,
 architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership. Post-`v0.1` work has now
-landed both the observability slice and the runtime provider-selection slice;
-the current roadmap focus is reduced-model fidelity expansion first, external
-backend wiring for Chrono or SUNDIALS second, and only then deferred
-calibration or time-varying environment workflows.
+landed the observability slice, the runtime provider-selection slice, and the
+first hydro and steady-wind aero fidelity refinements on the existing built-in
+provider ids; the next roadmap focus is external backend wiring for Chrono or
+SUNDIALS, followed only then by deferred calibration or time-varying
+environment workflows.
 
 ## Quick Start
 
@@ -92,10 +93,11 @@ Current implemented library surface:
   crosswind stroke artifacts in `scenarios/*.json`
 - deterministic hydro baseline providers for passive float, tow drag, and
   calm-water stroke propulsion behind the shared `HydroProvider` seam, now
-  including reduced hydrostatic restoring loads and immersion-aware blade
-  forces
-- deterministic aero baseline provider for steady apparent-wind, longitudinal
-  drag, and yaw-moment reporting behind the shared `AeroProvider` seam
+  including reduced hydrostatic restoring loads, low-speed-damped built-in
+  hull resistance, and phase-shaped immersion-aware blade forces
+- deterministic aero baseline provider for steady apparent-wind, low-speed-
+  sensitive headwind drag, lateral crosswind force, and speed-shaped yaw-
+  moment reporting behind the shared `AeroProvider` seam
 - structured provider metadata in run summaries with per-role provider ids plus
   validity identifiers and descriptions
 - optional `--report compact|full` CLI output for human-readable run-state and
@@ -146,15 +148,19 @@ Current implementation status:
   metadata propagation, and optional HDF5 parity behind the same output
   contract,
 - `A-005 Aero Runtime Models` is now in progress with the first steady-wind
-  apparent-wind and aerodynamic-load slice plus runtime-selectable built-in
-  provider wiring,
+  apparent-wind and aerodynamic-load slice, runtime-selectable built-in
+  provider wiring, and an in-place steady-wind fidelity refinement on the
+  existing built-in aero id,
 - `A-008 Scenario Harness and Validation` is now in progress with a public
   scenario-harness API and runtime-backed passive-float/tow/calm-water/
   headwind/crosswind `QT-*` evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
-- richer runtime provider fidelity and later backend wiring remain staged on
-  the existing subsystem seams, with Chrono or SUNDIALS reserved for a later
-  `A-010` backend slice rather than the landed provider-selection work.
+- richer runtime provider fidelity is now in progress on the existing
+  `A-004` and `A-005` seams through in-place hydro and steady-wind aero
+  baseline refinements plus re-characterized wind-backed scenario envelopes,
+  with later backend wiring staged separately and Chrono or SUNDIALS reserved
+  for a later `A-010` backend slice rather than the landed provider-selection
+  work.
 
 ## Validation Lanes
 

@@ -678,8 +678,11 @@ TEST(OrchestratorIntegration, BuiltInBladeAndAeroProvidersShareContracts) {
         std::isfinite(result.load_history.front().aero_force_world_n.x));
     if (provider_id == "none") {
       EXPECT_DOUBLE_EQ(result.load_history.front().aero_force_world_n.x, 0.0);
+      EXPECT_DOUBLE_EQ(result.load_history.front().aero_force_world_n.y, 0.0);
     } else {
       EXPECT_NE(result.load_history.front().aero_force_world_n.x, 0.0);
+      EXPECT_NE(result.load_history.front().aero_force_world_n.y, 0.0);
+      EXPECT_NE(result.load_history.front().aero_moment_world_n_m.z, 0.0);
     }
   }
 }

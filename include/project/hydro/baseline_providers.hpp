@@ -86,7 +86,8 @@ public:
   HydroLoadSample sample_load(const StepContext &context) override;
 
 private:
-  [[nodiscard]] double blade_force_x_n(const OarState &oar) const;
+  [[nodiscard]] double blade_force_x_n(const StepContext &context,
+                                       const OarState &oar) const;
 
   double blade_force_coefficient_n_s_per_m_{};
   double full_blade_immersion_depth_m_{};

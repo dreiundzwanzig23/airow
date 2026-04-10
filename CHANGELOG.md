@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 ### Changed
+- Continued Slice 2 on `A-005` by deepening the existing built-in
+  `steady_wind_placeholder` aero id in place: the provider now adds stronger
+  low-apparent-wind headwind drag sensitivity, explicit lateral crosswind
+  force, and speed-shaped yaw behavior while preserving the existing provider
+  selection and structured metadata contracts; the checked-in headwind and
+  crosswind scenario envelopes were re-characterized to the richer
+  deterministic wind baseline with new evidence (`D-038`, `D-039`,
+  `UT-129`, `UT-130`).
+- Started the reduced-model fidelity slice on `A-004` by deepening the
+  existing built-in hydro ids in place: `quadratic_drag_placeholder` now adds
+  low-speed damping on top of monotonic speed-squared drag,
+  `stroke_propulsion_placeholder` now shapes blade force across drive phase,
+  and the checked-in calm-water or headwind or crosswind scenario envelopes
+  were re-characterized to the new deterministic hydro baselines with new
+  evidence (`D-036`, `D-037`, `UT-127`, `UT-128`).
 - Closed the provider-selection slice (`R-020`, `R-033`) with a top-level
   `providers` config block, built-in reduced hull-resistance or blade-force or
   aero provider construction on the shared run path, structured provider
@@ -38,7 +53,8 @@
   configuration, a public baseline aero-provider header, structured
   apparent-wind plus aerodynamic force or moment samples in run outputs, and
   new evidence (`D-026`, `UT-075..UT-079`, `UT-104`, `IT-010`) that closes
-  `R-013` and `R-014`.
+  `R-013` and `R-014`; the same built-in aero id is now being refined in
+  place rather than replaced in later slices.
 - Completed the `v0.1` reference scenario set with checked-in
   `scenarios/headwind_stroke.json` and `scenarios/crosswind_stroke.json`,
   extended scenario-harness loading or evaluation for wind-backed envelopes,

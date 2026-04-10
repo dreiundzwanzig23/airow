@@ -153,7 +153,7 @@ public:
 
 /**
  * @test UT-071
- * @verifies [D-028]
+ * @verifies [D-037]
  * @notes Given the deterministic calm-water propulsion provider, when the
  * stroke is in drive versus recovery, then it returns positive symmetric
  * blade loads during drive and zero blade loads during recovery.
@@ -163,6 +163,7 @@ TEST(HydroRuntimeModels, StrokePropulsionProviderTracksStrokePhase) {
 
   auto drive_state = make_success_result().state_history.back();
   drive_state.stroke.phase = project::StrokePhase::drive;
+  drive_state.hull.linear_velocity_world_mps.x = 0.0;
   const auto drive_load = provider.sample_load(
       project::StepContext{.time_s = 0.12, .state = drive_state});
 
@@ -327,7 +328,7 @@ TEST(HydroRuntimeModels, PassiveProviderReturnsHydrostaticRestoringLoads) {
 
 /**
  * @test UT-108
- * @verifies [D-028]
+ * @verifies [D-037]
  * @notes Given the reduced calm-water propulsion provider, when blade
  * immersion is zero, then the blade-water load returns near zero even during
  * drive.
@@ -349,7 +350,7 @@ TEST(HydroRuntimeModels, StrokeProviderReturnsZeroLoadForDryBlades) {
 
 /**
  * @test UT-109
- * @verifies [D-028]
+ * @verifies [D-037]
  * @notes Given fixed immersion and drive phase, when relative blade-water
  * speed increases or the handle angle changes, then the reduced blade-force
  * magnitude increases with speed and changes deterministically with
@@ -388,6 +389,72 @@ TEST(HydroRuntimeModels, StrokeProviderTracksSpeedAndOrientationSensitivity) {
             low_load.port_blade_force_world_n.x);
   EXPECT_NE(rotated_load.port_blade_force_world_n.x,
             high_load.port_blade_force_world_n.x);
+}
+
+/**
+ * @test UT-127
+ * @verifies [D-036]
+ * @notes Given the built-in hull-resistance provider, when low and higher
+ * forward speeds are sampled, then the returned drag remains zero at rest,
+ * opposes motion, exceeds the pure speed-squared term at low speed, and grows
+ * monotonically in magnitude.
+ */
+TEST(HydroRuntimeModels, HullResistanceProviderAddsLowSpeedDamping) {
+  project::QuadraticDragPlaceholderHullResistanceProvider provider(2.0);
+
+  const auto rest_drag_n = provider.drag_force(0.0);
+  const auto low_speed_drag_n = provider.drag_force(0.2);
+  const auto medium_speed_drag_n = provider.drag_force(0.6);
+  const auto high_speed_drag_n = provider.drag_force(1.0);
+
+  EXPECT_DOUBLE_EQ(rest_drag_n, 0.0);
+  EXPECT_LT(low_speed_drag_n, 0.0);
+  EXPECT_GT(std::abs(low_speed_drag_n), 2.0 * 0.2 * 0.2);
+  EXPECT_GT(std::abs(medium_speed_drag_n), std::abs(low_speed_drag_n));
+  EXPECT_GT(std::abs(high_speed_drag_n), std::abs(medium_speed_drag_n));
+}
+
+/**
+ * @test UT-128
+ * @verifies [D-037]
+ * @notes Given the built-in blade-force provider in drive phase, when early,
+ * mid-drive, and late-drive states are sampled, then the mid-drive load is
+ * stronger than catch or release while catch and release still remain finite
+ * and positive.
+ */
+TEST(HydroRuntimeModels, StrokeProviderShapesDriveForceAcrossThePhase) {
+  project::StrokePropulsionPlaceholderBladeForceProvider provider(4.0, 0.12);
+
+  auto state = make_success_result().state_history.back();
+  state.stroke.phase = project::StrokePhase::drive;
+  state.port_oar.handle_angle_rad = 0.1;
+  state.starboard_oar.handle_angle_rad = 0.1;
+  state.port_oar.blade_immersion_depth_m = 0.12;
+  state.starboard_oar.blade_immersion_depth_m = 0.12;
+  state.port_oar.blade_tip_velocity_world_mps = {.x = -0.8, .y = 0.0, .z = 0.0};
+  state.starboard_oar.blade_tip_velocity_world_mps = {
+      .x = -0.8, .y = 0.0, .z = 0.0};
+
+  auto catch_state = state;
+  catch_state.stroke.phase_time_s = 0.0;
+  auto mid_drive_state = state;
+  mid_drive_state.stroke.phase_time_s = 0.24;
+  auto release_state = state;
+  release_state.stroke.phase_time_s = 0.48;
+
+  const auto catch_load = provider.sample_load(
+      project::StepContext{.time_s = 0.0, .state = catch_state});
+  const auto mid_drive_load = provider.sample_load(
+      project::StepContext{.time_s = 0.24, .state = mid_drive_state});
+  const auto release_load = provider.sample_load(
+      project::StepContext{.time_s = 0.48, .state = release_state});
+
+  EXPECT_GT(catch_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_GT(release_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_GT(mid_drive_load.port_blade_force_world_n.x,
+            catch_load.port_blade_force_world_n.x);
+  EXPECT_GT(mid_drive_load.port_blade_force_world_n.x,
+            release_load.port_blade_force_world_n.x);
 }
 
 /**
@@ -430,7 +497,7 @@ TEST(HydroRuntimeModels, TowProviderCombinesDragAndRestoringLoads) {
 
 /**
  * @test UT-115
- * @verifies [D-028]
+ * @verifies [D-037]
  * @notes Given a stroke provider with zero full-immersion scale, when it
  * samples an immersed drive-phase blade state, then the reduced blade load
  * deterministically clamps to zero.
