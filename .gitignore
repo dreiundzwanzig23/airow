@@ -1,6 +1,7 @@
-# Created by pytest automatically.
-build
-build-coverage
+# Generated build directories.
+/build/
+/build-*/
+/examples/output/
 .vscode
 __pycache__/
 *.py[cod]

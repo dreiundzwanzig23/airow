@@ -20,9 +20,9 @@ if [ "$default_jobs" -gt 8 ]; then
 fi
 jobs="${LINT_JOBS:-$default_jobs}"
 scope="${LINT_SCOPE:-all}"
-lizard_ccn_threshold="${LIZARD_CCN_THRESHOLD:-20}"
-lizard_function_length_threshold="${LIZARD_FUNCTION_LENGTH_THRESHOLD:-150}"
-lizard_parameter_threshold="${LIZARD_PARAMETER_THRESHOLD:-8}"
+lizard_ccn_threshold="${LIZARD_CCN_THRESHOLD:-15}"
+lizard_function_length_threshold="${LIZARD_FUNCTION_LENGTH_THRESHOLD:-120}"
+lizard_parameter_threshold="${LIZARD_PARAMETER_THRESHOLD:-7}"
 lizard_whitelist="${LIZARD_WHITELIST:-tools/lizard_whitelist.txt}"
 
 if ! [[ "$jobs" =~ ^[0-9]+$ ]] || [ "$jobs" -lt 1 ]; then
@@ -46,20 +46,17 @@ if ! [[ "$lizard_parameter_threshold" =~ ^[0-9]+$ ]] || [ "$lizard_parameter_thr
 fi
 
 collect_all_files() {
-  git ls-files 'src/*.cpp' 'src/**/*.cpp' | while IFS= read -r path; do
-    if [ -f "${path}" ]; then
-      echo "${path}"
-    fi
-  done
+  find src -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) \
+    | LC_ALL=C sort
 }
 
 collect_changed_files() {
   {
-    git diff --name-only --diff-filter=ACMR -- '*.cpp'
-    git diff --cached --name-only --diff-filter=ACMR -- '*.cpp'
-    git ls-files --others --exclude-standard -- '*.cpp'
+    git diff --name-only --diff-filter=ACMR -- '*.cpp' '*.cc' '*.cxx'
+    git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.cc' '*.cxx'
+    git ls-files --others --exclude-standard -- '*.cpp' '*.cc' '*.cxx'
   } | sort -u | while IFS= read -r path; do
-    if [[ "$path" != src/*.cpp ]]; then
+    if [[ "$path" != src/* ]]; then
       continue
     fi
     if [ -f "${path}" ]; then
@@ -74,6 +71,9 @@ collect_changed_complexity_files() {
     git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.hpp' '*.h'
     git ls-files --others --exclude-standard -- '*.cpp' '*.hpp' '*.h'
   } | sort -u | while IFS= read -r path; do
+    if [[ "$path" != include/* && "$path" != src/* ]]; then
+      continue
+    fi
     if [ -f "${path}" ]; then
       echo "${path}"
     fi
@@ -118,7 +118,7 @@ if [ -f "$lizard_whitelist" ]; then
 fi
 
 if [ "$scope" = "all" ]; then
-  lizard_targets=(include src tests)
+  lizard_targets=(include src)
 else
   mapfile -t lizard_targets < <(collect_changed_complexity_files)
   if [ "${#lizard_targets[@]}" -eq 0 ]; then

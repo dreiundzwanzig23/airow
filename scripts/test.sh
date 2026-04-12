@@ -13,7 +13,13 @@ validation_run_logged "test-integration" \
 validation_run_logged "test-system" \
   ctest --test-dir "${test_build_dir}" --output-on-failure -L system -LE aux
 validation_run_logged "test-aux" ./scripts/test_aux.sh
+validation_run_logged "test-sanitized" ./scripts/test_sanitized.sh
+validation_run_logged "test-gcc" ./scripts/test_gcc.sh
 
 # Enforce unit-level coverage quality in full validation.
 validation_run_logged "test-coverage-full" \
   env COVERAGE_SCOPE=full ./scripts/coverage.sh
+
+# Prevent changed-file coverage regressions from slipping through full runs.
+validation_run_logged "test-coverage-ratchet-full" \
+  env COVERAGE_SCOPE=full ./scripts/coverage_ratchet.sh

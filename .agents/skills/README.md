@@ -7,6 +7,7 @@ policy docs.
 
 Available skills:
 - `.agents/skills/tdd-loop/SKILL.md`
+- `.agents/skills/unit-test-design/SKILL.md`
 - `.agents/skills/major-change-loop/SKILL.md`
 - `.agents/skills/trace-maintenance/SKILL.md`
 - `.agents/skills/test-lanes/SKILL.md`

@@ -43,6 +43,15 @@ Requirement-writing intent:
 - multiple related requirements are expected to allocate into shared `A-*`
   subsystem themes.
 
+Milestone framing:
+- `v0.1` should deliver a deterministic headless baseline with validated
+  configuration, in-memory and CLI execution, stable startup, 3D single-scull
+  mechanics, reduced hull and blade runtime models, steady-wind aero, named
+  baseline scenarios, and structured machine-readable outputs.
+- `v0.1` should not depend on external calibration ingestion, time-varying
+  wind, batch sweeps, low-order balance control, flexible oars, or disturbance
+  inputs beyond the steady baseline cases.
+
 ## R-001 — Configuration Loading and Validation
 - **Title**: Load and validate simulation configuration deterministically
 - **Acceptance Criteria**:
@@ -51,12 +60,12 @@ Requirement-writing intent:
   - Invalid numeric values, including NaN, infinity, negative duration, and negative mass, are rejected before time stepping starts.
   - Accepted configuration values are echoed in normalized form in run metadata.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Initial scope uses SI units only.
+- **Notes**: Initial scope uses SI units only. The first implementation slice covers deterministic JSON loading, validation, and normalized metadata; full simulation execution remains with `R-002`.
 
 ## R-002 — Headless Simulation Execution
 - **Title**: Execute one simulation without any GUI dependency
@@ -66,11 +75,17 @@ Requirement-writing intent:
   - Successful runs return a success status and failed runs return a non-zero failure status.
   - Run metadata includes simulator version, configuration identifier, and start and end timestamps.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
+- **Updated**: 2026-04-03
+- **Change-Type**: editorial
 - **Needs-Review**: no
+- **Notes**: The current implementation slice introduces the first shared
+  single-run path for CLI and in-memory execution with deterministic metadata
+  and exit-code behavior before real mechanics or machine-readable artifact
+  emission land. In the current repository state, "simulation" here means the
+  headless execution of the validated runtime path, not yet a mechanics-backed
+  rowing-physics model.
 
 ## R-003 — In-Memory Simulation API
 - **Title**: Provide a library API suitable for tests and harnesses
@@ -80,12 +95,17 @@ Requirement-writing intent:
   - The API supports injection of deterministic stub or mock hydro and aero providers.
   - At least one automated test uses the in-memory API with stub providers.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
+- **Updated**: 2026-04-03
+- **Change-Type**: editorial
 - **Needs-Review**: no
-- **Notes**: This requirement exists primarily to improve testability and agentic workflow ergonomics.
+- **Notes**: This requirement exists primarily to improve testability and
+  agentic workflow ergonomics. The first implementation slice uses injected
+  deterministic hydro and aero stub interfaces around a bounded single-run
+  loop before mechanics-state contracts exist. In the current repository
+  state, the API guarantees structured execution and test seams, not yet a
+  mechanics-backed physics result.
 
 ## R-004 — Deterministic Replay
 - **Title**: Reproduce the same run deterministically on the same platform
@@ -95,11 +115,15 @@ Requirement-writing intent:
   - Output record ordering is deterministic.
   - A replay test exists that runs the same case at least twice and compares the results.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline runtime now accepts explicit world-frame ambient wind
+  input, computes apparent wind deterministically through the shared aero seam,
+  and includes unit coverage for headwind, tailwind, and crosswind direction
+  cases.
 
 ## R-005 — Single-Scull 3D Hull Model
 - **Title**: Represent the shell as a 3D rigid body with configurable mass properties
@@ -109,12 +133,14 @@ Requirement-writing intent:
   - A static initialization with valid parameters completes without non-finite state values.
   - Invalid hull mass properties are rejected during configuration validation.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Initial scope is single scull only.
+- **Notes**: Initial scope is single scull only. The `v0.1` closure now
+  includes requirement-level evidence for finite hull startup, emitted 3D hull
+  state channels, and deterministic rejection of invalid hull mass properties.
 
 ## R-006 — Port and Starboard Oar Kinematics
 - **Title**: Model two independent sculling oars with configurable geometry
@@ -124,11 +150,15 @@ Requirement-writing intent:
   - Time-series outputs include each oar’s kinematic state.
   - Constraint or geometry residuals remain below a documented tolerance in a nominal run.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence that
+  port and starboard oar state is emitted separately through the public output
+  contract and that nominal constraint residuals remain bounded in the
+  deterministic baseline run path.
 
 ## R-007 — Seat Translation Model
 - **Title**: Model seat motion along a configurable rail axis
@@ -138,11 +168,15 @@ Requirement-writing intent:
   - Time-series outputs include seat position and velocity.
   - An out-of-range initial seat position is rejected before simulation begins.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence for
+  emitted seat position or velocity channels, bounded seat travel during
+  nominal runs, and deterministic rejection of out-of-range initial seat
+  positions.
 
 ## R-008 — Prescribed Stroke Schedule
 - **Title**: Drive the system with a deterministic prescribed stroke input
@@ -152,12 +186,14 @@ Requirement-writing intent:
   - Invalid schedules, including non-positive cycle time or inconsistent phase durations, are rejected.
   - A nominal stroke test produces finite seat and oar trajectories for the full run.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Initial scope uses prescribed motion or control, not full musculoskeletal actuation.
+- **Notes**: Initial scope uses prescribed motion or control, not full musculoskeletal actuation. The current slice introduces deterministic periodic stroke timing and baseline oar or seat kinematic replay behind the mechanics seam before propulsion scenarios land.
+  The `v0.1` closure now includes ten-cycle requirement-level replay evidence
+  with deterministic phase wrapping and schedule-rejection coverage.
 
 ## R-009 — Hydrostatic Float Equilibrium
 - **Title**: Support calm-water floating equilibrium for the hull
@@ -167,11 +203,15 @@ Requirement-writing intent:
   - A passive float test completes without non-finite values or runaway drift.
   - Output includes equilibrium draft or immersion-related diagnostics.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline `A-004` slice now reports deterministic reduced
+  hydrostatic heave and restoring-moment behavior around the nominal waterline,
+  with passive-float acceptance checks on final vertical force, restoring
+  moments, and final hull `z` diagnostics.
 
 ## R-010 — Reduced Hull-Water Resistance
 - **Title**: Apply a reduced hydrodynamic resistance model to hull motion
@@ -181,11 +221,16 @@ Requirement-writing intent:
   - At zero forward speed, the forward drag component is zero or within a documented near-zero tolerance.
   - A tow-test scenario produces a reproducible drag-versus-speed curve.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline `A-004` slice now applies deterministic reduced
+  hull drag through the shared hydro seam with monotonic speed-squared
+  resistance plus a low-speed damping term on the built-in runtime provider,
+  while preserving the checked-in tow scenario envelope and monotonic
+  drag-speed evidence.
 
 ## R-011 — Reduced Blade-Water Force Model
 - **Title**: Compute blade hydrodynamic loads from blade state and relative water motion
@@ -195,11 +240,15 @@ Requirement-writing intent:
   - At fixed immersion and orientation, increasing relative blade-water speed increases force magnitude over a documented range.
   - The blade force provider can be exercised independently in automated tests.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline `A-004` slice now computes deterministic reduced
+  blade-water loads from explicit blade immersion, drive-phase shaping,
+  handle-angle orientation surrogate, and relative blade-water speed, with
+  dry-blade and monotonic speed evidence plus calm-water scenario coverage.
 
 ## R-012 — Self-Propelled Stroke Response
 - **Title**: Produce forward motion from a valid stroke in calm water
@@ -209,11 +258,15 @@ Requirement-writing intent:
   - Disabling blade hydrodynamic forces while keeping the same stroke reduces mean boat speed relative to the baseline case.
   - A calm-water propulsion scenario is included in automated regression tests.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline runtime now includes deterministic structured blade
+  load propagation, a calm-water stroke scenario artifact, and regression
+  coverage proving positive mean propulsion with phase-shaped placeholder
+  blade loads plus reduced mean speed when those blade loads are disabled.
 
 ## R-013 — Apparent Wind Computation
 - **Title**: Compute apparent wind from ambient wind and boat motion
@@ -223,9 +276,9 @@ Requirement-writing intent:
   - With zero ambient wind, apparent wind equals the negative of the boat air-relative velocity within tolerance.
   - Unit tests cover headwind, tailwind, and crosswind direction cases.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
 
@@ -237,25 +290,37 @@ Requirement-writing intent:
   - Increasing headwind at fixed stroke conditions reduces mean boat speed relative to a calm-air baseline.
   - Mirroring a steady crosswind direction changes the sign of the yawing moment.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-10
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline `A-005` slice now applies deterministic reduced
+  steady-wind loads through the shared aero seam with explicit apparent-wind
+  reporting, stronger low-apparent-wind headwind drag sensitivity, explicit
+  lateral crosswind force, and mirrored yaw-sign behavior on the built-in
+  runtime provider while preserving the existing provider id and structured
+  output metadata.
 
 ## R-015 — Machine-Readable Outputs
 - **Title**: Emit structured outputs for analysis and regression testing
 - **Acceptance Criteria**:
   - Each run writes a machine-readable summary file.
-  - Each run can write machine-readable time-series data for at least hull state, oar state, seat state, boat speed, blade loads, and aero loads.
+  - Each run can write machine-readable time-series data for at least hull state, oar state, seat state, boat speed, hull-water loads, blade loads, aerodynamic loads, and rower-input or stroke-power accounting channels.
   - Output files include a configuration identifier and simulator version.
+  - Vector quantities in machine-readable outputs identify their units and reference frame, and derived power or accounting channels identify their units explicitly.
   - The simulator can be configured to enable or disable high-frequency time-series output.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-03
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The baseline contract now supports deterministic structured summary
+  and time-series artifacts with explicit unit or frame annotations,
+  configuration-controlled high-frequency sampling, and output-format
+  selection (`json`, `hdf5`, or both). HDF5 output is optional and rejected
+  deterministically at configuration parse time when unavailable in the build.
 
 ## R-016 — Runtime Diagnostics and Safe Failure
 - **Title**: Detect invalid runtime conditions and fail with actionable diagnostics
@@ -265,11 +330,14 @@ Requirement-writing intent:
   - A failed run terminates with a stable diagnostic code and subsystem-specific message.
   - Automated tests induce at least one representative failure mode and verify the reported diagnostic.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence for
+  deterministic provider-failure diagnostics, detection of non-finite
+  boundary-visible runtime state, and stable subsystem-specific error mapping.
 
 ## R-017 — Units and Numeric Safety
 - **Title**: Enforce SI units and numeric safety constraints at the simulator boundary
@@ -279,12 +347,16 @@ Requirement-writing intent:
   - Invalid or ambiguous unit-bearing inputs are rejected before time stepping starts.
   - Automated checks verify that core scenario configurations use only documented units.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement is complemented by repo-level numerics policy but remains externally verifiable.
+- **Notes**: This requirement is complemented by repo-level numerics policy and
+  is now closed for `v0.1` with requirement-level evidence that checked-in
+  baseline scenarios normalize to the documented unit set, output artifacts
+  carry explicit units or frames, and ambiguous typed inputs are rejected
+  deterministically.
 
 ## R-018 — Reference Validation Scenarios
 - **Title**: Provide a baseline set of repeatable validation scenarios
@@ -294,12 +366,14 @@ Requirement-writing intent:
   - Reference scenarios are runnable headlessly in automated verification.
   - A failed acceptance check causes the verification job to fail.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement is intentionally verification-heavy to support agentic development.
+- **Notes**: Passive float, tow test, calm-water stroke, headwind stroke, and
+  crosswind stroke are now checked in with documented envelopes and
+  runtime-backed verification coverage.
 
 ## R-019 — Verification Traceability for P0 Requirements
 - **Title**: Trace each P0 requirement to at least one automated verification artifact
@@ -309,12 +383,15 @@ Requirement-writing intent:
   - The trace from requirement identifier to verification artifact is machine-searchable in the repository.
   - Missing trace for any P0 requirement causes a verification check to fail.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-05
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This is a workflow-support requirement rather than a physics requirement.
+- **Notes**: This is a workflow-support requirement rather than a physics
+  requirement. The `v0.1` closure now includes requirement-level evidence that
+  `tools/tracecheck.py --json` exposes machine-searchable trace data and that
+  every `P0` requirement has requirement-level `QT-*` coverage.
 
 ## R-020 — Runtime-Selectable Hydro and Aero Providers
 - **Title**: Select reduced-model providers at runtime without recompilation
@@ -324,11 +401,15 @@ Requirement-writing intent:
   - Providers that implement the same contract satisfy a shared integration test suite.
   - Selecting an unknown provider causes deterministic configuration rejection.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-06
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: The runtime now validates a top-level `providers` block for
+  `hull_resistance`, `blade_force`, and `aero_load`, constructs the selected
+  built-in reduced providers without recompilation on the shared run path, and
+  records the selected role ids in structured run metadata.
 
 ## R-021 — External Calibration Dataset Ingestion
 - **Title**: Load external calibration data for hydrodynamic or aerodynamic models
@@ -337,12 +418,14 @@ Requirement-writing intent:
   - Malformed or incomplete calibration datasets are rejected deterministically with a schema-specific error.
   - Loaded datasets are queryable by the configured provider during a run.
   - At least one automated test loads a minimal valid dataset and verifies a successful query.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned external calibration ingestion behind the first deterministic runtime milestone.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-022 — Calibration Provenance Metadata
 - **Title**: Preserve provenance for imported calibration and fitted-model artifacts
@@ -351,12 +434,14 @@ Requirement-writing intent:
   - Run metadata records the identifiers of any external calibration artifacts used during execution.
   - Missing required provenance metadata causes deterministic rejection of the artifact.
   - A regression test verifies that provenance metadata is propagated into run outputs.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned calibration provenance behind the first deterministic runtime milestone together with external artifact ingestion.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-023 — Time-Varying Wind Input
 - **Title**: Support deterministic time-varying wind for gust and transition studies
@@ -365,12 +450,14 @@ Requirement-writing intent:
   - For a constant wind time series, the computed aerodynamic loads match the constant-wind model within tolerance.
   - Replaying the same wind time series yields deterministic results on the same platform.
   - At least one regression scenario includes a non-constant wind input.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned time-varying wind behind steady-wind baseline validation.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-024 — Runtime and Truth-Model Separation
 - **Title**: Keep the default runtime path independent of optional high-fidelity toolchains
@@ -394,12 +481,14 @@ Requirement-writing intent:
   - Each case produces a separate success or failure record without corrupting the results of other cases.
   - Batch summary output includes per-case identifiers and summary metrics.
   - Batch output ordering is deterministic for the same input ordering.
-- **Priority**: P1
+- **Priority**: P2
 - **Status**: OPEN
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-02
+- **Change-Type**: semantic
+- **Needs-Review**: yes
+- **Change-Note**: Repositioned batch execution behind the first single-run deterministic baseline.
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-026 — Scenario Performance Budget
 - **Title**: Keep core verification scenarios within documented runtime budgets
@@ -429,7 +518,7 @@ Requirement-writing intent:
 - **Updated**: 2026-04-01
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement intentionally stops short of full musculoskeletal modeling.
+- **Notes**: This requirement intentionally stops short of full musculoskeletal modeling and is not part of the `v0.1` cut line.
 
 ## R-028 — Optional Flexible Oar Model
 - **Title**: Support an optional flexible oar representation without changing the default rigid-oar runtime path
@@ -444,6 +533,7 @@ Requirement-writing intent:
 - **Updated**: 2026-04-01
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-029 — Optional Wave or Disturbance Input
 - **Title**: Support optional environmental disturbance inputs beyond steady calm water
@@ -458,6 +548,7 @@ Requirement-writing intent:
 - **Updated**: 2026-04-01
 - **Change-Type**: none
 - **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line.
 
 ## R-030 — Multi-Rower and Non-Scull Expansion Readiness
 - **Title**: Preserve a migration path toward future crew and sweep support without including it in the initial scope
@@ -474,24 +565,70 @@ Requirement-writing intent:
 - **Needs-Review**: no
 - **Notes**: This requirement protects scope clarity while keeping the architecture extensible.
 
-## Bootstrap Appendix
-
-The following requirement exists only to keep the temporary sample utility
-traceable while the real simulator implementation is still being bootstrapped.
-It is not part of the rowing-simulator product backlog and must not be used as
-the architectural home for simulator work.
-
-## R-900 — Bootstrap Placeholder Utility
-- **Title**: Keep the temporary sample utility traceable during repository bootstrap
+## R-031 — State and Frame Conventions
+- **Title**: Define explicit state, frame, and sign conventions at the simulator boundary
 - **Acceptance Criteria**:
-  - The placeholder sample utility remains buildable while the first simulator-facing implementation slice is pending.
-  - The placeholder utility is isolated from the real simulator backlog through reserved bootstrap trace IDs.
-  - Placeholder tests continue to prove trace and gate wiring without claiming simulator feature coverage.
-  - Future simulator work does not allocate to this requirement.
-- **Priority**: P2
+  - The simulator documentation defines the world frame, body frame, gravity direction, port and starboard sign convention, and orientation representation used at runtime boundaries.
+  - Machine-readable outputs and configuration fields that carry vector quantities identify the reference frame expected for those quantities.
+  - Wind, load, and moment direction cases are interpreted consistently with the documented conventions.
+  - Automated verification covers at least one mirrored port and starboard direction case and one headwind, tailwind, or crosswind interpretation case.
+- **Priority**: P0
 - **Status**: DONE
 - **Created**: 2026-04-02
-- **Updated**: 2026-04-02
+- **Updated**: 2026-04-04
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Reserved bootstrap IDs use the `900` series.
+- **Notes**: `docs/process/STATE_CONVENTIONS.md` remains the source of truth,
+  and the runtime now carries frame-annotated apparent-wind, aerodynamic-load,
+  and aerodynamic-moment channels with mirrored crosswind verification.
+
+## R-032 — Consistent Initialization and Startup Validity
+- **Title**: Start each run from a numerically and mechanically valid initial state
+- **Acceptance Criteria**:
+  - A valid simulation run produces a finite, constraint-consistent initial state before time stepping begins.
+  - Inconsistent initial states, invalid constraint setup, or non-converged startup conditions are rejected deterministically with startup-specific diagnostics.
+  - Startup diagnostics report whether initialization succeeded and include solver or convergence status when applicable.
+  - Automated verification includes at least one valid startup case and one rejected startup case.
+- **Priority**: P0
+- **Status**: DONE
+- **Created**: 2026-04-02
+- **Updated**: 2026-04-05
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: The `v0.1` closure now includes requirement-level evidence for
+  both valid startup success metadata and deterministic startup-specific
+  failure before time stepping begins.
+
+## R-033 — Runtime Model Validity Metadata
+- **Title**: Preserve validity-range metadata for reduced runtime providers
+- **Acceptance Criteria**:
+  - Each selectable reduced hull, blade, and aerodynamic provider exposes documented validity metadata or calibration-range metadata suitable for run reporting.
+  - Run metadata records the selected provider identifiers together with their validity metadata identifiers or descriptors.
+  - Provider definitions that omit required validity metadata are rejected deterministically before execution.
+  - Automated verification checks that validity metadata is propagated into machine-readable outputs for at least one run.
+- **Priority**: P1
+- **Status**: DONE
+- **Created**: 2026-04-02
+- **Updated**: 2026-04-06
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Built-in reduced runtime providers now expose catalog-backed
+  validity metadata, configuration rejects unknown provider ids before
+  execution, and machine-readable summary output propagates structured
+  per-role provider validity descriptors.
+
+## R-034 — Human-Readable Run Analysis
+- **Title**: Surface simulator state and result envelopes in human-readable reports
+- **Acceptance Criteria**:
+  - A successful run can emit a human-readable compact report that highlights startup health, final state, and key state or load envelopes without requiring manual JSON inspection.
+  - Machine-readable summary output includes derived analysis metrics computed from the full in-memory run result, including sample coverage, state envelopes, load envelopes, and peak timestamps.
+  - An offline repository tool can turn emitted JSON artifacts into a static analysis report bundle with summary tables and plots for single-run inspection.
+  - Low-frequency time-series output still preserves useful derived analysis metrics in the summary report.
+- **Priority**: P1
+- **Status**: DONE
+- **Created**: 2026-04-06
+- **Updated**: 2026-04-06
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This slice is intentionally limited to single-run understanding.
+  Run-to-run comparison and batch sweep analysis remain separate follow-on work.

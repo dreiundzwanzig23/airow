@@ -27,6 +27,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_package(nlohmann_json QUIET)
+if(NOT TARGET nlohmann_json::nlohmann_json)
+    find_path(NLOHMANN_JSON_INCLUDE_DIR nlohmann/json.hpp REQUIRED)
+    add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+    target_include_directories(nlohmann_json::nlohmann_json INTERFACE
+        "${NLOHMANN_JSON_INCLUDE_DIR}"
+    )
+endif()
+
+find_package(HDF5 QUIET COMPONENTS C)
+if(HDF5_FOUND)
+    message(STATUS "HDF5 support enabled")
+else()
+    message(STATUS "HDF5 support disabled (library not found)")
+endif()
+
 option(ENABLE_COVERAGE "Enable LLVM source-based coverage instrumentation" OFF)
 if(ENABLE_COVERAGE)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -41,7 +57,16 @@ include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
-    src/lib/string_utils.cpp
+    src/lib/aero/baseline_providers.cpp
+    src/lib/configuration/provider_catalog.cpp
+    src/lib/configuration/simulator_config.cpp
+    src/lib/hydro/baseline_providers.cpp
+    src/lib/numerics/state_advancement.cpp
+    src/lib/output/run_analysis.cpp
+    src/lib/output/run_output.cpp
+    src/lib/orchestrator/cli.cpp
+    src/lib/orchestrator/scenario_harness.cpp
+    src/lib/orchestrator/simulation_run.cpp
 )
 
 target_include_directories(project_lib
@@ -49,6 +74,19 @@ target_include_directories(project_lib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+target_link_libraries(project_lib PUBLIC nlohmann_json::nlohmann_json)
+if(HDF5_FOUND)
+    if(TARGET HDF5::HDF5)
+        target_link_libraries(project_lib PRIVATE HDF5::HDF5)
+    else()
+        target_include_directories(project_lib PRIVATE ${HDF5_INCLUDE_DIRS})
+        target_link_libraries(project_lib PRIVATE ${HDF5_LIBRARIES})
+    endif()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=1)
+else()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=0)
+endif()
+target_compile_definitions(project_lib PUBLIC PROJECT_VERSION_STRING="${PROJECT_VERSION}")
 
 set_project_warnings(project_lib)
 enable_sanitizers(project_lib)
@@ -89,42 +127,106 @@ if(BUILD_TESTING)
 
     find_package(Threads REQUIRED)
 
-    add_executable(project_tests_unit tests/unit/test_string_utils.cpp)
+    add_executable(project_tests_unit
+        tests/unit/test_aero_runtime_models.cpp
+        tests/unit/test_hydro_runtime_models.cpp
+        tests/unit/test_run_analysis.cpp
+        tests/unit/test_state_advancement.cpp
+        tests/unit/test_simulator_config.cpp
+        tests/unit/test_simulator_config_mechanics.cpp
+        tests/unit/test_simulation_run.cpp
+        tests/unit/test_simulation_run_advancer.cpp
+        tests/unit/test_run_outputs.cpp
+        tests/unit/test_scenario_harness.cpp
+        tests/unit/test_scenario_harness_additional.cpp
+    )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_unit)
     enable_sanitizers(project_tests_unit)
 
-    add_executable(project_tests_integration tests/integration/test_string_utils_integration.cpp)
+    add_executable(project_tests_integration
+        tests/integration/test_hydro_runtime_integration.cpp
+        tests/integration/test_aero_runtime_integration.cpp
+        tests/integration/test_simulator_config_integration.cpp
+        tests/integration/test_orchestrator_integration.cpp
+        tests/integration/test_run_outputs_integration.cpp
+    )
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_integration)
     enable_sanitizers(project_tests_integration)
 
-    add_executable(project_tests_system tests/system/test_string_utils_system.cpp)
+    add_executable(project_tests_system
+        tests/system/test_calm_water_scenario_system.cpp
+        tests/system/test_examples_system.cpp
+        tests/system/test_simulator_config_system.cpp
+        tests/system/test_run_analysis_system.cpp
+        tests/system/test_headless_simulation_system.cpp
+        tests/system/test_headless_outputs_system.cpp
+        tests/system/test_scenario_harness_system.cpp
+        tests/system/test_wind_scenario_system.cpp
+        tests/system/test_v0_1_closure_system.cpp
+    )
     target_link_libraries(project_tests_system PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_system)
     enable_sanitizers(project_tests_system)
+    target_compile_definitions(
+        project_tests_system PRIVATE
+        PROJECT_APP_PATH="$<TARGET_FILE:project_app>"
+        PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    )
+
+    add_executable(project_tests_aux_headers
+        tests/aux/include_aero_providers.cpp
+        tests/aux/header_self_containment_main.cpp
+        tests/aux/include_cli.cpp
+        tests/aux/include_geometry.cpp
+        tests/aux/include_hydro_provider.cpp
+        tests/aux/include_hydro_providers.cpp
+        tests/aux/include_mechanics_state.cpp
+        tests/aux/include_run_analysis.cpp
+        tests/aux/include_run_output.cpp
+        tests/aux/include_run_result.cpp
+        tests/aux/include_scenario_harness.cpp
+        tests/aux/include_state_advancement.cpp
+        tests/aux/include_simulation_run.cpp
+        tests/aux/include_simulator_config.cpp
+    )
+    target_link_libraries(project_tests_aux_headers PRIVATE project_lib)
+    set_project_warnings(project_tests_aux_headers)
+    enable_sanitizers(project_tests_aux_headers)
 
     include(GoogleTest)
     gtest_add_tests(TARGET project_tests_unit TEST_LIST unit_tests_list)
     gtest_add_tests(TARGET project_tests_integration TEST_LIST integration_tests_list)
     gtest_add_tests(TARGET project_tests_system TEST_LIST system_tests_list)
+    add_test(NAME project_tests_aux_headers COMMAND project_tests_aux_headers)
 
     set_tests_properties(
         ${unit_tests_list}
         PROPERTIES
             LABELS "unit"
+            TIMEOUT 30
             ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
     )
     set_tests_properties(
         ${integration_tests_list}
         PROPERTIES
             LABELS "integration"
+            TIMEOUT 45
             ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
     )
     set_tests_properties(
         ${system_tests_list}
         PROPERTIES
             LABELS "system"
+            TIMEOUT 60
+            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+    )
+    set_tests_properties(
+        project_tests_aux_headers
+        PROPERTIES
+            LABELS "aux"
+            TIMEOUT 15
             ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
     )
 endif()

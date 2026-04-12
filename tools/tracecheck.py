@@ -17,6 +17,7 @@ import json
 import pathlib
 import re
 import sys
+from bisect import bisect_right
 from typing import Dict, List, Set
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -281,21 +282,13 @@ def find_unmapped_nontrivial_functions() -> List[str]:
     for file_path in find_code_files(scan_root):
         text = file_path.read_text(encoding="utf-8", errors="ignore")
         rel = str(file_path.relative_to(ROOT))
-        design_end_lines = _find_block_end_lines_with_design(text)
+        design_end_lines = sorted(_find_block_end_lines_with_design(text))
 
         for match in re.finditer(FUNCTION_DEF, text):
             name = match.group("name")
             if name in {"if", "for", "while", "switch", "catch"}:
                 continue
             signature_line = _line_no(text, match.start())
-
-            line_start = text.rfind("\n", 0, match.start()) + 1
-            line_end = text.find("\n", match.start())
-            if line_end == -1:
-                line_end = len(text)
-            signature_line_text = text[line_start:line_end]
-            if "trace: trivial" in signature_line_text:
-                continue
 
             brace_index = match.end() - 1
             close_index = _find_matching_brace(text, brace_index)
@@ -306,7 +299,10 @@ def find_unmapped_nontrivial_functions() -> List[str]:
             if not _is_nontrivial_function(body):
                 continue
 
-            mapped = any(0 <= signature_line - block_end <= 12 for block_end in design_end_lines)
+            mapped = False
+            if design_end_lines:
+                nearest_index = bisect_right(design_end_lines, signature_line) - 1
+                mapped = nearest_index >= 0
             if not mapped:
                 problems.append(
                     f"{rel}:{signature_line} non-trivial function '{name}' has no @design D-### mapping"
@@ -485,6 +481,23 @@ def validate_model(data: Dict[str, object]) -> List[str]:
             if ref.startswith("R-"):
                 qt_by_r.setdefault(ref, []).append(test_id)
 
+    def design_has_qualifying_ut(design_id: str, seen: Set[str] | None = None) -> bool:
+        if ut_by_d.get(design_id):
+            return True
+        if seen is None:
+            seen = set()
+        if design_id in seen:
+            return False
+        seen.add(design_id)
+
+        refined_ids = design.get(design_id, {}).get("Refines", [])
+        if len(refined_ids) != 1:
+            return False
+        refined_id = refined_ids[0]
+        if refined_id not in design:
+            return False
+        return design_has_qualifying_ut(refined_id, seen)
+
     for req_id, fields in requirements.items():
         status = fields.get("Status", "OPEN")
         if status in {"DONE", "IN_PROGRESS"} and not a_by_r.get(req_id):
@@ -515,8 +528,10 @@ def validate_model(data: Dict[str, object]) -> List[str]:
     for design_id, fields in design.items():
         if not fields.get("Files"):
             problems.append(f"{design_id} has no implementing files")
-        if not ut_by_d.get(design_id):
-            problems.append(f"{design_id} has no qualifying UT-### test")
+        if not design_has_qualifying_ut(design_id):
+            problems.append(
+                f"{design_id} has no qualifying UT-### test (directly or via a single refined parent)"
+            )
 
     all_ids: Set[str] = set(requirements.keys()) | set(architecture.keys()) | set(design.keys())
     all_ids |= set(data["UT"].keys()) | set(data["IT"].keys()) | set(data["QT"].keys())
@@ -537,6 +552,10 @@ def validate_model(data: Dict[str, object]) -> List[str]:
                 problems.append(
                     f"{design_id} refines invalid item {refined_design_id}; expected D-###"
                 )
+        if len(fields.get("Refines", [])) > 1:
+            problems.append(
+                f"{design_id} refines multiple design items; helper refinement must target exactly one D-### parent"
+            )
 
     for test_kind in ("UT", "IT", "QT"):
         for test_id, fields in data[test_kind].items():
@@ -906,6 +925,7 @@ def main(argv: List[str]) -> int:
 
     if "--json" in argv:
         print(json.dumps({"problems": problems, "warnings": warnings, "data": data}, indent=2))
+        return 1 if problems else 0
 
     if problems:
         print("TRACE CHECK FAILED:")

@@ -17,6 +17,8 @@ description: Execute the repository's workflow for cross-cutting, architectural,
 2. Build an impact map across `R-*`, `A-*`, `D-*`, tests, and touched files.
 3. Record the architecture delta before implementation begins.
 4. Add characterization tests for preserved behavior before invasive edits.
+   - use `.agents/skills/unit-test-design/SKILL.md` when preserved local
+     behavior belongs in `UT-*`.
 5. Implement seam-first when the change can be split into transitional steps.
 6. Remove transitional code explicitly once the replacement path is stable.
 7. Run a drift review after the change to catch documentation or ownership gaps.

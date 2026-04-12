@@ -12,6 +12,13 @@ This document defines the baseline numerics policy for the simulator project.
 - Treat non-finite subsystem outputs as deterministic failure conditions.
 - Reject ambiguous or invalid numeric inputs before time stepping starts.
 
+## Startup validity and solver diagnostics
+- Perform consistent initialization before routine time stepping begins.
+- Treat non-converged startup conditions as deterministic startup failures, not
+  as recoverable nominal runtime states.
+- Report solver or convergence status through stable diagnostic categories so
+  repeated failures remain actionable and comparable.
+
 ## Tolerances and comparisons
 - Use explicit tolerances when comparing floating-point results.
 - Keep deterministic replay expectations scoped to the same executable and

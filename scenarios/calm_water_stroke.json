@@ -1,0 +1,56 @@
+{
+  "scenario_id": "calm-water-stroke",
+  "scenario_type": "calm_water_stroke",
+  "provider": {
+    "type": "stroke_propulsion_placeholder",
+    "blade_force_coefficient_n_s_per_m": 4.0,
+    "drag_coefficient_n_s2_per_m2": 0.8,
+    "full_blade_immersion_depth_m": 0.12
+  },
+  "config": {
+    "config_id": "calm-water-stroke",
+    "simulation": {
+      "duration_s": 2.4,
+      "time_step_s": 0.12
+    },
+    "hull": {
+      "mass_kg": 14.0,
+      "center_of_mass_m": [0.0, 0.0, 0.0],
+      "inertia_kg_m2": [1.1, 7.8, 8.2],
+      "initial_position_m": [0.0, 0.0, 0.0],
+      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+    },
+    "oars": {
+      "port": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, -0.82, 0.18]
+      },
+      "starboard": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, 0.82, 0.18]
+      }
+    },
+    "seat": {
+      "rail_axis": [1.0, 0.0, 0.0],
+      "min_position_m": -0.4,
+      "max_position_m": 0.4,
+      "initial_position_m": 0.0
+    },
+    "stroke": {
+      "cycle_duration_s": 1.2,
+      "drive_duration_s": 0.48,
+      "catch_angle_rad": -0.9,
+      "release_angle_rad": 0.6,
+      "drive_blade_depth_m": 0.12,
+      "recovery_blade_depth_m": 0.0
+    }
+  },
+  "acceptance": {
+    "min_distance_m": 0.55,
+    "min_mean_speed_mps": 0.22
+  }
+}
