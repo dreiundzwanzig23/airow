@@ -419,8 +419,8 @@ TEST(HydroRuntimeModels, HullResistanceProviderAddsLowSpeedDamping) {
  * @verifies [D-037]
  * @notes Given the built-in blade-force provider in drive phase, when early,
  * mid-drive, and late-drive states are sampled, then the mid-drive load is
- * stronger than catch or release while catch and release still remain finite
- * and positive.
+ * stronger than catch or release while exact catch and exact release clamp to
+ * zero.
  */
 TEST(HydroRuntimeModels, StrokeProviderShapesDriveForceAcrossThePhase) {
   project::StrokePropulsionPlaceholderBladeForceProvider provider(4.0, 0.12);
@@ -449,12 +449,69 @@ TEST(HydroRuntimeModels, StrokeProviderShapesDriveForceAcrossThePhase) {
   const auto release_load = provider.sample_load(
       project::StepContext{.time_s = 0.48, .state = release_state});
 
-  EXPECT_GT(catch_load.port_blade_force_world_n.x, 0.0);
-  EXPECT_GT(release_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(catch_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(release_load.port_blade_force_world_n.x, 0.0);
   EXPECT_GT(mid_drive_load.port_blade_force_world_n.x,
             catch_load.port_blade_force_world_n.x);
   EXPECT_GT(mid_drive_load.port_blade_force_world_n.x,
             release_load.port_blade_force_world_n.x);
+}
+
+/**
+ * @test UT-131
+ * @verifies [D-037]
+ * @notes Given the built-in blade-force provider in drive phase, when the
+ * blade tip is stationary, moving forward, or moving backward in world x, then
+ * only backward slip produces propulsive blade force and stronger backward
+ * slip increases that force.
+ */
+TEST(HydroRuntimeModels, StrokeProviderRequiresBackwardBladeSlip) {
+  project::StrokePropulsionPlaceholderBladeForceProvider provider(4.0, 0.12);
+
+  auto state = make_success_result().state_history.back();
+  state.stroke.phase = project::StrokePhase::drive;
+  state.stroke.phase_time_s = 0.24;
+  state.port_oar.handle_angle_rad = 0.1;
+  state.starboard_oar.handle_angle_rad = 0.1;
+  state.port_oar.blade_immersion_depth_m = 0.12;
+  state.starboard_oar.blade_immersion_depth_m = 0.12;
+
+  auto stationary_state = state;
+  stationary_state.port_oar.blade_tip_velocity_world_mps = {
+      .x = 0.0, .y = 0.0, .z = 0.0};
+  stationary_state.starboard_oar.blade_tip_velocity_world_mps = {
+      .x = 0.0, .y = 0.0, .z = 0.0};
+
+  auto forward_state = state;
+  forward_state.port_oar.blade_tip_velocity_world_mps = {
+      .x = 0.3, .y = 0.0, .z = 0.0};
+  forward_state.starboard_oar.blade_tip_velocity_world_mps = {
+      .x = 0.3, .y = 0.0, .z = 0.0};
+
+  auto backward_state = state;
+  backward_state.port_oar.blade_tip_velocity_world_mps = {
+      .x = -0.4, .y = 0.0, .z = 0.0};
+  backward_state.starboard_oar.blade_tip_velocity_world_mps = {
+      .x = -0.4, .y = 0.0, .z = 0.0};
+
+  auto stronger_backward_state = backward_state;
+  stronger_backward_state.port_oar.blade_tip_velocity_world_mps.x = -1.0;
+  stronger_backward_state.starboard_oar.blade_tip_velocity_world_mps.x = -1.0;
+
+  const auto stationary_load = provider.sample_load(
+      project::StepContext{.time_s = 0.24, .state = stationary_state});
+  const auto forward_load = provider.sample_load(
+      project::StepContext{.time_s = 0.24, .state = forward_state});
+  const auto backward_load = provider.sample_load(
+      project::StepContext{.time_s = 0.24, .state = backward_state});
+  const auto stronger_backward_load = provider.sample_load(
+      project::StepContext{.time_s = 0.24, .state = stronger_backward_state});
+
+  EXPECT_DOUBLE_EQ(stationary_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(forward_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_GT(backward_load.port_blade_force_world_n.x, 0.0);
+  EXPECT_GT(stronger_backward_load.port_blade_force_world_n.x,
+            backward_load.port_blade_force_world_n.x);
 }
 
 /**

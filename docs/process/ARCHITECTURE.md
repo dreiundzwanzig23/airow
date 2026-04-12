@@ -249,8 +249,9 @@ Still planned or incomplete:
   later work. The next fidelity pass keeps the existing built-in
   `quadratic_drag_placeholder` and `stroke_propulsion_placeholder` ids stable
   while deepening them in place with richer low-speed hull damping plus
-  speed-squared resistance and stronger phase- and immersion-shaped blade
-  propulsion behavior.
+  speed-squared resistance and stronger phase-, immersion-, and backward-slip-
+  shaped blade propulsion behavior. This pass remains provider-only and
+  preserves the current `A-010` load-to-motion coupling boundary.
 
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models

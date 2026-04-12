@@ -123,7 +123,16 @@ TEST(CalmWaterScenarioSystem, ScenarioPassesAcceptanceAndFiniteOutputChecks) {
   const auto &records = time_series.at("records");
   ASSERT_FALSE(records.empty());
 
-  bool observed_positive_blade_load = false;
+  bool observed_positive_runtime_blade_load = false;
+  for (const auto &sample : result.load_history) {
+    if (sample.port_blade_force_world_n.x > 0.0) {
+      observed_positive_runtime_blade_load = true;
+      EXPECT_DOUBLE_EQ(sample.port_blade_force_world_n.x,
+                       sample.starboard_blade_force_world_n.x);
+    }
+  }
+  EXPECT_TRUE(observed_positive_runtime_blade_load);
+
   for (const auto &record : records) {
     EXPECT_TRUE(
         std::isfinite(record.at("boat_speed_mps").at("value").get<double>()));
@@ -142,12 +151,10 @@ TEST(CalmWaterScenarioSystem, ScenarioPassesAcceptanceAndFiniteOutputChecks) {
                                            .get<double>();
     EXPECT_TRUE(std::isfinite(port_blade_force));
     EXPECT_TRUE(std::isfinite(starboard_blade_force));
-    if (port_blade_force > 0.0) {
-      observed_positive_blade_load = true;
+    if (port_blade_force != 0.0 || starboard_blade_force != 0.0) {
       EXPECT_DOUBLE_EQ(port_blade_force, starboard_blade_force);
     }
   }
-  EXPECT_TRUE(observed_positive_blade_load);
 
   clear_output_artifacts(result);
 }

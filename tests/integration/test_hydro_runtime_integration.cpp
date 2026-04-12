@@ -119,7 +119,8 @@ Json read_json_file(const std::filesystem::path &path) {
  * @notes Given the deterministic calm-water propulsion provider and explicit
  * output paths, when the shared in-memory run path executes, then structured
  * hydro blade loads propagate into load history and emitted time-series
- * artifacts.
+ * artifacts, with zero propulsive load at the initial catch sample and
+ * positive propulsive load later in the drive.
  */
 TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
   auto config = make_config();
@@ -144,6 +145,9 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
   ASSERT_TRUE(result.ok());
   ASSERT_TRUE(result.outputs.time_series_written);
   ASSERT_FALSE(result.load_history.empty());
+  EXPECT_DOUBLE_EQ(result.load_history.front().port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(result.load_history.front().starboard_blade_force_world_n.x,
+                   0.0);
 
   bool observed_positive_blade_force = false;
   for (const auto &sample : result.load_history) {

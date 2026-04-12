@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 ### Changed
+- Continued Slice 2 on `A-004` by deepening the existing built-in hydro ids
+  in place without changing provider ids, config schema, output schema, or
+  state-advancer coupling: `stroke_propulsion_placeholder` now gates
+  propulsion on backward blade slip, clamps exact catch or release to zero
+  blade force, restores a stronger interior-drive propulsion envelope, and the
+  checked-in calm-water or headwind or crosswind scenario envelopes were
+  re-characterized to the refreshed deterministic hydro baseline with new
+  evidence (`UT-131`) plus updated `D-037` coverage.
 - Continued Slice 2 on `A-005` by deepening the existing built-in
   `steady_wind_placeholder` aero id in place: the provider now adds stronger
   low-apparent-wind headwind drag sensitivity, explicit lateral crosswind

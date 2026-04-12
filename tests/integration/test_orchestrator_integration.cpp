@@ -655,7 +655,13 @@ TEST(OrchestratorIntegration, BuiltInBladeAndAeroProvidersShareContracts) {
       EXPECT_DOUBLE_EQ(result.load_history.front().port_blade_force_world_n.x,
                        0.0);
     } else {
-      EXPECT_GT(result.load_history.front().port_blade_force_world_n.x, 0.0);
+      EXPECT_DOUBLE_EQ(result.load_history.front().port_blade_force_world_n.x,
+                       0.0);
+      EXPECT_TRUE(std::any_of(result.load_history.begin(),
+                              result.load_history.end(),
+                              [](const project::LoadSample &sample) {
+                                return sample.port_blade_force_world_n.x > 0.0;
+                              }));
     }
   }
 

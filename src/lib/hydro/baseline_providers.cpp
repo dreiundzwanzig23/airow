@@ -23,7 +23,8 @@ constexpr double HALF_PI = 1.5707963267948966;
 constexpr double PI = 3.1415926535897932;
 constexpr double LOW_SPEED_DAMPING_N_S_PER_M = 0.15;
 constexpr double BASELINE_DRIVE_DURATION_S = 0.48;
-constexpr double EDGE_DRIVE_FORCE_FACTOR = 0.65;
+constexpr double DRIVE_PHASE_BOUNDARY_TOLERANCE_S = 1.0e-12;
+constexpr double BLADE_PROPULSION_SCALE = 4.0;
 constexpr double SMOOTHSTEP_LINEAR_COEFFICIENT = 2.0;
 constexpr double SMOOTHSTEP_OFFSET = 3.0;
 
@@ -51,8 +52,8 @@ double smoothstep_unit(double value) {
 /**
  * @design D-037 — Phase-shaped built-in blade propulsion
  * @title Deterministic built-in blade-force shaping across drive phase with
- * immersion-aware scaling for the runtime `stroke_propulsion_placeholder`
- * provider
+ * immersion-aware scaling, backward-slip gating, and boundary-zero tapering
+ * for the runtime `stroke_propulsion_placeholder` provider
  * @satisfies [A-004]
  */
 double phase_shaped_blade_force_x_n(double blade_force_coefficient_n_s_per_m,
@@ -64,15 +65,19 @@ double phase_shaped_blade_force_x_n(double blade_force_coefficient_n_s_per_m,
                                      : 0.0;
   const double immersion_shape = smoothstep_unit(immersion_ratio);
   const double alignment = std::max(0.0, std::cos(oar.handle_angle_rad));
-  const double relative_speed_mps =
-      std::abs(oar.blade_tip_velocity_world_mps.x);
+  const double backward_slip_speed_mps =
+      std::max(0.0, -oar.blade_tip_velocity_world_mps.x);
+  if (phase_time_s <= DRIVE_PHASE_BOUNDARY_TOLERANCE_S ||
+      phase_time_s >=
+          BASELINE_DRIVE_DURATION_S - DRIVE_PHASE_BOUNDARY_TOLERANCE_S) {
+    return 0.0;
+  }
   const double normalized_drive_phase =
       clamp_unit(phase_time_s / BASELINE_DRIVE_DURATION_S);
-  const double drive_phase_shape =
-      EDGE_DRIVE_FORCE_FACTOR +
-      (1.0 - EDGE_DRIVE_FORCE_FACTOR) * std::sin(PI * normalized_drive_phase);
-  return blade_force_coefficient_n_s_per_m * immersion_shape * alignment *
-         drive_phase_shape * relative_speed_mps;
+  const double drive_phase_shape = std::sin(PI * normalized_drive_phase);
+  return BLADE_PROPULSION_SCALE * blade_force_coefficient_n_s_per_m *
+         immersion_shape * alignment * drive_phase_shape *
+         backward_slip_speed_mps;
 }
 
 /**

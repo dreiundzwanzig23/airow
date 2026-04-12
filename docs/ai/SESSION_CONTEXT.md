@@ -1,7 +1,7 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-10
+- **Date**: 2026-04-11
 - **Branch**: `First_implementations`
 - **Current Objective**: Continue the post-`v0.1` roadmap: reduced-model
   fidelity first, external backend wiring second, calibration or
@@ -20,8 +20,9 @@
   built-in reduced hull-resistance or blade-force or aero providers when
   injected seams are absent, and emits structured per-role validity metadata.
 - The landed `A-004` follow-on deepens the existing hydro ids in place with
-  low-speed-damped hull drag, phase-shaped blade propulsion, and refreshed
-  calm-water or headwind or crosswind scenario envelopes.
+  low-speed-damped hull drag, phase-shaped blade propulsion, backward-slip
+  gating, exact catch or release zero-load tapering, and refreshed calm-water
+  or headwind or crosswind scenario envelopes.
 - The landed `A-005` follow-on deepens the existing
   `steady_wind_placeholder` id in place with stronger low-apparent-wind
   headwind drag, explicit lateral crosswind force, speed-shaped yaw, and

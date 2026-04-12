@@ -848,6 +848,11 @@ TEST(SimulationRun, BuildsConfiguredBuiltInProvidersWithoutInjectedProviders) {
   EXPECT_EQ(result.metadata.providers.aero_load.id, "steady_wind_placeholder");
   ASSERT_FALSE(result.load_history.empty());
   EXPECT_NE(result.load_history.front().hull_force_world_n.x, 0.0);
-  EXPECT_GT(result.load_history.front().port_blade_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(result.load_history.front().port_blade_force_world_n.x, 0.0);
+  EXPECT_TRUE(std::any_of(result.load_history.begin(),
+                          result.load_history.end(),
+                          [](const project::LoadSample &sample) {
+                            return sample.port_blade_force_world_n.x > 0.0;
+                          }));
   EXPECT_NE(result.load_history.front().aero_force_world_n.x, 0.0);
 }

@@ -1,7 +1,7 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-10
+- 2026-04-11
 
 ## What Changed In This Session
 - Started Slice 2A on `A-004` by deepening the existing built-in hydro ids in
@@ -10,6 +10,12 @@
 - Landed low-speed-damped built-in hull resistance and phase-shaped
   drive-phase blade propulsion under new hydro design items (`D-036`,
   `D-037`) with new unit evidence (`UT-127`, `UT-128`).
+- Continued the same in-place hydro slice by tightening
+  `stroke_propulsion_placeholder` so propulsive blade force now requires
+  backward blade slip, exact catch or release clamps to zero blade load, and
+  the interior drive regains a stronger deterministic propulsion envelope,
+  adding new unit evidence (`UT-131`) while preserving the current provider
+  ids, config schema, output schema, and `A-010` coupling boundary.
 - Re-characterized the checked-in calm-water, headwind, and crosswind scenario
   envelopes to the richer deterministic hydro baselines while preserving the
   current provider-selection and structured metadata contracts.
@@ -31,6 +37,10 @@
   work: the human-readable run-analysis feature set and the structured
   provider-selection plus validity-metadata contract.
 - External solver adoption remains deferred until the dedicated backend slice.
+- Evidence note: `rgr:red` reproduced the new hydro boundary or slip failures
+  in `UT-128`, `UT-131`, and `IT-009`; `rgr:green` updated the built-in hydro
+  blade-force shaping; `rgr:refactor` was a no-op beyond tightening the
+  phase-boundary helper and syncing the refreshed scenario envelopes.
 
 ## Immediate Next Steps
 1. Keep any further Slice 2 work on the existing built-in ids and preserve the

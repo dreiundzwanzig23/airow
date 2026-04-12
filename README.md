@@ -14,9 +14,10 @@ evidence.
 The broader rowing simulator direction remains defined in the requirements,
 architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership. Post-`v0.1` work has now
-landed the observability slice, the runtime provider-selection slice, and the
-first hydro and steady-wind aero fidelity refinements on the existing built-in
-provider ids; the next roadmap focus is external backend wiring for Chrono or
+landed the observability slice, the runtime provider-selection slice, and
+multiple hydro and steady-wind aero fidelity refinements on the existing
+built-in provider ids; the current roadmap focus remains further reduced-model
+fidelity on those stable ids before external backend wiring for Chrono or
 SUNDIALS, followed only then by deferred calibration or time-varying
 environment workflows.
 
@@ -94,7 +95,8 @@ Current implemented library surface:
 - deterministic hydro baseline providers for passive float, tow drag, and
   calm-water stroke propulsion behind the shared `HydroProvider` seam, now
   including reduced hydrostatic restoring loads, low-speed-damped built-in
-  hull resistance, and phase-shaped immersion-aware blade forces
+  hull resistance, and phase-shaped immersion-aware blade forces with
+  backward-slip gating and zero-load catch or release boundaries
 - deterministic aero baseline provider for steady apparent-wind, low-speed-
   sensitive headwind drag, lateral crosswind force, and speed-shaped yaw-
   moment reporting behind the shared `AeroProvider` seam

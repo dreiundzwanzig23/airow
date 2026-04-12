@@ -58,7 +58,7 @@
     }
   },
   "acceptance": {
-    "min_distance_m": 1.27,
+    "min_distance_m": 0.7,
     "expected_yaw_moment_z_sign": "positive",
     "min_abs_yaw_moment_z_n_m": 0.8
   }
