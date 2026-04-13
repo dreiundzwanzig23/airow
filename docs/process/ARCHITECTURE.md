@@ -188,7 +188,11 @@ Still planned or incomplete:
 - **Interfaces**: File-backed and in-memory JSON configuration loading contract returning validated `SimulatorConfig`, deterministic diagnostics, and normalized configuration metadata suitable for later runtime orchestration.
   The current slice also validates the optional top-level `providers` block
   (`hull_resistance`, `blade_force`, `aero_load`) against the built-in runtime
-  provider catalog and rejects unknown selections before execution.
+  provider catalog and rejects unknown selections before execution. The next
+  backend slice extends the same boundary with `simulation.state_advancer`
+  selection for built-in advancer ids, defaulting to the deterministic
+  baseline and rejecting backend ids that are unknown or unavailable in the
+  current build.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -207,8 +211,9 @@ Still planned or incomplete:
   deterministic single-run execution path, plus injected hydro and aero stub
   provider seams, stable run-result metadata, exit-code mapping for the first
   headless baseline, config-driven built-in provider construction when injected
-  provider seams are absent, and optional human-readable report rendering
-  modes for successful single-run inspection.
+  provider seams are absent, config-driven built-in state-advancer selection
+  when an injected advancer seam is absent, and optional human-readable report
+  rendering modes for successful single-run inspection.
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
@@ -373,4 +378,7 @@ Still planned or incomplete:
   establishes a stable advancer interface plus deterministic internal startup
   and stepping behavior, explicit blade-immersion or blade-tip-velocity state,
   and widened hydro-force coupling while deferring Chrono or SUNDIALS
-  integration behind that seam.
+  integration behind that seam. The first backend packet adds an optional
+  Chrono-backed rigid-body advancer behind the same contract for passive-float
+  and tow-test acceptance while preserving the deterministic baseline as the
+  default built-in path and leaving SUNDIALS for a later backend increment.

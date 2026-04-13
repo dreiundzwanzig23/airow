@@ -33,6 +33,7 @@ struct NormalizedConfigEntry {
 struct SimulationSettings {
   double duration_s{};
   double time_step_s{};
+  std::string state_advancer{"deterministic_baseline"};
 
   bool operator==(const SimulationSettings &) const = default;
 };

@@ -11,6 +11,7 @@
 
 #include "project/core/geometry.hpp"
 #include "project/mechanics/state.hpp"
+#include "project/numerics/backend_catalog.hpp"
 #include "project/numerics/state_advancement.hpp"
 #include "project/orchestrator/cli.hpp"
 #include "project/orchestrator/simulation_run.hpp"
@@ -400,6 +401,103 @@ TEST(OrchestratorIntegration, OrchestratorDelegatesToInjectedStateAdvancer) {
   EXPECT_DOUBLE_EQ(advancer.observed_step_sizes[1], 0.4);
   EXPECT_DOUBLE_EQ(advancer.observed_step_sizes[2], 0.2);
   EXPECT_EQ(result.metadata.state_advancer_id, "recording-state-advancer");
+}
+
+/**
+ * @test IT-016
+ * @verifies [A-002, A-010]
+ * @notes Given explicit built-in deterministic state-advancer selection in the
+ * validated config, when the shared run path executes without an injected
+ * advancer seam, then the orchestrator selects the built-in advancer and
+ * reports its runtime identifier in run metadata.
+ */
+TEST(OrchestratorIntegration,
+     OrchestratorSelectsConfiguredBuiltInStateAdvancer) {
+  auto config = make_config("it-built-in-advancer", 1.0, 0.4);
+  config.simulation.state_advancer = "deterministic_baseline";
+  RecordingHydroProvider hydro("it-hydro");
+  RecordingAeroProvider aero("it-aero");
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 12min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 13min});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id,
+            "deterministic-baseline-state-advancer");
+  EXPECT_EQ(result.summary.executed_step_count, 3ULL);
+}
+
+/**
+ * @test IT-017
+ * @verifies [A-002, A-010]
+ * @notes Given both config-selected built-in advancer selection and an
+ * injected public advancer seam, when the orchestrator executes a run, then
+ * the injected advancer takes precedence over the configured built-in id.
+ */
+TEST(OrchestratorIntegration,
+     InjectedStateAdvancerOverridesConfiguredBuiltInAdvancer) {
+  auto config = make_config("it-advancer-override", 1.0, 0.4);
+  config.simulation.state_advancer = "deterministic_baseline";
+  RecordingHydroProvider hydro("it-hydro");
+  RecordingAeroProvider aero("it-aero");
+  RecordingStateAdvancer advancer;
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 14min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 15min});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .state_advancer = &advancer,
+                                          .clock = &clock,
+                                      });
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id, "recording-state-advancer");
+  EXPECT_EQ(advancer.initialize_call_count, 1);
+}
+
+/**
+ * @test IT-018
+ * @verifies [A-002, A-010]
+ * @notes Given Chrono built-in state-advancer selection on a build without
+ * Chrono support, when the shared run path executes from an in-memory config,
+ * then orchestration reports a deterministic backend-unavailable runtime
+ * diagnostic.
+ */
+TEST(OrchestratorIntegration,
+     RejectsUnavailableChronoBuiltInAdvancerDeterministically) {
+  if (project::chrono_state_advancer_supported()) {
+    GTEST_SKIP() << "Chrono support available on this build";
+  }
+
+  auto config = make_config("it-chrono-unavailable", 1.0, 0.4);
+  config.simulation.state_advancer = "chrono_rigidbody";
+  RecordingHydroProvider hydro("it-hydro");
+  RecordingAeroProvider aero("it-aero");
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 16min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 17min});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_state_advancer");
+  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
 }
 
 /**

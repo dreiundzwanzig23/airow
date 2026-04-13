@@ -14,12 +14,12 @@ evidence.
 The broader rowing simulator direction remains defined in the requirements,
 architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership. Post-`v0.1` work has now
-landed the observability slice, the runtime provider-selection slice, and
-multiple hydro and steady-wind aero fidelity refinements on the existing
-built-in provider ids; the current roadmap focus remains further reduced-model
-fidelity on those stable ids before external backend wiring for Chrono or
-SUNDIALS, followed only then by deferred calibration or time-varying
-environment workflows.
+landed the observability slice, the runtime provider-selection slice, multiple
+hydro and steady-wind aero fidelity refinements on the existing built-in
+provider ids, and the first backend-selection slice for built-in
+state-advancer selection with an optional guarded Chrono path; the roadmap now
+keeps reduced-model fidelity and backend wiring separate before deferred
+calibration or time-varying environment workflows.
 
 ## Quick Start
 
@@ -60,6 +60,7 @@ Current implemented library surface:
 - `include/project/configuration/simulator_config.hpp`
 - `include/project/hydro/baseline_providers.hpp`
 - `include/project/mechanics/state.hpp`
+- `include/project/numerics/backend_catalog.hpp`
 - `include/project/numerics/state_advancement.hpp`
 - `include/project/orchestrator/simulation_run.hpp`
 - `include/project/orchestrator/cli.hpp`
@@ -74,6 +75,9 @@ Current implemented library surface:
   state-advancer seams plus structured state/load history
 - top-level config-driven built-in provider selection for
   `hull_resistance`, `blade_force`, and `aero_load`
+- top-level config-driven built-in state-advancer selection for
+  `deterministic_baseline`, with deterministic rejection of
+  `chrono_rigidbody` when Chrono support is unavailable in the build
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
 - structured hydro force or moment vectors, final passive-float equilibrium
@@ -144,7 +148,8 @@ Current implementation status:
   construction when injected seams are absent,
 - `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
   Advancement` are now in progress through a deterministic internal baseline
-  state-advancer seam,
+  state-advancer seam plus the first config-driven built-in backend-selection
+  path for a guarded Chrono rigid-body advancer,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
   metadata propagation, and optional HDF5 parity behind the same output
@@ -160,9 +165,9 @@ Current implementation status:
 - richer runtime provider fidelity is now in progress on the existing
   `A-004` and `A-005` seams through in-place hydro and steady-wind aero
   baseline refinements plus re-characterized wind-backed scenario envelopes,
-  with later backend wiring staged separately and Chrono or SUNDIALS reserved
-  for a later `A-010` backend slice rather than the landed provider-selection
-  work.
+  while the first `A-010` backend-selection slice now lands separately through
+  built-in state-advancer selection and a compile-time-guarded Chrono path
+  rather than mixing solver adoption into provider-selection work.
 
 ## Validation Lanes
 

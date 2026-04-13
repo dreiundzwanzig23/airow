@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "project/numerics/backend_catalog.hpp"
 #include "project/orchestrator/scenario_harness.hpp"
 #include "project/orchestrator/simulation_run.hpp"
 
@@ -191,6 +192,51 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesAcceptanceAndDragCurveChecks) {
 }
 
 /**
+ * @test QT-031
+ * @verifies [R-009, R-018]
+ * @notes Given the checked-in passive-float scenario artifact and Chrono
+ * backend support, when the in-memory run path executes with Chrono selected
+ * and deterministic placeholder hydro, then the scenario acceptance envelope
+ * still passes through the external backend seam.
+ */
+TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesWithChronoAdvancer) {
+  if (!project::chrono_state_advancer_supported()) {
+    GTEST_SKIP() << "Chrono support unavailable on this build";
+  }
+
+  const auto loaded = project::load_scenario_definition_file(
+      scenario_path("passive_float.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto config = loaded.scenario->config;
+  config.simulation.state_advancer = "chrono_rigidbody";
+
+  PassivePlaceholderHydroProvider hydro;
+  NullAeroProvider aero;
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 4min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 4min +
+           1s});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+  const auto evaluation =
+      project::evaluate_scenario_result(*loaded.scenario, result);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id,
+            "chrono-rigidbody-state-advancer");
+  EXPECT_TRUE(evaluation.ok());
+
+  clear_output_artifacts(result);
+}
+
+/**
  * @test QT-011
  * @verifies [R-004, R-018]
  * @notes Given the checked-in tow scenario artifact, when the same scenario is
@@ -243,4 +289,50 @@ TEST(ScenarioHarnessSystem, TowScenarioReplayIsDeterministic) {
 
   clear_output_artifacts(run_a);
   clear_output_artifacts(run_b);
+}
+
+/**
+ * @test QT-032
+ * @verifies [R-010, R-018]
+ * @notes Given the checked-in tow scenario artifact and Chrono backend
+ * support, when the in-memory run path executes with Chrono selected and
+ * deterministic placeholder tow drag, then the scenario acceptance envelope
+ * still passes through the external backend seam.
+ */
+TEST(ScenarioHarnessSystem, TowScenarioPassesWithChronoAdvancer) {
+  if (!project::chrono_state_advancer_supported()) {
+    GTEST_SKIP() << "Chrono support unavailable on this build";
+  }
+
+  const auto loaded =
+      project::load_scenario_definition_file(scenario_path("tow_test.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto config = loaded.scenario->config;
+  config.simulation.state_advancer = "chrono_rigidbody";
+
+  TowPlaceholderHydroProvider hydro(
+      loaded.scenario->provider.drag_coefficient_n_s2_per_m2);
+  NullAeroProvider aero;
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 5min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 5min +
+           1s});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+  const auto evaluation =
+      project::evaluate_scenario_result(*loaded.scenario, result);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id,
+            "chrono-rigidbody-state-advancer");
+  EXPECT_TRUE(evaluation.ok());
+
+  clear_output_artifacts(result);
 }

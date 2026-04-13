@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "project/core/geometry.hpp"
+#include "project/numerics/backend_catalog.hpp"
 #include "project/numerics/state_advancement.hpp"
 
 namespace {
@@ -390,4 +391,57 @@ TEST(StateAdvancement, WrapsNegativeCycleTimeIntoValidInterval) {
             config.stroke.cycle_duration_s);
   EXPECT_NEAR(advanced.state->stroke.cycle_time_s, 1.17, 1e-12);
   EXPECT_EQ(advanced.state->stroke.phase, project::StrokePhase::recovery);
+}
+
+/**
+ * @test UT-138
+ * @verifies [D-041, D-042]
+ * @notes Given the built-in Chrono state-advancer id, when the built-in
+ * factory is queried on builds with and without Chrono support, then the
+ * backend is exposed deterministically only on supported builds and reuses
+ * the stable startup contract.
+ */
+TEST(StateAdvancement, BuiltinChronoAdvancerAvailabilityMatchesBuildSupport) {
+  auto *advancer = project::builtin_state_advancer("chrono_rigidbody");
+
+  if (!project::chrono_state_advancer_supported()) {
+    EXPECT_EQ(advancer, nullptr);
+    return;
+  }
+
+  ASSERT_NE(advancer, nullptr);
+  EXPECT_EQ(advancer->identifier(), "chrono-rigidbody-state-advancer");
+
+  const auto startup = advancer->initialize(make_config());
+  ASSERT_TRUE(startup.ok());
+  ASSERT_TRUE(startup.state.has_value());
+  EXPECT_EQ(startup.solver_status, "chrono-rigidbody");
+}
+
+/**
+ * @test UT-139
+ * @verifies [D-040]
+ * @notes Given the built-in state-advancer catalog ids, when they are parsed,
+ * normalized back to ids, and checked for availability, then the catalog
+ * behaves deterministically for known and unknown ids.
+ */
+TEST(StateAdvancement, BuiltinStateAdvancerCatalogIsDeterministic) {
+  const auto deterministic =
+      project::parse_builtin_state_advancer("deterministic_baseline");
+  ASSERT_TRUE(deterministic.has_value());
+  EXPECT_EQ(*deterministic,
+            project::BuiltinStateAdvancerType::deterministic_baseline);
+  EXPECT_EQ(project::builtin_state_advancer_id(*deterministic),
+            "deterministic_baseline");
+  EXPECT_TRUE(project::builtin_state_advancer_supported(*deterministic));
+
+  const auto chrono = project::parse_builtin_state_advancer("chrono_rigidbody");
+  ASSERT_TRUE(chrono.has_value());
+  EXPECT_EQ(*chrono, project::BuiltinStateAdvancerType::chrono_rigidbody);
+  EXPECT_EQ(project::builtin_state_advancer_id(*chrono), "chrono_rigidbody");
+  EXPECT_EQ(project::builtin_state_advancer_supported(*chrono),
+            project::chrono_state_advancer_supported());
+
+  EXPECT_FALSE(
+      project::parse_builtin_state_advancer("unsupported_backend").has_value());
 }

@@ -79,5 +79,7 @@ public:
 };
 
 StateAdvancer &default_state_advancer();
+[[nodiscard]] StateAdvancer *
+builtin_state_advancer(std::string_view id) noexcept;
 
 } // namespace project

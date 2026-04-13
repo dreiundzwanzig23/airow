@@ -1,51 +1,51 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-11
+- 2026-04-13
 
 ## What Changed In This Session
-- Started Slice 2A on `A-004` by deepening the existing built-in hydro ids in
-  place instead of adding new provider ids or changing config or output
-  schema.
-- Landed low-speed-damped built-in hull resistance and phase-shaped
-  drive-phase blade propulsion under new hydro design items (`D-036`,
-  `D-037`) with new unit evidence (`UT-127`, `UT-128`).
-- Continued the same in-place hydro slice by tightening
-  `stroke_propulsion_placeholder` so propulsive blade force now requires
-  backward blade slip, exact catch or release clamps to zero blade load, and
-  the interior drive regains a stronger deterministic propulsion envelope,
-  adding new unit evidence (`UT-131`) while preserving the current provider
-  ids, config schema, output schema, and `A-010` coupling boundary.
-- Re-characterized the checked-in calm-water, headwind, and crosswind scenario
-  envelopes to the richer deterministic hydro baselines while preserving the
-  current provider-selection and structured metadata contracts.
-- Continued Slice 2B on `A-005` by deepening the existing built-in
-  `steady_wind_placeholder` aero id in place instead of adding a new provider
-  id or changing config or output schema.
-- Landed stronger low-apparent-wind headwind drag sensitivity, explicit
-  lateral crosswind force, and speed-shaped yaw response under new aero design
-  items (`D-038`, `D-039`) with new unit evidence (`UT-129`, `UT-130`).
-- Re-characterized the checked-in headwind and crosswind scenario envelopes to
-  the richer deterministic steady-wind aero baseline while preserving the
-  current provider-selection and structured metadata contracts.
+- Started Slice 3A on `A-010` by adding a built-in state-advancer catalog and
+  validated `simulation.state_advancer` config handling under `A-001`.
+- Extended the shared run path so built-in state-advancer construction now
+  mirrors built-in provider construction: injected seams still take
+  precedence, otherwise the orchestrator selects the configured built-in
+  advancer.
+- Landed new backend design items (`D-040`, `D-041`, `D-042`) covering the
+  built-in advancer catalog, built-in advancer factory binding, and the first
+  Chrono-backed rigid-body advancer path.
+- Added a compile-time-guarded `chrono_rigidbody` state advancer that reuses
+  the current public startup and snapshot contract while stepping hull motion
+  through Chrono only when the build exposes Chrono support.
+- Added new unit or integration evidence (`UT-132..UT-137`,
+  `UT-138..UT-139`, `IT-016..IT-018`) for default advancer selection,
+  unknown-id rejection, guarded Chrono rejection on non-Chrono builds,
+  built-in catalog determinism, and config-driven built-in advancer
+  selection on the shared run path.
+- Added Chrono-specific passive-float and tow scenario tests
+  (`QT-031`, `QT-032`) that stay skipped unless the build is Chrono-capable.
 
 ## Current Technical Posture
 - `v0.1`, the observability slice, and the provider-selection slice remain
-  closed on the main roadmap, and Slice 2 is now underway through both hydro
-  and steady-wind aero fidelity increments on the existing built-in ids.
+  closed on the main roadmap, Slice 2 remains underway on the existing hydro
+  and steady-wind aero ids, and Slice 3 has now started through built-in
+  backend selection.
 - The shared run path still has two stable compatibility surfaces for later
   work: the human-readable run-analysis feature set and the structured
-  provider-selection plus validity-metadata contract.
-- External solver adoption remains deferred until the dedicated backend slice.
-- Evidence note: `rgr:red` reproduced the new hydro boundary or slip failures
-  in `UT-128`, `UT-131`, and `IT-009`; `rgr:green` updated the built-in hydro
-  blade-force shaping; `rgr:refactor` was a no-op beyond tightening the
-  phase-boundary helper and syncing the refreshed scenario envelopes.
+  provider-selection plus validity-metadata contract, now joined by the new
+  built-in state-advancer selection contract.
+- Chrono support is optional and absent in the current environment, so the
+  repository now proves deterministic rejection and guarded test skips on
+  non-Chrono builds while leaving Chrono-enabled acceptance evidence pending.
+- Evidence note: `rgr:red` came from new failing config, unit, integration,
+  and guarded scenario tests around state-advancer selection; `rgr:green`
+  added the built-in advancer catalog, config normalization, orchestrator
+  selection, and Chrono guard path; `rgr:refactor` extracted the backend
+  catalog and shared baseline-startup helper to keep backend wiring localized.
 
 ## Immediate Next Steps
-1. Keep any further Slice 2 work on the existing built-in ids and preserve the
+1. Validate the landed `chrono_rigidbody` path on a Chrono-capable build
+   against passive-float and tow scenarios.
+2. Keep any further Slice 2 work on the existing built-in ids and preserve the
    landed `providers` config schema plus structured provider metadata.
-2. Revisit concrete Chrono and SUNDIALS wiring only in the later backend slice
-   under `A-010`.
 3. Re-open calibration and time-varying environment work only after backend
    direction and the reduced-model baselines are stable.

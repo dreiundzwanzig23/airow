@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 ### Changed
+- Started Slice 3A on `A-010` by adding a built-in state-advancer catalog,
+  validated `simulation.state_advancer` selection, config-driven built-in
+  advancer construction on the shared run path, and a compile-time-guarded
+  `chrono_rigidbody` backend path with new evidence (`D-040..D-042`,
+  `UT-132..UT-139`, `IT-016..IT-018`, `QT-031..QT-032`); deterministic
+  non-Chrono builds now reject the Chrono advancer selection cleanly while
+  Chrono-enabled scenario evidence remains gated on Chrono-capable builds.
 - Continued Slice 2 on `A-004` by deepening the existing built-in hydro ids
   in place without changing provider ids, config schema, output schema, or
   state-advancer coupling: `stroke_propulsion_placeholder` now gates

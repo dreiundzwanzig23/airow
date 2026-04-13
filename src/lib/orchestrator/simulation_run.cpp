@@ -548,10 +548,10 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
   AeroProvider *aero_provider = dependencies.aero_provider != nullptr
                                     ? dependencies.aero_provider
                                     : owned_providers.aero_provider.get();
-
-  auto &advancer = dependencies.state_advancer != nullptr
-                       ? *dependencies.state_advancer
-                       : default_state_advancer();
+  StateAdvancer *selected_advancer =
+      dependencies.state_advancer != nullptr
+          ? dependencies.state_advancer
+          : builtin_state_advancer(config.simulation.state_advancer);
 
   SimulationRunResult result;
   /**
@@ -559,6 +559,21 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    * @title Stable version, timestamp, provider, and normalized-config metadata
    * @satisfies [A-002]
    */
+  if (selected_advancer == nullptr) {
+    stamp_run_metadata(result, config, current_timestamp(),
+                       default_state_advancer().identifier());
+    append_runtime_failure(
+        result, "state_advancement", "$.simulation.state_advancer",
+        "unsupported_state_advancer",
+        "configured state advancer '" + config.simulation.state_advancer +
+            "' is unavailable in this build");
+    result.metadata.end_timestamp_utc = current_timestamp();
+    emit_run_outputs(config, result);
+    return result;
+  }
+
+  auto &advancer = *selected_advancer;
+
   stamp_run_metadata(result, config, current_timestamp(),
                      advancer.identifier());
 

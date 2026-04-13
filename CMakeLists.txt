@@ -43,6 +43,25 @@ else()
     message(STATUS "HDF5 support disabled (library not found)")
 endif()
 
+find_package(Chrono QUIET CONFIG)
+set(PROJECT_CHRONO_ENABLED OFF)
+if(Chrono_FOUND)
+    if(TARGET Chrono::Chrono)
+        set(PROJECT_CHRONO_ENABLED ON)
+        set(PROJECT_CHRONO_TARGET Chrono::Chrono)
+    elseif(TARGET Chrono::ChronoEngine)
+        set(PROJECT_CHRONO_ENABLED ON)
+        set(PROJECT_CHRONO_TARGET Chrono::ChronoEngine)
+    elseif(DEFINED CHRONO_LIBRARIES)
+        set(PROJECT_CHRONO_ENABLED ON)
+    endif()
+endif()
+if(PROJECT_CHRONO_ENABLED)
+    message(STATUS "Chrono support enabled")
+else()
+    message(STATUS "Chrono support disabled (library not found)")
+endif()
+
 option(ENABLE_COVERAGE "Enable LLVM source-based coverage instrumentation" OFF)
 if(ENABLE_COVERAGE)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -61,6 +80,7 @@ add_library(project_lib
     src/lib/configuration/provider_catalog.cpp
     src/lib/configuration/simulator_config.cpp
     src/lib/hydro/baseline_providers.cpp
+    src/lib/numerics/backend_catalog.cpp
     src/lib/numerics/state_advancement.cpp
     src/lib/output/run_analysis.cpp
     src/lib/output/run_output.cpp
@@ -85,6 +105,25 @@ if(HDF5_FOUND)
     target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=1)
 else()
     target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=0)
+endif()
+if(PROJECT_CHRONO_ENABLED)
+    if(DEFINED PROJECT_CHRONO_TARGET)
+        target_link_libraries(project_lib PRIVATE ${PROJECT_CHRONO_TARGET})
+    else()
+        if(DEFINED CHRONO_INCLUDE_DIRS)
+            target_include_directories(project_lib PRIVATE ${CHRONO_INCLUDE_DIRS})
+        endif()
+        target_link_libraries(project_lib PRIVATE ${CHRONO_LIBRARIES})
+    endif()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_CHRONO=1)
+    target_compile_definitions(project_lib PRIVATE
+        PROJECT_CHRONO_CHQUATERNION_HEADER=\"chrono/core/ChQuaternion.h\"
+        PROJECT_CHRONO_CHVECTOR_HEADER=\"chrono/core/ChVector.h\"
+        PROJECT_CHRONO_CHBODY_HEADER=\"chrono/physics/ChBody.h\"
+        PROJECT_CHRONO_CHSYSTEMNSC_HEADER=\"chrono/physics/ChSystemNSC.h\"
+    )
+else()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_CHRONO=0)
 endif()
 target_compile_definitions(project_lib PUBLIC PROJECT_VERSION_STRING="${PROJECT_VERSION}")
 
@@ -187,6 +226,7 @@ if(BUILD_TESTING)
         tests/aux/include_run_output.cpp
         tests/aux/include_run_result.cpp
         tests/aux/include_scenario_harness.cpp
+        tests/aux/include_backend_catalog.cpp
         tests/aux/include_state_advancement.cpp
         tests/aux/include_simulation_run.cpp
         tests/aux/include_simulator_config.cpp

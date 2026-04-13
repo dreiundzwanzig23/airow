@@ -1,11 +1,12 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-11
+- **Date**: 2026-04-13
 - **Branch**: `First_implementations`
-- **Current Objective**: Continue the post-`v0.1` roadmap: reduced-model
-  fidelity first, external backend wiring second, calibration or
-  time-varying environment later.
+- **Current Objective**: Continue the post-`v0.1` roadmap with reduced-model
+  fidelity on stable provider ids and the first external-backend selection
+  slice under `A-010`, while keeping calibration or time-varying environment
+  work deferred.
 
 ## Current State
 - The project is now a single-scull headless-first simulator with a
@@ -19,6 +20,10 @@
 - The shared run path validates the top-level `providers` block, constructs
   built-in reduced hull-resistance or blade-force or aero providers when
   injected seams are absent, and emits structured per-role validity metadata.
+- The shared run path now also validates `simulation.state_advancer`,
+  constructs the built-in deterministic baseline advancer when no injected
+  seam is present, and rejects the built-in `chrono_rigidbody` advancer
+  deterministically when Chrono support is unavailable in the build.
 - The landed `A-004` follow-on deepens the existing hydro ids in place with
   low-speed-damped hull drag, phase-shaped blade propulsion, backward-slip
   gating, exact catch or release zero-load tapering, and refreshed calm-water
@@ -32,8 +37,11 @@
 - `R-020` and `R-033` are closed, so the roadmap now moves from landed
   observability or provider-selection work into reduced-model fidelity before
   external backend wiring and later calibration or time-varying environment.
-- Chrono and SUNDIALS are explicitly part of the later external backend
-  wiring slice under `A-010`, not part of hydro or aero provider selection.
+- The first `A-010` backend-selection packet is now landed through built-in
+  advancer selection and a compile-time-guarded Chrono rigid-body path; full
+  Chrono-enabled acceptance evidence is still pending a Chrono-capable build.
+- SUNDIALS remains deferred behind the same later external backend slice under
+  `A-010`, separate from hydro or aero provider selection.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
   `R-025`) remain intentionally behind the near-term slices.
 - Validation guardrails remain strict: full test gate includes sanitized and
@@ -55,8 +63,7 @@
 1. Continue Slice 2 only with further reduced-model fidelity work that keeps
    the current built-in hydro and aero provider ids stable and preserves the
    structured provider metadata contract.
-2. Revisit external backend wiring for Chrono and SUNDIALS under `A-010` now
-   that the provider-selection slice and the first hydro or aero fidelity
-   increments are both landed.
+2. Validate the landed Chrono backend-selection path on a Chrono-capable build
+   with passive-float and tow evidence before broadening mechanics scope.
 3. Re-open deferred calibration or time-varying environment work only after
    backend direction and reduced-model stability are clearer.

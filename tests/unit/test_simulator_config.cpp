@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "project/configuration/simulator_config.hpp"
+#include "project/numerics/backend_catalog.hpp"
 
 namespace {
 
@@ -100,6 +101,7 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
   EXPECT_EQ(result.config->config_id, "baseline-single-scull");
   EXPECT_DOUBLE_EQ(result.config->simulation.duration_s, 120.0);
   EXPECT_DOUBLE_EQ(result.config->simulation.time_step_s, 0.01);
+  EXPECT_EQ(result.config->simulation.state_advancer, "deterministic_baseline");
   EXPECT_DOUBLE_EQ(result.config->hull.mass_kg, 14.5);
   EXPECT_DOUBLE_EQ(result.config->seat.min_position_m, -0.4);
   EXPECT_DOUBLE_EQ(result.config->seat.max_position_m, 0.4);
@@ -116,6 +118,12 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
                       project::NormalizedConfigEntry{
                           "$.config_id", "baseline-single-scull", ""}),
             result.normalized_config.end());
+  EXPECT_NE(
+      std::find(result.normalized_config.begin(),
+                result.normalized_config.end(),
+                project::NormalizedConfigEntry{"$.simulation.state_advancer",
+                                               "deterministic_baseline", ""}),
+      result.normalized_config.end());
   EXPECT_NE(std::find(result.normalized_config.begin(),
                       result.normalized_config.end(),
                       project::NormalizedConfigEntry{"$.seat.rail_axis",
@@ -131,6 +139,73 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
                       project::NormalizedConfigEntry{
                           "$.stroke.drive_blade_depth_m", "0.12", "m"}),
             result.normalized_config.end());
+}
+
+/**
+ * @test UT-132
+ * @verifies [D-001, D-008, D-040]
+ * @notes Given the baseline config omits explicit backend selection, when the
+ * config is parsed, then the deterministic built-in state advancer is
+ * selected and normalized by default.
+ */
+TEST(SimulatorConfig, DefaultsStateAdvancerSelectionDeterministically) {
+  const auto result =
+      project::parse_simulator_config_text(make_valid_config_json());
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.config.has_value());
+  EXPECT_EQ(result.config->simulation.state_advancer, "deterministic_baseline");
+  EXPECT_NE(
+      std::find(result.normalized_config.begin(),
+                result.normalized_config.end(),
+                project::NormalizedConfigEntry{"$.simulation.state_advancer",
+                                               "deterministic_baseline", ""}),
+      result.normalized_config.end());
+}
+
+/**
+ * @test UT-133
+ * @verifies [D-001, D-040]
+ * @notes Given an unknown built-in state advancer id, when config parsing
+ * runs, then validation rejects the value deterministically.
+ */
+TEST(SimulatorConfig, RejectsUnknownStateAdvancerSelection) {
+  const auto result = project::parse_simulator_config_text(
+      replace_once(make_valid_config_json(), R"("time_step_s": 0.01)",
+                   R"("time_step_s": 0.01,
+      "state_advancer": "unsupported_backend")"));
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
+  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
+}
+
+/**
+ * @test UT-134
+ * @verifies [D-001, D-040]
+ * @notes Given the Chrono built-in state advancer is requested, when config
+ * parsing runs on builds with and without Chrono support, then validation
+ * either accepts the selection or rejects it deterministically as
+ * unavailable.
+ */
+TEST(SimulatorConfig, ValidatesChronoStateAdvancerSelectionByBuildSupport) {
+  const auto result = project::parse_simulator_config_text(
+      replace_once(make_valid_config_json(), R"("time_step_s": 0.01)",
+                   R"("time_step_s": 0.01,
+      "state_advancer": "chrono_rigidbody")"));
+
+  if (project::chrono_state_advancer_supported()) {
+    ASSERT_TRUE(result.ok());
+    ASSERT_TRUE(result.config.has_value());
+    EXPECT_EQ(result.config->simulation.state_advancer, "chrono_rigidbody");
+    return;
+  }
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_value");
+  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
 }
 
 /**

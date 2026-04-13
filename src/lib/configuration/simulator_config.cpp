@@ -1,6 +1,7 @@
 #include "project/configuration/simulator_config.hpp"
 #include "project/configuration/provider_catalog.hpp"
 #include "project/core/geometry.hpp"
+#include "project/numerics/backend_catalog.hpp"
 
 #include <cctype>
 #include <cmath>
@@ -133,6 +134,15 @@ std::string unsupported_provider_message(std::string_view role,
                                          std::string_view provider_id) {
   return "unknown " + std::string(role) + " provider '" +
          std::string(provider_id) + "'";
+}
+
+std::string unsupported_state_advancer_message(std::string_view advancer_id) {
+  return "unknown state advancer '" + std::string(advancer_id) + "'";
+}
+
+std::string unavailable_state_advancer_message(std::string_view advancer_id) {
+  return "state advancer '" + std::string(advancer_id) +
+         "' is unavailable in this build";
 }
 
 double vector_norm(const Vector3 &value) {
@@ -527,13 +537,41 @@ bool parse_simulation_settings(const Json &root, SimulatorConfig &config,
                                LoadSimulatorConfigResult &result) {
   const Json *simulation =
       require_object(root, "simulation", "$.simulation", result);
-  return simulation != nullptr &&
-         require_non_negative_field(*simulation, "duration_s",
-                                    "$.simulation.duration_s", "duration_s",
-                                    config.simulation.duration_s, result) &&
-         require_positive_field(*simulation, "time_step_s",
-                                "$.simulation.time_step_s", "time_step_s",
-                                config.simulation.time_step_s, result);
+  if (simulation == nullptr ||
+      !require_non_negative_field(*simulation, "duration_s",
+                                  "$.simulation.duration_s", "duration_s",
+                                  config.simulation.duration_s, result) ||
+      !require_positive_field(*simulation, "time_step_s",
+                              "$.simulation.time_step_s", "time_step_s",
+                              config.simulation.time_step_s, result)) {
+    return false;
+  }
+
+  config.simulation.state_advancer = "deterministic_baseline";
+  if (!simulation->contains("state_advancer")) {
+    return true;
+  }
+  if (!require_string_field(*simulation, "state_advancer",
+                            "$.simulation.state_advancer",
+                            config.simulation.state_advancer, result)) {
+    return false;
+  }
+
+  const auto state_advancer =
+      parse_builtin_state_advancer(config.simulation.state_advancer);
+  if (!state_advancer.has_value()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.simulation.state_advancer",
+        unsupported_state_advancer_message(config.simulation.state_advancer)));
+    return false;
+  }
+  if (!builtin_state_advancer_supported(*state_advancer)) {
+    result.diagnostics.push_back(make_error(
+        "unsupported_value", "$.simulation.state_advancer",
+        unavailable_state_advancer_message(config.simulation.state_advancer)));
+    return false;
+  }
+  return true;
 }
 
 bool parse_hull_settings(const Json &root, SimulatorConfig &config,
@@ -887,6 +925,7 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.simulation.duration_s), "s"},
       {"$.simulation.time_step_s",
        format_normalized_double(config.simulation.time_step_s), "s"},
+      {"$.simulation.state_advancer", config.simulation.state_advancer, ""},
       {"$.hull.mass_kg", format_normalized_double(config.hull.mass_kg), "kg"},
       {"$.hull.center_of_mass_m", format_vector3(config.hull.center_of_mass_m),
        "m"},

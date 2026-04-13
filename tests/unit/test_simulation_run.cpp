@@ -10,6 +10,7 @@
 #include <string_view>
 #include <vector>
 
+#include "project/numerics/backend_catalog.hpp"
 #include "project/orchestrator/cli.hpp"
 #include "project/orchestrator/simulation_run.hpp"
 
@@ -191,6 +192,31 @@ private:
   std::string identifier_;
 };
 
+class RecordingStateAdvancer final : public project::StateAdvancer {
+public:
+  std::string_view identifier() const noexcept override {
+    return "recording-state-advancer";
+  }
+
+  project::StartupResult
+  initialize(const project::SimulatorConfig &config) override {
+    ++initialize_call_count;
+    return project::default_state_advancer().initialize(config);
+  }
+
+  project::AdvanceResult advance(const project::SimulatorConfig &config,
+                                 const project::MechanicalStateSnapshot &state,
+                                 double step_size_s,
+                                 const project::ExternalLoads &loads) override {
+    ++advance_call_count;
+    return project::default_state_advancer().advance(config, state, step_size_s,
+                                                     loads);
+  }
+
+  int initialize_call_count{};
+  int advance_call_count{};
+};
+
 class InvalidHydroProvider final : public project::HydroProvider {
 public:
   std::string_view identifier() const noexcept override { return "bad-hydro"; }
@@ -259,7 +285,7 @@ public:
 
 /**
  * @test UT-008
- * @verifies [D-010, D-013]
+ * @verifies [D-010, D-013, D-041]
  * @notes Given a validated config and fixed runtime dependencies, when the
  * in-memory run API executes, then it returns deterministic metadata,
  * startup-validity metadata, mechanics state history, and no diagnostics.
@@ -855,4 +881,81 @@ TEST(SimulationRun, BuildsConfiguredBuiltInProvidersWithoutInjectedProviders) {
                             return sample.port_blade_force_world_n.x > 0.0;
                           }));
   EXPECT_NE(result.load_history.front().aero_force_world_n.x, 0.0);
+}
+
+/**
+ * @test UT-135
+ * @verifies [D-010, D-013, D-041]
+ * @notes Given explicit deterministic built-in state-advancer selection in
+ * config, when the shared run path executes without an injected advancer,
+ * then the built-in deterministic advancer is selected and reported in run
+ * metadata.
+ */
+TEST(SimulationRun, SelectsConfiguredBuiltInStateAdvancerWhenNotInjected) {
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h + 1s});
+  auto config = make_config();
+  config.simulation.state_advancer = "deterministic_baseline";
+
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id,
+            "deterministic-baseline-state-advancer");
+}
+
+/**
+ * @test UT-136
+ * @verifies [D-010, D-013]
+ * @notes Given both config-selected built-in state-advancer selection and an
+ * injected advancer seam, when the run executes, then the injected advancer
+ * takes precedence over the built-in selection.
+ */
+TEST(SimulationRun, InjectedStateAdvancerOverridesConfiguredBuiltInSelection) {
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 11h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 11h + 1s});
+  RecordingStateAdvancer advancer;
+  auto config = make_config();
+  config.simulation.state_advancer = "deterministic_baseline";
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .state_advancer = &advancer,
+                                          .clock = &clock,
+                                      });
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id, "recording-state-advancer");
+  EXPECT_EQ(advancer.initialize_call_count, 1);
+}
+
+/**
+ * @test UT-137
+ * @verifies [D-010, D-041]
+ * @notes Given Chrono backend selection on a build without Chrono support,
+ * when a run is attempted through an in-memory config, then execution fails
+ * deterministically with a backend-specific diagnostic.
+ */
+TEST(SimulationRun, RejectsUnavailableChronoBuiltInStateAdvancerAtRuntime) {
+  if (project::chrono_state_advancer_supported()) {
+    GTEST_SKIP() << "Chrono support available on this build";
+  }
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h + 1s});
+  auto config = make_config();
+  config.simulation.state_advancer = "chrono_rigidbody";
+
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.status, project::RunStatus::runtime_error);
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_state_advancer");
+  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
 }
