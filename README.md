@@ -17,9 +17,10 @@ state-convention and numerical-integration ownership. Post-`v0.1` work has now
 landed the observability slice, the runtime provider-selection slice, multiple
 hydro and steady-wind aero fidelity refinements on the existing built-in
 provider ids, and the first backend-selection slice for built-in
-state-advancer selection with an optional guarded Chrono path; the roadmap now
-keeps reduced-model fidelity and backend wiring separate before deferred
-calibration or time-varying environment workflows.
+state-advancer selection with an optional guarded Chrono path, now validated on
+Chrono-capable builds against passive-float and tow scenario evidence; the
+roadmap now keeps reduced-model fidelity and backend wiring separate before
+deferred calibration or time-varying environment workflows.
 
 ## Quick Start
 
@@ -32,6 +33,19 @@ Build:
 ```bash
 ./scripts/build.sh
 ```
+
+Chrono-enabled build notes:
+```bash
+# Auto-detected when Chrono is installed under ~/.local
+./scripts/build.sh
+
+# Fallback for non-default install prefixes
+CMAKE_PREFIX_PATH=/path/to/chrono/prefix ./scripts/build.sh
+```
+
+To run with Chrono-backed rigid-body stepping once Chrono support is enabled in
+the build, set `"simulation.state_advancer": "chrono_rigidbody"` in the run
+config.
 
 Run one headless baseline case:
 ```bash
@@ -77,7 +91,9 @@ Current implemented library surface:
   `hull_resistance`, `blade_force`, and `aero_load`
 - top-level config-driven built-in state-advancer selection for
   `deterministic_baseline`, with deterministic rejection of
-  `chrono_rigidbody` when Chrono support is unavailable in the build
+  `chrono_rigidbody` when Chrono support is unavailable in the build and
+  Chrono-backed rigid-body stepping when a discoverable Chrono package is
+  present
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
 - structured hydro force or moment vectors, final passive-float equilibrium
@@ -149,7 +165,8 @@ Current implementation status:
 - `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
   Advancement` are now in progress through a deterministic internal baseline
   state-advancer seam plus the first config-driven built-in backend-selection
-  path for a guarded Chrono rigid-body advancer,
+  path for a guarded Chrono rigid-body advancer, now validated on
+  Chrono-capable builds with passive-float and tow scenario coverage,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
   metadata propagation, and optional HDF5 parity behind the same output

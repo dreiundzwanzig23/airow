@@ -4,9 +4,8 @@
 - **Date**: 2026-04-13
 - **Branch**: `First_implementations`
 - **Current Objective**: Continue the post-`v0.1` roadmap with reduced-model
-  fidelity on stable provider ids and the first external-backend selection
-  slice under `A-010`, while keeping calibration or time-varying environment
-  work deferred.
+  fidelity on stable provider ids and the first external-backend selection slice under `A-010`,
+  while keeping calibration or time-varying environment work deferred.
 
 ## Current State
 - The project is now a single-scull headless-first simulator with a
@@ -38,8 +37,9 @@
   observability or provider-selection work into reduced-model fidelity before
   external backend wiring and later calibration or time-varying environment.
 - The first `A-010` backend-selection packet is now landed through built-in
-  advancer selection and a compile-time-guarded Chrono rigid-body path; full
-  Chrono-enabled acceptance evidence is still pending a Chrono-capable build.
+  advancer selection and a compile-time-guarded Chrono rigid-body path; the
+  local Chrono-capable build now exercises `chrono_rigidbody` through the
+  checked-in passive-float and tow scenario evidence.
 - SUNDIALS remains deferred behind the same later external backend slice under
   `A-010`, separate from hydro or aero provider selection.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
@@ -63,7 +63,8 @@
 1. Continue Slice 2 only with further reduced-model fidelity work that keeps
    the current built-in hydro and aero provider ids stable and preserves the
    structured provider metadata contract.
-2. Validate the landed Chrono backend-selection path on a Chrono-capable build
-   with passive-float and tow evidence before broadening mechanics scope.
+2. Decide whether to broaden Chrono-backed coverage beyond the current
+   passive-float and tow evidence or return focus to the active reduced-model
+   fidelity work.
 3. Re-open deferred calibration or time-varying environment work only after
    backend direction and reduced-model stability are clearer.

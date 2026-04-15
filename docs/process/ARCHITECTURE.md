@@ -170,7 +170,8 @@ Still planned or incomplete:
   aero id without changing the current provider-selection or metadata
   contracts,
 - external calibration ingestion and provenance propagation,
-- concrete Chrono and SUNDIALS backend wiring behind existing seams.
+- broader SUNDIALS backend wiring behind existing seams after the first
+  Chrono-capable rigid-body validation packet.
 
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem

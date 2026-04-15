@@ -7,8 +7,10 @@
   advancer construction on the shared run path, and a compile-time-guarded
   `chrono_rigidbody` backend path with new evidence (`D-040..D-042`,
   `UT-132..UT-139`, `IT-016..IT-018`, `QT-031..QT-032`); deterministic
-  non-Chrono builds now reject the Chrono advancer selection cleanly while
-  Chrono-enabled scenario evidence remains gated on Chrono-capable builds.
+  non-Chrono builds now reject the Chrono advancer selection cleanly, and the
+  local Chrono-capable build path now recognizes Chrono 10's exported
+  `Chrono::Chrono_core` target, uses the Chrono 10 rigid-body APIs, and passes
+  the guarded Chrono scenario evidence on a `~/.local` Chrono install.
 - Continued Slice 2 on `A-004` by deepening the existing built-in hydro ids
   in place without changing provider ids, config schema, output schema, or
   state-advancer coupling: `stroke_propulsion_placeholder` now gates

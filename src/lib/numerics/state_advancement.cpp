@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -503,11 +504,11 @@ public:
 
 #if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
 
-chrono::ChVector<> to_chrono_vector(const Vector3 &value) {
+chrono::ChVector3<> to_chrono_vector(const Vector3 &value) {
   return {value.x, value.y, value.z};
 }
 
-Vector3 from_chrono_vector(const chrono::ChVector<> &value) {
+Vector3 from_chrono_vector(const chrono::ChVector3<> &value) {
   return {.x = value.x(), .y = value.y(), .z = value.z()};
 }
 
@@ -529,37 +530,41 @@ void advance_hull_segment_with_chrono(MechanicalStateSnapshot &next,
                                       const SimulatorConfig &config,
                                       const ExternalLoads &loads) {
   chrono::ChSystemNSC system;
-  system.Set_G_acc(chrono::ChVector<>(0.0, 0.0, 0.0));
+  system.SetGravitationalAcceleration(chrono::ChVector3<>(0.0, 0.0, 0.0));
 
   auto body = std::make_shared<chrono::ChBody>();
   body->SetMass(config.hull.mass_kg);
-  body->SetInertiaXX(chrono::ChVector<>(config.hull.inertia_kg_m2.x,
-                                        config.hull.inertia_kg_m2.y,
-                                        config.hull.inertia_kg_m2.z));
+  body->SetInertiaXX(chrono::ChVector3<>(config.hull.inertia_kg_m2.x,
+                                         config.hull.inertia_kg_m2.y,
+                                         config.hull.inertia_kg_m2.z));
   body->SetPos(to_chrono_vector(next.hull.position_world_m));
   body->SetRot(to_chrono_quaternion(next.hull.orientation_world_from_body));
-  body->SetPos_dt(to_chrono_vector(next.hull.linear_velocity_world_mps));
-  body->SetWvel_loc(to_chrono_vector(next.hull.angular_velocity_body_radps));
-  body->SetBodyFixed(false);
+  body->SetPosDt(to_chrono_vector(next.hull.linear_velocity_world_mps));
+  body->SetAngVelLocal(to_chrono_vector(next.hull.angular_velocity_body_radps));
+  body->SetFixed(false);
   system.AddBody(body);
 
-  body->Empty_forces_accumulators();
-  body->Accumulate_force(to_chrono_vector(loads.resolved_hydro_force_world_n()),
-                         body->GetPos(), false);
-  body->Accumulate_force(to_chrono_vector(loads.resolved_aero_force_world_n()),
-                         body->GetPos(), false);
-  body->Accumulate_torque(to_chrono_vector(loads.hydro_moment_world_n_m),
-                          false);
-  body->Accumulate_torque(to_chrono_vector(loads.aero_moment_world_n_m), false);
+  const auto accumulator = body->AddAccumulator();
+  body->EmptyAccumulator(accumulator);
+  body->AccumulateForce(accumulator,
+                        to_chrono_vector(loads.resolved_hydro_force_world_n()),
+                        body->GetPos(), false);
+  body->AccumulateForce(accumulator,
+                        to_chrono_vector(loads.resolved_aero_force_world_n()),
+                        body->GetPos(), false);
+  body->AccumulateTorque(accumulator,
+                         to_chrono_vector(loads.hydro_moment_world_n_m), false);
+  body->AccumulateTorque(accumulator,
+                         to_chrono_vector(loads.aero_moment_world_n_m), false);
 
   system.DoStepDynamics(segment_s);
 
   next.hull.position_world_m = from_chrono_vector(body->GetPos());
   next.hull.orientation_world_from_body =
       normalize_quaternion(from_chrono_quaternion(body->GetRot()));
-  next.hull.linear_velocity_world_mps = from_chrono_vector(body->GetPos_dt());
+  next.hull.linear_velocity_world_mps = from_chrono_vector(body->GetPosDt());
   next.hull.angular_velocity_body_radps =
-      from_chrono_vector(body->GetWvel_loc());
+      from_chrono_vector(body->GetAngVelLocal());
 }
 
 class ChronoRigidBodyStateAdvancer final : public StateAdvancer {

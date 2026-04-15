@@ -7,8 +7,7 @@ namespace project {
 
 namespace {
 
-constexpr std::string_view DETERMINISTIC_BASELINE_ID =
-    "deterministic_baseline";
+constexpr std::string_view DETERMINISTIC_BASELINE_ID = "deterministic_baseline";
 constexpr std::string_view CHRONO_RIGIDBODY_ID = "chrono_rigidbody";
 
 } // namespace

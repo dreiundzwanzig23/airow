@@ -11,8 +11,8 @@
   fidelity refinements on the existing built-in ids.
 - Slice 3 started on 2026-04-13 with validated `simulation.state_advancer`
   selection, built-in advancer construction, and a guarded
-  `chrono_rigidbody` path; Chrono-enabled acceptance evidence is still
-  pending a Chrono-capable build.
+  `chrono_rigidbody` path; local Chrono-capable builds now pass the guarded
+  passive-float and tow scenario evidence.
 
 ## Post-`v0.1` Slices
 
@@ -36,11 +36,12 @@
 ### Slice 3 — External Backend Wiring and Backend Selection
 - The first packet is landed: `simulation.state_advancer` defaults to
   `deterministic_baseline` and can request `chrono_rigidbody`, which is
-  rejected deterministically when Chrono support is absent.
+  rejected deterministically when Chrono support is absent and now executes on
+  Chrono-capable builds discovered through the local Chrono package config.
 - Keep this slice anchored in `A-010`, coordinated with `A-003` and `A-002`,
   and separate from hydro or aero provider selection.
-- Next step: validate the Chrono path on Chrono-enabled builds against
-  passive-float and tow evidence before broadening mechanics scope.
+- Next step: decide whether to broaden Chrono evidence beyond passive-float and
+  tow or move to later SUNDIALS wiring behind the same seam.
 
 ### Slice 4 — Calibration and Time-Varying Environment
 - Re-open `R-021`, `R-022`, and `R-023` only after provider and backend seams
