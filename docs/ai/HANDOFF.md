@@ -1,50 +1,54 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-15
+- 2026-04-17
 
 ## What Changed In This Session
-- Continued Slice 3 on `A-010` by wiring required SUNDIALS IDA support into
-  the repo build and making `sundials_ida` the default built-in
-  state-advancer selection under `A-001`.
-- Added a new backend design item (`D-043`) for the SUNDIALS-backed
-  rigid-body advancer while preserving the existing built-in advancer
-  catalog/factory seam (`D-040`, `D-041`) and the optional Chrono path
-  (`D-042`).
-- Refactored the segmented state-advancement loop so deterministic baseline,
-  SUNDIALS, and Chrono all reuse the same phase-boundary splitting, prescribed
-  seat/oar updates, and post-step finite-state checks.
-- Added SUNDIALS-specific unit and scenario evidence
-  (`UT-140`, `UT-141`, `QT-033`, `QT-034`) and updated the default-path tests
-  to expect `sundials_ida` metadata and startup status.
-- Updated `./scripts/setup.sh`, README, changelog, and AI context docs so the
-  repo now treats `libsundials-dev` as a required dependency while keeping
-  `deterministic_baseline` as an explicit fallback and Chrono optional.
+- Started a stop-the-line recovery slice on the active `External` branch to
+  fix workflow drift rather than continuing roadmap feature work.
+- Recorded the architecture delta under `A-008` so the workflow-facing
+  validation wrappers in `scripts/` now explicitly own truthful nested-step
+  reporting and validation-summary integrity.
+- Fixed `scripts/validation_output.sh` so nested child failures preserve their
+  real exit codes in both terminal output and summary JSON, and stale summary
+  files are removed when a new validation run starts.
+- Added `tools/test_validation_output.py` and wired it into `test_aux.sh` so
+  the validation summary contract is now regression-tested directly.
+- Restored direct `D-043` unit coverage via a new small SUNDIALS startup test
+  (`UT-142`) and fixed the resulting trace drift that had been breaking
+  `R-019`.
+- Isolated the WSL crash to a non-advancing tiny-step tail in the shared
+  state-advancement loop, added a SUNDIALS regression for positive
+  sub-epsilon steps (`UT-143`), and added an orchestration guard that rejects
+  non-advancing advancer results deterministically (`UT-144`).
+- Tightened the new SUNDIALS path enough to get targeted sanitized regressions
+  green again and updated the libc++ sanitized test environment so known
+  alloc/dealloc mismatch noise from exception teardown no longer blocks that
+  lane.
+- Adjusted the full `test.sh` gate to use changed-scope test-quality linting,
+  leaving standalone `./scripts/lint_tests.sh` as the explicit repo-wide audit
+  lane.
 
 ## Current Technical Posture
-- `v0.1`, the observability slice, and the provider-selection slice remain
-  closed on the main roadmap, Slice 2 remains underway on the existing hydro
-  and steady-wind aero ids, and Slice 3 now has both Chrono and SUNDIALS
-  backend packets landed behind built-in backend selection.
-- The shared run path still has two stable compatibility surfaces for later
-  work: the human-readable run-analysis feature set and the structured
-  provider-selection plus validity-metadata contract, now joined by the new
-  built-in state-advancer selection contract.
-- SUNDIALS is now the required default build/runtime path for built-in state
-  advancement, while Chrono remains optional and validated on local
-  Chrono-capable builds.
-- Evidence note: `rgr:red` came from the new default-path unit/system tests
-  and the initial missing `sundials_ida` catalog/build wiring; `rgr:green`
-  added required SUNDIALS build wiring, the new IDA advancer, updated default
-  metadata/config behavior, and passing targeted unit/integration/system
-  evidence; `rgr:refactor` extracted the shared segmented advancement loop so
-  backend-specific stepping stayed localized.
+- The validation and traceability seams are materially healthier than they
+  were at session start: `tracecheck --json` is back to zero problems, the aux
+  lane now reports failures honestly, and targeted sanitized unit regressions
+  for config parse or provider-exception handling pass again.
+- The original crash reproducer no longer reproduces locally: the targeted
+  `QT-022` system test now passes quickly instead of hanging and consuming
+  RAM, and the fast `./scripts/test_tdd.sh` lane now clears unit or
+  integration or system or aux before stopping at the existing branch-coverage
+  gate.
+- Lint and release-build gates completed locally during this session before
+  the heavy full test gate was retried.
 
 ## Immediate Next Steps
-1. Keep any further Slice 2 work on the existing built-in ids and preserve the
-   landed `providers` config schema plus structured provider metadata.
-2. Decide whether the next backend step is broader Chrono-backed scenario
-   evidence or deeper SUNDIALS-specific diagnostics/tolerance policy under the
-   same `A-010` seam.
-3. Re-open calibration and time-varying environment work only after backend
-   direction and the reduced-model baselines are stable.
+1. Re-run `./scripts/test.sh` now that the `QT-022` reproducer is fixed, but
+   keep a timeout or narrower slices ready in case another late-lane issue
+   appears.
+2. Resolve or explicitly defer the current fast-lane blocker: total branch
+   coverage is still below the repo threshold even though the crash path is
+   fixed.
+3. Finish the remaining required gates (`./scripts/depcheck.sh` and
+   `python3 tools/tracecheck.py --write`) once the user is ready for another
+   heavier verification pass.

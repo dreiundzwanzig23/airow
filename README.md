@@ -291,6 +291,8 @@ for live command output.
 Artifacts:
 - logs: `build/logs/validation/`
 - JSON summaries: `build/logs/validation/*.json`
+- interrupted runs keep a `*.json.steps.tsv` scratch file instead of leaving a
+  stale summary behind
 
 Useful environment variables:
 - `TEST_BUILD_DIR`
@@ -324,16 +326,18 @@ Maintenance commands:
   LLVM-native include-cleaner coverage, and related agent-facing code quality
   issues.
 - `./scripts/test.sh`: full validation now includes auxiliary tooling
-  contracts, a dedicated sanitized runtime lane, a dedicated GCC portability
-  lane, and unit coverage over `src/lib/**` with stricter 90% region and 80%
-  branch gates.
+  contracts, changed-scope test-quality linting, a dedicated sanitized runtime
+  lane, a dedicated GCC portability lane, and unit coverage over `src/lib/**`
+  with stricter 90% region and 80% branch gates.
 - `./scripts/lint_tests.sh`: separate test-quality linting with banned-pattern
   checks for implementation-coupled or nondeterministic tests plus tighter
-  test-only structural thresholds (default max `900` lines and `14` test cases
-  per file).
+  test-only structural thresholds (default max `900` lines and `14` test
+  cases per file) plus narrow legacy-file overrides where the repo still has
+  explicit aggregation debt to split later.
 - `./scripts/test_aux.sh`: auxiliary coverage now includes the dedicated
   test-quality lint lane, tooling contracts, and public-header self-containment
-  compilation.
+  compilation, plus a regression that checks validation summaries report
+  nested child failures truthfully.
 - `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
   `src/lib/**` plus changed-file coverage ratchets against merge-base
   baselines.

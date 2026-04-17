@@ -12,7 +12,7 @@ validation_run_logged "test-integration" \
   ctest --test-dir "${test_build_dir}" --output-on-failure -L integration -LE aux
 validation_run_logged "test-system" \
   ctest --test-dir "${test_build_dir}" --output-on-failure -L system -LE aux
-validation_run_logged "test-aux" ./scripts/test_aux.sh
+validation_run_logged "test-aux" env TEST_LINT_SCOPE=changed ./scripts/test_aux.sh
 validation_run_logged "test-sanitized" ./scripts/test_sanitized.sh
 validation_run_logged "test-gcc" ./scripts/test_gcc.sh
 

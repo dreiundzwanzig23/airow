@@ -344,7 +344,11 @@ Still planned or incomplete:
   checked-in scenario definition loading and acceptance-envelope evaluation
   against runtime results, with passive-float, tow, calm-water stroke,
   headwind stroke, and crosswind stroke scenario artifacts under
-  `scenarios/`.
+  `scenarios/`. The workflow-facing validation lane wrappers under
+  `scripts/` also belong to this subsystem: they must propagate nested step
+  failures without rewriting the exit status, and any emitted validation
+  summary JSON must report step status and exit codes truthfully enough to be
+  used as machine-readable local-gate evidence.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

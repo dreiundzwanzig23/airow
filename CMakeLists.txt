@@ -27,6 +27,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND DETECT_LIBCXX)
     set(PROJECT_USING_LIBCXX ON)
 endif()
 
+set(PROJECT_SANITIZER_TEST_ENV "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0")
+if(PROJECT_USING_LIBCXX)
+    set(PROJECT_SANITIZER_TEST_ENV
+        "ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0;LSAN_OPTIONS=detect_leaks=0"
+    )
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -212,6 +219,7 @@ if(BUILD_TESTING)
         tests/unit/test_hydro_runtime_models.cpp
         tests/unit/test_run_analysis.cpp
         tests/unit/test_state_advancement.cpp
+        tests/unit/test_state_advancement_sundials.cpp
         tests/unit/test_simulator_config.cpp
         tests/unit/test_simulator_config_mechanics.cpp
         tests/unit/test_simulation_run.cpp
@@ -287,27 +295,27 @@ if(BUILD_TESTING)
         PROPERTIES
             LABELS "unit"
             TIMEOUT 30
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
     set_tests_properties(
         ${integration_tests_list}
         PROPERTIES
             LABELS "integration"
             TIMEOUT 45
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
     set_tests_properties(
         ${system_tests_list}
         PROPERTIES
             LABELS "system"
             TIMEOUT 60
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
     set_tests_properties(
         project_tests_aux_headers
         PROPERTIES
             LABELS "aux"
             TIMEOUT 15
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
 endif()

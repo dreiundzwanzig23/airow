@@ -1,12 +1,12 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-15
-- **Branch**: `First_implementations`
-- **Current Objective**: Continue the post-`v0.1` roadmap with reduced-model
-  fidelity on stable provider ids after the landed external-backend selection
-  packets under `A-010`, while keeping calibration or time-varying
-  environment work deferred.
+- **Date**: 2026-04-17
+- **Branch**: `External`
+- **Current Objective**: Stop-the-line recovery on workflow and validation
+  consistency: restore truthful local gates, keep traceability aligned with the
+  landed SUNDIALS path, and isolate the heavy full-gate sequence that can still
+  crash the current WSL session.
 
 ## Current State
 - The project is now a single-scull headless-first simulator with a
@@ -42,10 +42,31 @@
   built-in advancer catalog, compile-time-guarded Chrono rigid-body stepping,
   and a required SUNDIALS IDA path that now backs the default built-in
   advancer and passes passive-float and tow scenario evidence.
+- `A-008` now explicitly owns the workflow-facing validation wrappers under
+  `scripts/`; the recovery slice tightened that seam so nested validation
+  failures preserve their real exit codes and stale summary JSON is cleared
+  before a new run starts.
+- The repo now has an auxiliary regression
+  (`tools/test_validation_output.py`) that exercises the validation summary
+  contract directly, and `D-043` once again has direct unit trace coverage
+  through `UT-142`.
+- The former WSL crash reproducer is now isolated and fixed: a positive
+  sub-epsilon tail step in shared state advancement used to return success
+  without advancing `time_s`, which let the outer run loop grow history
+  without bound; the targeted `QT-022` system reproducer now passes quickly
+  again.
+- The required full gate still is not fully revalidated in this environment:
+  targeted sanitized regressions, tracecheck, tooling contracts, lint, the
+  fast TDD unit or integration or system or aux lanes, and the targeted
+  `QT-022` reproducer are green, but the fast lane still stops at the
+  existing total branch-coverage threshold and the long end-to-end
+  `./scripts/test.sh` sequence has not yet been rerun after the crash fix.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
   `R-025`) remain intentionally behind the near-term slices.
 - Validation guardrails remain strict: full test gate includes sanitized and
-  GCC lanes plus coverage gates, and depcheck enforces component boundaries.
+  GCC lanes plus coverage gates, but `test.sh` now scopes test-quality lint to
+  changed test files while standalone `lint_tests.sh` remains the repo-wide
+  audit lane.
 - Workflow policy remains explicit red-green-refactor with a mandatory
   refactor phase and warning-mode marker checks in `test_tdd.sh` and
   `verify.sh`.
@@ -60,11 +81,11 @@
   functional loops.
 
 ## Next Actions
-1. Continue Slice 2 only with further reduced-model fidelity work that keeps
-   the current built-in hydro and aero provider ids stable and preserves the
-   structured provider metadata contract.
-2. Decide whether to broaden backend evidence beyond passive-float and tow,
-   especially for Chrono-backed stroke scenarios, or return focus to the
-   active reduced-model fidelity work.
-3. Re-open deferred calibration or time-varying environment work only after
-   backend direction and reduced-model stability are clearer.
+1. Re-run the remaining required gates (`./scripts/test.sh`,
+   `./scripts/depcheck.sh`, and `python3 tools/tracecheck.py --write`) when a
+   heavier verification pass is acceptable.
+2. Decide whether to raise current branch coverage to threshold now or record
+   it explicitly as separate follow-up debt, because it is the present fast
+   lane blocker after the crash fix.
+3. Return to roadmap work only after the validation lane is both truthful and
+   reliable under the current local platform.

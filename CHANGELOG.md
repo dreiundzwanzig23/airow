@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 ### Changed
+- Started a stop-the-line workflow recovery slice under `A-008`: validation
+  summaries now preserve nested child exit codes, stale summary files are
+  cleared before each run, `test_aux.sh` gained a dedicated regression for the
+  validation summary contract, the full `test.sh` gate now scopes
+  test-quality linting to changed test files while leaving standalone
+  all-scope audits available, and `D-043` regained direct unit trace coverage
+  through a small dedicated SUNDIALS startup test.
+- Closed the WSL crash reproducer behind the default `sundials_ida` runtime:
+  positive sub-epsilon advancement steps now still consume simulated time,
+  the shared run loop rejects non-advancing state-advancer results
+  deterministically, and the former crash reproducer
+  `V0_1ClosureSystem.TenCycleStrokeReplayClosesR008` is green again under a
+  targeted run.
 - Continued Slice 3 on `A-010` by making `sundials_ida` the required default
   built-in state advancer, wiring Ubuntu-packaged SUNDIALS IDA into the shared
   runtime build, adding a new SUNDIALS-backed rigid-body advancer design

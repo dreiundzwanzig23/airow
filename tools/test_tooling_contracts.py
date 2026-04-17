@@ -78,6 +78,11 @@ def main() -> int:
 
     test_aux_script = (ROOT / "scripts" / "test_aux.sh").read_text(encoding="utf-8")
     require_contains(test_aux_script, "./scripts/lint_tests.sh", "test lint hook")
+    require_contains(
+        test_aux_script,
+        "python3 tools/test_validation_output.py",
+        "validation output regression hook",
+    )
 
     test_lint_script = (ROOT / "scripts" / "lint_tests.sh").read_text(encoding="utf-8")
     require_contains(test_lint_script, "TEST_LIZARD_CCN_THRESHOLD:-8", "test CCN threshold")
@@ -131,6 +136,11 @@ def main() -> int:
         require_contains(cmake_lists, timeout, "CTest timeout")
     require_contains(cmake_lists, "project_tests_aux_headers", "aux header self-containment target")
     require_contains(cmake_lists, 'LABELS "aux"', "aux CTest label")
+    require_contains(
+        cmake_lists,
+        "alloc_dealloc_mismatch=0",
+        "libc++ sanitizer exception policy",
+    )
 
     print("Tooling contracts OK")
     return 0

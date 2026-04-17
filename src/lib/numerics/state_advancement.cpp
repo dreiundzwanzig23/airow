@@ -13,8 +13,12 @@
 
 #if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
 #include <ida/ida.h>
+#include <ida/ida_ls.h>
 #include <nvector/nvector_serial.h>
 #include <sundials/sundials_context.h>
+#include <sundials/sundials_linearsolver.h>
+#include <sundials/sundials_matrix.h>
+#include <sundials/sundials_nvector.h>
 #include <sundials/sundials_types.h>
 #include <sunlinsol/sunlinsol_dense.h>
 #include <sunmatrix/sunmatrix_dense.h>
@@ -44,6 +48,7 @@ constexpr std::string_view CHRONO_ADVANCER_ID =
 constexpr std::string_view CHRONO_SOLVER_STATUS = "chrono-rigidbody";
 #endif
 constexpr double HALF = 0.5;
+constexpr double SEGMENT_TIME_EPSILON_S = 1.0e-12;
 
 /**
  * @design D-020 — Mechanics-state helper invariants
@@ -484,18 +489,18 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
   MechanicalStateSnapshot next = state;
   double remaining_s = step_size_s;
 
-  while (remaining_s > 1.0e-12) {
+  while (remaining_s > 0.0) {
     const StrokePhase active_phase = phase_at(config, next.stroke.cycle_time_s);
     const double phase_end_time_s = active_phase == StrokePhase::drive
                                         ? config.stroke.drive_duration_s
                                         : config.stroke.cycle_duration_s;
     const double time_to_boundary_s =
         phase_end_time_s - next.stroke.cycle_time_s;
-    const double segment_s = time_to_boundary_s > 1.0e-12
+    const double segment_s = time_to_boundary_s > SEGMENT_TIME_EPSILON_S
                                  ? std::min(remaining_s, time_to_boundary_s)
                                  : remaining_s;
 
-    if (segment_s > 1.0e-12) {
+    if (segment_s > SEGMENT_TIME_EPSILON_S) {
       const auto diagnostic = advance_hull_segment_fn(next, segment_s);
       if (diagnostic.has_value()) {
         return {
@@ -514,6 +519,9 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
     next.stroke.phase = phase_at(config, next.stroke.cycle_time_s);
     next.stroke.phase_time_s = phase_time_at(config, next.stroke.cycle_time_s);
     remaining_s -= segment_s;
+    if (remaining_s <= SEGMENT_TIME_EPSILON_S) {
+      remaining_s = 0.0;
+    }
   }
 
   refresh_blade_kinematics(config, next);
@@ -581,19 +589,19 @@ constexpr double SUNDIALS_RELATIVE_TOLERANCE = 1.0e-10;
 constexpr double SUNDIALS_ABSOLUTE_TOLERANCE = 1.0e-10;
 
 enum class SundialsHullStateIndex : sunindextype {
-  position_x = 0,
-  position_y = 1,
-  position_z = 2,
-  orientation_x = 3,
-  orientation_y = 4,
-  orientation_z = 5,
-  orientation_w = 6,
-  linear_velocity_x = 7,
-  linear_velocity_y = 8,
-  linear_velocity_z = 9,
-  angular_velocity_x = 10,
-  angular_velocity_y = 11,
-  angular_velocity_z = 12,
+  POSITION_X = 0,
+  POSITION_Y = 1,
+  POSITION_Z = 2,
+  ORIENTATION_X = 3,
+  ORIENTATION_Y = 4,
+  ORIENTATION_Z = 5,
+  ORIENTATION_W = 6,
+  LINEAR_VELOCITY_X = 7,
+  LINEAR_VELOCITY_Y = 8,
+  LINEAR_VELOCITY_Z = 9,
+  ANGULAR_VELOCITY_X = 10,
+  ANGULAR_VELOCITY_Y = 11,
+  ANGULAR_VELOCITY_Z = 12,
 };
 
 sunindextype to_index(SundialsHullStateIndex index) {
@@ -618,6 +626,11 @@ struct SundialsContextOwner {
       SUNContext_Free(&value);
     }
   }
+
+  SundialsContextOwner(const SundialsContextOwner &) = delete;
+  SundialsContextOwner &operator=(const SundialsContextOwner &) = delete;
+  SundialsContextOwner(SundialsContextOwner &&) = delete;
+  SundialsContextOwner &operator=(SundialsContextOwner &&) = delete;
 };
 
 struct SundialsVectorOwner {
@@ -631,6 +644,11 @@ struct SundialsVectorOwner {
       N_VDestroy(value);
     }
   }
+
+  SundialsVectorOwner(const SundialsVectorOwner &) = delete;
+  SundialsVectorOwner &operator=(const SundialsVectorOwner &) = delete;
+  SundialsVectorOwner(SundialsVectorOwner &&) = delete;
+  SundialsVectorOwner &operator=(SundialsVectorOwner &&) = delete;
 };
 
 struct SundialsMatrixOwner {
@@ -645,6 +663,11 @@ struct SundialsMatrixOwner {
       SUNMatDestroy(value);
     }
   }
+
+  SundialsMatrixOwner(const SundialsMatrixOwner &) = delete;
+  SundialsMatrixOwner &operator=(const SundialsMatrixOwner &) = delete;
+  SundialsMatrixOwner(SundialsMatrixOwner &&) = delete;
+  SundialsMatrixOwner &operator=(SundialsMatrixOwner &&) = delete;
 };
 
 struct SundialsLinearSolverOwner {
@@ -659,6 +682,12 @@ struct SundialsLinearSolverOwner {
       SUNLinSolFree(value);
     }
   }
+
+  SundialsLinearSolverOwner(const SundialsLinearSolverOwner &) = delete;
+  SundialsLinearSolverOwner &
+  operator=(const SundialsLinearSolverOwner &) = delete;
+  SundialsLinearSolverOwner(SundialsLinearSolverOwner &&) = delete;
+  SundialsLinearSolverOwner &operator=(SundialsLinearSolverOwner &&) = delete;
 };
 
 struct SundialsIdaOwner {
@@ -671,6 +700,11 @@ struct SundialsIdaOwner {
       IDAFree(&value);
     }
   }
+
+  SundialsIdaOwner(const SundialsIdaOwner &) = delete;
+  SundialsIdaOwner &operator=(const SundialsIdaOwner &) = delete;
+  SundialsIdaOwner(SundialsIdaOwner &&) = delete;
+  SundialsIdaOwner &operator=(SundialsIdaOwner &&) = delete;
 };
 
 struct SundialsSegmentUserData {
@@ -680,56 +714,56 @@ struct SundialsSegmentUserData {
 
 Quaternion sundials_orientation_from_vector(N_Vector state) {
   return {
-      .x = sundials_entry(state, SundialsHullStateIndex::orientation_x),
-      .y = sundials_entry(state, SundialsHullStateIndex::orientation_y),
-      .z = sundials_entry(state, SundialsHullStateIndex::orientation_z),
-      .w = sundials_entry(state, SundialsHullStateIndex::orientation_w),
+      .x = sundials_entry(state, SundialsHullStateIndex::ORIENTATION_X),
+      .y = sundials_entry(state, SundialsHullStateIndex::ORIENTATION_Y),
+      .z = sundials_entry(state, SundialsHullStateIndex::ORIENTATION_Z),
+      .w = sundials_entry(state, SundialsHullStateIndex::ORIENTATION_W),
   };
 }
 
 Vector3 sundials_linear_velocity_from_vector(N_Vector state) {
   return {
-      .x = sundials_entry(state, SundialsHullStateIndex::linear_velocity_x),
-      .y = sundials_entry(state, SundialsHullStateIndex::linear_velocity_y),
-      .z = sundials_entry(state, SundialsHullStateIndex::linear_velocity_z),
+      .x = sundials_entry(state, SundialsHullStateIndex::LINEAR_VELOCITY_X),
+      .y = sundials_entry(state, SundialsHullStateIndex::LINEAR_VELOCITY_Y),
+      .z = sundials_entry(state, SundialsHullStateIndex::LINEAR_VELOCITY_Z),
   };
 }
 
 Vector3 sundials_angular_velocity_from_vector(N_Vector state) {
   return {
-      .x = sundials_entry(state, SundialsHullStateIndex::angular_velocity_x),
-      .y = sundials_entry(state, SundialsHullStateIndex::angular_velocity_y),
-      .z = sundials_entry(state, SundialsHullStateIndex::angular_velocity_z),
+      .x = sundials_entry(state, SundialsHullStateIndex::ANGULAR_VELOCITY_X),
+      .y = sundials_entry(state, SundialsHullStateIndex::ANGULAR_VELOCITY_Y),
+      .z = sundials_entry(state, SundialsHullStateIndex::ANGULAR_VELOCITY_Z),
   };
 }
 
 void store_hull_state_in_sundials(N_Vector state,
                                   const MechanicalStateSnapshot &snapshot) {
-  sundials_entry(state, SundialsHullStateIndex::position_x) =
+  sundials_entry(state, SundialsHullStateIndex::POSITION_X) =
       snapshot.hull.position_world_m.x;
-  sundials_entry(state, SundialsHullStateIndex::position_y) =
+  sundials_entry(state, SundialsHullStateIndex::POSITION_Y) =
       snapshot.hull.position_world_m.y;
-  sundials_entry(state, SundialsHullStateIndex::position_z) =
+  sundials_entry(state, SundialsHullStateIndex::POSITION_Z) =
       snapshot.hull.position_world_m.z;
-  sundials_entry(state, SundialsHullStateIndex::orientation_x) =
+  sundials_entry(state, SundialsHullStateIndex::ORIENTATION_X) =
       snapshot.hull.orientation_world_from_body.x;
-  sundials_entry(state, SundialsHullStateIndex::orientation_y) =
+  sundials_entry(state, SundialsHullStateIndex::ORIENTATION_Y) =
       snapshot.hull.orientation_world_from_body.y;
-  sundials_entry(state, SundialsHullStateIndex::orientation_z) =
+  sundials_entry(state, SundialsHullStateIndex::ORIENTATION_Z) =
       snapshot.hull.orientation_world_from_body.z;
-  sundials_entry(state, SundialsHullStateIndex::orientation_w) =
+  sundials_entry(state, SundialsHullStateIndex::ORIENTATION_W) =
       snapshot.hull.orientation_world_from_body.w;
-  sundials_entry(state, SundialsHullStateIndex::linear_velocity_x) =
+  sundials_entry(state, SundialsHullStateIndex::LINEAR_VELOCITY_X) =
       snapshot.hull.linear_velocity_world_mps.x;
-  sundials_entry(state, SundialsHullStateIndex::linear_velocity_y) =
+  sundials_entry(state, SundialsHullStateIndex::LINEAR_VELOCITY_Y) =
       snapshot.hull.linear_velocity_world_mps.y;
-  sundials_entry(state, SundialsHullStateIndex::linear_velocity_z) =
+  sundials_entry(state, SundialsHullStateIndex::LINEAR_VELOCITY_Z) =
       snapshot.hull.linear_velocity_world_mps.z;
-  sundials_entry(state, SundialsHullStateIndex::angular_velocity_x) =
+  sundials_entry(state, SundialsHullStateIndex::ANGULAR_VELOCITY_X) =
       snapshot.hull.angular_velocity_body_radps.x;
-  sundials_entry(state, SundialsHullStateIndex::angular_velocity_y) =
+  sundials_entry(state, SundialsHullStateIndex::ANGULAR_VELOCITY_Y) =
       snapshot.hull.angular_velocity_body_radps.y;
-  sundials_entry(state, SundialsHullStateIndex::angular_velocity_z) =
+  sundials_entry(state, SundialsHullStateIndex::ANGULAR_VELOCITY_Z) =
       snapshot.hull.angular_velocity_body_radps.z;
 }
 
@@ -742,40 +776,40 @@ void store_hull_derivatives_in_sundials(N_Vector derivatives,
                                state.hull.linear_velocity_world_mps,
                                state.hull.angular_velocity_body_radps, loads);
 
-  sundials_entry(derivatives, SundialsHullStateIndex::position_x) =
+  sundials_entry(derivatives, SundialsHullStateIndex::POSITION_X) =
       hull_derivatives.linear_velocity_world_mps.x;
-  sundials_entry(derivatives, SundialsHullStateIndex::position_y) =
+  sundials_entry(derivatives, SundialsHullStateIndex::POSITION_Y) =
       hull_derivatives.linear_velocity_world_mps.y;
-  sundials_entry(derivatives, SundialsHullStateIndex::position_z) =
+  sundials_entry(derivatives, SundialsHullStateIndex::POSITION_Z) =
       hull_derivatives.linear_velocity_world_mps.z;
-  sundials_entry(derivatives, SundialsHullStateIndex::orientation_x) =
+  sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_X) =
       hull_derivatives.orientation_derivative.x;
-  sundials_entry(derivatives, SundialsHullStateIndex::orientation_y) =
+  sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_Y) =
       hull_derivatives.orientation_derivative.y;
-  sundials_entry(derivatives, SundialsHullStateIndex::orientation_z) =
+  sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_Z) =
       hull_derivatives.orientation_derivative.z;
-  sundials_entry(derivatives, SundialsHullStateIndex::orientation_w) =
+  sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_W) =
       hull_derivatives.orientation_derivative.w;
-  sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_x) =
+  sundials_entry(derivatives, SundialsHullStateIndex::LINEAR_VELOCITY_X) =
       hull_derivatives.linear_acceleration_world_mps2.x;
-  sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_y) =
+  sundials_entry(derivatives, SundialsHullStateIndex::LINEAR_VELOCITY_Y) =
       hull_derivatives.linear_acceleration_world_mps2.y;
-  sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_z) =
+  sundials_entry(derivatives, SundialsHullStateIndex::LINEAR_VELOCITY_Z) =
       hull_derivatives.linear_acceleration_world_mps2.z;
-  sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_x) =
+  sundials_entry(derivatives, SundialsHullStateIndex::ANGULAR_VELOCITY_X) =
       hull_derivatives.angular_acceleration_body_radps2.x;
-  sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_y) =
+  sundials_entry(derivatives, SundialsHullStateIndex::ANGULAR_VELOCITY_Y) =
       hull_derivatives.angular_acceleration_body_radps2.y;
-  sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_z) =
+  sundials_entry(derivatives, SundialsHullStateIndex::ANGULAR_VELOCITY_Z) =
       hull_derivatives.angular_acceleration_body_radps2.z;
 }
 
 void load_hull_state_from_sundials(MechanicalStateSnapshot &snapshot,
                                    N_Vector state) {
   snapshot.hull.position_world_m = {
-      .x = sundials_entry(state, SundialsHullStateIndex::position_x),
-      .y = sundials_entry(state, SundialsHullStateIndex::position_y),
-      .z = sundials_entry(state, SundialsHullStateIndex::position_z),
+      .x = sundials_entry(state, SundialsHullStateIndex::POSITION_X),
+      .y = sundials_entry(state, SundialsHullStateIndex::POSITION_Y),
+      .z = sundials_entry(state, SundialsHullStateIndex::POSITION_Z),
   };
   snapshot.hull.orientation_world_from_body =
       normalize_quaternion(sundials_orientation_from_vector(state));
@@ -807,44 +841,44 @@ int sundials_hull_residual(realtype /*time_s*/, N_Vector state,
       snapshot.hull.linear_velocity_world_mps,
       snapshot.hull.angular_velocity_body_radps, *segment->loads);
 
-  sundials_entry(residual, SundialsHullStateIndex::position_x) =
-      sundials_entry(derivatives, SundialsHullStateIndex::position_x) -
+  sundials_entry(residual, SundialsHullStateIndex::POSITION_X) =
+      sundials_entry(derivatives, SundialsHullStateIndex::POSITION_X) -
       hull_derivatives.linear_velocity_world_mps.x;
-  sundials_entry(residual, SundialsHullStateIndex::position_y) =
-      sundials_entry(derivatives, SundialsHullStateIndex::position_y) -
+  sundials_entry(residual, SundialsHullStateIndex::POSITION_Y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::POSITION_Y) -
       hull_derivatives.linear_velocity_world_mps.y;
-  sundials_entry(residual, SundialsHullStateIndex::position_z) =
-      sundials_entry(derivatives, SundialsHullStateIndex::position_z) -
+  sundials_entry(residual, SundialsHullStateIndex::POSITION_Z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::POSITION_Z) -
       hull_derivatives.linear_velocity_world_mps.z;
-  sundials_entry(residual, SundialsHullStateIndex::orientation_x) =
-      sundials_entry(derivatives, SundialsHullStateIndex::orientation_x) -
+  sundials_entry(residual, SundialsHullStateIndex::ORIENTATION_X) =
+      sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_X) -
       hull_derivatives.orientation_derivative.x;
-  sundials_entry(residual, SundialsHullStateIndex::orientation_y) =
-      sundials_entry(derivatives, SundialsHullStateIndex::orientation_y) -
+  sundials_entry(residual, SundialsHullStateIndex::ORIENTATION_Y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_Y) -
       hull_derivatives.orientation_derivative.y;
-  sundials_entry(residual, SundialsHullStateIndex::orientation_z) =
-      sundials_entry(derivatives, SundialsHullStateIndex::orientation_z) -
+  sundials_entry(residual, SundialsHullStateIndex::ORIENTATION_Z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_Z) -
       hull_derivatives.orientation_derivative.z;
-  sundials_entry(residual, SundialsHullStateIndex::orientation_w) =
-      sundials_entry(derivatives, SundialsHullStateIndex::orientation_w) -
+  sundials_entry(residual, SundialsHullStateIndex::ORIENTATION_W) =
+      sundials_entry(derivatives, SundialsHullStateIndex::ORIENTATION_W) -
       hull_derivatives.orientation_derivative.w;
-  sundials_entry(residual, SundialsHullStateIndex::linear_velocity_x) =
-      sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_x) -
+  sundials_entry(residual, SundialsHullStateIndex::LINEAR_VELOCITY_X) =
+      sundials_entry(derivatives, SundialsHullStateIndex::LINEAR_VELOCITY_X) -
       hull_derivatives.linear_acceleration_world_mps2.x;
-  sundials_entry(residual, SundialsHullStateIndex::linear_velocity_y) =
-      sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_y) -
+  sundials_entry(residual, SundialsHullStateIndex::LINEAR_VELOCITY_Y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::LINEAR_VELOCITY_Y) -
       hull_derivatives.linear_acceleration_world_mps2.y;
-  sundials_entry(residual, SundialsHullStateIndex::linear_velocity_z) =
-      sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_z) -
+  sundials_entry(residual, SundialsHullStateIndex::LINEAR_VELOCITY_Z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::LINEAR_VELOCITY_Z) -
       hull_derivatives.linear_acceleration_world_mps2.z;
-  sundials_entry(residual, SundialsHullStateIndex::angular_velocity_x) =
-      sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_x) -
+  sundials_entry(residual, SundialsHullStateIndex::ANGULAR_VELOCITY_X) =
+      sundials_entry(derivatives, SundialsHullStateIndex::ANGULAR_VELOCITY_X) -
       hull_derivatives.angular_acceleration_body_radps2.x;
-  sundials_entry(residual, SundialsHullStateIndex::angular_velocity_y) =
-      sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_y) -
+  sundials_entry(residual, SundialsHullStateIndex::ANGULAR_VELOCITY_Y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::ANGULAR_VELOCITY_Y) -
       hull_derivatives.angular_acceleration_body_radps2.y;
-  sundials_entry(residual, SundialsHullStateIndex::angular_velocity_z) =
-      sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_z) -
+  sundials_entry(residual, SundialsHullStateIndex::ANGULAR_VELOCITY_Z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::ANGULAR_VELOCITY_Z) -
       hull_derivatives.angular_acceleration_body_radps2.z;
 
   return 0;
@@ -859,7 +893,7 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
     return std::nullopt;
   }
 
-  SundialsContextOwner context;
+  const SundialsContextOwner context;
   if (context.value == nullptr) {
     return AdvancerDiagnostic{
         .code = "solver_failure",
@@ -868,9 +902,9 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
     };
   }
 
-  SundialsVectorOwner state(context.value);
-  SundialsVectorOwner derivatives(context.value);
-  SundialsMatrixOwner matrix(context.value);
+  const SundialsVectorOwner state(context.value);
+  const SundialsVectorOwner derivatives(context.value);
+  const SundialsMatrixOwner matrix(context.value);
   if (state.value == nullptr || derivatives.value == nullptr ||
       matrix.value == nullptr) {
     return AdvancerDiagnostic{
@@ -880,9 +914,9 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
     };
   }
 
-  SundialsLinearSolverOwner linear_solver(state.value, matrix.value,
-                                          context.value);
-  SundialsIdaOwner ida(context.value);
+  const SundialsLinearSolverOwner linear_solver(state.value, matrix.value,
+                                                context.value);
+  const SundialsIdaOwner ida(context.value);
   if (linear_solver.value == nullptr || ida.value == nullptr) {
     return AdvancerDiagnostic{
         .code = "solver_failure",

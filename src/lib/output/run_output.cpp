@@ -21,10 +21,18 @@
 #include <nlohmann/json_fwd.hpp>
 
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+#include <H5Apublic.h>
+#include <H5Dpublic.h>
+#include <H5Fpublic.h>
+#include <H5Gpublic.h>
+#include <H5Ipublic.h>
+#include <H5Ppublic.h>
+#include <H5Spublic.h>
+#include <H5Tpublic.h>
+#include <H5public.h>
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <hdf5.h>
 #endif
 
 namespace project {
@@ -552,7 +560,7 @@ bool ensure_parent_directory(const std::filesystem::path &path,
 
 bool write_string_attribute(hid_t object, const char *name,
                             std::string_view value, RunDiagnostic &diagnostic) {
-  H5ScopedHandle type(H5Tcopy(H5T_C_S1), H5Tclose);
+  const H5ScopedHandle type(H5Tcopy(H5T_C_S1), H5Tclose);
   if (!type.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 string type");
@@ -572,14 +580,14 @@ bool write_string_attribute(hid_t object, const char *name,
     return false;
   }
 
-  H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
+  const H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
   if (!space.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 scalar space");
     return false;
   }
 
-  H5ScopedHandle attribute(
+  const H5ScopedHandle attribute(
       H5Acreate2(object, name, type.id, space.id, H5P_DEFAULT, H5P_DEFAULT),
       H5Aclose);
   if (!attribute.valid()) {
@@ -599,16 +607,16 @@ bool write_string_attribute(hid_t object, const char *name,
 
 bool write_int_attribute(hid_t object, const char *name, int value,
                          RunDiagnostic &diagnostic) {
-  H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
+  const H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
   if (!space.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 scalar space");
     return false;
   }
 
-  H5ScopedHandle attribute(H5Acreate2(object, name, H5T_NATIVE_INT, space.id,
-                                      H5P_DEFAULT, H5P_DEFAULT),
-                           H5Aclose);
+  const H5ScopedHandle attribute(H5Acreate2(object, name, H5T_NATIVE_INT,
+                                            space.id, H5P_DEFAULT, H5P_DEFAULT),
+                                 H5Aclose);
   if (!attribute.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 attribute");
@@ -625,15 +633,16 @@ bool write_int_attribute(hid_t object, const char *name, int value,
 
 bool write_double_scalar_dataset(hid_t group, const char *name, double value,
                                  RunDiagnostic &diagnostic) {
-  H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
+  const H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
   if (!space.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 scalar space");
     return false;
   }
-  H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_DOUBLE, space.id,
-                                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
-                         H5Dclose);
+  const H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_DOUBLE,
+                                          space.id, H5P_DEFAULT, H5P_DEFAULT,
+                                          H5P_DEFAULT),
+                               H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
@@ -651,15 +660,16 @@ bool write_double_scalar_dataset(hid_t group, const char *name, double value,
 bool write_uint64_scalar_dataset(hid_t group, const char *name,
                                  std::uint64_t value,
                                  RunDiagnostic &diagnostic) {
-  H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
+  const H5ScopedHandle space(H5Screate(H5S_SCALAR), H5Sclose);
   if (!space.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 scalar space");
     return false;
   }
-  H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_UINT64, space.id,
-                                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
-                         H5Dclose);
+  const H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_UINT64,
+                                          space.id, H5P_DEFAULT, H5P_DEFAULT,
+                                          H5P_DEFAULT),
+                               H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
@@ -687,14 +697,14 @@ bool write_string_vector_dataset(hid_t group, const char *name,
   const hsize_t cols = static_cast<hsize_t>(max_chars);
   const hsize_t dims[2] = {rows, cols};
 
-  H5ScopedHandle space(H5Screate_simple(2, dims, nullptr), H5Sclose);
+  const H5ScopedHandle space(H5Screate_simple(2, dims, nullptr), H5Sclose);
   if (!space.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 string space");
     return false;
   }
 
-  H5ScopedHandle type(H5Tcopy(H5T_C_S1), H5Tclose);
+  const H5ScopedHandle type(H5Tcopy(H5T_C_S1), H5Tclose);
   if (!type.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 string type");
@@ -706,9 +716,10 @@ bool write_string_vector_dataset(hid_t group, const char *name,
     return false;
   }
 
-  H5ScopedHandle dataset(H5Dcreate2(group, name, type.id, space.id, H5P_DEFAULT,
-                                    H5P_DEFAULT, H5P_DEFAULT),
-                         H5Dclose);
+  const H5ScopedHandle dataset(H5Dcreate2(group, name, type.id, space.id,
+                                          H5P_DEFAULT, H5P_DEFAULT,
+                                          H5P_DEFAULT),
+                               H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
@@ -738,15 +749,16 @@ bool write_double_vector_dataset(hid_t group, const char *name,
                                  RunDiagnostic &diagnostic) {
   const hsize_t dims[1] = {
       static_cast<hsize_t>(std::max<std::size_t>(values.size(), 1U))};
-  H5ScopedHandle space(H5Screate_simple(1, dims, nullptr), H5Sclose);
+  const H5ScopedHandle space(H5Screate_simple(1, dims, nullptr), H5Sclose);
   if (!space.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 vector space");
     return false;
   }
-  H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_DOUBLE, space.id,
-                                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
-                         H5Dclose);
+  const H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_DOUBLE,
+                                          space.id, H5P_DEFAULT, H5P_DEFAULT,
+                                          H5P_DEFAULT),
+                               H5Dclose);
   if (!dataset.valid()) {
     diagnostic = make_output_diagnostic("$.output.hdf5_path",
                                         "failed to create HDF5 dataset");
@@ -768,7 +780,7 @@ bool write_double_vector_dataset(hid_t group, const char *name,
 bool write_provider_metadata_group(hid_t parent, const char *name,
                                    const ProviderMetadata &provider,
                                    RunDiagnostic &diagnostic) {
-  H5ScopedHandle provider_group(
+  const H5ScopedHandle provider_group(
       H5Gcreate2(parent, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
       H5Gclose);
   if (!provider_group.valid()) {
@@ -788,10 +800,10 @@ bool write_provider_metadata_group(hid_t parent, const char *name,
 bool write_hdf5_normalized_config_group(hid_t metadata_group,
                                         const SimulationRunResult &result,
                                         RunDiagnostic &diagnostic) {
-  H5ScopedHandle normalized_group(H5Gcreate2(metadata_group,
-                                             "normalized_config", H5P_DEFAULT,
-                                             H5P_DEFAULT, H5P_DEFAULT),
-                                  H5Gclose);
+  const H5ScopedHandle normalized_group(
+      H5Gcreate2(metadata_group, "normalized_config", H5P_DEFAULT, H5P_DEFAULT,
+                 H5P_DEFAULT),
+      H5Gclose);
   if (!normalized_group.valid()) {
     diagnostic = make_output_diagnostic(
         "$.output.hdf5_path", "failed to create HDF5 normalized_config group");
@@ -836,7 +848,7 @@ bool write_hdf5_root_attributes(hid_t file, const SimulationRunResult &result,
 
 bool write_hdf5_summary_group(hid_t file, const SimulationRunResult &result,
                               RunDiagnostic &diagnostic) {
-  H5ScopedHandle summary_group(
+  const H5ScopedHandle summary_group(
       H5Gcreate2(file, "/summary", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
       H5Gclose);
   if (!summary_group.valid()) {
@@ -880,7 +892,7 @@ bool write_hdf5_summary_group(hid_t file, const SimulationRunResult &result,
 
 bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
                                RunDiagnostic &diagnostic) {
-  H5ScopedHandle metadata_group(
+  const H5ScopedHandle metadata_group(
       H5Gcreate2(file, "/metadata", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
       H5Gclose);
   if (!metadata_group.valid()) {
@@ -907,10 +919,10 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
     return false;
   }
 
-  H5ScopedHandle providers_group(H5Gcreate2(metadata_group.id, "providers",
-                                            H5P_DEFAULT, H5P_DEFAULT,
-                                            H5P_DEFAULT),
-                                 H5Gclose);
+  const H5ScopedHandle providers_group(H5Gcreate2(metadata_group.id,
+                                                  "providers", H5P_DEFAULT,
+                                                  H5P_DEFAULT, H5P_DEFAULT),
+                                       H5Gclose);
   if (!providers_group.valid()) {
     diagnostic = make_output_diagnostic(
         "$.output.hdf5_path", "failed to create HDF5 providers group");
@@ -1108,7 +1120,7 @@ bool write_hdf5_vector_time_series(hid_t group,
 bool write_hdf5_time_series_group(hid_t file, const SimulationRunResult &result,
                                   bool high_frequency_time_series,
                                   RunDiagnostic &diagnostic) {
-  H5ScopedHandle time_series_group(
+  const H5ScopedHandle time_series_group(
       H5Gcreate2(file, "/time_series", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
       H5Gclose);
   if (!time_series_group.valid()) {
@@ -1133,7 +1145,7 @@ bool write_hdf5_file(const std::filesystem::path &path,
     return false;
   }
 
-  H5ScopedHandle file(
+  const H5ScopedHandle file(
       H5Fcreate(path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT),
       H5Fclose);
   if (!file.valid()) {

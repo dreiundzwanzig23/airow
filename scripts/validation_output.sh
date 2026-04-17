@@ -18,6 +18,7 @@ validation_summary_init() {
   fi
 
   mkdir -p "${validation_summary_dir}"
+  rm -f "${validation_summary_path}"
   validation_summary_started_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   : > "${validation_summary_steps_path}"
   validation_summary_initialized=1
@@ -147,7 +148,9 @@ validation_run_logged() {
     return "${rc}"
   fi
 
+  local rc
   if "$@" >"${log_path}" 2>&1; then
+    rc=0
     finished_epoch="$(date +%s)"
     validation_summary_record_step \
       "${step}" \
@@ -157,9 +160,10 @@ validation_run_logged() {
       "$((finished_epoch - started_epoch))"
     printf '[PASS] %s\n' "${step}"
     return
+  else
+    rc=$?
   fi
 
-  local rc=$?
   finished_epoch="$(date +%s)"
   validation_summary_record_step \
     "${step}" \

@@ -483,6 +483,13 @@ bool advance_one_step(const SimulatorConfig &config,
         "state advancement reported success without a state");
     return false;
   }
+  if (!(advanced.state->time_s > state.time_s)) {
+    append_runtime_failure(
+        result, "state_advancement", "$.runtime.state.time_s",
+        "non_advancing_state",
+        "state advancement must strictly increase simulated time");
+    return false;
+  }
   if (!state_is_finite(*advanced.state)) {
     append_runtime_failure(result, "state_advancement", "$.runtime.state",
                            "non_finite_state",

@@ -312,6 +312,34 @@ public:
   }
 };
 
+class NonAdvancingStateAdvancer final : public project::StateAdvancer {
+public:
+  std::string_view identifier() const noexcept override {
+    return "non-advancing-state-advancer";
+  }
+
+  project::StartupResult
+  initialize(const project::SimulatorConfig &config) override {
+    return {
+        .state = make_valid_startup_state(config),
+        .diagnostics = {},
+        .solver_status = "startup-ok",
+        .constraint_residual_max = 0.0,
+    };
+  }
+
+  project::AdvanceResult
+  advance(const project::SimulatorConfig & /*config*/,
+          const project::MechanicalStateSnapshot &state, double /*step_size_s*/,
+          const project::ExternalLoads & /*loads*/) override {
+    return {
+        .state = state,
+        .diagnostics = {},
+        .constraint_residual_max = 0.0,
+    };
+  }
+};
+
 class UnknownThrowingHydroProvider final : public project::HydroProvider {
 public:
   std::string_view identifier() const noexcept override {
@@ -491,4 +519,29 @@ TEST(SimulationRun, MapsUnknownProviderAndAdvancementContractFailures) {
     EXPECT_EQ(result.diagnostics.front().path, "$.runtime.state");
     ASSERT_EQ(result.state_history.size(), 1U);
   }
+}
+
+/**
+ * @test UT-144
+ * @verifies [D-017]
+ * @notes Given an injected state advancer that reports success without
+ * increasing simulated time, when the shared run loop executes, then it
+ * fails deterministically with a state-advancement diagnostic instead of
+ * accumulating unbounded history.
+ */
+TEST(SimulationRun, RejectsNonAdvancingRuntimeStateFromAdvancer) {
+  NonAdvancingStateAdvancer advancer;
+
+  const auto result = project::run_simulation(
+      make_config(),
+      project::SimulationDependencies{.state_advancer = &advancer});
+
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.status, project::RunStatus::runtime_error);
+  ASSERT_EQ(result.diagnostics.size(), 1U);
+  EXPECT_EQ(result.diagnostics.front().code, "non_advancing_state");
+  EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
+  EXPECT_EQ(result.diagnostics.front().path, "$.runtime.state.time_s");
+  EXPECT_EQ(result.metadata.state_advancer_id, "non-advancing-state-advancer");
+  EXPECT_EQ(result.state_history.size(), 1U);
 }

@@ -79,7 +79,7 @@ Current checked-in scenario artifacts and acceptance envelopes are listed in
   `./scripts/test_tdd.sh` and `./scripts/verify.sh`.
 - `./scripts/test.sh` now includes the auxiliary tooling-contract lane, a
   dedicated sanitized build or run lane, a dedicated GCC portability lane,
-  a dedicated test-quality lint lane with tighter test-only limits, and
+  a changed-file test-quality lint lane with tighter test-only limits, and
   coverage gates on `src/lib/**` at 90% region coverage and 80% branch
   coverage plus changed-file coverage regression ratchets.
 
