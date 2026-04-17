@@ -9,10 +9,11 @@
   metadata in machine-readable outputs.
 - Slice 2 remains underway through in-place hydro and steady-wind aero
   fidelity refinements on the existing built-in ids.
-- Slice 3 started on 2026-04-13 with validated `simulation.state_advancer`
-  selection, built-in advancer construction, and a guarded
-  `chrono_rigidbody` path; local Chrono-capable builds now pass the guarded
-  passive-float and tow scenario evidence.
+- Slice 3 now includes two landed backend packets: validated
+  `simulation.state_advancer` selection plus the guarded `chrono_rigidbody`
+  path from 2026-04-13, and the 2026-04-15 SUNDIALS packet that makes
+  `sundials_ida` the required default built-in advancer and passes passive-
+  float and tow scenario evidence.
 
 ## Post-`v0.1` Slices
 
@@ -34,14 +35,17 @@
   config and metadata while refining behavior in place.
 
 ### Slice 3 — External Backend Wiring and Backend Selection
-- The first packet is landed: `simulation.state_advancer` defaults to
-  `deterministic_baseline` and can request `chrono_rigidbody`, which is
-  rejected deterministically when Chrono support is absent and now executes on
-  Chrono-capable builds discovered through the local Chrono package config.
+- The first packet is landed: built-in state-advancer selection now supports
+  optional `chrono_rigidbody`, which is rejected deterministically when
+  Chrono support is absent and executes on Chrono-capable builds discovered
+  through the local Chrono package config.
+- The second packet is also landed: `simulation.state_advancer` now defaults
+  to required `sundials_ida`, with `deterministic_baseline` preserved as an
+  explicit fallback and SUNDIALS passive-float/tow evidence now checked in.
 - Keep this slice anchored in `A-010`, coordinated with `A-003` and `A-002`,
   and separate from hydro or aero provider selection.
-- Next step: decide whether to broaden Chrono evidence beyond passive-float and
-  tow or move to later SUNDIALS wiring behind the same seam.
+- Next step: decide whether to broaden Chrono-backed stroke evidence or deepen
+  SUNDIALS-specific diagnostics and tolerance policy behind the same seam.
 
 ### Slice 4 — Calibration and Time-Varying Environment
 - Re-open `R-021`, `R-022`, and `R-023` only after provider and backend seams

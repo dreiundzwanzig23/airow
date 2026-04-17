@@ -547,7 +547,7 @@ bool parse_simulation_settings(const Json &root, SimulatorConfig &config,
     return false;
   }
 
-  config.simulation.state_advancer = "deterministic_baseline";
+  config.simulation.state_advancer = "sundials_ida";
   if (!simulation->contains("state_advancer")) {
     return true;
   }

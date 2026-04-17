@@ -19,7 +19,7 @@ done
 
 echo "[INFO] Installing Ubuntu build dependencies (apt) …"
 sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build git llvm clang clang-tidy lld gdb lldb pkg-config libgtest-dev nlohmann-json3-dev python3-pip
+sudo apt-get install -y build-essential cmake ninja-build git llvm clang clang-tidy lld gdb lldb pkg-config libgtest-dev nlohmann-json3-dev python3-pip libsundials-dev
 
 echo "[INFO] Installing Python-based quality tools …"
 python3 -m pip install --user lizard --upgrade

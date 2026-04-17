@@ -17,10 +17,11 @@ state-convention and numerical-integration ownership. Post-`v0.1` work has now
 landed the observability slice, the runtime provider-selection slice, multiple
 hydro and steady-wind aero fidelity refinements on the existing built-in
 provider ids, and the first backend-selection slice for built-in
-state-advancer selection with an optional guarded Chrono path, now validated on
-Chrono-capable builds against passive-float and tow scenario evidence; the
-roadmap now keeps reduced-model fidelity and backend wiring separate before
-deferred calibration or time-varying environment workflows.
+state-advancer selection with a required `sundials_ida` default path plus an
+optional guarded Chrono path, now validated on Chrono-capable builds against
+passive-float and tow scenario evidence; the roadmap now keeps reduced-model
+fidelity and backend wiring separate before deferred calibration or
+time-varying environment workflows.
 
 ## Quick Start
 
@@ -28,6 +29,9 @@ Install dependencies:
 ```bash
 ./scripts/setup.sh
 ```
+
+This now installs the required Ubuntu SUNDIALS development package
+(`libsundials-dev`) for the default `sundials_ida` runtime path.
 
 Build:
 ```bash
@@ -90,10 +94,10 @@ Current implemented library surface:
 - top-level config-driven built-in provider selection for
   `hull_resistance`, `blade_force`, and `aero_load`
 - top-level config-driven built-in state-advancer selection for
-  `deterministic_baseline`, with deterministic rejection of
-  `chrono_rigidbody` when Chrono support is unavailable in the build and
-  Chrono-backed rigid-body stepping when a discoverable Chrono package is
-  present
+  required `sundials_ida` by default, explicit `deterministic_baseline`
+  fallback, and deterministic rejection of `chrono_rigidbody` when Chrono
+  support is unavailable in the build plus Chrono-backed rigid-body stepping
+  when a discoverable Chrono package is present
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
 - structured hydro force or moment vectors, final passive-float equilibrium

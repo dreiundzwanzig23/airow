@@ -737,7 +737,7 @@ TEST(V0_1ClosureSystem, StartupValidityClosesR032) {
 
     ASSERT_TRUE(result.ok());
     EXPECT_EQ(result.metadata.startup_status, "success");
-    EXPECT_EQ(result.metadata.startup_solver_status, "deterministic-baseline");
+    EXPECT_EQ(result.metadata.startup_solver_status, "sundials-ida");
     EXPECT_LE(result.metadata.startup_constraint_residual_max, 1e-12);
     ASSERT_FALSE(result.state_history.empty());
     EXPECT_LE(std::abs(result.state_history.front().constraint_residual_max),

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 ### Changed
+- Continued Slice 3 on `A-010` by making `sundials_ida` the required default
+  built-in state advancer, wiring Ubuntu-packaged SUNDIALS IDA into the shared
+  runtime build, adding a new SUNDIALS-backed rigid-body advancer design
+  (`D-043`), extending default config and metadata coverage
+  (`UT-140..UT-141` plus updated default-path tests), and adding SUNDIALS
+  passive-float and tow scenario evidence (`QT-033`, `QT-034`) while keeping
+  `deterministic_baseline` as an explicit fallback and Chrono optional.
 - Started Slice 3A on `A-010` by adding a built-in state-advancer catalog,
   validated `simulation.state_advancer` selection, config-driven built-in
   advancer construction on the shared run path, and a compile-time-guarded

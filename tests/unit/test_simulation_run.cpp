@@ -308,10 +308,9 @@ TEST(SimulationRun, ReturnsDeterministicMetadataAndSummary) {
   EXPECT_EQ(result.metadata.providers.hull_resistance.id, "none");
   EXPECT_EQ(result.metadata.providers.blade_force.id, "none");
   EXPECT_EQ(result.metadata.providers.aero_load.id, "none");
-  EXPECT_EQ(result.metadata.state_advancer_id,
-            "deterministic-baseline-state-advancer");
+  EXPECT_EQ(result.metadata.state_advancer_id, "sundials-ida-state-advancer");
   EXPECT_EQ(result.metadata.startup_status, "success");
-  EXPECT_EQ(result.metadata.startup_solver_status, "deterministic-baseline");
+  EXPECT_EQ(result.metadata.startup_solver_status, "sundials-ida");
   EXPECT_EQ(result.summary.final_simulated_time_s, 1.0);
   EXPECT_EQ(result.summary.executed_step_count, 4ULL);
   EXPECT_DOUBLE_EQ(result.summary.distance_m, 0.0);

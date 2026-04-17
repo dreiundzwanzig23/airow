@@ -11,6 +11,15 @@
 #include <string>
 #include <string_view>
 
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+#include <ida/ida.h>
+#include <nvector/nvector_serial.h>
+#include <sundials/sundials_context.h>
+#include <sundials/sundials_types.h>
+#include <sunlinsol/sunlinsol_dense.h>
+#include <sunmatrix/sunmatrix_dense.h>
+#endif
+
 #if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
 #include PROJECT_CHRONO_CHQUATERNION_HEADER
 #include PROJECT_CHRONO_CHVECTOR_HEADER
@@ -25,6 +34,10 @@ namespace {
 constexpr std::string_view DEFAULT_ADVANCER_ID =
     "deterministic-baseline-state-advancer";
 constexpr std::string_view DEFAULT_SOLVER_STATUS = "deterministic-baseline";
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+constexpr std::string_view SUNDIALS_ADVANCER_ID = "sundials-ida-state-advancer";
+constexpr std::string_view SUNDIALS_SOLVER_STATUS = "sundials-ida";
+#endif
 #if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
 constexpr std::string_view CHRONO_ADVANCER_ID =
     "chrono-rigidbody-state-advancer";
@@ -224,6 +237,41 @@ ResolvedLoadDynamics resolve_load_dynamics(const SimulatorConfig &config,
   };
 }
 
+struct HullDerivatives {
+  Vector3 linear_velocity_world_mps{};
+  Quaternion orientation_derivative{};
+  Vector3 linear_acceleration_world_mps2{};
+  Vector3 angular_acceleration_body_radps2{};
+};
+
+HullDerivatives resolve_hull_derivatives(
+    const SimulatorConfig &config, const Quaternion &orientation,
+    const Vector3 &linear_velocity_world_mps,
+    const Vector3 &angular_velocity_body_radps, const ExternalLoads &loads) {
+  const auto dynamics = resolve_load_dynamics(config, loads);
+  const Quaternion omega{.x = angular_velocity_body_radps.x,
+                         .y = angular_velocity_body_radps.y,
+                         .z = angular_velocity_body_radps.z,
+                         .w = 0.0};
+  const Quaternion orientation_derivative =
+      quaternion_multiply(normalize_quaternion(orientation), omega);
+
+  return {
+      .linear_velocity_world_mps = linear_velocity_world_mps,
+      .orientation_derivative = {.x = HALF * orientation_derivative.x,
+                                 .y = HALF * orientation_derivative.y,
+                                 .z = HALF * orientation_derivative.z,
+                                 .w = HALF * orientation_derivative.w},
+      .linear_acceleration_world_mps2 = {.x = dynamics.acceleration_x_mps2,
+                                         .y = 0.0,
+                                         .z = dynamics.acceleration_z_mps2},
+      .angular_acceleration_body_radps2 =
+          {.x = dynamics.angular_acceleration_x_radps2,
+           .y = dynamics.angular_acceleration_y_radps2,
+           .z = dynamics.angular_acceleration_z_radps2},
+  };
+}
+
 Vector3 blade_tip_world_position(const MechanicalStateSnapshot &state,
                                  const OarSettings &settings, double side_sign,
                                  double angle_rad,
@@ -416,6 +464,79 @@ StartupResult initialize_baseline_startup(const SimulatorConfig &config,
   };
 }
 
+template <typename HullAdvanceFn>
+AdvanceResult advance_segmented_state(const SimulatorConfig &config,
+                                      const MechanicalStateSnapshot &state,
+                                      double step_size_s,
+                                      HullAdvanceFn &&advance_hull_segment_fn) {
+  if (!(std::isfinite(step_size_s) && step_size_s > 0.0)) {
+    return {
+        .state = std::nullopt,
+        .diagnostics = {AdvancerDiagnostic{
+            .code = "invalid_step_size",
+            .path = "$.simulation.time_step_s",
+            .message = "step size must be finite and positive",
+        }},
+        .constraint_residual_max = 0.0,
+    };
+  }
+
+  MechanicalStateSnapshot next = state;
+  double remaining_s = step_size_s;
+
+  while (remaining_s > 1.0e-12) {
+    const StrokePhase active_phase = phase_at(config, next.stroke.cycle_time_s);
+    const double phase_end_time_s = active_phase == StrokePhase::drive
+                                        ? config.stroke.drive_duration_s
+                                        : config.stroke.cycle_duration_s;
+    const double time_to_boundary_s =
+        phase_end_time_s - next.stroke.cycle_time_s;
+    const double segment_s = time_to_boundary_s > 1.0e-12
+                                 ? std::min(remaining_s, time_to_boundary_s)
+                                 : remaining_s;
+
+    if (segment_s > 1.0e-12) {
+      const auto diagnostic = advance_hull_segment_fn(next, segment_s);
+      if (diagnostic.has_value()) {
+        return {
+            .state = std::nullopt,
+            .diagnostics = {*diagnostic},
+            .constraint_residual_max = 0.0,
+        };
+      }
+    }
+
+    advance_prescribed_segment(config, active_phase, segment_s, next);
+
+    next.time_s += segment_s;
+    next.stroke.cycle_time_s = wrap_cycle_time(
+        config.stroke.cycle_duration_s, next.stroke.cycle_time_s + segment_s);
+    next.stroke.phase = phase_at(config, next.stroke.cycle_time_s);
+    next.stroke.phase_time_s = phase_time_at(config, next.stroke.cycle_time_s);
+    remaining_s -= segment_s;
+  }
+
+  refresh_blade_kinematics(config, next);
+
+  if (!state_is_finite(next)) {
+    return {
+        .state = std::nullopt,
+        .diagnostics = {AdvancerDiagnostic{
+            .code = "non_finite_state",
+            .path = "$.runtime.state",
+            .message = "state advancement produced a non-finite state",
+        }},
+        .constraint_residual_max = 0.0,
+    };
+  }
+
+  return {
+      .state = next,
+      .diagnostics = {},
+      .constraint_residual_max = 0.0,
+  };
+}
+
 class DeterministicBaselineStateAdvancer final : public StateAdvancer {
 public:
   [[nodiscard]] std::string_view identifier() const noexcept override {
@@ -442,65 +563,397 @@ public:
                         const MechanicalStateSnapshot &state,
                         double step_size_s,
                         const ExternalLoads &loads) override {
-    if (!(std::isfinite(step_size_s) && step_size_s > 0.0)) {
-      return {
-          .state = std::nullopt,
-          .diagnostics = {AdvancerDiagnostic{
-              .code = "invalid_step_size",
-              .path = "$.simulation.time_step_s",
-              .message = "step size must be finite and positive",
-          }},
-          .constraint_residual_max = 0.0,
-      };
-    }
-
-    MechanicalStateSnapshot next = state;
-    double remaining_s = step_size_s;
     const auto dynamics = resolve_load_dynamics(config, loads);
-
-    while (remaining_s > 0.0) {
-      const StrokePhase active_phase =
-          phase_at(config, next.stroke.cycle_time_s);
-      const double phase_end_time_s = active_phase == StrokePhase::drive
-                                          ? config.stroke.drive_duration_s
-                                          : config.stroke.cycle_duration_s;
-      const double time_to_boundary_s =
-          phase_end_time_s - next.stroke.cycle_time_s;
-      const double segment_s = std::min(remaining_s, time_to_boundary_s);
-
-      advance_hull_segment(next, segment_s, dynamics);
-      advance_prescribed_segment(config, active_phase, segment_s, next);
-
-      next.time_s += segment_s;
-      next.stroke.cycle_time_s = wrap_cycle_time(
-          config.stroke.cycle_duration_s, next.stroke.cycle_time_s + segment_s);
-      next.stroke.phase = phase_at(config, next.stroke.cycle_time_s);
-      next.stroke.phase_time_s =
-          phase_time_at(config, next.stroke.cycle_time_s);
-      remaining_s -= segment_s;
-    }
-
-    refresh_blade_kinematics(config, next);
-
-    if (!state_is_finite(next)) {
-      return {
-          .state = std::nullopt,
-          .diagnostics = {AdvancerDiagnostic{
-              .code = "non_finite_state",
-              .path = "$.runtime.state",
-              .message = "state advancement produced a non-finite state",
-          }},
-          .constraint_residual_max = 0.0,
-      };
-    }
-
-    return {
-        .state = next,
-        .diagnostics = {},
-        .constraint_residual_max = 0.0,
-    };
+    return advance_segmented_state(
+        config, state, step_size_s,
+        [&](MechanicalStateSnapshot &next,
+            double segment_s) -> std::optional<AdvancerDiagnostic> {
+          advance_hull_segment(next, segment_s, dynamics);
+          return std::nullopt;
+        });
   }
 };
+
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+
+constexpr sunindextype SUNDIALS_HULL_STATE_SIZE = 13;
+constexpr double SUNDIALS_RELATIVE_TOLERANCE = 1.0e-10;
+constexpr double SUNDIALS_ABSOLUTE_TOLERANCE = 1.0e-10;
+
+enum class SundialsHullStateIndex : sunindextype {
+  position_x = 0,
+  position_y = 1,
+  position_z = 2,
+  orientation_x = 3,
+  orientation_y = 4,
+  orientation_z = 5,
+  orientation_w = 6,
+  linear_velocity_x = 7,
+  linear_velocity_y = 8,
+  linear_velocity_z = 9,
+  angular_velocity_x = 10,
+  angular_velocity_y = 11,
+  angular_velocity_z = 12,
+};
+
+sunindextype to_index(SundialsHullStateIndex index) {
+  return static_cast<sunindextype>(index);
+}
+
+realtype &sundials_entry(N_Vector vector, SundialsHullStateIndex index) {
+  return NV_Ith_S(vector, to_index(index));
+}
+
+struct SundialsContextOwner {
+  SUNContext value{};
+
+  SundialsContextOwner() {
+    if (SUNContext_Create(nullptr, &value) != 0) {
+      value = nullptr;
+    }
+  }
+
+  ~SundialsContextOwner() {
+    if (value != nullptr) {
+      SUNContext_Free(&value);
+    }
+  }
+};
+
+struct SundialsVectorOwner {
+  N_Vector value{};
+
+  explicit SundialsVectorOwner(SUNContext context)
+      : value(N_VNew_Serial(SUNDIALS_HULL_STATE_SIZE, context)) {}
+
+  ~SundialsVectorOwner() {
+    if (value != nullptr) {
+      N_VDestroy(value);
+    }
+  }
+};
+
+struct SundialsMatrixOwner {
+  SUNMatrix value{};
+
+  explicit SundialsMatrixOwner(SUNContext context)
+      : value(SUNDenseMatrix(SUNDIALS_HULL_STATE_SIZE, SUNDIALS_HULL_STATE_SIZE,
+                             context)) {}
+
+  ~SundialsMatrixOwner() {
+    if (value != nullptr) {
+      SUNMatDestroy(value);
+    }
+  }
+};
+
+struct SundialsLinearSolverOwner {
+  SUNLinearSolver value{};
+
+  SundialsLinearSolverOwner(N_Vector state, SUNMatrix matrix,
+                            SUNContext context)
+      : value(SUNLinSol_Dense(state, matrix, context)) {}
+
+  ~SundialsLinearSolverOwner() {
+    if (value != nullptr) {
+      SUNLinSolFree(value);
+    }
+  }
+};
+
+struct SundialsIdaOwner {
+  void *value{};
+
+  explicit SundialsIdaOwner(SUNContext context) : value(IDACreate(context)) {}
+
+  ~SundialsIdaOwner() {
+    if (value != nullptr) {
+      IDAFree(&value);
+    }
+  }
+};
+
+struct SundialsSegmentUserData {
+  const SimulatorConfig *config{};
+  const ExternalLoads *loads{};
+};
+
+Quaternion sundials_orientation_from_vector(N_Vector state) {
+  return {
+      .x = sundials_entry(state, SundialsHullStateIndex::orientation_x),
+      .y = sundials_entry(state, SundialsHullStateIndex::orientation_y),
+      .z = sundials_entry(state, SundialsHullStateIndex::orientation_z),
+      .w = sundials_entry(state, SundialsHullStateIndex::orientation_w),
+  };
+}
+
+Vector3 sundials_linear_velocity_from_vector(N_Vector state) {
+  return {
+      .x = sundials_entry(state, SundialsHullStateIndex::linear_velocity_x),
+      .y = sundials_entry(state, SundialsHullStateIndex::linear_velocity_y),
+      .z = sundials_entry(state, SundialsHullStateIndex::linear_velocity_z),
+  };
+}
+
+Vector3 sundials_angular_velocity_from_vector(N_Vector state) {
+  return {
+      .x = sundials_entry(state, SundialsHullStateIndex::angular_velocity_x),
+      .y = sundials_entry(state, SundialsHullStateIndex::angular_velocity_y),
+      .z = sundials_entry(state, SundialsHullStateIndex::angular_velocity_z),
+  };
+}
+
+void store_hull_state_in_sundials(N_Vector state,
+                                  const MechanicalStateSnapshot &snapshot) {
+  sundials_entry(state, SundialsHullStateIndex::position_x) =
+      snapshot.hull.position_world_m.x;
+  sundials_entry(state, SundialsHullStateIndex::position_y) =
+      snapshot.hull.position_world_m.y;
+  sundials_entry(state, SundialsHullStateIndex::position_z) =
+      snapshot.hull.position_world_m.z;
+  sundials_entry(state, SundialsHullStateIndex::orientation_x) =
+      snapshot.hull.orientation_world_from_body.x;
+  sundials_entry(state, SundialsHullStateIndex::orientation_y) =
+      snapshot.hull.orientation_world_from_body.y;
+  sundials_entry(state, SundialsHullStateIndex::orientation_z) =
+      snapshot.hull.orientation_world_from_body.z;
+  sundials_entry(state, SundialsHullStateIndex::orientation_w) =
+      snapshot.hull.orientation_world_from_body.w;
+  sundials_entry(state, SundialsHullStateIndex::linear_velocity_x) =
+      snapshot.hull.linear_velocity_world_mps.x;
+  sundials_entry(state, SundialsHullStateIndex::linear_velocity_y) =
+      snapshot.hull.linear_velocity_world_mps.y;
+  sundials_entry(state, SundialsHullStateIndex::linear_velocity_z) =
+      snapshot.hull.linear_velocity_world_mps.z;
+  sundials_entry(state, SundialsHullStateIndex::angular_velocity_x) =
+      snapshot.hull.angular_velocity_body_radps.x;
+  sundials_entry(state, SundialsHullStateIndex::angular_velocity_y) =
+      snapshot.hull.angular_velocity_body_radps.y;
+  sundials_entry(state, SundialsHullStateIndex::angular_velocity_z) =
+      snapshot.hull.angular_velocity_body_radps.z;
+}
+
+void store_hull_derivatives_in_sundials(N_Vector derivatives,
+                                        const SimulatorConfig &config,
+                                        const ExternalLoads &loads,
+                                        const MechanicalStateSnapshot &state) {
+  const auto hull_derivatives =
+      resolve_hull_derivatives(config, state.hull.orientation_world_from_body,
+                               state.hull.linear_velocity_world_mps,
+                               state.hull.angular_velocity_body_radps, loads);
+
+  sundials_entry(derivatives, SundialsHullStateIndex::position_x) =
+      hull_derivatives.linear_velocity_world_mps.x;
+  sundials_entry(derivatives, SundialsHullStateIndex::position_y) =
+      hull_derivatives.linear_velocity_world_mps.y;
+  sundials_entry(derivatives, SundialsHullStateIndex::position_z) =
+      hull_derivatives.linear_velocity_world_mps.z;
+  sundials_entry(derivatives, SundialsHullStateIndex::orientation_x) =
+      hull_derivatives.orientation_derivative.x;
+  sundials_entry(derivatives, SundialsHullStateIndex::orientation_y) =
+      hull_derivatives.orientation_derivative.y;
+  sundials_entry(derivatives, SundialsHullStateIndex::orientation_z) =
+      hull_derivatives.orientation_derivative.z;
+  sundials_entry(derivatives, SundialsHullStateIndex::orientation_w) =
+      hull_derivatives.orientation_derivative.w;
+  sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_x) =
+      hull_derivatives.linear_acceleration_world_mps2.x;
+  sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_y) =
+      hull_derivatives.linear_acceleration_world_mps2.y;
+  sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_z) =
+      hull_derivatives.linear_acceleration_world_mps2.z;
+  sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_x) =
+      hull_derivatives.angular_acceleration_body_radps2.x;
+  sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_y) =
+      hull_derivatives.angular_acceleration_body_radps2.y;
+  sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_z) =
+      hull_derivatives.angular_acceleration_body_radps2.z;
+}
+
+void load_hull_state_from_sundials(MechanicalStateSnapshot &snapshot,
+                                   N_Vector state) {
+  snapshot.hull.position_world_m = {
+      .x = sundials_entry(state, SundialsHullStateIndex::position_x),
+      .y = sundials_entry(state, SundialsHullStateIndex::position_y),
+      .z = sundials_entry(state, SundialsHullStateIndex::position_z),
+  };
+  snapshot.hull.orientation_world_from_body =
+      normalize_quaternion(sundials_orientation_from_vector(state));
+  snapshot.hull.linear_velocity_world_mps =
+      sundials_linear_velocity_from_vector(state);
+  snapshot.hull.angular_velocity_body_radps =
+      sundials_angular_velocity_from_vector(state);
+}
+
+int sundials_hull_residual(realtype /*time_s*/, N_Vector state,
+                           N_Vector derivatives, N_Vector residual,
+                           void *user_data) {
+  const auto *segment = static_cast<const SundialsSegmentUserData *>(user_data);
+  if (segment == nullptr || segment->config == nullptr ||
+      segment->loads == nullptr) {
+    return 1;
+  }
+
+  MechanicalStateSnapshot snapshot;
+  snapshot.hull.orientation_world_from_body =
+      sundials_orientation_from_vector(state);
+  snapshot.hull.linear_velocity_world_mps =
+      sundials_linear_velocity_from_vector(state);
+  snapshot.hull.angular_velocity_body_radps =
+      sundials_angular_velocity_from_vector(state);
+
+  const auto hull_derivatives = resolve_hull_derivatives(
+      *segment->config, snapshot.hull.orientation_world_from_body,
+      snapshot.hull.linear_velocity_world_mps,
+      snapshot.hull.angular_velocity_body_radps, *segment->loads);
+
+  sundials_entry(residual, SundialsHullStateIndex::position_x) =
+      sundials_entry(derivatives, SundialsHullStateIndex::position_x) -
+      hull_derivatives.linear_velocity_world_mps.x;
+  sundials_entry(residual, SundialsHullStateIndex::position_y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::position_y) -
+      hull_derivatives.linear_velocity_world_mps.y;
+  sundials_entry(residual, SundialsHullStateIndex::position_z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::position_z) -
+      hull_derivatives.linear_velocity_world_mps.z;
+  sundials_entry(residual, SundialsHullStateIndex::orientation_x) =
+      sundials_entry(derivatives, SundialsHullStateIndex::orientation_x) -
+      hull_derivatives.orientation_derivative.x;
+  sundials_entry(residual, SundialsHullStateIndex::orientation_y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::orientation_y) -
+      hull_derivatives.orientation_derivative.y;
+  sundials_entry(residual, SundialsHullStateIndex::orientation_z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::orientation_z) -
+      hull_derivatives.orientation_derivative.z;
+  sundials_entry(residual, SundialsHullStateIndex::orientation_w) =
+      sundials_entry(derivatives, SundialsHullStateIndex::orientation_w) -
+      hull_derivatives.orientation_derivative.w;
+  sundials_entry(residual, SundialsHullStateIndex::linear_velocity_x) =
+      sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_x) -
+      hull_derivatives.linear_acceleration_world_mps2.x;
+  sundials_entry(residual, SundialsHullStateIndex::linear_velocity_y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_y) -
+      hull_derivatives.linear_acceleration_world_mps2.y;
+  sundials_entry(residual, SundialsHullStateIndex::linear_velocity_z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::linear_velocity_z) -
+      hull_derivatives.linear_acceleration_world_mps2.z;
+  sundials_entry(residual, SundialsHullStateIndex::angular_velocity_x) =
+      sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_x) -
+      hull_derivatives.angular_acceleration_body_radps2.x;
+  sundials_entry(residual, SundialsHullStateIndex::angular_velocity_y) =
+      sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_y) -
+      hull_derivatives.angular_acceleration_body_radps2.y;
+  sundials_entry(residual, SundialsHullStateIndex::angular_velocity_z) =
+      sundials_entry(derivatives, SundialsHullStateIndex::angular_velocity_z) -
+      hull_derivatives.angular_acceleration_body_radps2.z;
+
+  return 0;
+}
+
+std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
+    MechanicalStateSnapshot &next, double segment_s,
+    const SimulatorConfig &config, const ExternalLoads &loads) {
+  const realtype current_time_s = static_cast<realtype>(next.time_s);
+  const realtype target_time_s = static_cast<realtype>(next.time_s + segment_s);
+  if (target_time_s <= current_time_s) {
+    return std::nullopt;
+  }
+
+  SundialsContextOwner context;
+  if (context.value == nullptr) {
+    return AdvancerDiagnostic{
+        .code = "solver_failure",
+        .path = "$.runtime.state",
+        .message = "SUNDIALS IDA context initialization failed",
+    };
+  }
+
+  SundialsVectorOwner state(context.value);
+  SundialsVectorOwner derivatives(context.value);
+  SundialsMatrixOwner matrix(context.value);
+  if (state.value == nullptr || derivatives.value == nullptr ||
+      matrix.value == nullptr) {
+    return AdvancerDiagnostic{
+        .code = "solver_failure",
+        .path = "$.runtime.state",
+        .message = "SUNDIALS IDA memory allocation failed",
+    };
+  }
+
+  SundialsLinearSolverOwner linear_solver(state.value, matrix.value,
+                                          context.value);
+  SundialsIdaOwner ida(context.value);
+  if (linear_solver.value == nullptr || ida.value == nullptr) {
+    return AdvancerDiagnostic{
+        .code = "solver_failure",
+        .path = "$.runtime.state",
+        .message = "SUNDIALS IDA solver initialization failed",
+    };
+  }
+
+  store_hull_state_in_sundials(state.value, next);
+  store_hull_derivatives_in_sundials(derivatives.value, config, loads, next);
+
+  SundialsSegmentUserData segment_data{.config = &config, .loads = &loads};
+  if (IDAInit(ida.value, sundials_hull_residual, current_time_s, state.value,
+              derivatives.value) != IDA_SUCCESS ||
+      IDASetUserData(ida.value, &segment_data) != IDA_SUCCESS ||
+      IDASStolerances(ida.value, SUNDIALS_RELATIVE_TOLERANCE,
+                      SUNDIALS_ABSOLUTE_TOLERANCE) != IDA_SUCCESS ||
+      IDASetLinearSolver(ida.value, linear_solver.value, matrix.value) !=
+          IDA_SUCCESS) {
+    return AdvancerDiagnostic{
+        .code = "solver_failure",
+        .path = "$.runtime.state",
+        .message = "SUNDIALS IDA setup failed for the requested step",
+    };
+  }
+
+  realtype reached_time_s = current_time_s;
+  if (IDASolve(ida.value, target_time_s, &reached_time_s, state.value,
+               derivatives.value, IDA_NORMAL) != IDA_SUCCESS) {
+    return AdvancerDiagnostic{
+        .code = "solver_failure",
+        .path = "$.runtime.state",
+        .message = "SUNDIALS IDA failed to advance the hull state",
+    };
+  }
+
+  load_hull_state_from_sundials(next, state.value);
+  return std::nullopt;
+}
+
+class SundialsIdaStateAdvancer final : public StateAdvancer {
+public:
+  [[nodiscard]] std::string_view identifier() const noexcept override {
+    return SUNDIALS_ADVANCER_ID;
+  }
+
+  /**
+   * @design D-043 — SUNDIALS IDA rigid-body state advancer
+   * @title Required SUNDIALS-backed hull stepping behind the stable advancer
+   * contract for the second backend-wiring slice
+   * @satisfies [A-003, A-010]
+   */
+  StartupResult initialize(const SimulatorConfig &config) override {
+    return initialize_baseline_startup(config, SUNDIALS_SOLVER_STATUS);
+  }
+
+  AdvanceResult advance(const SimulatorConfig &config,
+                        const MechanicalStateSnapshot &state,
+                        double step_size_s,
+                        const ExternalLoads &loads) override {
+    return advance_segmented_state(
+        config, state, step_size_s,
+        [&](MechanicalStateSnapshot &next,
+            double segment_s) -> std::optional<AdvancerDiagnostic> {
+          return advance_hull_segment_with_sundials(next, segment_s, config,
+                                                    loads);
+        });
+  }
+};
+
+#endif
 
 #if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
 
@@ -587,62 +1040,13 @@ public:
                         const MechanicalStateSnapshot &state,
                         double step_size_s,
                         const ExternalLoads &loads) override {
-    if (!(std::isfinite(step_size_s) && step_size_s > 0.0)) {
-      return {
-          .state = std::nullopt,
-          .diagnostics = {AdvancerDiagnostic{
-              .code = "invalid_step_size",
-              .path = "$.simulation.time_step_s",
-              .message = "step size must be finite and positive",
-          }},
-          .constraint_residual_max = 0.0,
-      };
-    }
-
-    MechanicalStateSnapshot next = state;
-    double remaining_s = step_size_s;
-
-    while (remaining_s > 0.0) {
-      const StrokePhase active_phase =
-          phase_at(config, next.stroke.cycle_time_s);
-      const double phase_end_time_s = active_phase == StrokePhase::drive
-                                          ? config.stroke.drive_duration_s
-                                          : config.stroke.cycle_duration_s;
-      const double time_to_boundary_s =
-          phase_end_time_s - next.stroke.cycle_time_s;
-      const double segment_s = std::min(remaining_s, time_to_boundary_s);
-
-      advance_hull_segment_with_chrono(next, segment_s, config, loads);
-      advance_prescribed_segment(config, active_phase, segment_s, next);
-
-      next.time_s += segment_s;
-      next.stroke.cycle_time_s = wrap_cycle_time(
-          config.stroke.cycle_duration_s, next.stroke.cycle_time_s + segment_s);
-      next.stroke.phase = phase_at(config, next.stroke.cycle_time_s);
-      next.stroke.phase_time_s =
-          phase_time_at(config, next.stroke.cycle_time_s);
-      remaining_s -= segment_s;
-    }
-
-    refresh_blade_kinematics(config, next);
-
-    if (!state_is_finite(next)) {
-      return {
-          .state = std::nullopt,
-          .diagnostics = {AdvancerDiagnostic{
-              .code = "non_finite_state",
-              .path = "$.runtime.state",
-              .message = "state advancement produced a non-finite state",
-          }},
-          .constraint_residual_max = 0.0,
-      };
-    }
-
-    return {
-        .state = next,
-        .diagnostics = {},
-        .constraint_residual_max = 0.0,
-    };
+    return advance_segmented_state(
+        config, state, step_size_s,
+        [&](MechanicalStateSnapshot &next,
+            double segment_s) -> std::optional<AdvancerDiagnostic> {
+          advance_hull_segment_with_chrono(next, segment_s, config, loads);
+          return std::nullopt;
+        });
   }
 };
 
@@ -668,6 +1072,13 @@ StateAdvancer *builtin_state_advancer(std::string_view id) noexcept {
   }
 
   switch (*type) {
+  case BuiltinStateAdvancerType::sundials_ida:
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+    static SundialsIdaStateAdvancer sundials_advancer;
+    return &sundials_advancer;
+#else
+    return nullptr;
+#endif
   case BuiltinStateAdvancerType::deterministic_baseline:
     return &default_state_advancer();
   case BuiltinStateAdvancerType::chrono_rigidbody:

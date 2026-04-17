@@ -336,3 +336,84 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesWithChronoAdvancer) {
 
   clear_output_artifacts(result);
 }
+
+/**
+ * @test QT-033
+ * @verifies [R-009, R-018]
+ * @notes Given the checked-in passive-float scenario artifact, when the
+ * in-memory run path executes with SUNDIALS selected and deterministic
+ * placeholder hydro, then the scenario acceptance envelope still passes
+ * through the external backend seam.
+ */
+TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesWithSundialsAdvancer) {
+  const auto loaded = project::load_scenario_definition_file(
+      scenario_path("passive_float.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto config = loaded.scenario->config;
+  config.simulation.state_advancer = "sundials_ida";
+
+  PassivePlaceholderHydroProvider hydro;
+  NullAeroProvider aero;
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 15} + 22h + 4min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 15} + 22h + 4min +
+           1s});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+  const auto evaluation =
+      project::evaluate_scenario_result(*loaded.scenario, result);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id, "sundials-ida-state-advancer");
+  EXPECT_TRUE(evaluation.ok());
+
+  clear_output_artifacts(result);
+}
+
+/**
+ * @test QT-034
+ * @verifies [R-010, R-018]
+ * @notes Given the checked-in tow scenario artifact, when the in-memory run
+ * path executes with SUNDIALS selected and deterministic placeholder tow drag,
+ * then the scenario acceptance envelope still passes through the external
+ * backend seam.
+ */
+TEST(ScenarioHarnessSystem, TowScenarioPassesWithSundialsAdvancer) {
+  const auto loaded =
+      project::load_scenario_definition_file(scenario_path("tow_test.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto config = loaded.scenario->config;
+  config.simulation.state_advancer = "sundials_ida";
+
+  TowPlaceholderHydroProvider hydro(
+      loaded.scenario->provider.drag_coefficient_n_s2_per_m2);
+  NullAeroProvider aero;
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 15} + 22h + 5min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 15} + 22h + 5min +
+           1s});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+  const auto evaluation =
+      project::evaluate_scenario_result(*loaded.scenario, result);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer_id, "sundials-ida-state-advancer");
+  EXPECT_TRUE(evaluation.ok());
+
+  clear_output_artifacts(result);
+}

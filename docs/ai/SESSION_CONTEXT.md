@@ -1,11 +1,12 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-13
+- **Date**: 2026-04-15
 - **Branch**: `First_implementations`
 - **Current Objective**: Continue the post-`v0.1` roadmap with reduced-model
-  fidelity on stable provider ids and the first external-backend selection slice under `A-010`,
-  while keeping calibration or time-varying environment work deferred.
+  fidelity on stable provider ids after the landed external-backend selection
+  packets under `A-010`, while keeping calibration or time-varying
+  environment work deferred.
 
 ## Current State
 - The project is now a single-scull headless-first simulator with a
@@ -20,9 +21,10 @@
   built-in reduced hull-resistance or blade-force or aero providers when
   injected seams are absent, and emits structured per-role validity metadata.
 - The shared run path now also validates `simulation.state_advancer`,
-  constructs the built-in deterministic baseline advancer when no injected
-  seam is present, and rejects the built-in `chrono_rigidbody` advancer
-  deterministically when Chrono support is unavailable in the build.
+  defaults it to required `sundials_ida`, preserves
+  `deterministic_baseline` as an explicit fallback, and rejects
+  `chrono_rigidbody` deterministically when Chrono support is unavailable in
+  the build.
 - The landed `A-004` follow-on deepens the existing hydro ids in place with
   low-speed-damped hull drag, phase-shaped blade propulsion, backward-slip
   gating, exact catch or release zero-load tapering, and refreshed calm-water
@@ -36,12 +38,10 @@
 - `R-020` and `R-033` are closed, so the roadmap now moves from landed
   observability or provider-selection work into reduced-model fidelity before
   external backend wiring and later calibration or time-varying environment.
-- The first `A-010` backend-selection packet is now landed through built-in
-  advancer selection and a compile-time-guarded Chrono rigid-body path; the
-  local Chrono-capable build now exercises `chrono_rigidbody` through the
-  checked-in passive-float and tow scenario evidence.
-- SUNDIALS remains deferred behind the same later external backend slice under
-  `A-010`, separate from hydro or aero provider selection.
+- The first two `A-010` backend-selection packets are now landed through the
+  built-in advancer catalog, compile-time-guarded Chrono rigid-body stepping,
+  and a required SUNDIALS IDA path that now backs the default built-in
+  advancer and passes passive-float and tow scenario evidence.
 - Deferred `Needs-Review: yes` P2 requirements (`R-021`, `R-022`, `R-023`,
   `R-025`) remain intentionally behind the near-term slices.
 - Validation guardrails remain strict: full test gate includes sanitized and
@@ -63,8 +63,8 @@
 1. Continue Slice 2 only with further reduced-model fidelity work that keeps
    the current built-in hydro and aero provider ids stable and preserves the
    structured provider metadata contract.
-2. Decide whether to broaden Chrono-backed coverage beyond the current
-   passive-float and tow evidence or return focus to the active reduced-model
-   fidelity work.
+2. Decide whether to broaden backend evidence beyond passive-float and tow,
+   especially for Chrono-backed stroke scenarios, or return focus to the
+   active reduced-model fidelity work.
 3. Re-open deferred calibration or time-varying environment work only after
    backend direction and reduced-model stability are clearer.

@@ -421,11 +421,36 @@ TEST(StateAdvancement, BuiltinChronoAdvancerAvailabilityMatchesBuildSupport) {
 /**
  * @test UT-139
  * @verifies [D-040]
+ * @notes Given the built-in SUNDIALS state-advancer id, when the built-in
+ * factory is queried on the required-dependency build, then the backend is
+ * exposed deterministically and reuses the stable startup contract.
+ */
+TEST(StateAdvancement, BuiltinSundialsAdvancerIsAvailable) {
+  auto *advancer = project::builtin_state_advancer("sundials_ida");
+
+  ASSERT_NE(advancer, nullptr);
+  EXPECT_EQ(advancer->identifier(), "sundials-ida-state-advancer");
+
+  const auto startup = advancer->initialize(make_config());
+  ASSERT_TRUE(startup.ok());
+  ASSERT_TRUE(startup.state.has_value());
+  EXPECT_EQ(startup.solver_status, "sundials-ida");
+}
+
+/**
+ * @test UT-141
+ * @verifies [D-040]
  * @notes Given the built-in state-advancer catalog ids, when they are parsed,
  * normalized back to ids, and checked for availability, then the catalog
  * behaves deterministically for known and unknown ids.
  */
 TEST(StateAdvancement, BuiltinStateAdvancerCatalogIsDeterministic) {
+  const auto sundials = project::parse_builtin_state_advancer("sundials_ida");
+  ASSERT_TRUE(sundials.has_value());
+  EXPECT_EQ(*sundials, project::BuiltinStateAdvancerType::sundials_ida);
+  EXPECT_EQ(project::builtin_state_advancer_id(*sundials), "sundials_ida");
+  EXPECT_TRUE(project::builtin_state_advancer_supported(*sundials));
+
   const auto deterministic =
       project::parse_builtin_state_advancer("deterministic_baseline");
   ASSERT_TRUE(deterministic.has_value());

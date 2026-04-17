@@ -170,8 +170,8 @@ Still planned or incomplete:
   aero id without changing the current provider-selection or metadata
   contracts,
 - external calibration ingestion and provenance propagation,
-- broader SUNDIALS backend wiring behind existing seams after the first
-  Chrono-capable rigid-body validation packet.
+- broader external-backend evidence plus deeper SUNDIALS or Chrono diagnostics
+  and tolerance policy behind existing seams.
 
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem
@@ -378,8 +378,8 @@ Still planned or incomplete:
   contract, and solver-diagnostic contract. The current realization slice
   establishes a stable advancer interface plus deterministic internal startup
   and stepping behavior, explicit blade-immersion or blade-tip-velocity state,
-  and widened hydro-force coupling while deferring Chrono or SUNDIALS
-  integration behind that seam. The first backend packet adds an optional
+  and widened hydro-force coupling. The first backend packet adds an optional
   Chrono-backed rigid-body advancer behind the same contract for passive-float
-  and tow-test acceptance while preserving the deterministic baseline as the
-  default built-in path and leaving SUNDIALS for a later backend increment.
+  and tow-test acceptance. The second backend packet makes `sundials_ida` the
+  required default built-in path while preserving `deterministic_baseline` as
+  an explicit fallback and keeping Chrono optional behind the same seam.

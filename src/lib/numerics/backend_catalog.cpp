@@ -7,6 +7,7 @@ namespace project {
 
 namespace {
 
+constexpr std::string_view SUNDIALS_IDA_ID = "sundials_ida";
 constexpr std::string_view DETERMINISTIC_BASELINE_ID = "deterministic_baseline";
 constexpr std::string_view CHRONO_RIGIDBODY_ID = "chrono_rigidbody";
 
@@ -20,6 +21,9 @@ constexpr std::string_view CHRONO_RIGIDBODY_ID = "chrono_rigidbody";
  */
 std::optional<BuiltinStateAdvancerType>
 parse_builtin_state_advancer(std::string_view id) noexcept {
+  if (id == SUNDIALS_IDA_ID) {
+    return BuiltinStateAdvancerType::sundials_ida;
+  }
   if (id == DETERMINISTIC_BASELINE_ID) {
     return BuiltinStateAdvancerType::deterministic_baseline;
   }
@@ -32,6 +36,8 @@ parse_builtin_state_advancer(std::string_view id) noexcept {
 std::string_view
 builtin_state_advancer_id(BuiltinStateAdvancerType type) noexcept {
   switch (type) {
+  case BuiltinStateAdvancerType::sundials_ida:
+    return SUNDIALS_IDA_ID;
   case BuiltinStateAdvancerType::deterministic_baseline:
     return DETERMINISTIC_BASELINE_ID;
   case BuiltinStateAdvancerType::chrono_rigidbody:
@@ -42,12 +48,22 @@ builtin_state_advancer_id(BuiltinStateAdvancerType type) noexcept {
 
 bool builtin_state_advancer_supported(BuiltinStateAdvancerType type) noexcept {
   switch (type) {
+  case BuiltinStateAdvancerType::sundials_ida:
+    return sundials_state_advancer_supported();
   case BuiltinStateAdvancerType::deterministic_baseline:
     return true;
   case BuiltinStateAdvancerType::chrono_rigidbody:
     return chrono_state_advancer_supported();
   }
   return false;
+}
+
+bool sundials_state_advancer_supported() noexcept {
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+  return true;
+#else
+  return false;
+#endif
 }
 
 bool chrono_state_advancer_supported() noexcept {

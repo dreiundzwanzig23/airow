@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(agentic_tetris LANGUAGES CXX VERSION 0.2.0)
+project(agentic_tetris LANGUAGES C CXX VERSION 0.2.0)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     include(CheckCXXSourceCompiles)
@@ -47,6 +47,20 @@ if(HDF5_FOUND)
 else()
     message(STATUS "HDF5 support disabled (library not found)")
 endif()
+
+find_path(SUNDIALS_INCLUDE_DIR sundials/sundials_config.h REQUIRED)
+find_library(SUNDIALS_GENERIC_LIBRARY NAMES sundials_generic REQUIRED)
+find_library(SUNDIALS_NVECSERIAL_LIBRARY NAMES sundials_nvecserial REQUIRED)
+find_library(SUNDIALS_SUNMATRIXDENSE_LIBRARY
+    NAMES sundials_sunmatrixdense
+    REQUIRED
+)
+find_library(SUNDIALS_SUNLINSOLDENSE_LIBRARY
+    NAMES sundials_sunlinsoldense
+    REQUIRED
+)
+find_library(SUNDIALS_IDA_LIBRARY NAMES sundials_ida REQUIRED)
+message(STATUS "SUNDIALS support enabled")
 
 find_package(Chrono QUIET CONFIG)
 set(PROJECT_CHRONO_ENABLED OFF)
@@ -112,7 +126,16 @@ target_include_directories(project_lib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+target_include_directories(project_lib PRIVATE "${SUNDIALS_INCLUDE_DIR}")
 target_link_libraries(project_lib PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(project_lib PRIVATE
+    ${SUNDIALS_GENERIC_LIBRARY}
+    ${SUNDIALS_NVECSERIAL_LIBRARY}
+    ${SUNDIALS_SUNMATRIXDENSE_LIBRARY}
+    ${SUNDIALS_SUNLINSOLDENSE_LIBRARY}
+    ${SUNDIALS_IDA_LIBRARY}
+)
+target_compile_definitions(project_lib PUBLIC PROJECT_HAS_SUNDIALS=1)
 if(HDF5_FOUND)
     if(TARGET HDF5::HDF5)
         target_link_libraries(project_lib PRIVATE HDF5::HDF5)

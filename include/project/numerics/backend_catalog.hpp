@@ -6,6 +6,7 @@
 namespace project {
 
 enum class BuiltinStateAdvancerType {
+  sundials_ida,
   deterministic_baseline,
   chrono_rigidbody,
 };
@@ -18,6 +19,8 @@ builtin_state_advancer_id(BuiltinStateAdvancerType type) noexcept;
 
 [[nodiscard]] bool
 builtin_state_advancer_supported(BuiltinStateAdvancerType type) noexcept;
+
+[[nodiscard]] bool sundials_state_advancer_supported() noexcept;
 
 [[nodiscard]] bool chrono_state_advancer_supported() noexcept;
 
