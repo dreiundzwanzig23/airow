@@ -55,9 +55,9 @@ Never skip failing-tests-first for functional behavior changes, and never skip
 the refactor phase for functional loops.
 Use explicit `rgr:red`, `rgr:green`, and `rgr:refactor` markers in commit
 messages or evidence notes.
-`./scripts/check_rgr_evidence.sh` is warning-only by default (`warn` mode) and
-is wired into `test_tdd.sh` and `verify.sh`; set
-`RGR_ENFORCEMENT_MODE=strict` to promote missing markers to a failing check.
+`./scripts/check_rgr_evidence.sh` is strict by default and is wired into
+`test_tdd.sh` and `verify.sh`; use `RGR_ENFORCEMENT_MODE=warn` or `off` only
+as explicit local overrides.
 Do not create a 1:1 `R -> A` mapping unless `Allocation Rationale` makes the
 need explicit.
 When a task affects technology choice, solver direction, file-format policy, or

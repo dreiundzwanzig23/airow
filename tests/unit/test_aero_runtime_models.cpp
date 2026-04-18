@@ -29,6 +29,21 @@ void remove_file_if_present(const std::filesystem::path &path) {
   std::filesystem::remove(path, error);
 }
 
+#ifndef PROJECT_SOURCE_DIR
+#error PROJECT_SOURCE_DIR must be defined for unit tests
+#endif
+
+std::filesystem::path scenario_path(std::string_view file_name) {
+  return std::filesystem::path(PROJECT_SOURCE_DIR) / "scenarios" /
+         std::string(file_name);
+}
+
+std::string read_text_file(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  return {std::istreambuf_iterator<char>(input),
+          std::istreambuf_iterator<char>()};
+}
+
 project::MechanicalStateSnapshot make_state(project::Vector3 linear_velocity) {
   return project::MechanicalStateSnapshot{
       .time_s = 0.0,
@@ -331,69 +346,11 @@ TEST(AeroRuntimeModels, ProviderAddsLateralForceAndSpeedAmplifiedYaw) {
  * scenario type, aero provider, and wind-backed acceptance envelope.
  */
 TEST(AeroRuntimeModels, LoadsHeadwindScenarioDefinitionWithAeroProvider) {
-  const auto scenario_path = write_temp_file("airow-ut-headwind-scenario.json",
-                                             R"({
-    "scenario_id": "headwind-stroke",
-    "scenario_type": "headwind_stroke",
-    "provider": {
-      "type": "stroke_propulsion_placeholder",
-      "blade_force_coefficient_n_s_per_m": 4.0
-    },
-    "aero_provider": {
-      "type": "steady_wind_placeholder",
-      "drag_coefficient_n_s2_per_m2": 1.5,
-      "yaw_moment_coefficient_n_m_s2_per_m2": 0.75
-    },
-    "config": {
-      "config_id": "headwind-stroke",
-      "simulation": {
-        "duration_s": 2.4,
-        "time_step_s": 0.12
-      },
-      "hull": {
-        "mass_kg": 14.0,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.1, 7.8, 8.2],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      },
-      "environment": {
-        "ambient_wind_world_mps": [-3.0, 0.0, 0.0]
-      }
-    },
-    "acceptance": {
-      "min_distance_m": 1.2,
-      "max_mean_speed_mps": 0.9
-    }
-  })");
+  const auto fixture_path = scenario_path("headwind_stroke.json");
+  const auto temp_path = write_temp_file("airow-ut-headwind-scenario.json",
+                                         read_text_file(fixture_path));
 
-  const auto loaded = project::load_scenario_definition_file(scenario_path);
+  const auto loaded = project::load_scenario_definition_file(temp_path);
 
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
@@ -401,13 +358,13 @@ TEST(AeroRuntimeModels, LoadsHeadwindScenarioDefinitionWithAeroProvider) {
   EXPECT_EQ(loaded.scenario->aero_provider.type,
             project::ScenarioAeroProviderType::steady_wind_placeholder);
   EXPECT_DOUBLE_EQ(loaded.scenario->aero_provider.drag_coefficient_n_s2_per_m2,
-                   1.5);
+                   0.4);
   EXPECT_DOUBLE_EQ(
       loaded.scenario->aero_provider.yaw_moment_coefficient_n_m_s2_per_m2,
       0.75);
-  EXPECT_DOUBLE_EQ(loaded.scenario->acceptance.max_mean_speed_mps, 0.9);
+  EXPECT_DOUBLE_EQ(loaded.scenario->acceptance.max_mean_speed_mps, 0.08);
 
-  remove_file_if_present(scenario_path);
+  remove_file_if_present(temp_path);
 }
 
 /**

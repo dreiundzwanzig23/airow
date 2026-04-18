@@ -6,8 +6,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${script_dir}/validation_output.sh"
 test_build_dir="${TEST_BUILD_DIR:-build}"
 
-# Warning-only by default; promotes to hard-fail when
-# RGR_ENFORCEMENT_MODE=strict.
+# Strict by default; allows explicit local downgrade through
+# RGR_ENFORCEMENT_MODE=warn or off.
 ./scripts/check_rgr_evidence.sh
 
 # Fast local loop:

@@ -75,12 +75,13 @@ Current checked-in scenario artifacts and acceptance envelopes are listed in
 ## Required Gates
 - `./scripts/test.sh` is required before completion.
 - `./scripts/test_tdd.sh` is for fast local iteration only.
-- `./scripts/check_rgr_evidence.sh` runs as a warning check in
-  `./scripts/test_tdd.sh` and `./scripts/verify.sh`.
-- `./scripts/test.sh` now includes the auxiliary tooling-contract lane, a
+- `./scripts/check_rgr_evidence.sh` runs as a strict check in
+  `./scripts/test_tdd.sh` and `./scripts/verify.sh`; `warn` or `off` are
+  explicit local overrides only.
+- `./scripts/test.sh` includes the repo-wide auxiliary tooling-contract lane,
+  repo-wide test-quality linting with the default structural limits, a
   dedicated sanitized build or run lane, a dedicated GCC portability lane,
-  a changed-file test-quality lint lane with tighter test-only limits, and
-  coverage gates on `src/lib/**` at 90% region coverage and 80% branch
+  and coverage gates on `src/lib/**` at 90% region coverage and 80% branch
   coverage plus changed-file coverage regression ratchets.
 
 ## Optional/Specialized Lanes

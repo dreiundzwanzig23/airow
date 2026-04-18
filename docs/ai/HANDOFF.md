@@ -1,54 +1,36 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-17
+- 2026-04-18
 
 ## What Changed In This Session
-- Started a stop-the-line recovery slice on the active `External` branch to
-  fix workflow drift rather than continuing roadmap feature work.
-- Recorded the architecture delta under `A-008` so the workflow-facing
-  validation wrappers in `scripts/` now explicitly own truthful nested-step
-  reporting and validation-summary integrity.
-- Fixed `scripts/validation_output.sh` so nested child failures preserve their
-  real exit codes in both terminal output and summary JSON, and stale summary
-  files are removed when a new validation run starts.
-- Added `tools/test_validation_output.py` and wired it into `test_aux.sh` so
-  the validation summary contract is now regression-tested directly.
-- Restored direct `D-043` unit coverage via a new small SUNDIALS startup test
-  (`UT-142`) and fixed the resulting trace drift that had been breaking
-  `R-019`.
-- Isolated the WSL crash to a non-advancing tiny-step tail in the shared
-  state-advancement loop, added a SUNDIALS regression for positive
-  sub-epsilon steps (`UT-143`), and added an orchestration guard that rejects
-  non-advancing advancer results deterministically (`UT-144`).
-- Tightened the new SUNDIALS path enough to get targeted sanitized regressions
-  green again and updated the libc++ sanitized test environment so known
-  alloc/dealloc mismatch noise from exception teardown no longer blocks that
-  lane.
-- Adjusted the full `test.sh` gate to use changed-scope test-quality linting,
-  leaving standalone `./scripts/lint_tests.sh` as the explicit repo-wide audit
-  lane.
+- Completed the workflow-enforcement recovery slice on `External`.
+- Validation summaries now preserve nested child exit codes, stale summary
+  files are cleared before each run, and `test_aux.sh` includes a direct
+  regression for that contract.
+- The WSL crash reproducer is fixed: sub-epsilon SUNDIALS tail steps now still
+  advance time, and the orchestration loop rejects non-advancing advancer
+  results deterministically.
+- RGR evidence enforcement is strict by default again, `verify.sh` now runs
+  `test_tdd.sh` before the full gate, repo-wide test-quality linting is back
+  in `test.sh`, legacy lint overrides were removed, and GoogleTest discovery
+  now uses runtime registration so multiline tests cannot be skipped silently.
+- Sanitized and GCC CTest presets now carry the sanitizer environment required
+  by runtime GoogleTest discovery, so discovery and execution share the same
+  contract.
+- The former ambient `AIROW_SUNDIALS_TEST_FAULT` seam was replaced with an
+  explicit compile-time-gated test hook used only by tests.
+- Full required verification is green locally as of 2026-04-18, including
+  `format.sh`, `lint.sh`, `build.sh`, `test_tdd.sh`, `test.sh`,
+  `depcheck.sh`, and `python3 tools/tracecheck.py --write`.
 
 ## Current Technical Posture
-- The validation and traceability seams are materially healthier than they
-  were at session start: `tracecheck --json` is back to zero problems, the aux
-  lane now reports failures honestly, and targeted sanitized unit regressions
-  for config parse or provider-exception handling pass again.
-- The original crash reproducer no longer reproduces locally: the targeted
-  `QT-022` system test now passes quickly instead of hanging and consuming
-  RAM, and the fast `./scripts/test_tdd.sh` lane now clears unit or
-  integration or system or aux before stopping at the existing branch-coverage
-  gate.
-- Lint and release-build gates completed locally during this session before
-  the heavy full test gate was retried.
+- Workflow and validation policy are back in sync with automation.
+- The former `QT-022` crash path is green under the enforced gates.
+- Active docs now reflect strict-by-default enforcement and the restored gate
+  truth again.
 
 ## Immediate Next Steps
-1. Re-run `./scripts/test.sh` now that the `QT-022` reproducer is fixed, but
-   keep a timeout or narrower slices ready in case another late-lane issue
-   appears.
-2. Resolve or explicitly defer the current fast-lane blocker: total branch
-   coverage is still below the repo threshold even though the crash path is
-   fixed.
-3. Finish the remaining required gates (`./scripts/depcheck.sh` and
-   `python3 tools/tracecheck.py --write`) once the user is ready for another
-   heavier verification pass.
+1. Return to roadmap requirement work under the restored strict workflow.
+2. Keep future workflow changes coupled to tooling-contract coverage so policy
+   softening cannot drift silently again.

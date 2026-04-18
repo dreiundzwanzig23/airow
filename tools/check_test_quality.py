@@ -15,21 +15,8 @@ TESTS_DIR = ROOT / "tests"
 CXX_SUFFIXES = {".cpp", ".cc", ".cxx", ".hpp", ".h"}
 DEFAULT_MAX_TEST_FILE_LINES = int(os.environ.get("TEST_MAX_FILE_LINES", "900"))
 DEFAULT_MAX_TEST_CASES_PER_FILE = int(os.environ.get("TEST_MAX_TEST_CASES", "14"))
-# Transitional caps for legacy aggregation-heavy test files that still need to
-# be split. Keep them narrow so further growth still trips the lane.
-TEST_FILE_LINE_LIMIT_OVERRIDES: dict[str, int] = {
-    "tests/unit/test_run_outputs.cpp": 1100,
-    "tests/unit/test_scenario_harness_additional.cpp": 1050,
-    "tests/unit/test_simulation_run.cpp": 1000,
-    "tests/unit/test_simulator_config.cpp": 1030,
-}
-TEST_CASE_LIMIT_OVERRIDES: dict[str, int] = {
-    "tests/unit/test_run_outputs.cpp": 20,
-    "tests/unit/test_scenario_harness.cpp": 16,
-    "tests/unit/test_scenario_harness_additional.cpp": 28,
-    "tests/unit/test_simulation_run.cpp": 19,
-    "tests/unit/test_simulator_config.cpp": 18,
-}
+TEST_FILE_LINE_LIMIT_OVERRIDES: dict[str, int] = {}
+TEST_CASE_LIMIT_OVERRIDES: dict[str, int] = {}
 TEST_CASE_PATTERN = re.compile(r"^\s*TEST(?:_F|_P)?\s*\(", re.M)
 
 

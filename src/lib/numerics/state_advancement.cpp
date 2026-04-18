@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -151,6 +152,34 @@ bool state_is_finite(const MechanicalStateSnapshot &state) {
          stroke_state_is_finite(state.stroke) &&
          std::isfinite(state.constraint_residual_max);
 }
+
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+#if defined(PROJECT_TEST_HOOKS) && PROJECT_TEST_HOOKS
+SundialsTestFaultMode &sundials_test_fault_mode_storage() noexcept {
+  static auto mode = SundialsTestFaultMode::none;
+  return mode;
+}
+
+SundialsTestFaultMode current_sundials_test_fault_mode() noexcept {
+  return sundials_test_fault_mode_storage();
+}
+#else
+enum class SundialsTestFaultMode {
+  none,
+  context_create_failure,
+  null_user_data,
+  memory_allocation_failure,
+  solver_initialization_failure,
+  setup_failure,
+  solve_failure,
+  non_finite_solution,
+};
+
+constexpr SundialsTestFaultMode current_sundials_test_fault_mode() noexcept {
+  return SundialsTestFaultMode::none;
+}
+#endif
+#endif
 
 StrokePhase phase_at(const SimulatorConfig &config, double cycle_time_s) {
   return cycle_time_s < config.stroke.drive_duration_s ? StrokePhase::drive
@@ -501,6 +530,74 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
                                  : remaining_s;
 
     if (segment_s > SEGMENT_TIME_EPSILON_S) {
+      advance_hull_segment_fn(next, segment_s);
+    }
+
+    advance_prescribed_segment(config, active_phase, segment_s, next);
+
+    next.time_s += segment_s;
+    next.stroke.cycle_time_s = wrap_cycle_time(
+        config.stroke.cycle_duration_s, next.stroke.cycle_time_s + segment_s);
+    next.stroke.phase = phase_at(config, next.stroke.cycle_time_s);
+    next.stroke.phase_time_s = phase_time_at(config, next.stroke.cycle_time_s);
+    remaining_s -= segment_s;
+    if (remaining_s <= SEGMENT_TIME_EPSILON_S) {
+      remaining_s = 0.0;
+    }
+  }
+
+  refresh_blade_kinematics(config, next);
+
+  if (!state_is_finite(next)) {
+    return {
+        .state = std::nullopt,
+        .diagnostics = {AdvancerDiagnostic{
+            .code = "non_finite_state",
+            .path = "$.runtime.state",
+            .message = "state advancement produced a non-finite state",
+        }},
+        .constraint_residual_max = 0.0,
+    };
+  }
+
+  return {
+      .state = next,
+      .diagnostics = {},
+      .constraint_residual_max = 0.0,
+  };
+}
+
+template <typename HullAdvanceFn>
+AdvanceResult advance_segmented_state_with_diagnostics(
+    const SimulatorConfig &config, const MechanicalStateSnapshot &state,
+    double step_size_s, HullAdvanceFn &&advance_hull_segment_fn) {
+  if (!(std::isfinite(step_size_s) && step_size_s > 0.0)) {
+    return {
+        .state = std::nullopt,
+        .diagnostics = {AdvancerDiagnostic{
+            .code = "invalid_step_size",
+            .path = "$.simulation.time_step_s",
+            .message = "step size must be finite and positive",
+        }},
+        .constraint_residual_max = 0.0,
+    };
+  }
+
+  MechanicalStateSnapshot next = state;
+  double remaining_s = step_size_s;
+
+  while (remaining_s > 0.0) {
+    const StrokePhase active_phase = phase_at(config, next.stroke.cycle_time_s);
+    const double phase_end_time_s = active_phase == StrokePhase::drive
+                                        ? config.stroke.drive_duration_s
+                                        : config.stroke.cycle_duration_s;
+    const double time_to_boundary_s =
+        phase_end_time_s - next.stroke.cycle_time_s;
+    const double segment_s = time_to_boundary_s > SEGMENT_TIME_EPSILON_S
+                                 ? std::min(remaining_s, time_to_boundary_s)
+                                 : remaining_s;
+
+    if (segment_s > SEGMENT_TIME_EPSILON_S) {
       const auto diagnostic = advance_hull_segment_fn(next, segment_s);
       if (diagnostic.has_value()) {
         return {
@@ -574,10 +671,8 @@ public:
     const auto dynamics = resolve_load_dynamics(config, loads);
     return advance_segmented_state(
         config, state, step_size_s,
-        [&](MechanicalStateSnapshot &next,
-            double segment_s) -> std::optional<AdvancerDiagnostic> {
+        [&](MechanicalStateSnapshot &next, double segment_s) {
           advance_hull_segment(next, segment_s, dynamics);
-          return std::nullopt;
         });
   }
 };
@@ -616,7 +711,9 @@ struct SundialsContextOwner {
   SUNContext value{};
 
   SundialsContextOwner() {
-    if (SUNContext_Create(nullptr, &value) != 0) {
+    if (current_sundials_test_fault_mode() ==
+            SundialsTestFaultMode::context_create_failure ||
+        SUNContext_Create(nullptr, &value) != 0) {
       value = nullptr;
     }
   }
@@ -884,75 +981,134 @@ int sundials_hull_residual(realtype /*time_s*/, N_Vector state,
   return 0;
 }
 
+[[nodiscard]] AdvancerDiagnostic
+make_sundials_solver_failure(std::string_view message) {
+  return AdvancerDiagnostic{
+      .code = "solver_failure",
+      .path = "$.runtime.state",
+      .message = std::string(message),
+  };
+}
+
+[[nodiscard]] bool sundials_allocation_failed(
+    const SundialsVectorOwner &state, const SundialsVectorOwner &derivatives,
+    const SundialsMatrixOwner &matrix, SundialsTestFaultMode test_fault_mode) {
+  return state.value == nullptr || derivatives.value == nullptr ||
+         matrix.value == nullptr ||
+         test_fault_mode == SundialsTestFaultMode::memory_allocation_failure;
+}
+
+[[nodiscard]] bool sundials_solver_initialization_failed(
+    const SundialsLinearSolverOwner &linear_solver, const SundialsIdaOwner &ida,
+    SundialsTestFaultMode test_fault_mode) {
+  return linear_solver.value == nullptr || ida.value == nullptr ||
+         test_fault_mode ==
+             SundialsTestFaultMode::solver_initialization_failure;
+}
+
+[[nodiscard]] void *
+resolve_sundials_user_data(SundialsSegmentUserData &segment_data,
+                           SundialsTestFaultMode test_fault_mode) {
+  if (test_fault_mode == SundialsTestFaultMode::null_user_data) {
+    return nullptr;
+  }
+  return &segment_data;
+}
+
+struct SundialsSetupContext {
+  void *ida{};
+  realtype current_time_s{};
+  N_Vector state{};
+  N_Vector derivatives{};
+  SUNLinearSolver linear_solver{};
+  SUNMatrix matrix{};
+};
+
+[[nodiscard]] bool
+sundials_setup_failed(const SundialsSetupContext &context, void *user_data,
+                      SundialsTestFaultMode test_fault_mode) {
+  return IDAInit(context.ida, sundials_hull_residual, context.current_time_s,
+                 context.state, context.derivatives) != IDA_SUCCESS ||
+         IDASetUserData(context.ida, user_data) != IDA_SUCCESS ||
+         IDASStolerances(context.ida, SUNDIALS_RELATIVE_TOLERANCE,
+                         SUNDIALS_ABSOLUTE_TOLERANCE) != IDA_SUCCESS ||
+         IDASetLinearSolver(context.ida, context.linear_solver,
+                            context.matrix) != IDA_SUCCESS ||
+         test_fault_mode == SundialsTestFaultMode::setup_failure;
+}
+
+[[nodiscard]] bool sundials_solve_failed(
+    void *ida, realtype target_time_s, realtype &reached_time_s, N_Vector state,
+    N_Vector derivatives, SundialsTestFaultMode test_fault_mode) {
+  return test_fault_mode == SundialsTestFaultMode::solve_failure ||
+         IDASolve(ida, target_time_s, &reached_time_s, state, derivatives,
+                  IDA_NORMAL) != IDA_SUCCESS;
+}
+
+void inject_sundials_test_solution_fault(
+    N_Vector state, SundialsTestFaultMode test_fault_mode) {
+  if (test_fault_mode == SundialsTestFaultMode::non_finite_solution) {
+    sundials_entry(state, SundialsHullStateIndex::POSITION_X) =
+        std::numeric_limits<double>::quiet_NaN();
+  }
+}
+
 std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
     MechanicalStateSnapshot &next, double segment_s,
     const SimulatorConfig &config, const ExternalLoads &loads) {
+  const auto test_fault_mode = current_sundials_test_fault_mode();
   const realtype current_time_s = static_cast<realtype>(next.time_s);
   const realtype target_time_s = static_cast<realtype>(next.time_s + segment_s);
-  if (target_time_s <= current_time_s) {
-    return std::nullopt;
-  }
 
   const SundialsContextOwner context;
   if (context.value == nullptr) {
-    return AdvancerDiagnostic{
-        .code = "solver_failure",
-        .path = "$.runtime.state",
-        .message = "SUNDIALS IDA context initialization failed",
-    };
+    return make_sundials_solver_failure(
+        "SUNDIALS IDA context initialization failed");
   }
 
   const SundialsVectorOwner state(context.value);
   const SundialsVectorOwner derivatives(context.value);
   const SundialsMatrixOwner matrix(context.value);
-  if (state.value == nullptr || derivatives.value == nullptr ||
-      matrix.value == nullptr) {
-    return AdvancerDiagnostic{
-        .code = "solver_failure",
-        .path = "$.runtime.state",
-        .message = "SUNDIALS IDA memory allocation failed",
-    };
+  if (sundials_allocation_failed(state, derivatives, matrix, test_fault_mode)) {
+    return make_sundials_solver_failure(
+        "SUNDIALS IDA memory allocation failed");
   }
 
   const SundialsLinearSolverOwner linear_solver(state.value, matrix.value,
                                                 context.value);
   const SundialsIdaOwner ida(context.value);
-  if (linear_solver.value == nullptr || ida.value == nullptr) {
-    return AdvancerDiagnostic{
-        .code = "solver_failure",
-        .path = "$.runtime.state",
-        .message = "SUNDIALS IDA solver initialization failed",
-    };
+  if (sundials_solver_initialization_failed(linear_solver, ida,
+                                            test_fault_mode)) {
+    return make_sundials_solver_failure(
+        "SUNDIALS IDA solver initialization failed");
   }
 
   store_hull_state_in_sundials(state.value, next);
   store_hull_derivatives_in_sundials(derivatives.value, config, loads, next);
 
   SundialsSegmentUserData segment_data{.config = &config, .loads = &loads};
-  if (IDAInit(ida.value, sundials_hull_residual, current_time_s, state.value,
-              derivatives.value) != IDA_SUCCESS ||
-      IDASetUserData(ida.value, &segment_data) != IDA_SUCCESS ||
-      IDASStolerances(ida.value, SUNDIALS_RELATIVE_TOLERANCE,
-                      SUNDIALS_ABSOLUTE_TOLERANCE) != IDA_SUCCESS ||
-      IDASetLinearSolver(ida.value, linear_solver.value, matrix.value) !=
-          IDA_SUCCESS) {
-    return AdvancerDiagnostic{
-        .code = "solver_failure",
-        .path = "$.runtime.state",
-        .message = "SUNDIALS IDA setup failed for the requested step",
-    };
+  const SundialsSetupContext setup_context{
+      .ida = ida.value,
+      .current_time_s = current_time_s,
+      .state = state.value,
+      .derivatives = derivatives.value,
+      .linear_solver = linear_solver.value,
+      .matrix = matrix.value,
+  };
+  void *user_data = resolve_sundials_user_data(segment_data, test_fault_mode);
+  if (sundials_setup_failed(setup_context, user_data, test_fault_mode)) {
+    return make_sundials_solver_failure(
+        "SUNDIALS IDA setup failed for the requested step");
   }
 
   realtype reached_time_s = current_time_s;
-  if (IDASolve(ida.value, target_time_s, &reached_time_s, state.value,
-               derivatives.value, IDA_NORMAL) != IDA_SUCCESS) {
-    return AdvancerDiagnostic{
-        .code = "solver_failure",
-        .path = "$.runtime.state",
-        .message = "SUNDIALS IDA failed to advance the hull state",
-    };
+  if (sundials_solve_failed(ida.value, target_time_s, reached_time_s,
+                            state.value, derivatives.value, test_fault_mode)) {
+    return make_sundials_solver_failure(
+        "SUNDIALS IDA failed to advance the hull state");
   }
 
+  inject_sundials_test_solution_fault(state.value, test_fault_mode);
   load_hull_state_from_sundials(next, state.value);
   return std::nullopt;
 }
@@ -977,7 +1133,7 @@ public:
                         const MechanicalStateSnapshot &state,
                         double step_size_s,
                         const ExternalLoads &loads) override {
-    return advance_segmented_state(
+    return advance_segmented_state_with_diagnostics(
         config, state, step_size_s,
         [&](MechanicalStateSnapshot &next,
             double segment_s) -> std::optional<AdvancerDiagnostic> {
@@ -1100,22 +1256,22 @@ StateAdvancer &default_state_advancer() {
 }
 
 StateAdvancer *builtin_state_advancer(std::string_view id) noexcept {
-  const auto type = parse_builtin_state_advancer(id);
-  if (!type.has_value()) {
-    return nullptr;
-  }
-
-  switch (*type) {
-  case BuiltinStateAdvancerType::sundials_ida:
+  if (id == builtin_state_advancer_id(BuiltinStateAdvancerType::sundials_ida)) {
 #if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
     static SundialsIdaStateAdvancer sundials_advancer;
     return &sundials_advancer;
 #else
     return nullptr;
 #endif
-  case BuiltinStateAdvancerType::deterministic_baseline:
+  }
+
+  if (id == builtin_state_advancer_id(
+                BuiltinStateAdvancerType::deterministic_baseline)) {
     return &default_state_advancer();
-  case BuiltinStateAdvancerType::chrono_rigidbody:
+  }
+
+  if (id ==
+      builtin_state_advancer_id(BuiltinStateAdvancerType::chrono_rigidbody)) {
 #if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
     static ChronoRigidBodyStateAdvancer advancer;
     return &advancer;
@@ -1123,7 +1279,20 @@ StateAdvancer *builtin_state_advancer(std::string_view id) noexcept {
     return nullptr;
 #endif
   }
+
   return nullptr;
 }
+
+#if defined(PROJECT_TEST_HOOKS) && PROJECT_TEST_HOOKS &&                       \
+    defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+void set_sundials_test_fault_mode_for_testing(
+    SundialsTestFaultMode mode) noexcept {
+  sundials_test_fault_mode_storage() = mode;
+}
+
+void reset_sundials_test_fault_mode_for_testing() noexcept {
+  sundials_test_fault_mode_storage() = SundialsTestFaultMode::none;
+}
+#endif
 
 } // namespace project

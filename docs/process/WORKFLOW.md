@@ -57,9 +57,9 @@ feature loop.
   allowed.
 - Use explicit `rgr:red`, `rgr:green`, and `rgr:refactor` evidence markers for
   loop traceability (commit message or note).
-- `./scripts/check_rgr_evidence.sh` runs in warning mode by default from
-  `test_tdd.sh` and `verify.sh`; strict mode is opt-in via
-  `RGR_ENFORCEMENT_MODE=strict`.
+- `./scripts/check_rgr_evidence.sh` runs in strict mode by default from
+  `test_tdd.sh` and `verify.sh`; `warn` or `off` are explicit local overrides
+  via `RGR_ENFORCEMENT_MODE`.
 - Missing trace tags or evidence is not allowed.
 - Duplicate `@design` or `@test` IDs are not allowed.
 - Non-trivial `src/lib` functions require explicit `@design D-*` mapping.

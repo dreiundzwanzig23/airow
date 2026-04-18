@@ -38,16 +38,23 @@ Json read_json_file(const std::filesystem::path &path) {
   return document;
 }
 
-std::string make_valid_config_json_with_output(
-    std::string_view config_id, std::string_view summary_path,
-    std::string_view time_series_path, bool high_frequency_time_series,
-    double duration_s = 1.0, double time_step_s = 0.25,
-    std::string_view formats_json = "[\"json\"]",
-    std::string_view hdf5_path = "") {
-  return std::string("{\n") + "  \"config_id\": \"" + std::string(config_id) +
-         "\",\n" + "  \"simulation\": {\n" +
-         "    \"duration_s\": " + std::to_string(duration_s) + ",\n" +
-         "    \"time_step_s\": " + std::to_string(time_step_s) + "\n" +
+struct OutputConfigJsonOptions {
+  std::string_view config_id;
+  std::string_view summary_path;
+  std::string_view time_series_path;
+  bool high_frequency_time_series{};
+  double duration_s{1.0};
+  double time_step_s{0.25};
+  std::string_view formats_json{"[\"json\"]"};
+  std::string_view hdf5_path{""};
+};
+
+std::string
+make_valid_config_json_with_output(const OutputConfigJsonOptions &options) {
+  return std::string("{\n") + "  \"config_id\": \"" +
+         std::string(options.config_id) + "\",\n" + "  \"simulation\": {\n" +
+         "    \"duration_s\": " + std::to_string(options.duration_s) + ",\n" +
+         "    \"time_step_s\": " + std::to_string(options.time_step_s) + "\n" +
          "  },\n" +
          "  \"hull\": {\n"
          "    \"mass_kg\": 14.0,\n"
@@ -84,12 +91,13 @@ std::string make_valid_config_json_with_output(
          "  },\n"
          "  \"output\": {\n"
          "    \"summary_path\": \"" +
-         std::string(summary_path) + "\",\n" + "    \"time_series_path\": \"" +
-         std::string(time_series_path) + "\",\n" +
-         "    \"formats\": " + std::string(formats_json) + ",\n" +
-         "    \"hdf5_path\": \"" + std::string(hdf5_path) + "\",\n" +
+         std::string(options.summary_path) + "\",\n" +
+         "    \"time_series_path\": \"" +
+         std::string(options.time_series_path) + "\",\n" +
+         "    \"formats\": " + std::string(options.formats_json) + ",\n" +
+         "    \"hdf5_path\": \"" + std::string(options.hdf5_path) + "\",\n" +
          "    \"high_frequency_time_series\": " +
-         std::string(high_frequency_time_series ? "true" : "false") +
+         std::string(options.high_frequency_time_series ? "true" : "false") +
          "\n"
          "  }\n"
          "}\n";
@@ -141,8 +149,10 @@ TEST(RunOutputsIntegration, FileBackedAndInMemoryEmissionMatch) {
   const auto config_path =
       write_temp_file("airow-it-output-config.json",
                       make_valid_config_json_with_output(
-                          "it-output", file_summary_path.string(),
-                          file_time_series_path.string(), true));
+                          {.config_id = "it-output",
+                           .summary_path = file_summary_path.string(),
+                           .time_series_path = file_time_series_path.string(),
+                           .high_frequency_time_series = true}));
 
   FixedClock file_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 11h,
@@ -232,9 +242,12 @@ TEST(RunOutputsIntegration, DualFormatEmissionIncludesHdf5WhenSupported) {
   const auto config_path =
       write_temp_file("airow-it-output-h5-config.json",
                       make_valid_config_json_with_output(
-                          "it-output-h5", file_summary_path.string(),
-                          file_time_series_path.string(), true, 1.0, 0.25,
-                          "[\"json\", \"hdf5\"]", file_hdf5_path.string()));
+                          {.config_id = "it-output-h5",
+                           .summary_path = file_summary_path.string(),
+                           .time_series_path = file_time_series_path.string(),
+                           .high_frequency_time_series = true,
+                           .formats_json = "[\"json\", \"hdf5\"]",
+                           .hdf5_path = file_hdf5_path.string()}));
 
   FixedClock file_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 12h,
@@ -288,9 +301,12 @@ TEST(RunOutputsIntegration, SummaryArtifactIncludesDerivedAnalysisBlock) {
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
 
-  auto loaded = project::parse_simulator_config_text(
-      make_valid_config_json_with_output("it-analysis", summary_path.string(),
-                                         time_series_path.string(), false));
+  auto loaded =
+      project::parse_simulator_config_text(make_valid_config_json_with_output(
+          {.config_id = "it-analysis",
+           .summary_path = summary_path.string(),
+           .time_series_path = time_series_path.string(),
+           .high_frequency_time_series = false}));
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.config.has_value());
 

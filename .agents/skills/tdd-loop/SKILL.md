@@ -56,8 +56,8 @@ description: Execute the repository's failing-tests-first workflow for behavior-
 - Update `README.md` and `CHANGELOG.md` when the change is user-visible or
   process-visible.
 - Keep RGR evidence markers (`rgr:red`, `rgr:green`, `rgr:refactor`) in a
-  commit message or evidence note. `./scripts/check_rgr_evidence.sh` warns by
-  default and can be promoted to strict failures with
-  `RGR_ENFORCEMENT_MODE=strict`.
+  commit message or evidence note. `./scripts/check_rgr_evidence.sh` is strict
+  by default; use `RGR_ENFORCEMENT_MODE=warn` or `off` only as explicit local
+  overrides.
 - Do not create a thin 1:1 `R -> A` mapping unless the architecture policy
   explicitly justifies it.

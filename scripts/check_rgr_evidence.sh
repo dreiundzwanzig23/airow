@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mode="${RGR_ENFORCEMENT_MODE:-warn}"
+mode="${RGR_ENFORCEMENT_MODE:-strict}"
 default_evidence_file=".rgr-evidence.md"
 expected_markers=("rgr:red" "rgr:green" "rgr:refactor")
 

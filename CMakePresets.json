@@ -160,6 +160,10 @@
     {
       "name": "gcc",
       "configurePreset": "gcc",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:alloc_dealloc_mismatch=0",
+        "LSAN_OPTIONS": "detect_leaks=0"
+      },
       "output": {
         "outputOnFailure": true
       }
@@ -195,6 +199,10 @@
     {
       "name": "sanitized-clang-libcxx",
       "configurePreset": "sanitized-clang-libcxx",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:alloc_dealloc_mismatch=0",
+        "LSAN_OPTIONS": "detect_leaks=0"
+      },
       "output": {
         "outputOnFailure": true
       }

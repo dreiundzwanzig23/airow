@@ -185,6 +185,7 @@ enable_sanitizers(project_app)
 
 include(CTest)
 if(BUILD_TESTING)
+    target_compile_definitions(project_lib PRIVATE PROJECT_TEST_HOOKS=1)
     include(CheckCXXSourceCompiles)
     set(CMAKE_REQUIRED_QUIET ON)
     check_cxx_source_compiles("#include <string>\n#ifndef _LIBCPP_VERSION\n#error not libc++\n#endif\nint main(){return 0;}" USING_LIBCXX)
@@ -219,18 +220,33 @@ if(BUILD_TESTING)
         tests/unit/test_hydro_runtime_models.cpp
         tests/unit/test_run_analysis.cpp
         tests/unit/test_state_advancement.cpp
+        tests/unit/test_state_advancement_startup_validation.cpp
+        tests/unit/test_state_advancement_validation.cpp
         tests/unit/test_state_advancement_sundials.cpp
         tests/unit/test_simulator_config.cpp
+        tests/unit/test_simulator_config_runtime.cpp
         tests/unit/test_simulator_config_mechanics.cpp
         tests/unit/test_simulation_run.cpp
+        tests/unit/test_simulation_run_cli.cpp
         tests/unit/test_simulation_run_advancer.cpp
+        tests/unit/test_simulation_run_state_validation.cpp
+        tests/unit/test_simulation_run_state_validation_additional.cpp
         tests/unit/test_run_outputs.cpp
+        tests/unit/test_run_outputs_hdf5.cpp
+        tests/unit/test_run_outputs_config.cpp
         tests/unit/test_scenario_harness.cpp
+        tests/unit/test_scenario_harness_loader.cpp
+        tests/unit/test_scenario_harness_headwind.cpp
+        tests/unit/test_scenario_harness_crosswind.cpp
         tests/unit/test_scenario_harness_additional.cpp
     )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_unit)
     enable_sanitizers(project_tests_unit)
+    target_compile_definitions(project_tests_unit PRIVATE
+        PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+        PROJECT_TEST_HOOKS=1
+    )
 
     add_executable(project_tests_integration
         tests/integration/test_hydro_runtime_integration.cpp
@@ -242,6 +258,7 @@ if(BUILD_TESTING)
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_integration)
     enable_sanitizers(project_tests_integration)
+    target_compile_definitions(project_tests_integration PRIVATE PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
     add_executable(project_tests_system
         tests/system/test_calm_water_scenario_system.cpp
@@ -285,32 +302,34 @@ if(BUILD_TESTING)
     enable_sanitizers(project_tests_aux_headers)
 
     include(GoogleTest)
-    gtest_add_tests(TARGET project_tests_unit TEST_LIST unit_tests_list)
-    gtest_add_tests(TARGET project_tests_integration TEST_LIST integration_tests_list)
-    gtest_add_tests(TARGET project_tests_system TEST_LIST system_tests_list)
-    add_test(NAME project_tests_aux_headers COMMAND project_tests_aux_headers)
-
-    set_tests_properties(
-        ${unit_tests_list}
+    gtest_discover_tests(
+        project_tests_unit
+        TEST_LIST unit_tests_list
+        DISCOVERY_MODE PRE_TEST
         PROPERTIES
             LABELS "unit"
             TIMEOUT 30
             ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
-    set_tests_properties(
-        ${integration_tests_list}
+    gtest_discover_tests(
+        project_tests_integration
+        TEST_LIST integration_tests_list
+        DISCOVERY_MODE PRE_TEST
         PROPERTIES
             LABELS "integration"
             TIMEOUT 45
             ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
-    set_tests_properties(
-        ${system_tests_list}
+    gtest_discover_tests(
+        project_tests_system
+        TEST_LIST system_tests_list
+        DISCOVERY_MODE PRE_TEST
         PROPERTIES
             LABELS "system"
             TIMEOUT 60
             ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
+    add_test(NAME project_tests_aux_headers COMMAND project_tests_aux_headers)
     set_tests_properties(
         project_tests_aux_headers
         PROPERTIES

@@ -159,114 +159,6 @@ TEST(StateAdvancement, AdvancesHullSeatAndOarStateDeterministically) {
 }
 
 /**
- * @test UT-023
- * @verifies [D-015, D-020, D-029]
- * @notes Given non-finite startup or runtime inputs, when the baseline state
- * advancer initializes or advances, then it rejects them deterministically
- * without exposing an invalid mechanics snapshot.
- */
-TEST(StateAdvancement, RejectsNonFiniteStartupOrRuntimeInputs) {
-  auto &advancer = project::default_state_advancer();
-
-  {
-    auto config = make_config();
-    config.hull.initial_position_m.x = std::numeric_limits<double>::quiet_NaN();
-
-    const auto startup = advancer.initialize(config);
-
-    ASSERT_FALSE(startup.ok());
-    ASSERT_FALSE(startup.state.has_value());
-    ASSERT_EQ(startup.diagnostics.size(), 1U);
-    EXPECT_EQ(startup.diagnostics.front().code, "startup_invalid_state");
-    EXPECT_EQ(startup.diagnostics.front().path, "$.startup.state");
-    EXPECT_EQ(startup.solver_status, "non_finite_startup_state");
-  }
-
-  {
-    auto config = make_config();
-    config.hull.initial_position_m.y = std::numeric_limits<double>::quiet_NaN();
-
-    const auto startup = advancer.initialize(config);
-
-    ASSERT_FALSE(startup.ok());
-    ASSERT_FALSE(startup.state.has_value());
-    ASSERT_EQ(startup.diagnostics.size(), 1U);
-    EXPECT_EQ(startup.diagnostics.front().code, "startup_invalid_state");
-    EXPECT_EQ(startup.diagnostics.front().path, "$.startup.state");
-    EXPECT_EQ(startup.solver_status, "non_finite_startup_state");
-  }
-
-  {
-    auto config = make_config();
-    config.hull.initial_position_m.z = std::numeric_limits<double>::quiet_NaN();
-
-    const auto startup = advancer.initialize(config);
-
-    ASSERT_FALSE(startup.ok());
-    ASSERT_FALSE(startup.state.has_value());
-    ASSERT_EQ(startup.diagnostics.size(), 1U);
-    EXPECT_EQ(startup.diagnostics.front().code, "startup_invalid_state");
-    EXPECT_EQ(startup.diagnostics.front().path, "$.startup.state");
-    EXPECT_EQ(startup.solver_status, "non_finite_startup_state");
-  }
-
-  {
-    const auto startup = advancer.initialize(make_config());
-    ASSERT_TRUE(startup.ok());
-    ASSERT_TRUE(startup.state.has_value());
-
-    const auto nan_step = advancer.advance(
-        make_config(), *startup.state, std::numeric_limits<double>::quiet_NaN(),
-        project::ExternalLoads{});
-
-    ASSERT_FALSE(nan_step.ok());
-    ASSERT_FALSE(nan_step.state.has_value());
-    ASSERT_EQ(nan_step.diagnostics.size(), 1U);
-    EXPECT_EQ(nan_step.diagnostics.front().code, "invalid_step_size");
-  }
-
-  {
-    const auto startup = advancer.initialize(make_config());
-    ASSERT_TRUE(startup.ok());
-    ASSERT_TRUE(startup.state.has_value());
-
-    const auto invalid_step = advancer.advance(make_config(), *startup.state,
-                                               0.0, project::ExternalLoads{});
-
-    ASSERT_FALSE(invalid_step.ok());
-    ASSERT_FALSE(invalid_step.state.has_value());
-    ASSERT_EQ(invalid_step.diagnostics.size(), 1U);
-    EXPECT_EQ(invalid_step.diagnostics.front().code, "invalid_step_size");
-    EXPECT_EQ(invalid_step.diagnostics.front().path,
-              "$.simulation.time_step_s");
-  }
-
-  {
-    const auto startup = advancer.initialize(make_config());
-    ASSERT_TRUE(startup.ok());
-    ASSERT_TRUE(startup.state.has_value());
-
-    const auto invalid_load = advancer.advance(
-        make_config(), *startup.state, 0.25,
-        project::ExternalLoads{
-            .hydro_force_world_n = {.x =
-                                        std::numeric_limits<double>::infinity(),
-                                    .y = 0.0,
-                                    .z = 0.0},
-            .hydro_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
-            .aero_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
-            .aero_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
-        });
-
-    ASSERT_FALSE(invalid_load.ok());
-    ASSERT_FALSE(invalid_load.state.has_value());
-    ASSERT_EQ(invalid_load.diagnostics.size(), 1U);
-    EXPECT_EQ(invalid_load.diagnostics.front().code, "non_finite_state");
-    EXPECT_EQ(invalid_load.diagnostics.front().path, "$.runtime.state");
-  }
-}
-
-/**
  * @test UT-024
  * @verifies [D-020, D-029]
  * @notes Given a valid mechanics startup state and a step spanning more than
@@ -391,6 +283,41 @@ TEST(StateAdvancement, WrapsNegativeCycleTimeIntoValidInterval) {
             config.stroke.cycle_duration_s);
   EXPECT_NEAR(advanced.state->stroke.cycle_time_s, 1.17, 1e-12);
   EXPECT_EQ(advanced.state->stroke.phase, project::StrokePhase::recovery);
+}
+
+/**
+ * @test UT-204
+ * @verifies [D-029]
+ * @notes Given a mechanics snapshot whose cycle time already sits exactly on
+ * the cycle boundary, when the baseline advancer advances one positive step,
+ * then segmentation still consumes the step and wraps back into the next
+ * drive phase deterministically.
+ */
+TEST(StateAdvancement, AdvancesFromExactCycleBoundaryWithoutStalling) {
+  auto config = make_config();
+  auto &advancer = project::default_state_advancer();
+  const auto startup = advancer.initialize(config);
+
+  ASSERT_TRUE(startup.ok());
+  ASSERT_TRUE(startup.state.has_value());
+
+  auto boundary_state = *startup.state;
+  boundary_state.time_s = 1.2;
+  boundary_state.stroke.cycle_time_s = config.stroke.cycle_duration_s;
+  boundary_state.stroke.phase_time_s =
+      config.stroke.cycle_duration_s - config.stroke.drive_duration_s;
+  boundary_state.stroke.phase = project::StrokePhase::recovery;
+
+  constexpr double step_size_s = 0.02;
+  const auto advanced = advancer.advance(config, boundary_state, step_size_s,
+                                         project::ExternalLoads{});
+
+  ASSERT_TRUE(advanced.ok());
+  ASSERT_TRUE(advanced.state.has_value());
+  EXPECT_NEAR(advanced.state->time_s, boundary_state.time_s + step_size_s,
+              1e-12);
+  EXPECT_NEAR(advanced.state->stroke.cycle_time_s, step_size_s, 1e-12);
+  EXPECT_EQ(advanced.state->stroke.phase, project::StrokePhase::drive);
 }
 
 /**

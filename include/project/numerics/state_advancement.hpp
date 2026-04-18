@@ -82,4 +82,22 @@ StateAdvancer &default_state_advancer();
 [[nodiscard]] StateAdvancer *
 builtin_state_advancer(std::string_view id) noexcept;
 
+#if defined(PROJECT_TEST_HOOKS) && PROJECT_TEST_HOOKS &&                       \
+    defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+enum class SundialsTestFaultMode {
+  none,
+  context_create_failure,
+  null_user_data,
+  memory_allocation_failure,
+  solver_initialization_failure,
+  setup_failure,
+  solve_failure,
+  non_finite_solution,
+};
+
+void set_sundials_test_fault_mode_for_testing(
+    SundialsTestFaultMode mode) noexcept;
+void reset_sundials_test_fault_mode_for_testing() noexcept;
+#endif
+
 } // namespace project

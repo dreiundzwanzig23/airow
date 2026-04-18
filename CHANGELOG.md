@@ -2,13 +2,19 @@
 
 ## [Unreleased]
 ### Changed
-- Started a stop-the-line workflow recovery slice under `A-008`: validation
-  summaries now preserve nested child exit codes, stale summary files are
-  cleared before each run, `test_aux.sh` gained a dedicated regression for the
-  validation summary contract, the full `test.sh` gate now scopes
-  test-quality linting to changed test files while leaving standalone
-  all-scope audits available, and `D-043` regained direct unit trace coverage
-  through a small dedicated SUNDIALS startup test.
+- Completed the stop-the-line workflow recovery slice under `A-008`:
+  validation summaries now preserve nested child exit codes, stale summary
+  files are cleared before each run, `test_aux.sh` carries a regression for
+  the validation summary contract, RGR evidence enforcement is strict by
+  default again, the full `test.sh` gate enforces repo-wide test-quality
+  linting again, GoogleTest registration uses runtime discovery so multiline
+  tests cannot be silently skipped, sanitized and GCC CTest presets now carry
+  the discovery-safe sanitizer environment needed for registration and test
+  execution to share the same contract, `D-043` regained direct unit trace
+  coverage through a small dedicated SUNDIALS startup test, and the former
+  ambient `AIROW_SUNDIALS_TEST_FAULT` seam was replaced with an explicit
+  compile-time-gated test hook so production runtime behavior is no longer
+  controlled by an undocumented environment variable.
 - Closed the WSL crash reproducer behind the default `sundials_ida` runtime:
   positive sub-epsilon advancement steps now still consume simulated time,
   the shared run loop rejects non-advancing state-advancer results
@@ -107,7 +113,7 @@
   with integration points from the TDD and major-change loops.
 - Tightened the workflow from generic failing-tests-first to explicit
   red-green-refactor enforcement with a mandatory refactor phase, aligned
-  policy and skill playbooks, and a new warning-only
+  policy and skill playbooks, and a new
   `./scripts/check_rgr_evidence.sh` hook in `test_tdd.sh` and `verify.sh`
   for `rgr:red`, `rgr:green`, and `rgr:refactor` marker checks.
 - Added the first `A-008` scenario-harness slice with a public

@@ -227,7 +227,7 @@ Aggregate pre-merge validation:
 ./scripts/verify.sh
 ```
 
-RGR evidence check (warning-only by default):
+RGR evidence check (strict by default):
 ```bash
 ./scripts/check_rgr_evidence.sh
 ```
@@ -301,7 +301,7 @@ Useful environment variables:
 - `VALIDATION_LOG_DIR`
 - `VALIDATION_SUMMARY_DIR`
 - `VALIDATION_SUMMARY_PATH`
-- `RGR_ENFORCEMENT_MODE` (`warn`, `strict`, `off`)
+- `RGR_ENFORCEMENT_MODE` (`strict`, `warn`, `off`)
 - `RGR_EVIDENCE_TEXT`
 - `RGR_EVIDENCE_FILE`
 
@@ -325,15 +325,17 @@ Maintenance commands:
   const-correctness, braces, magic numbers, declaration isolation,
   LLVM-native include-cleaner coverage, and related agent-facing code quality
   issues.
-- `./scripts/test.sh`: full validation now includes auxiliary tooling
-  contracts, changed-scope test-quality linting, a dedicated sanitized runtime
-  lane, a dedicated GCC portability lane, and unit coverage over `src/lib/**`
-  with stricter 90% region and 80% branch gates.
+- `./scripts/test.sh`: full validation includes repo-wide auxiliary tooling
+  contracts and test-quality linting, a dedicated sanitized runtime lane, a
+  dedicated GCC portability lane, preset-level sanitizer environment for
+  runtime GoogleTest discovery, and unit coverage over `src/lib/**` with
+  stricter 90% region and 80% branch gates plus changed-file coverage
+  ratchets.
 - `./scripts/lint_tests.sh`: separate test-quality linting with banned-pattern
   checks for implementation-coupled or nondeterministic tests plus tighter
   test-only structural thresholds (default max `900` lines and `14` test
-  cases per file) plus narrow legacy-file overrides where the repo still has
-  explicit aggregation debt to split later.
+  cases per file) with no per-file override escape hatch in the enforced
+  default policy.
 - `./scripts/test_aux.sh`: auxiliary coverage now includes the dedicated
   test-quality lint lane, tooling contracts, and public-header self-containment
   compilation, plus a regression that checks validation summaries report

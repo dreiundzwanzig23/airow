@@ -141,90 +141,6 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
 }
 
 /**
- * @test UT-132
- * @verifies [D-001, D-008, D-040]
- * @notes Given the baseline config omits explicit backend selection, when the
- * config is parsed, then the SUNDIALS built-in state advancer is selected and
- * normalized by default.
- */
-TEST(SimulatorConfig, DefaultsStateAdvancerSelectionDeterministically) {
-  const auto result =
-      project::parse_simulator_config_text(make_valid_config_json());
-
-  ASSERT_TRUE(result.ok());
-  ASSERT_TRUE(result.config.has_value());
-  EXPECT_EQ(result.config->simulation.state_advancer, "sundials_ida");
-  EXPECT_NE(std::find(result.normalized_config.begin(),
-                      result.normalized_config.end(),
-                      project::NormalizedConfigEntry{
-                          "$.simulation.state_advancer", "sundials_ida", ""}),
-            result.normalized_config.end());
-}
-
-/**
- * @test UT-133
- * @verifies [D-001, D-040]
- * @notes Given an unknown built-in state advancer id, when config parsing
- * runs, then validation rejects the value deterministically.
- */
-TEST(SimulatorConfig, RejectsUnknownStateAdvancerSelection) {
-  const auto result = project::parse_simulator_config_text(
-      replace_once(make_valid_config_json(), R"("time_step_s": 0.01)",
-                   R"("time_step_s": 0.01,
-      "state_advancer": "unsupported_backend")"));
-
-  ASSERT_FALSE(result.ok());
-  ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
-  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
-}
-
-/**
- * @test UT-134
- * @verifies [D-001, D-040]
- * @notes Given the Chrono built-in state advancer is requested, when config
- * parsing runs on builds with and without Chrono support, then validation
- * either accepts the selection or rejects it deterministically as
- * unavailable.
- */
-TEST(SimulatorConfig, ValidatesChronoStateAdvancerSelectionByBuildSupport) {
-  const auto result = project::parse_simulator_config_text(
-      replace_once(make_valid_config_json(), R"("time_step_s": 0.01)",
-                   R"("time_step_s": 0.01,
-      "state_advancer": "chrono_rigidbody")"));
-
-  if (project::chrono_state_advancer_supported()) {
-    ASSERT_TRUE(result.ok());
-    ASSERT_TRUE(result.config.has_value());
-    EXPECT_EQ(result.config->simulation.state_advancer, "chrono_rigidbody");
-    return;
-  }
-
-  ASSERT_FALSE(result.ok());
-  ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.diagnostics.front().code, "unsupported_value");
-  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
-}
-
-/**
- * @test UT-140
- * @verifies [D-001, D-040]
- * @notes Given the SUNDIALS built-in state advancer is requested, when config
- * parsing runs on the required-dependency build, then validation accepts the
- * selection deterministically.
- */
-TEST(SimulatorConfig, AcceptsSundialsStateAdvancerSelection) {
-  const auto result = project::parse_simulator_config_text(
-      replace_once(make_valid_config_json(), R"("time_step_s": 0.01)",
-                   R"("time_step_s": 0.01,
-      "state_advancer": "sundials_ida")"));
-
-  ASSERT_TRUE(result.ok());
-  ASSERT_TRUE(result.config.has_value());
-  EXPECT_EQ(result.config->simulation.state_advancer, "sundials_ida");
-}
-
-/**
  * @test UT-110
  * @verifies [D-001, D-002]
  * @notes Given explicit prescribed blade-depth fields in the stroke block,
@@ -242,6 +158,37 @@ TEST(SimulatorConfig, ParsesExplicitStrokeBladeDepthSettings) {
   ASSERT_TRUE(result.config.has_value());
   EXPECT_DOUBLE_EQ(result.config->stroke.drive_blade_depth_m, 0.18);
   EXPECT_DOUBLE_EQ(result.config->stroke.recovery_blade_depth_m, 0.01);
+}
+
+/**
+ * @test UT-200
+ * @verifies [D-002]
+ * @notes Given explicit decimal values with trailing zeroes, when the config
+ * is parsed, then normalized scalar entries strip redundant trailing zeroes
+ * deterministically instead of preserving formatting noise from the source
+ * text.
+ */
+TEST(SimulatorConfig, NormalizesTrailingZeroDecimalFormatting) {
+  auto config_text = make_valid_config_json();
+  config_text = replace_once(config_text, "\"duration_s\": 120.0",
+                             "\"duration_s\": 120.5000");
+  config_text = replace_once(config_text, "\"time_step_s\": 0.01",
+                             "\"time_step_s\": 0.0100");
+
+  const auto result = project::parse_simulator_config_text(config_text);
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.config.has_value());
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{"$.simulation.duration_s",
+                                                     "120.5", "s"}),
+            result.normalized_config.end());
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{"$.simulation.time_step_s",
+                                                     "0.01", "s"}),
+            result.normalized_config.end());
 }
 
 /**
@@ -273,45 +220,10 @@ TEST(SimulatorConfig, RejectsInvertedStrokeBladeDepthSettings) {
  * naming the failing path.
  */
 TEST(SimulatorConfig, ReportsMissingRequiredFieldPath) {
-  const auto result = project::parse_simulator_config_text(R"({
-    "config_id": "baseline-single-scull",
-    "simulation": {
-      "duration_s": 120.0
-    },
-    "hull": {
-      "mass_kg": 14.5,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.2, 8.4, 8.8],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    }
-  })");
+  const auto result = project::parse_simulator_config_text(
+      replace_once(make_valid_config_json(),
+                   "    \"duration_s\": 120.0,\n    \"time_step_s\": 0.01\n",
+                   "    \"duration_s\": 120.0\n"));
 
   ASSERT_FALSE(result.ok());
   ASSERT_FALSE(result.config.has_value());
@@ -331,46 +243,9 @@ TEST(SimulatorConfig, ReportsMissingRequiredFieldPath) {
  */
 TEST(SimulatorConfig, RejectsNegativeNumericValues) {
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": {
-        "duration_s": -1.0,
-        "time_step_s": 0.01
-      },
-      "hull": {
-        "mass_kg": 14.5,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.2, 8.4, 8.8],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      }
-    })");
+    const auto result = project::parse_simulator_config_text(
+        replace_once(make_valid_config_json(), "\"duration_s\": 120.0",
+                     "\"duration_s\": -1.0"));
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -379,46 +254,8 @@ TEST(SimulatorConfig, RejectsNegativeNumericValues) {
   }
 
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": {
-        "duration_s": 120.0,
-        "time_step_s": 0.01
-      },
-      "hull": {
-        "mass_kg": -2.0,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.2, 8.4, 8.8],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      }
-    })");
+    const auto result = project::parse_simulator_config_text(replace_once(
+        make_valid_config_json(), "\"mass_kg\": 14.5", "\"mass_kg\": -2.0"));
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -436,46 +273,9 @@ TEST(SimulatorConfig, RejectsNegativeNumericValues) {
  */
 TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": {
-        "duration_s": NaN,
-        "time_step_s": 0.01
-      },
-      "hull": {
-        "mass_kg": 14.5,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.2, 8.4, 8.8],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      }
-    })");
+    const auto result = project::parse_simulator_config_text(
+        replace_once(make_valid_config_json(), "\"duration_s\": 120.0",
+                     "\"duration_s\": NaN"));
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -484,46 +284,9 @@ TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
   }
 
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": {
-        "duration_s": 120.0,
-        "time_step_s": Infinity
-      },
-      "hull": {
-        "mass_kg": 14.5,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.2, 8.4, 8.8],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      }
-    })");
+    const auto result = project::parse_simulator_config_text(
+        replace_once(make_valid_config_json(), "\"time_step_s\": 0.01",
+                     "\"time_step_s\": Infinity"));
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -532,46 +295,9 @@ TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
   }
 
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": {
-        "duration_s": 120.0,
-        "time_step_s": 0.01
-      },
-      "hull": {
-        "mass_kg": -Infinity,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.2, 8.4, 8.8],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      }
-    })");
+    const auto result = project::parse_simulator_config_text(
+        replace_once(make_valid_config_json(), "\"mass_kg\": 14.5",
+                     "\"mass_kg\": -Infinity"));
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -587,46 +313,9 @@ TEST(SimulatorConfig, RejectsNonFiniteNumericLiterals) {
  * parsed, then deterministic type diagnostics identify the exact field path.
  */
 TEST(SimulatorConfig, RejectsWrongJsonTypes) {
-  const auto result = project::parse_simulator_config_text(R"({
-    "config_id": "baseline-single-scull",
-    "simulation": {
-      "duration_s": "120",
-      "time_step_s": 0.01
-    },
-    "hull": {
-      "mass_kg": 14.5,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.2, 8.4, 8.8],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    }
-  })");
+  const auto result = project::parse_simulator_config_text(
+      replace_once(make_valid_config_json(), "\"duration_s\": 120.0",
+                   "\"duration_s\": \"120\""));
 
   ASSERT_FALSE(result.ok());
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -671,43 +360,11 @@ TEST(SimulatorConfig, RejectsMalformedOrNonObjectJson) {
  */
 TEST(SimulatorConfig, RejectsInvalidObjectStructureAndZeroStepSize) {
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": [],
-      "hull": {
-        "mass_kg": 14.5,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.2, 8.4, 8.8],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      }
-    })");
+    auto config_text = make_valid_config_json();
+    config_text = replace_once(
+        config_text,
+        "{\n    \"duration_s\": 120.0,\n    \"time_step_s\": 0.01\n  }", "[]");
+    const auto result = project::parse_simulator_config_text(config_text);
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -716,46 +373,9 @@ TEST(SimulatorConfig, RejectsInvalidObjectStructureAndZeroStepSize) {
   }
 
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": {
-        "duration_s": 120.0,
-        "time_step_s": 0.0
-      },
-      "hull": {
-        "mass_kg": 14.5,
-        "center_of_mass_m": [0.0, 0.0, 0.0],
-        "inertia_kg_m2": [1.2, 8.4, 8.8],
-        "initial_position_m": [0.0, 0.0, 0.0],
-        "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-        "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-        "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-      },
-      "oars": {
-        "port": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, -0.82, 0.18]
-        },
-        "starboard": {
-          "inboard_length_m": 0.88,
-          "outboard_length_m": 1.98,
-          "oarlock_position_m": [0.25, 0.82, 0.18]
-        }
-      },
-      "seat": {
-        "rail_axis": [1.0, 0.0, 0.0],
-        "min_position_m": -0.4,
-        "max_position_m": 0.4,
-        "initial_position_m": 0.0
-      },
-      "stroke": {
-        "cycle_duration_s": 1.2,
-        "drive_duration_s": 0.48,
-        "catch_angle_rad": -0.9,
-        "release_angle_rad": 0.6
-      }
-    })");
+    const auto result = project::parse_simulator_config_text(
+        replace_once(make_valid_config_json(), "\"time_step_s\": 0.01",
+                     "\"time_step_s\": 0.0"));
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -764,14 +384,19 @@ TEST(SimulatorConfig, RejectsInvalidObjectStructureAndZeroStepSize) {
   }
 
   {
-    const auto result = project::parse_simulator_config_text(R"({
-      "config_id": "baseline-single-scull",
-      "simulation": {
-        "duration_s": 120.0,
-        "time_step_s": 0.01
-      },
-      "hull": "not-an-object"
-    })");
+    auto config_text = make_valid_config_json();
+    config_text =
+        replace_once(config_text,
+                     "{\n    \"mass_kg\": 14.5,\n    \"center_of_mass_m\": "
+                     "[0.0, 0.0, 0.0],\n    "
+                     "\"inertia_kg_m2\": [1.2, 8.4, 8.8],\n    "
+                     "\"initial_position_m\": [0.0, "
+                     "0.0, 0.0],\n    \"initial_orientation_xyzw\": [0.0, 0.0, "
+                     "0.0, 1.0],\n    "
+                     "\"initial_linear_velocity_mps\": [0.0, 0.0, 0.0],\n    "
+                     "\"initial_angular_velocity_radps\": [0.0, 0.0, 0.0]\n  }",
+                     "\"not-an-object\"");
+    const auto result = project::parse_simulator_config_text(config_text);
 
     ASSERT_FALSE(result.ok());
     ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -823,176 +448,4 @@ TEST(SimulatorConfig, LoadsFromFileOrReportsIoError) {
     EXPECT_EQ(result.diagnostics.front().code, "parse_error");
     EXPECT_EQ(result.diagnostics.front().path, "$");
   }
-}
-
-/**
- * @test UT-122
- * @verifies [D-032]
- * @notes Given an explicit providers block, when the configuration is parsed,
- * then the selected runtime provider ids and normalized metadata are preserved
- * deterministically.
- */
-TEST(SimulatorConfig, ParsesRuntimeProviderSelections) {
-  const auto result = project::parse_simulator_config_text(R"({
-    "config_id": "provider-selection",
-    "simulation": {
-      "duration_s": 120.0,
-      "time_step_s": 0.01
-    },
-    "hull": {
-      "mass_kg": 14.5,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.2, 8.4, 8.8],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "providers": {
-      "hull_resistance": "quadratic_drag_placeholder",
-      "blade_force": "stroke_propulsion_placeholder",
-      "aero_load": "steady_wind_placeholder"
-    }
-  })");
-
-  ASSERT_TRUE(result.ok());
-  ASSERT_TRUE(result.config.has_value());
-  EXPECT_EQ(result.config->providers.hull_resistance,
-            "quadratic_drag_placeholder");
-  EXPECT_EQ(result.config->providers.blade_force,
-            "stroke_propulsion_placeholder");
-  EXPECT_EQ(result.config->providers.aero_load, "steady_wind_placeholder");
-  EXPECT_NE(
-      std::find(
-          result.normalized_config.begin(), result.normalized_config.end(),
-          project::NormalizedConfigEntry{"$.providers.hull_resistance",
-                                         "quadratic_drag_placeholder", ""}),
-      result.normalized_config.end());
-  EXPECT_NE(
-      std::find(
-          result.normalized_config.begin(), result.normalized_config.end(),
-          project::NormalizedConfigEntry{"$.providers.blade_force",
-                                         "stroke_propulsion_placeholder", ""}),
-      result.normalized_config.end());
-  EXPECT_NE(
-      std::find(result.normalized_config.begin(),
-                result.normalized_config.end(),
-                project::NormalizedConfigEntry{"$.providers.aero_load",
-                                               "steady_wind_placeholder", ""}),
-      result.normalized_config.end());
-}
-
-/**
- * @test UT-123
- * @verifies [D-032]
- * @notes Given an unknown built-in provider id, when the configuration is
- * parsed, then validation rejects the specific provider path deterministically.
- */
-TEST(SimulatorConfig, RejectsUnknownRuntimeProviderSelections) {
-  const auto result = project::parse_simulator_config_text(R"({
-    "config_id": "provider-selection-invalid",
-    "simulation": {
-      "duration_s": 120.0,
-      "time_step_s": 0.01
-    },
-    "hull": {
-      "mass_kg": 14.5,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.2, 8.4, 8.8],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "providers": {
-      "aero_load": "gusty_unknown"
-    }
-  })");
-
-  ASSERT_FALSE(result.ok());
-  ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
-  EXPECT_EQ(result.diagnostics.front().path, "$.providers.aero_load");
-}
-
-/**
- * @test UT-124
- * @verifies [D-032, D-035]
- * @notes Given the built-in runtime provider catalog, when known provider ids
- * are queried, then each selection reports non-empty validity metadata.
- */
-TEST(SimulatorConfig, BuiltInProviderCatalogExposesValidityMetadata) {
-  const auto hull_none = project::lookup_builtin_provider_metadata(
-      project::ProviderRole::hull_resistance, "none");
-  const auto hull_drag = project::lookup_builtin_provider_metadata(
-      project::ProviderRole::hull_resistance, "quadratic_drag_placeholder");
-  const auto blade_none = project::lookup_builtin_provider_metadata(
-      project::ProviderRole::blade_force, "none");
-  const auto blade_propulsion = project::lookup_builtin_provider_metadata(
-      project::ProviderRole::blade_force, "stroke_propulsion_placeholder");
-  const auto aero_none = project::lookup_builtin_provider_metadata(
-      project::ProviderRole::aero_load, "none");
-  const auto aero_steady = project::lookup_builtin_provider_metadata(
-      project::ProviderRole::aero_load, "steady_wind_placeholder");
-
-  ASSERT_TRUE(hull_none.has_value());
-  ASSERT_TRUE(hull_drag.has_value());
-  ASSERT_TRUE(blade_none.has_value());
-  ASSERT_TRUE(blade_propulsion.has_value());
-  ASSERT_TRUE(aero_none.has_value());
-  ASSERT_TRUE(aero_steady.has_value());
-  EXPECT_FALSE(hull_none->validity_id.empty());
-  EXPECT_FALSE(hull_drag->validity_description.empty());
-  EXPECT_FALSE(blade_none->validity_id.empty());
-  EXPECT_FALSE(blade_propulsion->validity_description.empty());
-  EXPECT_FALSE(aero_none->validity_id.empty());
-  EXPECT_FALSE(aero_steady->validity_description.empty());
 }
