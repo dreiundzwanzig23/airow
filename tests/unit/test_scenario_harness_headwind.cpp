@@ -38,7 +38,8 @@ std::filesystem::path scenario_path(std::string_view file_name) {
 
 std::string read_text_file(const std::filesystem::path &path) {
   std::ifstream input(path, std::ios::binary);
-  return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  return {std::istreambuf_iterator<char>(input),
+          std::istreambuf_iterator<char>()};
 }
 
 project::SimulationRunResult make_minimal_success_result() {
@@ -112,8 +113,8 @@ std::string non_numeric_mean_speed_json() {
 TEST(ScenarioHarnessHeadwind, RejectsWindScenarioWithoutAeroProvider) {
   auto root = parse_headwind_scenario_json();
   root.erase("aero_provider");
-  const auto path = write_temp_file(
-      "airow-ut-headwind-missing-aero.json", root.dump(2));
+  const auto path =
+      write_temp_file("airow-ut-headwind-missing-aero.json", root.dump(2));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -227,8 +228,9 @@ TEST(ScenarioHarnessHeadwind, ReportsHeadwindDistanceEnvelopeFailure) {
  * numeric field at the documented aero-provider path.
  */
 TEST(ScenarioHarnessHeadwind, RejectsAeroProviderMissingYawCoefficient) {
-  const auto path = write_temp_file("airow-ut-headwind-missing-yaw-coefficient.json",
-                                    missing_yaw_coefficient_json());
+  const auto path =
+      write_temp_file("airow-ut-headwind-missing-yaw-coefficient.json",
+                      missing_yaw_coefficient_json());
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -270,8 +272,9 @@ TEST(ScenarioHarnessHeadwind, RejectsWindScenarioWithTowHydroProvider) {
  * headwind acceptance field deterministically.
  */
 TEST(ScenarioHarnessHeadwind, RejectsHeadwindScenarioMissingMaxMeanSpeed) {
-  const auto path = write_temp_file("airow-ut-headwind-missing-max-mean-speed.json",
-                                    missing_max_mean_speed_json());
+  const auto path =
+      write_temp_file("airow-ut-headwind-missing-max-mean-speed.json",
+                      missing_max_mean_speed_json());
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -291,8 +294,9 @@ TEST(ScenarioHarnessHeadwind, RejectsHeadwindScenarioMissingMaxMeanSpeed) {
  * deterministic numeric type diagnostic.
  */
 TEST(ScenarioHarnessHeadwind, RejectsHeadwindScenarioWithNonNumericMeanSpeed) {
-  const auto path = write_temp_file("airow-ut-headwind-non-numeric-mean-speed.json",
-                                    non_numeric_mean_speed_json());
+  const auto path =
+      write_temp_file("airow-ut-headwind-non-numeric-mean-speed.json",
+                      non_numeric_mean_speed_json());
 
   const auto loaded = project::load_scenario_definition_file(path);
 

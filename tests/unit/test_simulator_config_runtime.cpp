@@ -62,13 +62,12 @@ make_valid_config_json(std::string_view config_id = "baseline-single-scull") {
   return stream.str();
 }
 
-Json parse_valid_config_json(std::string_view config_id = "baseline-single-scull") {
+Json parse_valid_config_json(
+    std::string_view config_id = "baseline-single-scull") {
   return Json::parse(make_valid_config_json(config_id));
 }
 
-std::string dump_json(const Json &root) {
-  return root.dump(2);
-}
+std::string dump_json(const Json &root) { return root.dump(2); }
 
 std::string runtime_provider_selection_json(std::string_view aero_provider) {
   auto root = parse_valid_config_json("provider-selection");
@@ -133,7 +132,8 @@ TEST(SimulatorConfigRuntime, RejectsUnknownStateAdvancerSelection) {
  * either accepts the selection or rejects it deterministically as
  * unavailable.
  */
-TEST(SimulatorConfigRuntime, ValidatesChronoStateAdvancerSelectionByBuildSupport) {
+TEST(SimulatorConfigRuntime,
+     ValidatesChronoStateAdvancerSelectionByBuildSupport) {
   const auto result = project::parse_simulator_config_text(
       with_state_advancer("chrono_rigidbody"));
 
@@ -217,8 +217,7 @@ TEST(SimulatorConfigRuntime, RejectsUnknownRuntimeProviderSelections) {
       {"blade_force", "stroke_propulsion_placeholder"},
       {"aero_load", "gusty_unknown"},
   };
-  const auto result =
-      project::parse_simulator_config_text(dump_json(root));
+  const auto result = project::parse_simulator_config_text(dump_json(root));
 
   ASSERT_FALSE(result.ok());
   ASSERT_FALSE(result.diagnostics.empty());
@@ -252,10 +251,19 @@ TEST(SimulatorConfigRuntime, BuiltInProviderCatalogExposesValidityMetadata) {
   ASSERT_TRUE(blade_propulsion.has_value());
   ASSERT_TRUE(aero_none.has_value());
   ASSERT_TRUE(aero_steady.has_value());
-  EXPECT_FALSE(hull_none->validity_id.empty());
-  EXPECT_FALSE(hull_drag->validity_description.empty());
-  EXPECT_FALSE(blade_none->validity_id.empty());
-  EXPECT_FALSE(blade_propulsion->validity_description.empty());
-  EXPECT_FALSE(aero_none->validity_id.empty());
-  EXPECT_FALSE(aero_steady->validity_description.empty());
+  EXPECT_EQ(hull_none->validity_id, "not_applicable");
+  EXPECT_EQ(hull_drag->validity_id, "baseline-longitudinal-drag-v1");
+  EXPECT_EQ(hull_drag->validity_description,
+            "Supported reduced longitudinal hull-drag baseline for "
+            "deterministic tow and calm-water default-runtime studies.");
+  EXPECT_EQ(blade_none->validity_id, "not_applicable");
+  EXPECT_EQ(blade_propulsion->validity_id, "baseline-blade-force-v1");
+  EXPECT_EQ(blade_propulsion->validity_description,
+            "Supported immersion-aware reduced blade-force baseline for "
+            "deterministic single-scull default-runtime stroke studies.");
+  EXPECT_EQ(aero_none->validity_id, "not_applicable");
+  EXPECT_EQ(aero_steady->validity_id, "baseline-steady-wind-v1");
+  EXPECT_EQ(aero_steady->validity_description,
+            "Supported reduced steady apparent-wind aero baseline for "
+            "deterministic headwind and crosswind default-runtime studies.");
 }

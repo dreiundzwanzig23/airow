@@ -244,9 +244,13 @@ TEST(SimulationRun, ReturnsDeterministicMetadataAndSummary) {
   EXPECT_EQ(result.metadata.providers.hull_resistance.id, "none");
   EXPECT_EQ(result.metadata.providers.blade_force.id, "none");
   EXPECT_EQ(result.metadata.providers.aero_load.id, "none");
+  EXPECT_EQ(result.metadata.state_advancer.id, "sundials_ida");
+  EXPECT_EQ(result.metadata.state_advancer.policy_id,
+            "sundials-ida-fixed-tolerances-v1");
   EXPECT_EQ(result.metadata.state_advancer_id, "sundials-ida-state-advancer");
   EXPECT_EQ(result.metadata.startup_status, "success");
   EXPECT_EQ(result.metadata.startup_solver_status, "sundials-ida");
+  EXPECT_EQ(result.metadata.state_advancement_solver_status, "sundials-ida");
   EXPECT_EQ(result.summary.final_simulated_time_s, 1.0);
   EXPECT_EQ(result.summary.executed_step_count, 4ULL);
   EXPECT_DOUBLE_EQ(result.summary.distance_m, 0.0);

@@ -13,6 +13,15 @@
 #include "project/orchestrator/simulation_run.hpp"
 #include "project/output/run_output.hpp"
 
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+#include <H5Apublic.h>
+#include <H5Fpublic.h>
+#include <H5Gpublic.h>
+#include <H5Ipublic.h>
+#include <H5Ppublic.h>
+#include <H5Tpublic.h>
+#endif
+
 namespace {
 
 using Json = nlohmann::json;
@@ -121,22 +130,86 @@ std::string read_binary_prefix(const std::filesystem::path &path,
 }
 
 std::filesystem::path write_temp_marker_file(std::string_view file_name) {
-  const auto path = std::filesystem::temp_directory_path() /
-                    std::string(file_name);
+  const auto path =
+      std::filesystem::temp_directory_path() / std::string(file_name);
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   output << "marker";
   output.close();
   return path;
 }
 
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+class H5ScopedHandle final {
+public:
+  H5ScopedHandle() = default;
+
+  H5ScopedHandle(hid_t value, herr_t (*close_fn)(hid_t)) noexcept
+      : id(value), closer(close_fn) {}
+
+  ~H5ScopedHandle() { reset(); }
+
+  H5ScopedHandle(const H5ScopedHandle &) = delete;
+  H5ScopedHandle &operator=(const H5ScopedHandle &) = delete;
+
+  H5ScopedHandle(H5ScopedHandle &&other) noexcept
+      : id(other.id), closer(other.closer) {
+    other.id = -1;
+    other.closer = nullptr;
+  }
+
+  H5ScopedHandle &operator=(H5ScopedHandle &&other) noexcept {
+    if (this != &other) {
+      reset();
+      id = other.id;
+      closer = other.closer;
+      other.id = -1;
+      other.closer = nullptr;
+    }
+    return *this;
+  }
+
+  [[nodiscard]] bool valid() const noexcept { return id >= 0; }
+
+private:
+  void reset() noexcept {
+    if (id >= 0 && closer != nullptr) {
+      static_cast<void>(closer(id));
+    }
+    id = -1;
+    closer = nullptr;
+  }
+
+public:
+  hid_t id{-1};
+
+private:
+  herr_t (*closer)(hid_t){nullptr};
+};
+
+std::string read_hdf5_string_attribute(hid_t object, const char *name) {
+  const H5ScopedHandle attribute(H5Aopen(object, name, H5P_DEFAULT), H5Aclose);
+  EXPECT_TRUE(attribute.valid());
+  const H5ScopedHandle type(H5Aget_type(attribute.id), H5Tclose);
+  EXPECT_TRUE(type.valid());
+  const auto size = static_cast<std::size_t>(H5Tget_size(type.id));
+  std::string value(size, '\0');
+  EXPECT_GE(H5Aread(attribute.id, type.id, value.data()), 0);
+  const auto null_pos = value.find('\0');
+  if (null_pos != std::string::npos) {
+    value.resize(null_pos);
+  }
+  return value;
+}
+#endif
+
 } // namespace
 
 /**
  * @test UT-048
- * @verifies [D-022]
+ * @verifies [D-022, D-034, D-040]
  * @notes Given HDF5 output enabled on a supported build, when the run
  * executes, then deterministic HDF5 artifacts are emitted with the expected
- * file signature.
+ * file signature and structured state-advancer metadata.
  */
 TEST(RunOutputsHdf5, EmitsHdf5ArtifactWhenEnabled) {
   if (!project::hdf5_output_supported()) {
@@ -172,6 +245,31 @@ TEST(RunOutputsHdf5, EmitsHdf5ArtifactWhenEnabled) {
   ASSERT_TRUE(std::filesystem::exists(hdf5_path));
   EXPECT_EQ(read_binary_prefix(hdf5_path, 8U),
             std::string("\x89HDF\r\n\x1a\n", 8U));
+
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+  const H5ScopedHandle file(
+      H5Fopen(hdf5_path.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT),
+      H5Fclose);
+  ASSERT_TRUE(file.valid());
+  const H5ScopedHandle metadata_group(
+      H5Gopen2(file.id, "/metadata", H5P_DEFAULT), H5Gclose);
+  ASSERT_TRUE(metadata_group.valid());
+  EXPECT_EQ(read_hdf5_string_attribute(metadata_group.id,
+                                       "state_advancement_solver_status"),
+            "sundials-ida");
+
+  const H5ScopedHandle state_advancer_group(
+      H5Gopen2(file.id, "/metadata/state_advancer", H5P_DEFAULT), H5Gclose);
+  ASSERT_TRUE(state_advancer_group.valid());
+  EXPECT_EQ(read_hdf5_string_attribute(state_advancer_group.id, "id"),
+            "sundials_ida");
+  EXPECT_EQ(read_hdf5_string_attribute(state_advancer_group.id, "policy_id"),
+            "sundials-ida-fixed-tolerances-v1");
+  EXPECT_EQ(
+      read_hdf5_string_attribute(state_advancer_group.id, "policy_description"),
+      "Required SUNDIALS IDA default-runtime backend with fixed relative and "
+      "absolute tolerances of 1e-10 for Slice 3 closure.");
+#endif
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);

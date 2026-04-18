@@ -38,7 +38,8 @@ std::filesystem::path scenario_path(std::string_view file_name) {
 
 std::string read_text_file(const std::filesystem::path &path) {
   std::ifstream input(path, std::ios::binary);
-  return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  return {std::istreambuf_iterator<char>(input),
+          std::istreambuf_iterator<char>()};
 }
 
 project::SimulationRunResult make_minimal_success_result() {
@@ -244,9 +245,9 @@ TEST(ScenarioHarnessCrosswind, ReportsCrosswindNegativeYawSignMismatch) {
  * crosswind acceptance field deterministically.
  */
 TEST(ScenarioHarnessCrosswind, RejectsCrosswindScenarioMissingYawMagnitude) {
-  const auto path = write_temp_file(
-      "airow-ut-crosswind-missing-yaw-magnitude.json",
-      crosswind_missing_yaw_magnitude_json());
+  const auto path =
+      write_temp_file("airow-ut-crosswind-missing-yaw-magnitude.json",
+                      crosswind_missing_yaw_magnitude_json());
 
   const auto loaded = project::load_scenario_definition_file(path);
 

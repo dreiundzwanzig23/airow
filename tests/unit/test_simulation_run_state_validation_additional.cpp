@@ -125,16 +125,15 @@ private:
   StateMutator mutator_;
 };
 
-project::SimulationRunResult run_with_advancer(project::StateAdvancer &advancer) {
+project::SimulationRunResult
+run_with_advancer(project::StateAdvancer &advancer) {
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 8} + 10h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 8} + 10h + 1s});
-  return project::run_simulation(
-      make_config(),
-      project::SimulationDependencies{
-          .state_advancer = &advancer,
-          .clock = &clock,
-      });
+  return project::run_simulation(make_config(), project::SimulationDependencies{
+                                                    .state_advancer = &advancer,
+                                                    .clock = &clock,
+                                                });
 }
 
 void set_time_nan(project::MechanicalStateSnapshot &state) {
@@ -174,12 +173,14 @@ void set_port_oarlock_position_y_nan(project::MechanicalStateSnapshot &state) {
       std::numeric_limits<double>::quiet_NaN();
 }
 
-void set_port_blade_tip_position_z_nan(project::MechanicalStateSnapshot &state) {
+void set_port_blade_tip_position_z_nan(
+    project::MechanicalStateSnapshot &state) {
   state.port_oar.blade_tip_position_world_m.z =
       std::numeric_limits<double>::quiet_NaN();
 }
 
-void set_port_blade_tip_velocity_x_nan(project::MechanicalStateSnapshot &state) {
+void set_port_blade_tip_velocity_x_nan(
+    project::MechanicalStateSnapshot &state) {
   state.port_oar.blade_tip_velocity_world_mps.x =
       std::numeric_limits<double>::quiet_NaN();
 }
@@ -202,7 +203,8 @@ void expect_startup_invalid_state(project::StateAdvancer &advancer) {
  * orchestration path validates startup state, then it reports the shared
  * startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteTime) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteTime) {
   StartupMutatingAdvancer advancer(set_time_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -214,7 +216,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteTim
  * when the orchestration path validates startup state, then it reports the
  * shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOrientationX) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteOrientationX) {
   StartupMutatingAdvancer advancer(set_orientation_x_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -226,7 +229,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOri
  * when the orchestration path validates startup state, then it reports the
  * shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOrientationZ) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteOrientationZ) {
   StartupMutatingAdvancer advancer(set_orientation_z_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -238,7 +242,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOri
  * when the orchestration path validates startup state, then it reports the
  * shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOrientationW) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteOrientationW) {
   StartupMutatingAdvancer advancer(set_orientation_w_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -250,7 +255,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOri
  * when the orchestration path validates startup state, then it reports the
  * shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteAngularVelocity) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteAngularVelocity) {
   StartupMutatingAdvancer advancer(set_angular_velocity_y_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -262,7 +268,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteAng
  * when the orchestration path validates startup state, then it reports the
  * shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteSeatRailAxis) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteSeatRailAxis) {
   StartupMutatingAdvancer advancer(set_seat_rail_axis_y_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -274,7 +281,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteSea
  * the orchestration path validates startup state, then it reports the shared
  * startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteConstraintResidual) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteConstraintResidual) {
   StartupMutatingAdvancer advancer(set_constraint_residual_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -286,7 +294,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteCon
  * when the orchestration path validates startup state, then it reports the
  * shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOarlockPosition) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteOarlockPosition) {
   StartupMutatingAdvancer advancer(set_port_oarlock_position_y_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -298,7 +307,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteOar
  * component, when the orchestration path validates startup state, then it
  * reports the shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteBladeTipPosition) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteBladeTipPosition) {
   StartupMutatingAdvancer advancer(set_port_blade_tip_position_z_nan);
   expect_startup_invalid_state(advancer);
 }
@@ -310,7 +320,8 @@ TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteBla
  * component, when the orchestration path validates startup state, then it
  * reports the shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidationAdditional, RejectsStartupStateWithNonFiniteBladeTipVelocity) {
+TEST(SimulationRunStateValidationAdditional,
+     RejectsStartupStateWithNonFiniteBladeTipVelocity) {
   StartupMutatingAdvancer advancer(set_port_blade_tip_velocity_x_nan);
   expect_startup_invalid_state(advancer);
 }

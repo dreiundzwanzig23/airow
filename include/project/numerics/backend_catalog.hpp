@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace project {
@@ -11,11 +12,25 @@ enum class BuiltinStateAdvancerType {
   chrono_rigidbody,
 };
 
+struct StateAdvancerMetadata {
+  std::string id;
+  std::string policy_id;
+  std::string policy_description;
+
+  bool operator==(const StateAdvancerMetadata &) const = default;
+};
+
 [[nodiscard]] std::optional<BuiltinStateAdvancerType>
 parse_builtin_state_advancer(std::string_view id) noexcept;
 
 [[nodiscard]] std::string_view
 builtin_state_advancer_id(BuiltinStateAdvancerType type) noexcept;
+
+[[nodiscard]] StateAdvancerMetadata
+builtin_state_advancer_metadata(BuiltinStateAdvancerType type) noexcept;
+
+[[nodiscard]] std::optional<StateAdvancerMetadata>
+lookup_builtin_state_advancer_metadata(std::string_view id) noexcept;
 
 [[nodiscard]] bool
 builtin_state_advancer_supported(BuiltinStateAdvancerType type) noexcept;

@@ -4,6 +4,7 @@
 #include "project/configuration/simulator_config.hpp"
 #include "project/core/geometry.hpp"
 #include "project/mechanics/state.hpp"
+#include "project/numerics/backend_catalog.hpp"
 #include "project/output/run_analysis.hpp"
 #include "project/output/run_result.hpp"
 
@@ -317,6 +318,12 @@ Json provider_metadata_json(const ProviderMetadata &provider) {
               {"validity_description", provider.validity_description}};
 }
 
+Json state_advancer_metadata_json(const StateAdvancerMetadata &metadata) {
+  return Json{{"id", metadata.id},
+              {"policy_id", metadata.policy_id},
+              {"policy_description", metadata.policy_description}};
+}
+
 Json make_summary_document(const SimulationRunResult &result) {
   Json metadata = Json{
       {"config_id", result.metadata.config_id},
@@ -330,9 +337,13 @@ Json make_summary_document(const SimulationRunResult &result) {
              provider_metadata_json(result.metadata.providers.blade_force)},
             {"aero_load",
              provider_metadata_json(result.metadata.providers.aero_load)}}},
+      {"state_advancer",
+       state_advancer_metadata_json(result.metadata.state_advancer)},
       {"state_advancer_id", result.metadata.state_advancer_id},
       {"startup_status", result.metadata.startup_status},
       {"startup_solver_status", result.metadata.startup_solver_status},
+      {"state_advancement_solver_status",
+       result.metadata.state_advancement_solver_status},
       {"startup_constraint_residual_max",
        result.metadata.startup_constraint_residual_max}};
 
@@ -797,6 +808,27 @@ bool write_provider_metadata_group(hid_t parent, const char *name,
                                 provider.validity_description, diagnostic);
 }
 
+bool write_state_advancer_metadata_group(hid_t parent,
+                                         const StateAdvancerMetadata &metadata,
+                                         RunDiagnostic &diagnostic) {
+  const H5ScopedHandle state_advancer_group(H5Gcreate2(parent, "state_advancer",
+                                                       H5P_DEFAULT, H5P_DEFAULT,
+                                                       H5P_DEFAULT),
+                                            H5Gclose);
+  if (!state_advancer_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path", "failed to create HDF5 state_advancer group");
+    return false;
+  }
+
+  return write_string_attribute(state_advancer_group.id, "id", metadata.id,
+                                diagnostic) &&
+         write_string_attribute(state_advancer_group.id, "policy_id",
+                                metadata.policy_id, diagnostic) &&
+         write_string_attribute(state_advancer_group.id, "policy_description",
+                                metadata.policy_description, diagnostic);
+}
+
 bool write_hdf5_normalized_config_group(hid_t metadata_group,
                                         const SimulationRunResult &result,
                                         RunDiagnostic &diagnostic) {
@@ -913,6 +945,9 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
         write_string_attribute(metadata_group.id, "startup_solver_status",
                                result.metadata.startup_solver_status,
                                diagnostic) &&
+        write_string_attribute(
+            metadata_group.id, "state_advancement_solver_status",
+            result.metadata.state_advancement_solver_status, diagnostic) &&
         write_double_scalar_dataset(
             metadata_group.id, "startup_constraint_residual_max",
             result.metadata.startup_constraint_residual_max, diagnostic))) {
@@ -936,7 +971,9 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
                                       diagnostic) &&
         write_provider_metadata_group(providers_group.id, "aero_load",
                                       result.metadata.providers.aero_load,
-                                      diagnostic))) {
+                                      diagnostic) &&
+        write_state_advancer_metadata_group(
+            metadata_group.id, result.metadata.state_advancer, diagnostic))) {
     return false;
   }
 

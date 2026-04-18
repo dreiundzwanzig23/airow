@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 ### Changed
+- Closed Slice 2 on `A-004` and `A-005` without reopening hydro or aero
+  behavior: the current `quadratic_drag_placeholder`,
+  `stroke_propulsion_placeholder`, and `steady_wind_placeholder` providers are
+  now documented and tested as the supported deterministic default-runtime
+  reduced-model baseline, and roadmap or architecture wording no longer claims
+  an active fidelity follow-on under that slice.
 - Completed the stop-the-line workflow recovery slice under `A-008`:
   validation summaries now preserve nested child exit codes, stale summary
   files are cleared before each run, `test_aux.sh` carries a regression for
@@ -21,22 +27,15 @@
   deterministically, and the former crash reproducer
   `V0_1ClosureSystem.TenCycleStrokeReplayClosesR008` is green again under a
   targeted run.
-- Continued Slice 3 on `A-010` by making `sundials_ida` the required default
-  built-in state advancer, wiring Ubuntu-packaged SUNDIALS IDA into the shared
-  runtime build, adding a new SUNDIALS-backed rigid-body advancer design
-  (`D-043`), extending default config and metadata coverage
-  (`UT-140..UT-141` plus updated default-path tests), and adding SUNDIALS
-  passive-float and tow scenario evidence (`QT-033`, `QT-034`) while keeping
-  `deterministic_baseline` as an explicit fallback and Chrono optional.
-- Started Slice 3A on `A-010` by adding a built-in state-advancer catalog,
-  validated `simulation.state_advancer` selection, config-driven built-in
-  advancer construction on the shared run path, and a compile-time-guarded
-  `chrono_rigidbody` backend path with new evidence (`D-040..D-042`,
-  `UT-132..UT-139`, `IT-016..IT-018`, `QT-031..QT-032`); deterministic
-  non-Chrono builds now reject the Chrono advancer selection cleanly, and the
-  local Chrono-capable build path now recognizes Chrono 10's exported
-  `Chrono::Chrono_core` target, uses the Chrono 10 rigid-body APIs, and passes
-  the guarded Chrono scenario evidence on a `~/.local` Chrono install.
+- Closed Slice 3 on `A-010` by completing built-in state-advancer selection
+  and backend-policy exposure: `simulation.state_advancer` now supports a
+  stable built-in advancer catalog, `sundials_ida` is the required default
+  runtime path with fixed built-in tolerances, `deterministic_baseline`
+  remains an explicit fallback, and `chrono_rigidbody` remains optional and
+  build-gated with passive-float or tow evidence only. The same slice also now
+  propagates structured backend-policy metadata plus startup and runtime
+  solver-status fields through the shared run path and JSON/HDF5 outputs, with
+  focused coverage in `UT-132..UT-141`, `IT-016..IT-018`, and `QT-031..QT-034`.
 - Continued Slice 2 on `A-004` by deepening the existing built-in hydro ids
   in place without changing provider ids, config schema, output schema, or
   state-advancer coupling: `stroke_propulsion_placeholder` now gates

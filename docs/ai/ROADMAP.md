@@ -7,13 +7,14 @@
 - Slice 1 closed on 2026-04-06 with top-level provider selection, built-in
   provider composition on the shared run path, and structured validity
   metadata in machine-readable outputs.
-- Slice 2 remains underway through in-place hydro and steady-wind aero
-  fidelity refinements on the existing built-in ids.
-- Slice 3 now includes two landed backend packets: validated
-  `simulation.state_advancer` selection plus the guarded `chrono_rigidbody`
-  path from 2026-04-13, and the 2026-04-15 SUNDIALS packet that makes
-  `sundials_ida` the required default built-in advancer and passes passive-
-  float and tow scenario evidence.
+- Slice 2 closed on 2026-04-18 with the current reduced hydro and steady-wind
+  aero built-in providers declared sufficient as the supported deterministic
+  default-runtime baseline.
+- Slice 3 closed on 2026-04-18 with built-in backend selection under `A-010`:
+  `sundials_ida` is the required default runtime path, `deterministic_baseline`
+  remains an explicit fallback, `chrono_rigidbody` remains optional and
+  build-gated, and machine-readable outputs now stamp stable backend policy and
+  solver-status metadata.
 
 ## Post-`v0.1` Slices
 
@@ -27,25 +28,29 @@
   metadata.
 
 ### Slice 2 — Reduced-Model Fidelity Expansion
-- Keep deepening reduced hydro and steady-wind aero behavior behind the
-  existing seams while preserving the deterministic headless run path.
+- Closed on 2026-04-18 without changing the stable built-in ids.
 - Primary owners remain `A-004` and `A-005`.
-- Current policy: keep `quadratic_drag_placeholder`,
-  `stroke_propulsion_placeholder`, and `steady_wind_placeholder` stable in
-  config and metadata while refining behavior in place.
+- Current policy: `quadratic_drag_placeholder`,
+  `stroke_propulsion_placeholder`, and `steady_wind_placeholder` remain the
+  supported reduced default-runtime baseline with stable config and metadata
+  contracts.
+- Future hydro or aero expansion should land only as a new explicit packet,
+  not as an open-ended continuation of Slice 2.
 
 ### Slice 3 — External Backend Wiring and Backend Selection
-- The first packet is landed: built-in state-advancer selection now supports
-  optional `chrono_rigidbody`, which is rejected deterministically when
-  Chrono support is absent and executes on Chrono-capable builds discovered
-  through the local Chrono package config.
-- The second packet is also landed: `simulation.state_advancer` now defaults
-  to required `sundials_ida`, with `deterministic_baseline` preserved as an
-  explicit fallback and SUNDIALS passive-float/tow evidence now checked in.
-- Keep this slice anchored in `A-010`, coordinated with `A-003` and `A-002`,
-  and separate from hydro or aero provider selection.
-- Next step: decide whether to broaden Chrono-backed stroke evidence or deepen
-  SUNDIALS-specific diagnostics and tolerance policy behind the same seam.
+- Closed on 2026-04-18.
+- Primary owner remains `A-010`, coordinated with `A-003` and `A-002`.
+- Current policy:
+  - `simulation.state_advancer` stays the only user-facing selector.
+  - `sundials_ida` is the required supported default runtime path with fixed
+    built-in tolerances.
+  - `deterministic_baseline` remains the explicit non-SUNDIALS fallback.
+  - `chrono_rigidbody` remains optional, build-gated, and bounded to the
+    current passive-float and tow evidence level.
+  - JSON and HDF5 outputs now carry structured built-in state-advancer policy
+    metadata plus startup and runtime solver-status fields.
+- Future backend work should land as new explicit packets under `A-010`, not
+  as an open-ended continuation of Slice 3.
 
 ### Slice 4 — Calibration and Time-Varying Environment
 - Re-open `R-021`, `R-022`, and `R-023` only after provider and backend seams

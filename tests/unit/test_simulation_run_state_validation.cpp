@@ -162,16 +162,15 @@ private:
   StateMutator mutator_;
 };
 
-project::SimulationRunResult run_with_advancer(project::StateAdvancer &advancer) {
+project::SimulationRunResult
+run_with_advancer(project::StateAdvancer &advancer) {
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 8} + 9h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 8} + 9h + 1s});
-  return project::run_simulation(
-      make_config(),
-      project::SimulationDependencies{
-          .state_advancer = &advancer,
-          .clock = &clock,
-      });
+  return project::run_simulation(make_config(), project::SimulationDependencies{
+                                                    .state_advancer = &advancer,
+                                                    .clock = &clock,
+                                                });
 }
 
 void set_hull_position_y_nan(project::MechanicalStateSnapshot &state) {
@@ -226,7 +225,8 @@ void set_port_blade_immersion_nan(project::MechanicalStateSnapshot &state) {
  * orchestration path validates startup state, then it reports the shared
  * startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteHullPositionY) {
+TEST(SimulationRunStateValidation,
+     RejectsStartupStateWithNonFiniteHullPositionY) {
   StartupMutatingAdvancer advancer(set_hull_position_y_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -243,7 +243,8 @@ TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteHullPositionY
  * orchestration path validates startup state, then it reports the shared
  * startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteHullPositionZ) {
+TEST(SimulationRunStateValidation,
+     RejectsStartupStateWithNonFiniteHullPositionZ) {
   StartupMutatingAdvancer advancer(set_hull_position_z_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -259,7 +260,8 @@ TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteHullPositionZ
  * the orchestration path validates startup state, then it reports the shared
  * startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteOrientation) {
+TEST(SimulationRunStateValidation,
+     RejectsStartupStateWithNonFiniteOrientation) {
   StartupMutatingAdvancer advancer(set_orientation_y_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -275,7 +277,8 @@ TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteOrientation) 
  * when the orchestration path validates startup state, then it reports the
  * shared startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteLinearVelocity) {
+TEST(SimulationRunStateValidation,
+     RejectsStartupStateWithNonFiniteLinearVelocity) {
   StartupMutatingAdvancer advancer(set_linear_velocity_z_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -291,7 +294,8 @@ TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteLinearVelocit
  * orchestration path validates startup state, then it reports the shared
  * startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteOarHandleAngle) {
+TEST(SimulationRunStateValidation,
+     RejectsStartupStateWithNonFiniteOarHandleAngle) {
   StartupMutatingAdvancer advancer(set_port_handle_angle_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -307,7 +311,8 @@ TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteOarHandleAngl
  * orchestration path validates startup state, then it reports the shared
  * startup invalid-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteSeatPosition) {
+TEST(SimulationRunStateValidation,
+     RejectsStartupStateWithNonFiniteSeatPosition) {
   StartupMutatingAdvancer advancer(set_seat_position_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -323,7 +328,8 @@ TEST(SimulationRunStateValidation, RejectsStartupStateWithNonFiniteSeatPosition)
  * the orchestration path validates the returned state, then it reports the
  * shared non-finite runtime-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsAdvancedStateWithNonFiniteSeatVelocity) {
+TEST(SimulationRunStateValidation,
+     RejectsAdvancedStateWithNonFiniteSeatVelocity) {
   AdvanceMutatingAdvancer advancer(set_seat_velocity_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -340,7 +346,8 @@ TEST(SimulationRunStateValidation, RejectsAdvancedStateWithNonFiniteSeatVelocity
  * when the orchestration path validates the returned state, then it reports
  * the shared non-finite runtime-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsAdvancedStateWithNonFiniteStrokePhaseTime) {
+TEST(SimulationRunStateValidation,
+     RejectsAdvancedStateWithNonFiniteStrokePhaseTime) {
   AdvanceMutatingAdvancer advancer(set_stroke_phase_time_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -356,7 +363,8 @@ TEST(SimulationRunStateValidation, RejectsAdvancedStateWithNonFiniteStrokePhaseT
  * when the orchestration path validates the returned state, then it reports
  * the shared non-finite runtime-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsAdvancedStateWithNonFiniteStrokeCycleTime) {
+TEST(SimulationRunStateValidation,
+     RejectsAdvancedStateWithNonFiniteStrokeCycleTime) {
   AdvanceMutatingAdvancer advancer(set_stroke_cycle_time_nan);
   const auto result = run_with_advancer(advancer);
 
@@ -372,7 +380,8 @@ TEST(SimulationRunStateValidation, RejectsAdvancedStateWithNonFiniteStrokeCycleT
  * depth, when the orchestration path validates the returned state, then it
  * reports the shared non-finite runtime-state failure deterministically.
  */
-TEST(SimulationRunStateValidation, RejectsAdvancedStateWithNonFiniteBladeImmersion) {
+TEST(SimulationRunStateValidation,
+     RejectsAdvancedStateWithNonFiniteBladeImmersion) {
   AdvanceMutatingAdvancer advancer(set_port_blade_immersion_nan);
   const auto result = run_with_advancer(advancer);
 

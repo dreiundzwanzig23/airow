@@ -16,12 +16,13 @@ architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership. Post-`v0.1` work has now
 landed the observability slice, the runtime provider-selection slice, multiple
 hydro and steady-wind aero fidelity refinements on the existing built-in
-provider ids, and the first backend-selection slice for built-in
-state-advancer selection with a required `sundials_ida` default path plus an
-optional guarded Chrono path, now validated on Chrono-capable builds against
-passive-float and tow scenario evidence; the roadmap now keeps reduced-model
-fidelity and backend wiring separate before deferred calibration or
-time-varying environment workflows.
+provider ids, and the backend-selection slice for built-in state-advancer
+selection, now closed with a required `sundials_ida` default
+path, explicit `deterministic_baseline` fallback, optional guarded Chrono
+path, and structured backend-policy plus solver-status metadata in
+machine-readable outputs; the roadmap now keeps reduced-model fidelity and
+backend wiring separate before deferred calibration or time-varying
+environment workflows.
 
 ## Quick Start
 
@@ -98,6 +99,8 @@ Current implemented library surface:
   fallback, and deterministic rejection of `chrono_rigidbody` when Chrono
   support is unavailable in the build plus Chrono-backed rigid-body stepping
   when a discoverable Chrono package is present
+- structured state-advancer metadata in run summaries with a stable built-in
+  policy id or description plus startup and runtime solver-status fields
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
 - structured hydro force or moment vectors, final passive-float equilibrium
@@ -167,10 +170,11 @@ Current implementation status:
   path for CLI and in-memory execution plus config-driven built-in provider
   construction when injected seams are absent,
 - `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
-  Advancement` are now in progress through a deterministic internal baseline
-  state-advancer seam plus the first config-driven built-in backend-selection
-  path for a guarded Chrono rigid-body advancer, now validated on
-  Chrono-capable builds with passive-float and tow scenario coverage,
+  Advancement` are now in progress through a closed backend-selection slice:
+  the shared runtime defaults to `sundials_ida`, keeps
+  `deterministic_baseline` as an explicit fallback, keeps
+  `chrono_rigidbody` guarded and optional, and propagates backend-policy plus
+  solver-status metadata through the shared run path,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
   metadata propagation, and optional HDF5 parity behind the same output
@@ -186,9 +190,10 @@ Current implementation status:
 - richer runtime provider fidelity is now in progress on the existing
   `A-004` and `A-005` seams through in-place hydro and steady-wind aero
   baseline refinements plus re-characterized wind-backed scenario envelopes,
-  while the first `A-010` backend-selection slice now lands separately through
-  built-in state-advancer selection and a compile-time-guarded Chrono path
-  rather than mixing solver adoption into provider-selection work.
+  while the closed `A-010` backend-selection slice now remains separate from
+  provider work through built-in state-advancer selection, a required
+  SUNDIALS-first default path, and a compile-time-guarded Chrono path rather
+  than mixing solver adoption into provider-selection work.
 
 ## Validation Lanes
 

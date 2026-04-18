@@ -8,6 +8,7 @@
 #include "project/hydro/provider.hpp"
 #include "project/mechanics/state.hpp"
 #include "project/mechanics/step_context.hpp"
+#include "project/numerics/backend_catalog.hpp"
 #include "project/numerics/state_advancement.hpp"
 #include "project/output/run_output.hpp"
 #include "project/output/run_result.hpp"
@@ -77,6 +78,30 @@ selected_provider_metadata(const SimulatorConfig &config) {
       .aero_load = selected_provider_metadata(
           ProviderRole::aero_load, config.providers.aero_load, "aero-load"),
   };
+}
+
+StateAdvancerMetadata fallback_state_advancer_metadata(std::string_view id) {
+  return {
+      .id = std::string(id),
+      .policy_id = "external-selection",
+      .policy_description =
+          "Externally supplied or manually constructed state advancer outside "
+          "the built-in runtime catalog.",
+  };
+}
+
+StateAdvancerMetadata
+selected_state_advancer_metadata(std::string_view configured_id,
+                                 std::string_view runtime_id,
+                                 bool using_injected_advancer) {
+  if (!using_injected_advancer) {
+    if (const auto metadata =
+            lookup_builtin_state_advancer_metadata(configured_id);
+        metadata.has_value()) {
+      return *metadata;
+    }
+  }
+  return fallback_state_advancer_metadata(runtime_id);
 }
 
 std::string
@@ -262,13 +287,18 @@ void append_runtime_failure(SimulationRunResult &result, std::string subsystem,
 void stamp_run_metadata(SimulationRunResult &result,
                         const SimulatorConfig &config,
                         std::string start_timestamp_utc,
-                        std::string_view state_advancer_id) {
+                        std::string_view state_advancer_runtime_id,
+                        bool using_injected_advancer) {
   result.status = RunStatus::success;
   result.metadata.simulator_version = PROJECT_VERSION_STRING;
   result.metadata.config_id = config.config_id;
   result.metadata.start_timestamp_utc = std::move(start_timestamp_utc);
   result.metadata.providers = selected_provider_metadata(config);
-  result.metadata.state_advancer_id = std::string(state_advancer_id);
+  result.metadata.state_advancer = selected_state_advancer_metadata(
+      config.simulation.state_advancer, state_advancer_runtime_id,
+      using_injected_advancer);
+  result.metadata.state_advancer_id = std::string(state_advancer_runtime_id);
+  result.metadata.state_advancement_solver_status = "not_started";
   result.metadata.normalized_config = normalize_simulator_config(config);
 }
 
@@ -464,6 +494,7 @@ bool advance_one_step(const SimulatorConfig &config,
           .hydro_moment_world_n_m = hydro_load.hull_moment_world_n_m,
           .aero_force_world_n = aero_load.force_world_n,
           .aero_moment_world_n_m = aero_load.moment_world_n_m});
+  result.metadata.state_advancement_solver_status = advanced.solver_status;
   if (!advanced.ok()) {
     for (const auto &diagnostic : advanced.diagnostics) {
       append_runtime_failure(result, "state_advancement", diagnostic.path,
@@ -568,7 +599,7 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    */
   if (selected_advancer == nullptr) {
     stamp_run_metadata(result, config, current_timestamp(),
-                       default_state_advancer().identifier());
+                       config.simulation.state_advancer, false);
     append_runtime_failure(
         result, "state_advancement", "$.simulation.state_advancer",
         "unsupported_state_advancer",
@@ -581,8 +612,8 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
 
   auto &advancer = *selected_advancer;
 
-  stamp_run_metadata(result, config, current_timestamp(),
-                     advancer.identifier());
+  stamp_run_metadata(result, config, current_timestamp(), advancer.identifier(),
+                     dependencies.state_advancer != nullptr);
 
   const auto startup = advancer.initialize(config);
   apply_startup_metadata(result, startup);

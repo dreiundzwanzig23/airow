@@ -7,6 +7,7 @@
 #include "project/configuration/provider_catalog.hpp"
 #include "project/configuration/simulator_config.hpp"
 #include "project/mechanics/state.hpp"
+#include "project/numerics/backend_catalog.hpp"
 
 namespace project {
 
@@ -27,9 +28,11 @@ struct RunMetadata {
   std::string start_timestamp_utc;
   std::string end_timestamp_utc;
   ProviderSelectionMetadata providers;
-  std::string state_advancer_id;
-  std::string startup_status;
-  std::string startup_solver_status;
+  StateAdvancerMetadata state_advancer;
+  std::string state_advancer_id{};
+  std::string startup_status{};
+  std::string startup_solver_status{};
+  std::string state_advancement_solver_status{};
   double startup_constraint_residual_max{};
   std::vector<NormalizedConfigEntry> normalized_config;
 

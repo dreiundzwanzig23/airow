@@ -110,10 +110,12 @@ Current implementation emphasis:
    acceptance rules.
 
 ### Backend Evolution Path
-- The current mechanics and state-advancement slice is backed by a deterministic
-  internal baseline implementation.
-- Preferred external backends such as Project Chrono and SUNDIALS remain behind
-  `A-003` and `A-010` seams and are not the current boundary contracts.
+- The current state-advancement boundary is SUNDIALS-first: the shared runtime
+  defaults to `sundials_ida`, preserves `deterministic_baseline` as an
+  explicit fallback, and keeps `chrono_rigidbody` optional behind the same
+  contract.
+- Concrete backends remain hidden behind `A-010` and are exposed externally
+  only through stable selection ids, policy metadata, and solver-status fields.
 - Higher-fidelity hydro, aero, and calibration paths are intended to plug in
   behind their subsystem contracts without changing requirement wording or the
   shared orchestration path.
@@ -162,13 +164,10 @@ Implemented baseline today:
   crosswind stroke scenario evaluation.
 
 Still planned or incomplete:
-- deeper reduced hydro runtime fidelity beyond the first widened baseline
-  providers is the current active post-provider-selection slice,
-- apparent wind and reduced aero models beyond the current steady-wind
-  refinement,
-- the steady-wind aero follow-on step is now underway on the existing built-in
-  aero id without changing the current provider-selection or metadata
-  contracts,
+- the current reduced hydro and steady-wind aero built-in providers are the
+  supported default-runtime baseline for the closed Slice 2 packet,
+- future hydro or aero expansion must be scoped as a new packet without
+  changing the current provider-selection or metadata contracts by default,
 - external calibration ingestion and provenance propagation,
 - broader external-backend evidence plus deeper SUNDIALS or Chrono diagnostics
   and tolerance policy behind existing seams.
@@ -252,12 +251,13 @@ Still planned or incomplete:
   resistance and blade-force roles, couples longitudinal and vertical
   hydro-force components plus roll or pitch restoring moments into the
   internal baseline advancer, and leaves fuller sway or yaw hydro dynamics for
-  later work. The next fidelity pass keeps the existing built-in
+  later work. Slice 2 closure keeps the existing built-in
   `quadratic_drag_placeholder` and `stroke_propulsion_placeholder` ids stable
-  while deepening them in place with richer low-speed hull damping plus
-  speed-squared resistance and stronger phase-, immersion-, and backward-slip-
-  shaped blade propulsion behavior. This pass remains provider-only and
-  preserves the current `A-010` load-to-motion coupling boundary.
+  as the supported reduced default-runtime baseline with low-speed hull
+  damping, speed-squared resistance, and phase-, immersion-, and backward-
+  slip-shaped blade propulsion behavior. Future hydro expansion remains
+  provider-only and should preserve the current `A-010` load-to-motion
+  coupling boundary unless a later architecture packet says otherwise.
 
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models
@@ -278,12 +278,12 @@ Still planned or incomplete:
   slice resolves the built-in `steady_wind_placeholder` or `none` provider from
   configuration, propagates full aero vectors and yaw-sign information through
   outputs and scenario evaluation, and keeps dynamic state advancement coupled
-  only to the longitudinal aero-force component. The current fidelity follow-on
-  keeps the existing built-in `steady_wind_placeholder` id stable while
-  deepening it in place with richer steady headwind drag sensitivity and
-  stronger steady crosswind lateral or yaw behavior, without opening
-  time-varying wind support or broadening the current state-advancer coupling
-  boundary.
+  only to the longitudinal aero-force component. Slice 2 closure keeps the
+  existing built-in `steady_wind_placeholder` id stable as the supported
+  reduced steady-wind default-runtime baseline with explicit headwind drag
+  sensitivity plus deterministic crosswind lateral and yaw behavior, without
+  opening time-varying wind support or broadening the current state-advancer
+  coupling boundary.
 
 ## A-006 — Control and Stroke Input
 - **Title**: Stroke scheduling and low-order control subsystem
@@ -382,8 +382,10 @@ Still planned or incomplete:
   contract, and solver-diagnostic contract. The current realization slice
   establishes a stable advancer interface plus deterministic internal startup
   and stepping behavior, explicit blade-immersion or blade-tip-velocity state,
-  and widened hydro-force coupling. The first backend packet adds an optional
-  Chrono-backed rigid-body advancer behind the same contract for passive-float
-  and tow-test acceptance. The second backend packet makes `sundials_ida` the
-  required default built-in path while preserving `deterministic_baseline` as
-  an explicit fallback and keeping Chrono optional behind the same seam.
+  and widened hydro-force coupling. The closed backend-selection slice adds a
+  stable built-in state-advancer catalog, optional Chrono-backed rigid-body
+  stepping behind the same contract for passive-float and tow-test acceptance,
+  a required `sundials_ida` default built-in path with fixed built-in
+  tolerances, an explicit `deterministic_baseline` fallback, and stable
+  startup and runtime solver-status plus backend-policy metadata propagation
+  through the shared run path and machine-readable outputs.

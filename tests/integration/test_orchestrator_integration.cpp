@@ -429,8 +429,13 @@ TEST(OrchestratorIntegration,
                                       });
 
   ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer.id, "deterministic_baseline");
+  EXPECT_EQ(result.metadata.state_advancer.policy_id,
+            "deterministic-baseline-v1");
   EXPECT_EQ(result.metadata.state_advancer_id,
             "deterministic-baseline-state-advancer");
+  EXPECT_EQ(result.metadata.state_advancement_solver_status,
+            "deterministic-baseline");
   EXPECT_EQ(result.summary.executed_step_count, 3ULL);
 }
 
@@ -461,6 +466,7 @@ TEST(OrchestratorIntegration,
                                       });
 
   ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer.policy_id, "external-selection");
   EXPECT_EQ(result.metadata.state_advancer_id, "recording-state-advancer");
   EXPECT_EQ(advancer.initialize_call_count, 1);
 }
@@ -495,6 +501,8 @@ TEST(OrchestratorIntegration,
                                       });
 
   ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.metadata.state_advancer.id, "chrono_rigidbody");
+  EXPECT_EQ(result.metadata.state_advancer.policy_id, "chrono-rigidbody-v1");
   ASSERT_FALSE(result.diagnostics.empty());
   EXPECT_EQ(result.diagnostics.front().code, "unsupported_state_advancer");
   EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");

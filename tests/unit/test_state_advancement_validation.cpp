@@ -62,7 +62,8 @@ project::SimulatorConfig make_config() {
 }
 
 project::StartupResult initialize_startup() {
-  const auto startup = project::default_state_advancer().initialize(make_config());
+  const auto startup =
+      project::default_state_advancer().initialize(make_config());
   EXPECT_TRUE(startup.ok());
   EXPECT_TRUE(startup.state.has_value());
   return startup;

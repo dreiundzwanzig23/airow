@@ -1,6 +1,7 @@
 #include "project/numerics/backend_catalog.hpp"
 
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace project {
@@ -10,6 +11,11 @@ namespace {
 constexpr std::string_view SUNDIALS_IDA_ID = "sundials_ida";
 constexpr std::string_view DETERMINISTIC_BASELINE_ID = "deterministic_baseline";
 constexpr std::string_view CHRONO_RIGIDBODY_ID = "chrono_rigidbody";
+constexpr std::string_view SUNDIALS_POLICY_ID =
+    "sundials-ida-fixed-tolerances-v1";
+constexpr std::string_view DETERMINISTIC_POLICY_ID =
+    "deterministic-baseline-v1";
+constexpr std::string_view CHRONO_POLICY_ID = "chrono-rigidbody-v1";
 
 } // namespace
 
@@ -44,6 +50,52 @@ builtin_state_advancer_id(BuiltinStateAdvancerType type) noexcept {
     return CHRONO_RIGIDBODY_ID;
   }
   return DETERMINISTIC_BASELINE_ID;
+}
+
+StateAdvancerMetadata
+builtin_state_advancer_metadata(BuiltinStateAdvancerType type) noexcept {
+  switch (type) {
+  case BuiltinStateAdvancerType::sundials_ida:
+    return {
+        .id = std::string(SUNDIALS_IDA_ID),
+        .policy_id = std::string(SUNDIALS_POLICY_ID),
+        .policy_description =
+            "Required SUNDIALS IDA default-runtime backend with fixed relative "
+            "and absolute tolerances of 1e-10 for Slice 3 closure.",
+    };
+  case BuiltinStateAdvancerType::deterministic_baseline:
+    return {
+        .id = std::string(DETERMINISTIC_BASELINE_ID),
+        .policy_id = std::string(DETERMINISTIC_POLICY_ID),
+        .policy_description =
+            "Stable internal deterministic fallback backend without an "
+            "external solver tolerance policy.",
+    };
+  case BuiltinStateAdvancerType::chrono_rigidbody:
+    return {
+        .id = std::string(CHRONO_RIGIDBODY_ID),
+        .policy_id = std::string(CHRONO_POLICY_ID),
+        .policy_description =
+            "Optional build-gated Chrono rigid-body backend with "
+            "backend-internal solver policy.",
+    };
+  }
+  return {
+      .id = std::string(DETERMINISTIC_BASELINE_ID),
+      .policy_id = std::string(DETERMINISTIC_POLICY_ID),
+      .policy_description =
+          "Stable internal deterministic fallback backend without an external "
+          "solver tolerance policy.",
+  };
+}
+
+std::optional<StateAdvancerMetadata>
+lookup_builtin_state_advancer_metadata(std::string_view id) noexcept {
+  const auto parsed = parse_builtin_state_advancer(id);
+  if (!parsed.has_value()) {
+    return std::nullopt;
+  }
+  return builtin_state_advancer_metadata(*parsed);
 }
 
 bool builtin_state_advancer_supported(BuiltinStateAdvancerType type) noexcept {

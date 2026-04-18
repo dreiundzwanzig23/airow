@@ -91,6 +91,7 @@ TEST(StateAdvancementSundials, AdvancesPositiveSubEpsilonStep) {
 
   ASSERT_TRUE(advanced.ok());
   ASSERT_TRUE(advanced.state.has_value());
+  EXPECT_EQ(advanced.solver_status, "sundials-ida");
   EXPECT_GT(advanced.state->time_s, startup.state->time_s);
   EXPECT_NEAR(advanced.state->time_s, tiny_step_s, 1.0e-15);
 }
@@ -164,6 +165,7 @@ TEST(StateAdvancementSundials, RejectsInvalidStepSizeBeforeSolve) {
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status, "invalid_step_size");
   EXPECT_EQ(advanced.diagnostics.front().code, "invalid_step_size");
   EXPECT_EQ(advanced.diagnostics.front().path, "$.simulation.time_step_s");
 }
@@ -213,6 +215,7 @@ TEST(StateAdvancementSundials, RejectsNonFiniteSolvedStateDeterministically) {
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status, "non_finite_state");
   EXPECT_EQ(advanced.diagnostics.front().code, "non_finite_state");
   EXPECT_EQ(advanced.diagnostics.front().path, "$.runtime.state");
 }
@@ -240,6 +243,8 @@ TEST(StateAdvancementSundials,
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status,
+            "sundials-ida-context-initialization-failed");
   EXPECT_EQ(advanced.diagnostics.front().code, "solver_failure");
   EXPECT_EQ(advanced.diagnostics.front().message,
             "SUNDIALS IDA context initialization failed");
@@ -267,6 +272,7 @@ TEST(StateAdvancementSundials, MapsAllocationFailureDeterministically) {
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status, "sundials-ida-memory-allocation-failed");
   EXPECT_EQ(advanced.diagnostics.front().code, "solver_failure");
   EXPECT_EQ(advanced.diagnostics.front().message,
             "SUNDIALS IDA memory allocation failed");
@@ -295,6 +301,8 @@ TEST(StateAdvancementSundials,
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status,
+            "sundials-ida-solver-initialization-failed");
   EXPECT_EQ(advanced.diagnostics.front().code, "solver_failure");
   EXPECT_EQ(advanced.diagnostics.front().message,
             "SUNDIALS IDA solver initialization failed");
@@ -321,6 +329,7 @@ TEST(StateAdvancementSundials, MapsSetupFailureDeterministically) {
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status, "sundials-ida-setup-failed");
   EXPECT_EQ(advanced.diagnostics.front().code, "solver_failure");
   EXPECT_EQ(advanced.diagnostics.front().message,
             "SUNDIALS IDA setup failed for the requested step");
@@ -347,6 +356,7 @@ TEST(StateAdvancementSundials, MapsSolveFailureDeterministically) {
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status, "sundials-ida-solve-failed");
   EXPECT_EQ(advanced.diagnostics.front().code, "solver_failure");
   EXPECT_EQ(advanced.diagnostics.front().message,
             "SUNDIALS IDA failed to advance the hull state");
@@ -374,6 +384,7 @@ TEST(StateAdvancementSundials, MapsResidualUserDataFailureDeterministically) {
 
   ASSERT_FALSE(advanced.ok());
   ASSERT_EQ(advanced.diagnostics.size(), 1U);
+  EXPECT_EQ(advanced.solver_status, "sundials-ida-solve-failed");
   EXPECT_EQ(advanced.diagnostics.front().code, "solver_failure");
   EXPECT_EQ(advanced.diagnostics.front().message,
             "SUNDIALS IDA failed to advance the hull state");

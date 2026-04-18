@@ -183,7 +183,8 @@ TEST(StateAdvancementStartupValidation, RejectsNonFiniteStartupLinearVelocity) {
  * baseline state advancer initializes startup state, then it rejects the
  * startup state deterministically through the shared finite-state contract.
  */
-TEST(StateAdvancementStartupValidation, RejectsNonFiniteStartupAngularVelocity) {
+TEST(StateAdvancementStartupValidation,
+     RejectsNonFiniteStartupAngularVelocity) {
   auto config = make_config();
   config.hull.initial_angular_velocity_radps.z =
       std::numeric_limits<double>::quiet_NaN();
@@ -198,7 +199,8 @@ TEST(StateAdvancementStartupValidation, RejectsNonFiniteStartupAngularVelocity) 
  * state advancer initializes startup state, then it rejects the startup state
  * deterministically through the shared finite-state contract.
  */
-TEST(StateAdvancementStartupValidation, RejectsNonFiniteStartupOarlockPosition) {
+TEST(StateAdvancementStartupValidation,
+     RejectsNonFiniteStartupOarlockPosition) {
   auto config = make_config();
   config.oars.port.oarlock_position_m.y =
       std::numeric_limits<double>::quiet_NaN();
@@ -241,7 +243,8 @@ TEST(StateAdvancementStartupValidation, RejectsNonFiniteStartupCatchAngle) {
  * state advancer initializes startup state, then it rejects the startup state
  * deterministically through the shared finite-state contract.
  */
-TEST(StateAdvancementStartupValidation, RejectsNonFiniteStartupBladeTipPosition) {
+TEST(StateAdvancementStartupValidation,
+     RejectsNonFiniteStartupBladeTipPosition) {
   auto config = make_config();
   config.oars.starboard.outboard_length_m =
       std::numeric_limits<double>::quiet_NaN();

@@ -39,9 +39,21 @@ namespace {
 constexpr std::string_view DEFAULT_ADVANCER_ID =
     "deterministic-baseline-state-advancer";
 constexpr std::string_view DEFAULT_SOLVER_STATUS = "deterministic-baseline";
+constexpr std::string_view INVALID_STEP_SIZE_STATUS = "invalid_step_size";
+constexpr std::string_view NON_FINITE_STATE_STATUS = "non_finite_state";
 #if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
 constexpr std::string_view SUNDIALS_ADVANCER_ID = "sundials-ida-state-advancer";
 constexpr std::string_view SUNDIALS_SOLVER_STATUS = "sundials-ida";
+constexpr std::string_view SUNDIALS_CONTEXT_FAILURE_STATUS =
+    "sundials-ida-context-initialization-failed";
+constexpr std::string_view SUNDIALS_ALLOCATION_FAILURE_STATUS =
+    "sundials-ida-memory-allocation-failed";
+constexpr std::string_view SUNDIALS_SOLVER_INIT_FAILURE_STATUS =
+    "sundials-ida-solver-initialization-failed";
+constexpr std::string_view SUNDIALS_SETUP_FAILURE_STATUS =
+    "sundials-ida-setup-failed";
+constexpr std::string_view SUNDIALS_SOLVE_FAILURE_STATUS =
+    "sundials-ida-solve-failed";
 #endif
 #if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
 constexpr std::string_view CHRONO_ADVANCER_ID =
@@ -50,6 +62,11 @@ constexpr std::string_view CHRONO_SOLVER_STATUS = "chrono-rigidbody";
 #endif
 constexpr double HALF = 0.5;
 constexpr double SEGMENT_TIME_EPSILON_S = 1.0e-12;
+
+struct SegmentAdvanceFailure {
+  AdvancerDiagnostic diagnostic;
+  std::string solver_status;
+};
 
 /**
  * @design D-020 — Mechanics-state helper invariants
@@ -502,6 +519,7 @@ template <typename HullAdvanceFn>
 AdvanceResult advance_segmented_state(const SimulatorConfig &config,
                                       const MechanicalStateSnapshot &state,
                                       double step_size_s,
+                                      std::string_view solver_status,
                                       HullAdvanceFn &&advance_hull_segment_fn) {
   if (!(std::isfinite(step_size_s) && step_size_s > 0.0)) {
     return {
@@ -511,6 +529,7 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
             .path = "$.simulation.time_step_s",
             .message = "step size must be finite and positive",
         }},
+        .solver_status = std::string(INVALID_STEP_SIZE_STATUS),
         .constraint_residual_max = 0.0,
     };
   }
@@ -556,6 +575,7 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
             .path = "$.runtime.state",
             .message = "state advancement produced a non-finite state",
         }},
+        .solver_status = std::string(NON_FINITE_STATE_STATUS),
         .constraint_residual_max = 0.0,
     };
   }
@@ -563,6 +583,7 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
   return {
       .state = next,
       .diagnostics = {},
+      .solver_status = std::string(solver_status),
       .constraint_residual_max = 0.0,
   };
 }
@@ -570,7 +591,8 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
 template <typename HullAdvanceFn>
 AdvanceResult advance_segmented_state_with_diagnostics(
     const SimulatorConfig &config, const MechanicalStateSnapshot &state,
-    double step_size_s, HullAdvanceFn &&advance_hull_segment_fn) {
+    double step_size_s, std::string_view solver_status,
+    HullAdvanceFn &&advance_hull_segment_fn) {
   if (!(std::isfinite(step_size_s) && step_size_s > 0.0)) {
     return {
         .state = std::nullopt,
@@ -579,6 +601,7 @@ AdvanceResult advance_segmented_state_with_diagnostics(
             .path = "$.simulation.time_step_s",
             .message = "step size must be finite and positive",
         }},
+        .solver_status = std::string(INVALID_STEP_SIZE_STATUS),
         .constraint_residual_max = 0.0,
     };
   }
@@ -602,7 +625,8 @@ AdvanceResult advance_segmented_state_with_diagnostics(
       if (diagnostic.has_value()) {
         return {
             .state = std::nullopt,
-            .diagnostics = {*diagnostic},
+            .diagnostics = {diagnostic->diagnostic},
+            .solver_status = diagnostic->solver_status,
             .constraint_residual_max = 0.0,
         };
       }
@@ -631,6 +655,7 @@ AdvanceResult advance_segmented_state_with_diagnostics(
             .path = "$.runtime.state",
             .message = "state advancement produced a non-finite state",
         }},
+        .solver_status = std::string(NON_FINITE_STATE_STATUS),
         .constraint_residual_max = 0.0,
     };
   }
@@ -638,6 +663,7 @@ AdvanceResult advance_segmented_state_with_diagnostics(
   return {
       .state = next,
       .diagnostics = {},
+      .solver_status = std::string(solver_status),
       .constraint_residual_max = 0.0,
   };
 }
@@ -670,7 +696,7 @@ public:
                         const ExternalLoads &loads) override {
     const auto dynamics = resolve_load_dynamics(config, loads);
     return advance_segmented_state(
-        config, state, step_size_s,
+        config, state, step_size_s, DEFAULT_SOLVER_STATUS,
         [&](MechanicalStateSnapshot &next, double segment_s) {
           advance_hull_segment(next, segment_s, dynamics);
         });
@@ -981,12 +1007,17 @@ int sundials_hull_residual(realtype /*time_s*/, N_Vector state,
   return 0;
 }
 
-[[nodiscard]] AdvancerDiagnostic
-make_sundials_solver_failure(std::string_view message) {
-  return AdvancerDiagnostic{
-      .code = "solver_failure",
-      .path = "$.runtime.state",
-      .message = std::string(message),
+[[nodiscard]] SegmentAdvanceFailure
+make_sundials_solver_failure(std::string_view solver_status,
+                             std::string_view message) {
+  return {
+      .diagnostic =
+          AdvancerDiagnostic{
+              .code = "solver_failure",
+              .path = "$.runtime.state",
+              .message = std::string(message),
+          },
+      .solver_status = std::string(solver_status),
   };
 }
 
@@ -1053,7 +1084,7 @@ void inject_sundials_test_solution_fault(
   }
 }
 
-std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
+std::optional<SegmentAdvanceFailure> advance_hull_segment_with_sundials(
     MechanicalStateSnapshot &next, double segment_s,
     const SimulatorConfig &config, const ExternalLoads &loads) {
   const auto test_fault_mode = current_sundials_test_fault_mode();
@@ -1063,6 +1094,7 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
   const SundialsContextOwner context;
   if (context.value == nullptr) {
     return make_sundials_solver_failure(
+        SUNDIALS_CONTEXT_FAILURE_STATUS,
         "SUNDIALS IDA context initialization failed");
   }
 
@@ -1071,6 +1103,7 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
   const SundialsMatrixOwner matrix(context.value);
   if (sundials_allocation_failed(state, derivatives, matrix, test_fault_mode)) {
     return make_sundials_solver_failure(
+        SUNDIALS_ALLOCATION_FAILURE_STATUS,
         "SUNDIALS IDA memory allocation failed");
   }
 
@@ -1080,6 +1113,7 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
   if (sundials_solver_initialization_failed(linear_solver, ida,
                                             test_fault_mode)) {
     return make_sundials_solver_failure(
+        SUNDIALS_SOLVER_INIT_FAILURE_STATUS,
         "SUNDIALS IDA solver initialization failed");
   }
 
@@ -1098,6 +1132,7 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
   void *user_data = resolve_sundials_user_data(segment_data, test_fault_mode);
   if (sundials_setup_failed(setup_context, user_data, test_fault_mode)) {
     return make_sundials_solver_failure(
+        SUNDIALS_SETUP_FAILURE_STATUS,
         "SUNDIALS IDA setup failed for the requested step");
   }
 
@@ -1105,6 +1140,7 @@ std::optional<AdvancerDiagnostic> advance_hull_segment_with_sundials(
   if (sundials_solve_failed(ida.value, target_time_s, reached_time_s,
                             state.value, derivatives.value, test_fault_mode)) {
     return make_sundials_solver_failure(
+        SUNDIALS_SOLVE_FAILURE_STATUS,
         "SUNDIALS IDA failed to advance the hull state");
   }
 
@@ -1134,9 +1170,9 @@ public:
                         double step_size_s,
                         const ExternalLoads &loads) override {
     return advance_segmented_state_with_diagnostics(
-        config, state, step_size_s,
+        config, state, step_size_s, SUNDIALS_SOLVER_STATUS,
         [&](MechanicalStateSnapshot &next,
-            double segment_s) -> std::optional<AdvancerDiagnostic> {
+            double segment_s) -> std::optional<SegmentAdvanceFailure> {
           return advance_hull_segment_with_sundials(next, segment_s, config,
                                                     loads);
         });
@@ -1231,7 +1267,7 @@ public:
                         double step_size_s,
                         const ExternalLoads &loads) override {
     return advance_segmented_state(
-        config, state, step_size_s,
+        config, state, step_size_s, CHRONO_SOLVER_STATUS,
         [&](MechanicalStateSnapshot &next,
             double segment_s) -> std::optional<AdvancerDiagnostic> {
           advance_hull_segment_with_chrono(next, segment_s, config, loads);

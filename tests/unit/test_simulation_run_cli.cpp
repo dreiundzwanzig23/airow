@@ -221,8 +221,8 @@ TEST(SimulationRunCli, ExecutesFileBackedRunWithoutInjectedClock) {
       write_temp_file("airow-valid-run-config-default-clock.json",
                       make_valid_config_json("valid-run-default-clock"));
 
-  const auto result =
-      project::run_simulation_from_config_file(path, project::SimulationDependencies{});
+  const auto result = project::run_simulation_from_config_file(
+      path, project::SimulationDependencies{});
   remove_file_if_present(path);
 
   ASSERT_TRUE(result.ok());
@@ -241,16 +241,17 @@ TEST(SimulationRunCli, ExecutesFileBackedRunWithoutInjectedClock) {
  * then it still stamps non-empty timestamps on the configuration error result.
  */
 TEST(SimulationRunCli, MapsFileBackedConfigurationFailureWithoutInjectedClock) {
-  const auto path = write_temp_file("airow-invalid-run-config-default-clock.json",
-                                    R"({
+  const auto path =
+      write_temp_file("airow-invalid-run-config-default-clock.json",
+                      R"({
         "config_id": "invalid-run-default-clock",
         "simulation": {
           "duration_s": 1.0
         }
       })");
 
-  const auto result =
-      project::run_simulation_from_config_file(path, project::SimulationDependencies{});
+  const auto result = project::run_simulation_from_config_file(
+      path, project::SimulationDependencies{});
   remove_file_if_present(path);
 
   ASSERT_FALSE(result.ok());
@@ -274,7 +275,8 @@ TEST(SimulationRunCli, HeadlessCliWrapperRejectsInvalidUsage) {
 
   {
     const std::vector<std::string_view> args = {};
-    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream), 64);
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
+              64);
     EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
   }
 
@@ -285,7 +287,8 @@ TEST(SimulationRunCli, HeadlessCliWrapperRejectsInvalidUsage) {
 
   {
     const std::vector<std::string_view> args = {"--bogus", "value"};
-    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream), 64);
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
+              64);
     EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
   }
 }
@@ -301,13 +304,15 @@ TEST(SimulationRunCli, HeadlessCliWrapperMapsSuccessAndConfigurationFailure) {
   std::ostringstream stdout_stream;
   std::ostringstream stderr_stream;
 
-  const auto valid_path = write_temp_file("airow-unit-cli-valid-config.json",
-                                          make_valid_config_json("unit-cli-valid"));
+  const auto valid_path =
+      write_temp_file("airow-unit-cli-valid-config.json",
+                      make_valid_config_json("unit-cli-valid"));
   FixedClock valid_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 1s});
   const auto valid_path_text = valid_path.string();
-  const std::vector<std::string_view> valid_args = {"--config", valid_path_text};
+  const std::vector<std::string_view> valid_args = {"--config",
+                                                    valid_path_text};
 
   EXPECT_EQ(project::run_headless_cli(valid_args, stdout_stream, stderr_stream,
                                       project::CliDependencies{
@@ -322,8 +327,9 @@ TEST(SimulationRunCli, HeadlessCliWrapperMapsSuccessAndConfigurationFailure) {
   stderr_stream.str("");
   stderr_stream.clear();
 
-  const auto invalid_path = write_temp_file("airow-unit-cli-invalid-config.json",
-                                            R"({
+  const auto invalid_path =
+      write_temp_file("airow-unit-cli-invalid-config.json",
+                      R"({
           "config_id": "unit-cli-invalid",
           "simulation": {
             "duration_s": 1.0
@@ -369,11 +375,12 @@ TEST(SimulationRunCli, HeadlessCliWrapperMapsSuccessAndConfigurationFailure) {
   const std::vector<std::string_view> invalid_args = {"--config",
                                                       invalid_path_text};
 
-  EXPECT_EQ(project::run_headless_cli(invalid_args, stdout_stream, stderr_stream,
-                                      project::CliDependencies{
-                                          .simulation = {.clock = &invalid_clock},
-                                      }),
-            2);
+  EXPECT_EQ(
+      project::run_headless_cli(invalid_args, stdout_stream, stderr_stream,
+                                project::CliDependencies{
+                                    .simulation = {.clock = &invalid_clock},
+                                }),
+      2);
   EXPECT_NE(stderr_stream.str().find("configuration_error"), std::string::npos);
   remove_file_if_present(invalid_path);
 }
@@ -400,10 +407,11 @@ TEST(SimulationRunCli, HeadlessCliWrapperMapsRuntimeFailure) {
 
   EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
                                       project::CliDependencies{
-                                          .simulation = {
-                                              .hydro_provider = &hydro,
-                                              .clock = &clock,
-                                          },
+                                          .simulation =
+                                              {
+                                                  .hydro_provider = &hydro,
+                                                  .clock = &clock,
+                                              },
                                       }),
             3);
   EXPECT_NE(stderr_stream.str().find("runtime_error"), std::string::npos);

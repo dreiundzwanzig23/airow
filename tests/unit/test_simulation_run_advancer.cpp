@@ -164,6 +164,7 @@ public:
     return {
         .state = next,
         .diagnostics = {},
+        .solver_status = "advance-invalid-state",
         .constraint_residual_max = 0.0,
     };
   }
@@ -278,6 +279,7 @@ public:
             .path = "$.runtime.advance",
             .message = "state advancement rejected the requested step",
         }},
+        .solver_status = "advance-diagnostic",
         .constraint_residual_max = 0.0,
     };
   }
@@ -307,6 +309,7 @@ public:
     return {
         .state = std::nullopt,
         .diagnostics = {},
+        .solver_status = "advance-missing-state",
         .constraint_residual_max = 0.0,
     };
   }
@@ -335,6 +338,7 @@ public:
     return {
         .state = state,
         .diagnostics = {},
+        .solver_status = "advance-non-advancing",
         .constraint_residual_max = 0.0,
     };
   }
@@ -389,6 +393,9 @@ TEST(SimulationRun, ReportsInvalidRuntimeStateFromAdvancer) {
   ASSERT_EQ(result.diagnostics.size(), 1U);
   EXPECT_EQ(result.diagnostics.front().code, "non_finite_state");
   EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
+  EXPECT_EQ(result.metadata.state_advancer.policy_id, "external-selection");
+  EXPECT_EQ(result.metadata.state_advancement_solver_status,
+            "advance-invalid-state");
   EXPECT_EQ(result.metadata.state_advancer_id, "invalid-state-advancer");
 }
 
@@ -502,6 +509,8 @@ TEST(SimulationRun, MapsUnknownProviderAndAdvancementContractFailures) {
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "advance_contract_failure");
     EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
+    EXPECT_EQ(result.metadata.state_advancement_solver_status,
+              "advance-diagnostic");
     ASSERT_EQ(result.state_history.size(), 1U);
   }
 
@@ -517,6 +526,8 @@ TEST(SimulationRun, MapsUnknownProviderAndAdvancementContractFailures) {
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "state_advancement_failed");
     EXPECT_EQ(result.diagnostics.front().path, "$.runtime.state");
+    EXPECT_EQ(result.metadata.state_advancement_solver_status,
+              "advance-missing-state");
     ASSERT_EQ(result.state_history.size(), 1U);
   }
 }
@@ -542,6 +553,8 @@ TEST(SimulationRun, RejectsNonAdvancingRuntimeStateFromAdvancer) {
   EXPECT_EQ(result.diagnostics.front().code, "non_advancing_state");
   EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
   EXPECT_EQ(result.diagnostics.front().path, "$.runtime.state.time_s");
+  EXPECT_EQ(result.metadata.state_advancement_solver_status,
+            "advance-non-advancing");
   EXPECT_EQ(result.metadata.state_advancer_id, "non-advancing-state-advancer");
   EXPECT_EQ(result.state_history.size(), 1U);
 }

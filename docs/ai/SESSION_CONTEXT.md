@@ -3,15 +3,22 @@
 ## Snapshot
 - **Date**: 2026-04-18
 - **Branch**: `External`
-- **Current Objective**: Resume requirement-led product work under the
-  restored strict workflow and freshly verified local gates.
+- **Current Objective**: Finish the remaining post-Slice-3 repository cleanup
+  and prepare the next unfinished roadmap slice.
 
 ## Current State
 - The simulator remains a headless-first single-scull runtime with active
   `A-001`, `A-002`, `A-003`, `A-004`, `A-005`, `A-007`, `A-008`, and `A-010`
   contracts under `include/project/**`.
-- The default built-in state advancer is `sundials_ida`; `deterministic_baseline`
-  remains an explicit fallback and `chrono_rigidbody` remains build-gated.
+- Slice 2 is closed: the current built-in reduced hydro and steady-wind aero
+  providers are the supported deterministic default-runtime baseline.
+- Slice 3 is closed: the default built-in state advancer is `sundials_ida`,
+  `deterministic_baseline` remains an explicit fallback, and
+  `chrono_rigidbody` remains build-gated and bounded to passive-float or tow
+  evidence.
+- Run metadata now carries structured built-in state-advancer policy metadata
+  plus distinct startup and runtime solver-status fields in both JSON and HDF5
+  outputs.
 - The former WSL crash path is fixed: sub-epsilon advancement can no longer
   return a successful non-advancing state, and the ten-cycle replay system
   reproducer is green again.
@@ -50,6 +57,7 @@
   orchestration or lifecycle behavior.
 
 ## Next Actions
-1. Return to requirement-led roadmap work under the restored strict workflow.
+1. Decide whether Slice 4 or a smaller cross-cutting backlog packet should be
+   the next active roadmap item after the closed Slice 3 backend work.
 2. Treat any future gate softening, skipped-test path, or context drift as a
    stop-the-line defect rather than local convenience.

@@ -14,6 +14,10 @@ This document defines fidelity expectations for the rowing simulator.
 - Every reduced model should state its intended validity range.
 - Every reduced runtime provider should expose validity metadata suitable for
   configuration validation and run reporting.
+- The current reduced default-runtime baseline is the built-in
+  `quadratic_drag_placeholder`, `stroke_propulsion_placeholder`, and
+  `steady_wind_placeholder` provider set; treat that baseline as sufficient
+  unless a later scoped packet explicitly reopens hydro or aero behavior.
 - Every calibrated model should identify its calibration source or artifact.
 - Runtime provider selection must remain explicit and configuration-controlled.
 

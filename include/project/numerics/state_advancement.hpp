@@ -59,6 +59,7 @@ struct StartupResult {
 struct AdvanceResult {
   std::optional<MechanicalStateSnapshot> state;
   std::vector<AdvancerDiagnostic> diagnostics;
+  std::string solver_status{};
   double constraint_residual_max{};
 
   [[nodiscard]] bool ok() const noexcept {

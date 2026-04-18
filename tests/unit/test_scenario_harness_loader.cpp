@@ -34,7 +34,8 @@ std::filesystem::path scenario_path(std::string_view file_name) {
 
 std::string read_text_file(const std::filesystem::path &path) {
   std::ifstream input(path, std::ios::binary);
-  return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  return {std::istreambuf_iterator<char>(input),
+          std::istreambuf_iterator<char>()};
 }
 
 std::string make_valid_tow_scenario_json() {
@@ -60,9 +61,10 @@ std::string replace_once(std::string text, std::string_view token,
  * loader parses it, then it returns a deterministic invalid-value diagnostic.
  */
 TEST(ScenarioHarnessLoader, RejectsUnsupportedScenarioType) {
-  const auto path = write_temp_file("airow-ut-scenario-invalid-type.json",
-                                    replace_once(make_valid_tow_scenario_json(),
-                                                 "\"tow_test\"", "\"unsupported\""));
+  const auto path =
+      write_temp_file("airow-ut-scenario-invalid-type.json",
+                      replace_once(make_valid_tow_scenario_json(),
+                                   "\"tow_test\"", "\"unsupported\""));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -81,10 +83,10 @@ TEST(ScenarioHarnessLoader, RejectsUnsupportedScenarioType) {
  * loader parses it, then the acceptance array is rejected deterministically.
  */
 TEST(ScenarioHarnessLoader, RejectsNonIncreasingTowSpeedSamples) {
-  const auto path = write_temp_file(
-      "airow-ut-scenario-invalid-samples.json",
-      replace_once(make_valid_tow_scenario_json(), "[0.0, 0.5, 1.0, 2.0, 3.0]",
-                   "[0.0, 0.5, 0.5]"));
+  const auto path = write_temp_file("airow-ut-scenario-invalid-samples.json",
+                                    replace_once(make_valid_tow_scenario_json(),
+                                                 "[0.0, 0.5, 1.0, 2.0, 3.0]",
+                                                 "[0.0, 0.5, 0.5]"));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -105,10 +107,10 @@ TEST(ScenarioHarnessLoader, RejectsNonIncreasingTowSpeedSamples) {
  * `$.config`.
  */
 TEST(ScenarioHarnessLoader, PrefixesNestedConfigDiagnostics) {
-  const auto path = write_temp_file(
-      "airow-ut-scenario-invalid-config.json",
-      replace_once(make_valid_tow_scenario_json(), "\"time_step_s\": 0.1",
-                   "\"time_step_s\": 0.0"));
+  const auto path = write_temp_file("airow-ut-scenario-invalid-config.json",
+                                    replace_once(make_valid_tow_scenario_json(),
+                                                 "\"time_step_s\": 0.1",
+                                                 "\"time_step_s\": 0.0"));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -200,7 +202,8 @@ TEST(ScenarioHarnessLoader, RejectsScenarioProviderMismatch) {
  */
 TEST(ScenarioHarnessLoader, ReportsScenarioFileIoFailure) {
   const auto loaded = project::load_scenario_definition_file(
-      std::filesystem::temp_directory_path() / "airow-ut-missing-scenario.json");
+      std::filesystem::temp_directory_path() /
+      "airow-ut-missing-scenario.json");
 
   ASSERT_FALSE(loaded.ok());
   ASSERT_FALSE(loaded.diagnostics.empty());
@@ -233,11 +236,11 @@ TEST(ScenarioHarnessLoader, ReportsScenarioFileParseFailure) {
  * loader parses it, then it rejects the provider configuration.
  */
 TEST(ScenarioHarnessLoader, RejectsNonPositiveTowDragCoefficient) {
-  const auto path = write_temp_file(
-      "airow-ut-scenario-invalid-coefficient.json",
-      replace_once(make_valid_tow_scenario_json(),
-                   "\"drag_coefficient_n_s2_per_m2\": 6.0",
-                   "\"drag_coefficient_n_s2_per_m2\": 0.0"));
+  const auto path =
+      write_temp_file("airow-ut-scenario-invalid-coefficient.json",
+                      replace_once(make_valid_tow_scenario_json(),
+                                   "\"drag_coefficient_n_s2_per_m2\": 6.0",
+                                   "\"drag_coefficient_n_s2_per_m2\": 0.0"));
 
   const auto loaded = project::load_scenario_definition_file(path);
 

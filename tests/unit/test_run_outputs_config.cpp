@@ -126,8 +126,8 @@ TEST(RunOutputsConfig, ParsesOutputSettingsFromConfigSchema) {
   EXPECT_EQ(parsed.config->output.summary_path, "results/summary.json");
   EXPECT_EQ(parsed.config->output.time_series_path, "results/timeseries.json");
   EXPECT_TRUE(parsed.config->output.high_frequency_time_series);
-  EXPECT_TRUE(
-      normalized_contains(parsed, "$.output.summary_path", "results/summary.json", ""));
+  EXPECT_TRUE(normalized_contains(parsed, "$.output.summary_path",
+                                  "results/summary.json", ""));
   EXPECT_TRUE(normalized_contains(parsed, "$.output.time_series_path",
                                   "results/timeseries.json", ""));
   EXPECT_TRUE(normalized_contains(parsed, "$.output.high_frequency_time_series",
@@ -257,9 +257,10 @@ TEST(RunOutputsConfig, ParsesOutputFormatSelectionAndHdf5Path) {
   EXPECT_TRUE(parsed.config->output.emit_json);
   EXPECT_TRUE(parsed.config->output.emit_hdf5);
   EXPECT_EQ(parsed.config->output.hdf5_path, "results/run.h5");
-  EXPECT_TRUE(normalized_contains(parsed, "$.output.formats", "[json, hdf5]", ""));
-  EXPECT_TRUE(normalized_contains(parsed, "$.output.hdf5_path",
-                                  "results/run.h5", ""));
+  EXPECT_TRUE(
+      normalized_contains(parsed, "$.output.formats", "[json, hdf5]", ""));
+  EXPECT_TRUE(
+      normalized_contains(parsed, "$.output.hdf5_path", "results/run.h5", ""));
 }
 
 /**

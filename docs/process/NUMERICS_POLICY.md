@@ -16,8 +16,19 @@ This document defines the baseline numerics policy for the simulator project.
 - Perform consistent initialization before routine time stepping begins.
 - Treat non-converged startup conditions as deterministic startup failures, not
   as recoverable nominal runtime states.
-- Report solver or convergence status through stable diagnostic categories so
-  repeated failures remain actionable and comparable.
+- Report failure categories through stable diagnostics so repeated failures
+  remain actionable and comparable across runs.
+- When backend-specific detail is needed, expose it through dedicated
+  solver-status metadata rather than changing the stable diagnostic code set.
+
+## Built-in backend policy
+- The default runtime backend is `sundials_ida`.
+- The built-in SUNDIALS IDA policy for the default runtime path uses fixed
+  `rtol = 1e-10` and `atol = 1e-10`.
+- `deterministic_baseline` remains the explicit fallback when a non-SUNDIALS
+  path is required.
+- `chrono_rigidbody` remains optional and build-gated; its internal solver
+  policy is not yet a user-facing configuration contract.
 
 ## Tolerances and comparisons
 - Use explicit tolerances when comparing floating-point results.

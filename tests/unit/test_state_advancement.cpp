@@ -368,8 +368,9 @@ TEST(StateAdvancement, BuiltinSundialsAdvancerIsAvailable) {
  * @test UT-141
  * @verifies [D-040]
  * @notes Given the built-in state-advancer catalog ids, when they are parsed,
- * normalized back to ids, and checked for availability, then the catalog
- * behaves deterministically for known and unknown ids.
+ * normalized back to ids, checked for availability, and queried for policy
+ * metadata, then the catalog behaves deterministically for known and unknown
+ * ids.
  */
 TEST(StateAdvancement, BuiltinStateAdvancerCatalogIsDeterministic) {
   const auto sundials = project::parse_builtin_state_advancer("sundials_ida");
@@ -377,6 +378,11 @@ TEST(StateAdvancement, BuiltinStateAdvancerCatalogIsDeterministic) {
   EXPECT_EQ(*sundials, project::BuiltinStateAdvancerType::sundials_ida);
   EXPECT_EQ(project::builtin_state_advancer_id(*sundials), "sundials_ida");
   EXPECT_TRUE(project::builtin_state_advancer_supported(*sundials));
+  const auto sundials_metadata =
+      project::lookup_builtin_state_advancer_metadata("sundials_ida");
+  ASSERT_TRUE(sundials_metadata.has_value());
+  EXPECT_EQ(sundials_metadata->id, "sundials_ida");
+  EXPECT_EQ(sundials_metadata->policy_id, "sundials-ida-fixed-tolerances-v1");
 
   const auto deterministic =
       project::parse_builtin_state_advancer("deterministic_baseline");
@@ -386,6 +392,10 @@ TEST(StateAdvancement, BuiltinStateAdvancerCatalogIsDeterministic) {
   EXPECT_EQ(project::builtin_state_advancer_id(*deterministic),
             "deterministic_baseline");
   EXPECT_TRUE(project::builtin_state_advancer_supported(*deterministic));
+  const auto deterministic_metadata =
+      project::lookup_builtin_state_advancer_metadata("deterministic_baseline");
+  ASSERT_TRUE(deterministic_metadata.has_value());
+  EXPECT_EQ(deterministic_metadata->policy_id, "deterministic-baseline-v1");
 
   const auto chrono = project::parse_builtin_state_advancer("chrono_rigidbody");
   ASSERT_TRUE(chrono.has_value());
@@ -393,7 +403,14 @@ TEST(StateAdvancement, BuiltinStateAdvancerCatalogIsDeterministic) {
   EXPECT_EQ(project::builtin_state_advancer_id(*chrono), "chrono_rigidbody");
   EXPECT_EQ(project::builtin_state_advancer_supported(*chrono),
             project::chrono_state_advancer_supported());
+  const auto chrono_metadata =
+      project::lookup_builtin_state_advancer_metadata("chrono_rigidbody");
+  ASSERT_TRUE(chrono_metadata.has_value());
+  EXPECT_EQ(chrono_metadata->policy_id, "chrono-rigidbody-v1");
 
   EXPECT_FALSE(
       project::parse_builtin_state_advancer("unsupported_backend").has_value());
+  EXPECT_FALSE(
+      project::lookup_builtin_state_advancer_metadata("unsupported_backend")
+          .has_value());
 }

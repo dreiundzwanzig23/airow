@@ -121,6 +121,31 @@ private:
   std::size_t index_{0};
 };
 
+void expect_matching_output_artifacts(const Json &file_summary,
+                                      const Json &file_time_series,
+                                      const Json &mem_summary,
+                                      const Json &mem_time_series) {
+  EXPECT_EQ(file_summary.at("config_id"), mem_summary.at("config_id"));
+  EXPECT_EQ(file_summary.at("summary"), mem_summary.at("summary"));
+  EXPECT_EQ(file_summary.at("metadata").at("config_id"),
+            mem_summary.at("metadata").at("config_id"));
+  EXPECT_EQ(file_summary.at("metadata").at("simulator_version"),
+            mem_summary.at("metadata").at("simulator_version"));
+  EXPECT_EQ(file_summary.at("metadata").at("start_timestamp_utc"),
+            mem_summary.at("metadata").at("start_timestamp_utc"));
+  EXPECT_EQ(file_summary.at("metadata").at("end_timestamp_utc"),
+            mem_summary.at("metadata").at("end_timestamp_utc"));
+  EXPECT_EQ(file_summary.at("metadata").at("providers"),
+            mem_summary.at("metadata").at("providers"));
+  EXPECT_EQ(file_summary.at("metadata").at("state_advancer_id"),
+            mem_summary.at("metadata").at("state_advancer_id"));
+  EXPECT_EQ(file_summary.at("metadata").at("state_advancer"),
+            mem_summary.at("metadata").at("state_advancer"));
+  EXPECT_EQ(file_summary.at("metadata").at("state_advancement_solver_status"),
+            mem_summary.at("metadata").at("state_advancement_solver_status"));
+  EXPECT_EQ(file_time_series.at("records"), mem_time_series.at("records"));
+}
+
 } // namespace
 
 /**
@@ -184,21 +209,8 @@ TEST(RunOutputsIntegration, FileBackedAndInMemoryEmissionMatch) {
   const auto mem_summary = read_json_file(mem_summary_path);
   const auto mem_time_series = read_json_file(mem_time_series_path);
 
-  EXPECT_EQ(file_summary.at("config_id"), mem_summary.at("config_id"));
-  EXPECT_EQ(file_summary.at("summary"), mem_summary.at("summary"));
-  EXPECT_EQ(file_summary.at("metadata").at("config_id"),
-            mem_summary.at("metadata").at("config_id"));
-  EXPECT_EQ(file_summary.at("metadata").at("simulator_version"),
-            mem_summary.at("metadata").at("simulator_version"));
-  EXPECT_EQ(file_summary.at("metadata").at("start_timestamp_utc"),
-            mem_summary.at("metadata").at("start_timestamp_utc"));
-  EXPECT_EQ(file_summary.at("metadata").at("end_timestamp_utc"),
-            mem_summary.at("metadata").at("end_timestamp_utc"));
-  EXPECT_EQ(file_summary.at("metadata").at("providers"),
-            mem_summary.at("metadata").at("providers"));
-  EXPECT_EQ(file_summary.at("metadata").at("state_advancer_id"),
-            mem_summary.at("metadata").at("state_advancer_id"));
-  EXPECT_EQ(file_time_series.at("records"), mem_time_series.at("records"));
+  expect_matching_output_artifacts(file_summary, file_time_series, mem_summary,
+                                   mem_time_series);
 
   remove_file_if_present(config_path);
   remove_file_if_present(file_summary_path);
