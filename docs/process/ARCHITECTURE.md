@@ -110,12 +110,14 @@ Current implementation emphasis:
    acceptance rules.
 
 ### Backend Evolution Path
-- The current state-advancement boundary is SUNDIALS-first: the shared runtime
-  defaults to `sundials_ida`, preserves `deterministic_baseline` as an
-  explicit fallback, and keeps `chrono_rigidbody` optional behind the same
-  contract.
+- The current state-advancement boundary is a composed mechanics plus
+  integration contract: the shared standard runtime prefers
+  `chrono_rigidbody + sundials_ida`, preserves
+  `internal_baseline + sundials_ida` as the supported fallback, and keeps
+  `internal_baseline + deterministic_baseline` as the explicit debug fallback.
 - Concrete backends remain hidden behind `A-010` and are exposed externally
-  only through stable selection ids, policy metadata, and solver-status fields.
+  only through stable mechanics-backend or integration-backend selection ids,
+  policy metadata, and solver-status fields.
 - Higher-fidelity hydro, aero, and calibration paths are intended to plug in
   behind their subsystem contracts without changing requirement wording or the
   shared orchestration path.
@@ -169,8 +171,8 @@ Still planned or incomplete:
 - future hydro or aero expansion must be scoped as a new packet without
   changing the current provider-selection or metadata contracts by default,
 - external calibration ingestion and provenance propagation,
-- broader external-backend evidence plus deeper SUNDIALS or Chrono diagnostics
-  and tolerance policy behind existing seams.
+- deeper backend diagnostics, richer stepping policy, or future composed-
+  backend expansion behind the existing seams.
 
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem
@@ -188,11 +190,12 @@ Still planned or incomplete:
 - **Interfaces**: File-backed and in-memory JSON configuration loading contract returning validated `SimulatorConfig`, deterministic diagnostics, and normalized configuration metadata suitable for later runtime orchestration.
   The current slice also validates the optional top-level `providers` block
   (`hull_resistance`, `blade_force`, `aero_load`) against the built-in runtime
-  provider catalog and rejects unknown selections before execution. The next
-  backend slice extends the same boundary with `simulation.state_advancer`
-  selection for built-in advancer ids, defaulting to the deterministic
-  baseline and rejecting backend ids that are unknown or unavailable in the
-  current build.
+  provider catalog and rejects unknown selections before execution. The closed
+  backend slice extends the same boundary with
+  `simulation.mechanics_backend` and `simulation.integration_backend`
+  selection for built-in backend ids, defaulting to the preferred supported
+  runtime for the current build and rejecting unknown, unavailable, or
+  unsupported backend pairs deterministically.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -211,9 +214,9 @@ Still planned or incomplete:
   deterministic single-run execution path, plus injected hydro and aero stub
   provider seams, stable run-result metadata, exit-code mapping for the first
   headless baseline, config-driven built-in provider construction when injected
-  provider seams are absent, config-driven built-in state-advancer selection
-  when an injected advancer seam is absent, and optional human-readable report
-  rendering modes for successful single-run inspection.
+  provider seams are absent, config-driven built-in mechanics and integration
+  backend composition when an injected advancer seam is absent, and optional
+  human-readable report rendering modes for successful single-run inspection.
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
@@ -229,6 +232,10 @@ Still planned or incomplete:
 - **Allocation Rationale**: Keeps the mechanics backbone as the central physical state owner rather than leaking motion ownership into individual requirement-driven feature slices.
 - **Future Absorption**: Expanded body representations, future crew support, and deeper rower dynamics should be absorbed here behind stable state contracts.
 - **Interfaces**: Mechanics state contract, external-load application contract, and subsystem initialization contract for state advancement. The current realization slice establishes boundary-visible hull, oar, seat, and stroke state behind the orchestrator seam using a deterministic internal baseline implementation that remains independent of concrete Chrono types.
+  The closed backend slice promotes Chrono-backed rigid-body realization to the
+  preferred standard runtime build while keeping the same boundary-visible
+  state contract and preserving the deterministic internal baseline path as a
+  fallback and cross-check implementation.
 
 ## A-004 — Hydro Runtime Models
 - **Title**: Reduced hydrodynamic runtime models
@@ -382,10 +389,10 @@ Still planned or incomplete:
   contract, and solver-diagnostic contract. The current realization slice
   establishes a stable advancer interface plus deterministic internal startup
   and stepping behavior, explicit blade-immersion or blade-tip-velocity state,
-  and widened hydro-force coupling. The closed backend-selection slice adds a
-  stable built-in state-advancer catalog, optional Chrono-backed rigid-body
-  stepping behind the same contract for passive-float and tow-test acceptance,
-  a required `sundials_ida` default built-in path with fixed built-in
-  tolerances, an explicit `deterministic_baseline` fallback, and stable
-  startup and runtime solver-status plus backend-policy metadata propagation
-  through the shared run path and machine-readable outputs.
+  and widened hydro-force coupling. The closed backend slice adds stable
+  built-in mechanics-backend and integration-backend catalogs, a preferred
+  `chrono_rigidbody + sundials_ida` standard runtime with fixed built-in
+  SUNDIALS tolerances, explicit supported fallback pairs, deterministic
+  rejection of unsupported backend combinations, and stable startup and
+  runtime solver-status plus split backend-policy metadata propagation through
+  the shared run path and machine-readable outputs.

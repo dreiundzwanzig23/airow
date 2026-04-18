@@ -33,7 +33,12 @@ struct NormalizedConfigEntry {
 struct SimulationSettings {
   double duration_s{};
   double time_step_s{};
-  std::string state_advancer{"sundials_ida"};
+#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
+  std::string mechanics_backend{"chrono_rigidbody"};
+#else
+  std::string mechanics_backend{"internal_baseline"};
+#endif
+  std::string integration_backend{"sundials_ida"};
 
   bool operator==(const SimulationSettings &) const = default;
 };

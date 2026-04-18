@@ -15,6 +15,11 @@ namespace {
 
 using Json = nlohmann::json;
 
+std::string expected_default_mechanics_backend() {
+  return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
+                                                       : "internal_baseline";
+}
+
 std::string
 make_valid_config_json(std::string_view config_id = "baseline-single-scull") {
   std::ostringstream stream;
@@ -79,9 +84,31 @@ std::string runtime_provider_selection_json(std::string_view aero_provider) {
   return dump_json(root);
 }
 
-std::string with_state_advancer(std::string_view advancer_id) {
+std::string with_legacy_state_advancer(std::string_view advancer_id) {
   auto root = parse_valid_config_json();
   root["simulation"]["state_advancer"] = std::string(advancer_id);
+  return dump_json(root);
+}
+
+std::string with_mechanics_backend(std::string_view mechanics_backend_id) {
+  auto root = parse_valid_config_json();
+  root["simulation"]["mechanics_backend"] = std::string(mechanics_backend_id);
+  return dump_json(root);
+}
+
+std::string with_integration_backend(std::string_view integration_backend_id) {
+  auto root = parse_valid_config_json();
+  root["simulation"]["integration_backend"] =
+      std::string(integration_backend_id);
+  return dump_json(root);
+}
+
+std::string with_backend_pair(std::string_view mechanics_backend_id,
+                              std::string_view integration_backend_id) {
+  auto root = parse_valid_config_json();
+  root["simulation"]["mechanics_backend"] = std::string(mechanics_backend_id);
+  root["simulation"]["integration_backend"] =
+      std::string(integration_backend_id);
   return dump_json(root);
 }
 
@@ -91,32 +118,42 @@ std::string with_state_advancer(std::string_view advancer_id) {
  * @test UT-132
  * @verifies [D-001, D-008, D-040]
  * @notes Given the baseline config omits explicit backend selection, when the
- * config is parsed, then the SUNDIALS built-in state advancer is selected and
- * normalized by default.
+ * config is parsed, then the preferred Chrono mechanics backend and SUNDIALS
+ * integration backend are selected and normalized by default.
  */
-TEST(SimulatorConfigRuntime, DefaultsStateAdvancerSelectionDeterministically) {
+TEST(SimulatorConfigRuntime,
+     DefaultsMechanicsAndIntegrationBackendSelectionDeterministically) {
   const auto result =
       project::parse_simulator_config_text(make_valid_config_json());
 
   ASSERT_TRUE(result.ok());
   ASSERT_TRUE(result.config.has_value());
-  EXPECT_EQ(result.config->simulation.state_advancer, "sundials_ida");
+  EXPECT_EQ(result.config->simulation.mechanics_backend,
+            expected_default_mechanics_backend());
+  EXPECT_EQ(result.config->simulation.integration_backend, "sundials_ida");
   EXPECT_NE(std::find(result.normalized_config.begin(),
                       result.normalized_config.end(),
                       project::NormalizedConfigEntry{
-                          "$.simulation.state_advancer", "sundials_ida", ""}),
+                          "$.simulation.mechanics_backend",
+                          expected_default_mechanics_backend(), ""}),
             result.normalized_config.end());
+  EXPECT_NE(
+      std::find(result.normalized_config.begin(),
+                result.normalized_config.end(),
+                project::NormalizedConfigEntry{
+                    "$.simulation.integration_backend", "sundials_ida", ""}),
+      result.normalized_config.end());
 }
 
 /**
  * @test UT-133
  * @verifies [D-001, D-040]
- * @notes Given an unknown built-in state advancer id, when config parsing
- * runs, then validation rejects the value deterministically.
+ * @notes Given the removed single-selector field, when config parsing runs,
+ * then validation rejects the legacy contract deterministically.
  */
-TEST(SimulatorConfigRuntime, RejectsUnknownStateAdvancerSelection) {
+TEST(SimulatorConfigRuntime, RejectsLegacyStateAdvancerSelection) {
   const auto result = project::parse_simulator_config_text(
-      with_state_advancer("unsupported_backend"));
+      with_legacy_state_advancer("sundials_ida"));
 
   ASSERT_FALSE(result.ok());
   ASSERT_FALSE(result.diagnostics.empty());
@@ -127,43 +164,88 @@ TEST(SimulatorConfigRuntime, RejectsUnknownStateAdvancerSelection) {
 /**
  * @test UT-134
  * @verifies [D-001, D-040]
- * @notes Given the Chrono built-in state advancer is requested, when config
- * parsing runs on builds with and without Chrono support, then validation
- * either accepts the selection or rejects it deterministically as
- * unavailable.
+ * @notes Given explicit mechanics and integration backend ids, when config
+ * parsing runs, then supported pairs are accepted and normalized
+ * deterministically.
  */
-TEST(SimulatorConfigRuntime,
-     ValidatesChronoStateAdvancerSelectionByBuildSupport) {
+TEST(SimulatorConfigRuntime, AcceptsSupportedComposedBackendSelection) {
   const auto result = project::parse_simulator_config_text(
-      with_state_advancer("chrono_rigidbody"));
+      with_backend_pair("internal_baseline", "deterministic_baseline"));
 
-  if (project::chrono_state_advancer_supported()) {
-    ASSERT_TRUE(result.ok());
-    ASSERT_TRUE(result.config.has_value());
-    EXPECT_EQ(result.config->simulation.state_advancer, "chrono_rigidbody");
-    return;
-  }
-
-  ASSERT_FALSE(result.ok());
-  ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.diagnostics.front().code, "unsupported_value");
-  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.config.has_value());
+  EXPECT_EQ(result.config->simulation.mechanics_backend, "internal_baseline");
+  EXPECT_EQ(result.config->simulation.integration_backend,
+            "deterministic_baseline");
 }
 
 /**
  * @test UT-140
  * @verifies [D-001, D-040]
- * @notes Given the SUNDIALS built-in state advancer is requested, when config
- * parsing runs on the required-dependency build, then validation accepts the
- * selection deterministically.
+ * @notes Given an unsupported composed backend pair, when config parsing runs
+ * on the standard Chrono-enabled build, then validation rejects the specific
+ * integration selection deterministically.
  */
-TEST(SimulatorConfigRuntime, AcceptsSundialsStateAdvancerSelection) {
-  const auto result =
-      project::parse_simulator_config_text(with_state_advancer("sundials_ida"));
+TEST(SimulatorConfigRuntime, RejectsUnsupportedComposedBackendSelection) {
+  const auto result = project::parse_simulator_config_text(
+      with_backend_pair("chrono_rigidbody", "deterministic_baseline"));
 
-  ASSERT_TRUE(result.ok());
-  ASSERT_TRUE(result.config.has_value());
-  EXPECT_EQ(result.config->simulation.state_advancer, "sundials_ida");
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_value");
+  EXPECT_EQ(result.diagnostics.front().path,
+            "$.simulation.integration_backend");
+}
+
+/**
+ * @test UT-215
+ * @verifies [D-001, D-040]
+ * @notes Given the Chrono mechanics backend id on a build without Chrono
+ * support, when config parsing runs, then validation rejects the mechanics
+ * selector deterministically as unavailable.
+ */
+TEST(SimulatorConfigRuntime,
+     RejectsUnavailableChronoMechanicsBackendWhenBuildLacksChrono) {
+  if (project::chrono_mechanics_backend_supported()) {
+    GTEST_SKIP() << "Chrono support available on this build";
+  }
+
+  const auto result = project::parse_simulator_config_text(
+      with_mechanics_backend("chrono_rigidbody"));
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_value");
+  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.mechanics_backend");
+}
+
+/**
+ * @test UT-214
+ * @verifies [D-001, D-040]
+ * @notes Given unknown mechanics and integration backend ids, when config
+ * parsing runs, then each selector is rejected deterministically on its own
+ * path.
+ */
+TEST(SimulatorConfigRuntime, RejectsUnknownBackendSelectionsDeterministically) {
+  {
+    const auto result = project::parse_simulator_config_text(
+        with_mechanics_backend("unknown_backend"));
+    ASSERT_FALSE(result.ok());
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
+    EXPECT_EQ(result.diagnostics.front().path,
+              "$.simulation.mechanics_backend");
+  }
+
+  {
+    const auto result = project::parse_simulator_config_text(
+        with_integration_backend("unknown_backend"));
+    ASSERT_FALSE(result.ok());
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
+    EXPECT_EQ(result.diagnostics.front().path,
+              "$.simulation.integration_backend");
+  }
 }
 
 /**

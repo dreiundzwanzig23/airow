@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 
 #include "project/configuration/simulator_config.hpp"
+#include "project/numerics/backend_catalog.hpp"
 #include "project/orchestrator/simulation_run.hpp"
 #include "project/output/run_output.hpp"
 
@@ -19,6 +20,24 @@ namespace {
 
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
+
+std::string expected_default_mechanics_backend_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
+                                                       : "internal_baseline";
+}
+
+std::string expected_default_mechanics_policy_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono-rigidbody-v2"
+                                                       : "internal-baseline-v1";
+}
+
+std::string expected_default_mechanics_policy_description() {
+  return project::chrono_mechanics_backend_supported()
+             ? "Preferred rigid-body mechanics backend for the standard "
+               "runtime build."
+             : "Internal deterministic mechanics backend for fallback and "
+               "cross-check runtime operation.";
+}
 
 project::SimulatorConfig make_config(std::string_view config_id = "ut-output",
                                      double duration_s = 1.0,
@@ -563,8 +582,9 @@ TEST(RunOutputs, AllowsInMemoryRunsWithAllOutputFormatsDisabled) {
  * @test UT-125
  * @verifies [D-034, D-040]
  * @notes Given runtime-selectable built-in providers, when a JSON summary is
- * emitted, then structured provider metadata and state-advancer policy
- * metadata are preserved and the legacy flat provider-id fields are absent.
+ * emitted, then structured provider metadata plus mechanics and integration
+ * backend policy metadata are preserved and the legacy single-advancer fields
+ * are absent.
  */
 TEST(RunOutputs, SummaryArtifactEmitsStructuredProviderMetadata) {
   auto config = make_config("ut-output-providers", 0.5, 0.25);
@@ -597,22 +617,31 @@ TEST(RunOutputs, SummaryArtifactEmitsStructuredProviderMetadata) {
             "stroke_propulsion_placeholder");
   EXPECT_EQ(providers.at("aero_load").at("id").get<std::string>(),
             "steady_wind_placeholder");
-  const auto &state_advancer = summary.at("metadata").at("state_advancer");
-  EXPECT_EQ(state_advancer.at("id").get<std::string>(), "sundials_ida");
-  EXPECT_EQ(state_advancer.at("policy_id").get<std::string>(),
-            "sundials-ida-fixed-tolerances-v1");
-  EXPECT_EQ(
-      state_advancer.at("policy_description").get<std::string>(),
-      "Required SUNDIALS IDA default-runtime backend with fixed relative and "
-      "absolute tolerances of 1e-10 for Slice 3 closure.");
+  const auto &mechanics_backend =
+      summary.at("metadata").at("mechanics_backend");
+  EXPECT_EQ(mechanics_backend.at("id").get<std::string>(),
+            expected_default_mechanics_backend_id());
+  EXPECT_EQ(mechanics_backend.at("policy_id").get<std::string>(),
+            expected_default_mechanics_policy_id());
+  EXPECT_EQ(mechanics_backend.at("policy_description").get<std::string>(),
+            expected_default_mechanics_policy_description());
+  const auto &integration_backend =
+      summary.at("metadata").at("integration_backend");
+  EXPECT_EQ(integration_backend.at("id").get<std::string>(), "sundials_ida");
+  EXPECT_EQ(integration_backend.at("policy_id").get<std::string>(),
+            "sundials-ida-fixed-tolerances-v2");
+  EXPECT_EQ(integration_backend.at("policy_description").get<std::string>(),
+            "Preferred constrained integration backend with fixed relative and "
+            "absolute tolerances of 1e-10 for Chrono-backed runtime stepping.");
   EXPECT_EQ(summary.at("metadata")
                 .at("state_advancement_solver_status")
                 .get<std::string>(),
             "sundials-ida");
   EXPECT_TRUE(summary.at("metadata").contains("providers"));
-  EXPECT_TRUE(summary.at("metadata").contains("state_advancer"));
-  EXPECT_FALSE(summary.at("metadata").contains("hydro_provider_id"));
-  EXPECT_FALSE(summary.at("metadata").contains("aero_provider_id"));
+  EXPECT_TRUE(summary.at("metadata").contains("mechanics_backend"));
+  EXPECT_TRUE(summary.at("metadata").contains("integration_backend"));
+  EXPECT_FALSE(summary.at("metadata").contains("state_advancer"));
+  EXPECT_FALSE(summary.at("metadata").contains("state_advancer_id"));
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);

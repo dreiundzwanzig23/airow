@@ -80,28 +80,43 @@ selected_provider_metadata(const SimulatorConfig &config) {
   };
 }
 
-StateAdvancerMetadata fallback_state_advancer_metadata(std::string_view id) {
+BackendMetadata fallback_backend_metadata(std::string_view id,
+                                          std::string_view role) {
   return {
       .id = std::string(id),
       .policy_id = "external-selection",
-      .policy_description =
-          "Externally supplied or manually constructed state advancer outside "
-          "the built-in runtime catalog.",
+      .policy_description = "Externally supplied or manually constructed " +
+                            std::string(role) +
+                            " outside the built-in runtime catalog.",
   };
 }
 
-StateAdvancerMetadata
-selected_state_advancer_metadata(std::string_view configured_id,
-                                 std::string_view runtime_id,
-                                 bool using_injected_advancer) {
+BackendMetadata
+selected_mechanics_backend_metadata(std::string_view configured_id,
+                                    std::string_view runtime_id,
+                                    bool using_injected_advancer) {
   if (!using_injected_advancer) {
     if (const auto metadata =
-            lookup_builtin_state_advancer_metadata(configured_id);
+            lookup_builtin_mechanics_backend_metadata(configured_id);
         metadata.has_value()) {
       return *metadata;
     }
   }
-  return fallback_state_advancer_metadata(runtime_id);
+  return fallback_backend_metadata(runtime_id, "mechanics backend");
+}
+
+BackendMetadata
+selected_integration_backend_metadata(std::string_view configured_id,
+                                      std::string_view runtime_id,
+                                      bool using_injected_advancer) {
+  if (!using_injected_advancer) {
+    if (const auto metadata =
+            lookup_builtin_integration_backend_metadata(configured_id);
+        metadata.has_value()) {
+      return *metadata;
+    }
+  }
+  return fallback_backend_metadata(runtime_id, "integration backend");
 }
 
 std::string
@@ -287,17 +302,24 @@ void append_runtime_failure(SimulationRunResult &result, std::string subsystem,
 void stamp_run_metadata(SimulationRunResult &result,
                         const SimulatorConfig &config,
                         std::string start_timestamp_utc,
-                        std::string_view state_advancer_runtime_id,
+                        std::string_view mechanics_backend_runtime_id,
+                        std::string_view integration_backend_runtime_id,
                         bool using_injected_advancer) {
   result.status = RunStatus::success;
   result.metadata.simulator_version = PROJECT_VERSION_STRING;
   result.metadata.config_id = config.config_id;
   result.metadata.start_timestamp_utc = std::move(start_timestamp_utc);
   result.metadata.providers = selected_provider_metadata(config);
-  result.metadata.state_advancer = selected_state_advancer_metadata(
-      config.simulation.state_advancer, state_advancer_runtime_id,
+  result.metadata.mechanics_backend = selected_mechanics_backend_metadata(
+      config.simulation.mechanics_backend, mechanics_backend_runtime_id,
       using_injected_advancer);
-  result.metadata.state_advancer_id = std::string(state_advancer_runtime_id);
+  result.metadata.mechanics_backend_id =
+      std::string(mechanics_backend_runtime_id);
+  result.metadata.integration_backend = selected_integration_backend_metadata(
+      config.simulation.integration_backend, integration_backend_runtime_id,
+      using_injected_advancer);
+  result.metadata.integration_backend_id =
+      std::string(integration_backend_runtime_id);
   result.metadata.state_advancement_solver_status = "not_started";
   result.metadata.normalized_config = normalize_simulator_config(config);
 }
@@ -589,7 +611,8 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
   StateAdvancer *selected_advancer =
       dependencies.state_advancer != nullptr
           ? dependencies.state_advancer
-          : builtin_state_advancer(config.simulation.state_advancer);
+          : builtin_state_advancer(config.simulation.mechanics_backend,
+                                   config.simulation.integration_backend);
 
   SimulationRunResult result;
   /**
@@ -599,12 +622,16 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    */
   if (selected_advancer == nullptr) {
     stamp_run_metadata(result, config, current_timestamp(),
-                       config.simulation.state_advancer, false);
-    append_runtime_failure(
-        result, "state_advancement", "$.simulation.state_advancer",
-        "unsupported_state_advancer",
-        "configured state advancer '" + config.simulation.state_advancer +
-            "' is unavailable in this build");
+                       config.simulation.mechanics_backend,
+                       config.simulation.integration_backend, false);
+    append_runtime_failure(result, "state_advancement",
+                           "$.simulation.integration_backend",
+                           "unsupported_state_advancer",
+                           "configured backend pair mechanics_backend='" +
+                               config.simulation.mechanics_backend +
+                               "' and integration_backend='" +
+                               config.simulation.integration_backend +
+                               "' is unavailable in this build");
     result.metadata.end_timestamp_utc = current_timestamp();
     emit_run_outputs(config, result);
     return result;
@@ -612,7 +639,13 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
 
   auto &advancer = *selected_advancer;
 
-  stamp_run_metadata(result, config, current_timestamp(), advancer.identifier(),
+  stamp_run_metadata(result, config, current_timestamp(),
+                     dependencies.state_advancer != nullptr
+                         ? advancer.identifier()
+                         : config.simulation.mechanics_backend,
+                     dependencies.state_advancer != nullptr
+                         ? advancer.identifier()
+                         : config.simulation.integration_backend,
                      dependencies.state_advancer != nullptr);
 
   const auto startup = advancer.initialize(config);

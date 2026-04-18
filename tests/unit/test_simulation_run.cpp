@@ -18,6 +18,16 @@ namespace {
 
 using namespace std::chrono_literals;
 
+std::string expected_default_mechanics_backend_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
+                                                       : "internal_baseline";
+}
+
+std::string expected_default_mechanics_policy_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono-rigidbody-v2"
+                                                       : "internal-baseline-v1";
+}
+
 project::SimulatorConfig make_config(double duration_s = 1.0,
                                      double time_step_s = 0.25) {
   return {
@@ -244,10 +254,16 @@ TEST(SimulationRun, ReturnsDeterministicMetadataAndSummary) {
   EXPECT_EQ(result.metadata.providers.hull_resistance.id, "none");
   EXPECT_EQ(result.metadata.providers.blade_force.id, "none");
   EXPECT_EQ(result.metadata.providers.aero_load.id, "none");
-  EXPECT_EQ(result.metadata.state_advancer.id, "sundials_ida");
-  EXPECT_EQ(result.metadata.state_advancer.policy_id,
-            "sundials-ida-fixed-tolerances-v1");
-  EXPECT_EQ(result.metadata.state_advancer_id, "sundials-ida-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend.id,
+            expected_default_mechanics_backend_id());
+  EXPECT_EQ(result.metadata.mechanics_backend.policy_id,
+            expected_default_mechanics_policy_id());
+  EXPECT_EQ(result.metadata.mechanics_backend_id,
+            expected_default_mechanics_backend_id());
+  EXPECT_EQ(result.metadata.integration_backend.id, "sundials_ida");
+  EXPECT_EQ(result.metadata.integration_backend.policy_id,
+            "sundials-ida-fixed-tolerances-v2");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
   EXPECT_EQ(result.metadata.startup_status, "success");
   EXPECT_EQ(result.metadata.startup_solver_status, "sundials-ida");
   EXPECT_EQ(result.metadata.state_advancement_solver_status, "sundials-ida");
@@ -481,14 +497,15 @@ TEST(SimulationRun, SelectsConfiguredBuiltInStateAdvancerWhenNotInjected) {
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h + 1s});
   auto config = make_config();
-  config.simulation.state_advancer = "deterministic_baseline";
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "deterministic_baseline";
 
   const auto result = project::run_simulation(
       config, project::SimulationDependencies{.clock = &clock});
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer_id,
-            "deterministic-baseline-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "internal_baseline");
+  EXPECT_EQ(result.metadata.integration_backend_id, "deterministic_baseline");
 }
 
 /**
@@ -504,7 +521,8 @@ TEST(SimulationRun, InjectedStateAdvancerOverridesConfiguredBuiltInSelection) {
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 11h + 1s});
   RecordingStateAdvancer advancer;
   auto config = make_config();
-  config.simulation.state_advancer = "deterministic_baseline";
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "deterministic_baseline";
 
   const auto result =
       project::run_simulation(config, project::SimulationDependencies{
@@ -513,7 +531,8 @@ TEST(SimulationRun, InjectedStateAdvancerOverridesConfiguredBuiltInSelection) {
                                       });
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer_id, "recording-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "recording-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id, "recording-state-advancer");
   EXPECT_EQ(advancer.initialize_call_count, 1);
 }
 
@@ -525,7 +544,7 @@ TEST(SimulationRun, InjectedStateAdvancerOverridesConfiguredBuiltInSelection) {
  * deterministically with a backend-specific diagnostic.
  */
 TEST(SimulationRun, RejectsUnavailableChronoBuiltInStateAdvancerAtRuntime) {
-  if (project::chrono_state_advancer_supported()) {
+  if (project::chrono_mechanics_backend_supported()) {
     GTEST_SKIP() << "Chrono support available on this build";
   }
 
@@ -533,7 +552,8 @@ TEST(SimulationRun, RejectsUnavailableChronoBuiltInStateAdvancerAtRuntime) {
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h + 1s});
   auto config = make_config();
-  config.simulation.state_advancer = "chrono_rigidbody";
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
 
   const auto result = project::run_simulation(
       config, project::SimulationDependencies{.clock = &clock});
@@ -542,5 +562,6 @@ TEST(SimulationRun, RejectsUnavailableChronoBuiltInStateAdvancerAtRuntime) {
   ASSERT_FALSE(result.diagnostics.empty());
   EXPECT_EQ(result.status, project::RunStatus::runtime_error);
   EXPECT_EQ(result.diagnostics.front().code, "unsupported_state_advancer");
-  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
+  EXPECT_EQ(result.diagnostics.front().path,
+            "$.simulation.integration_backend");
 }

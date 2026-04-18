@@ -28,8 +28,10 @@ struct RunMetadata {
   std::string start_timestamp_utc;
   std::string end_timestamp_utc;
   ProviderSelectionMetadata providers;
-  StateAdvancerMetadata state_advancer;
-  std::string state_advancer_id{};
+  BackendMetadata mechanics_backend;
+  std::string mechanics_backend_id{};
+  BackendMetadata integration_backend;
+  std::string integration_backend_id{};
   std::string startup_status{};
   std::string startup_solver_status{};
   std::string state_advancement_solver_status{};

@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include "project/configuration/simulator_config.hpp"
+#include "project/numerics/backend_catalog.hpp"
 #include "project/orchestrator/simulation_run.hpp"
 #include "project/output/run_output.hpp"
 
@@ -26,6 +27,24 @@ namespace {
 
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
+
+std::string expected_default_mechanics_backend_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
+                                                       : "internal_baseline";
+}
+
+std::string expected_default_mechanics_policy_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono-rigidbody-v2"
+                                                       : "internal-baseline-v1";
+}
+
+std::string expected_default_mechanics_policy_description() {
+  return project::chrono_mechanics_backend_supported()
+             ? "Preferred rigid-body mechanics backend for the standard "
+               "runtime build."
+             : "Internal deterministic mechanics backend for fallback and "
+               "cross-check runtime operation.";
+}
 
 project::SimulatorConfig make_config(std::string_view config_id = "ut-output",
                                      double duration_s = 1.0,
@@ -200,6 +219,25 @@ std::string read_hdf5_string_attribute(hid_t object, const char *name) {
   }
   return value;
 }
+
+struct ExpectedBackendMetadata {
+  const char *group_path;
+  std::string_view id;
+  std::string_view policy_id;
+  std::string_view policy_description;
+};
+
+void expect_hdf5_backend_metadata(hid_t file_id,
+                                  const ExpectedBackendMetadata &expected) {
+  const H5ScopedHandle group(
+      H5Gopen2(file_id, expected.group_path, H5P_DEFAULT), H5Gclose);
+  ASSERT_TRUE(group.valid());
+  EXPECT_EQ(read_hdf5_string_attribute(group.id, "id"), expected.id);
+  EXPECT_EQ(read_hdf5_string_attribute(group.id, "policy_id"),
+            expected.policy_id);
+  EXPECT_EQ(read_hdf5_string_attribute(group.id, "policy_description"),
+            expected.policy_description);
+}
 #endif
 
 } // namespace
@@ -257,18 +295,25 @@ TEST(RunOutputsHdf5, EmitsHdf5ArtifactWhenEnabled) {
   EXPECT_EQ(read_hdf5_string_attribute(metadata_group.id,
                                        "state_advancement_solver_status"),
             "sundials-ida");
-
-  const H5ScopedHandle state_advancer_group(
-      H5Gopen2(file.id, "/metadata/state_advancer", H5P_DEFAULT), H5Gclose);
-  ASSERT_TRUE(state_advancer_group.valid());
-  EXPECT_EQ(read_hdf5_string_attribute(state_advancer_group.id, "id"),
-            "sundials_ida");
-  EXPECT_EQ(read_hdf5_string_attribute(state_advancer_group.id, "policy_id"),
-            "sundials-ida-fixed-tolerances-v1");
-  EXPECT_EQ(
-      read_hdf5_string_attribute(state_advancer_group.id, "policy_description"),
-      "Required SUNDIALS IDA default-runtime backend with fixed relative and "
-      "absolute tolerances of 1e-10 for Slice 3 closure.");
+  expect_hdf5_backend_metadata(
+      file.id,
+      ExpectedBackendMetadata{
+          .group_path = "/metadata/mechanics_backend",
+          .id = expected_default_mechanics_backend_id(),
+          .policy_id = expected_default_mechanics_policy_id(),
+          .policy_description = expected_default_mechanics_policy_description(),
+      });
+  expect_hdf5_backend_metadata(
+      file.id,
+      ExpectedBackendMetadata{
+          .group_path = "/metadata/integration_backend",
+          .id = "sundials_ida",
+          .policy_id = "sundials-ida-fixed-tolerances-v2",
+          .policy_description =
+              "Preferred constrained integration backend with fixed relative "
+              "and absolute tolerances of 1e-10 for Chrono-backed runtime "
+              "stepping.",
+      });
 #endif
 
   remove_file_if_present(summary_path);

@@ -16,10 +16,10 @@ architecture, technology stack, and decision records, including explicit
 state-convention and numerical-integration ownership. Post-`v0.1` work has now
 landed the observability slice, the runtime provider-selection slice, multiple
 hydro and steady-wind aero fidelity refinements on the existing built-in
-provider ids, and the backend-selection slice for built-in state-advancer
-selection, now closed with a required `sundials_ida` default
-path, explicit `deterministic_baseline` fallback, optional guarded Chrono
-path, and structured backend-policy plus solver-status metadata in
+provider ids, and the composed backend slice for runtime mechanics and
+integration selection, now closed with the preferred
+`chrono_rigidbody + sundials_ida` standard runtime, explicit fallback modes,
+and structured backend-policy plus solver-status metadata in
 machine-readable outputs; the roadmap now keeps reduced-model fidelity and
 backend wiring separate before deferred calibration or time-varying
 environment workflows.
@@ -31,26 +31,59 @@ Install dependencies:
 ./scripts/setup.sh
 ```
 
-This now installs the required Ubuntu SUNDIALS development package
-(`libsundials-dev`) for the default `sundials_ida` runtime path.
+Standard setup now defaults to `clang + libstdc++`, installs the required
+Ubuntu SUNDIALS package (`libsundials-dev`), and provisions the supported
+Chrono install into `.external/chrono-install`. By default the helper looks
+for Chrono source at `../chrono`; override it with `CHRONO_SOURCE_DIR`.
+
+```bash
+CHRONO_SOURCE_DIR=/path/to/chrono ./scripts/setup.sh
+```
+
+Libc++ remains available for the auxiliary no-Chrono sanitizer and coverage
+lanes:
+
+```bash
+./scripts/setup.sh --stdlib=libc++
+```
 
 Build:
 ```bash
 ./scripts/build.sh
 ```
 
-Chrono-enabled build notes:
+Standard build notes:
 ```bash
-# Auto-detected when Chrono is installed under ~/.local
+# Uses the repo-managed Chrono prefix when present
 ./scripts/build.sh
 
-# Fallback for non-default install prefixes
+# Fallback for an explicit Chrono install
 CMAKE_PREFIX_PATH=/path/to/chrono/prefix ./scripts/build.sh
 ```
 
-To run with Chrono-backed rigid-body stepping once Chrono support is enabled in
-the build, set `"simulation.state_advancer": "chrono_rigidbody"` in the run
-config.
+The preferred supported runtime now defaults to
+`chrono_rigidbody + sundials_ida`. To force the fallback modes in a config,
+set:
+
+```json
+{
+  "simulation": {
+    "mechanics_backend": "internal_baseline",
+    "integration_backend": "sundials_ida"
+  }
+}
+```
+
+or for the deterministic debug fallback:
+
+```json
+{
+  "simulation": {
+    "mechanics_backend": "internal_baseline",
+    "integration_backend": "deterministic_baseline"
+  }
+}
+```
 
 Run one headless baseline case:
 ```bash
@@ -94,13 +127,15 @@ Current implemented library surface:
   state-advancer seams plus structured state/load history
 - top-level config-driven built-in provider selection for
   `hull_resistance`, `blade_force`, and `aero_load`
-- top-level config-driven built-in state-advancer selection for
-  required `sundials_ida` by default, explicit `deterministic_baseline`
-  fallback, and deterministic rejection of `chrono_rigidbody` when Chrono
-  support is unavailable in the build plus Chrono-backed rigid-body stepping
-  when a discoverable Chrono package is present
-- structured state-advancer metadata in run summaries with a stable built-in
-  policy id or description plus startup and runtime solver-status fields
+- top-level config-driven composed backend selection for
+  `mechanics_backend` and `integration_backend`, with preferred
+  `chrono_rigidbody + sundials_ida`, supported
+  `internal_baseline + sundials_ida`, deterministic debug
+  `internal_baseline + deterministic_baseline`, and deterministic rejection
+  of `chrono_rigidbody + deterministic_baseline`
+- structured mechanics-backend and integration-backend metadata in run
+  summaries with stable built-in policy ids or descriptions plus startup and
+  runtime solver-status fields
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
 - structured hydro force or moment vectors, final passive-float equilibrium
@@ -170,11 +205,13 @@ Current implementation status:
   path for CLI and in-memory execution plus config-driven built-in provider
   construction when injected seams are absent,
 - `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
-  Advancement` are now in progress through a closed backend-selection slice:
-  the shared runtime defaults to `sundials_ida`, keeps
-  `deterministic_baseline` as an explicit fallback, keeps
-  `chrono_rigidbody` guarded and optional, and propagates backend-policy plus
-  solver-status metadata through the shared run path,
+  Advancement` are now in progress through a closed composed-backend slice:
+  the shared standard runtime prefers `chrono_rigidbody + sundials_ida`,
+  keeps `internal_baseline + sundials_ida` as the supported fallback,
+  keeps `internal_baseline + deterministic_baseline` as the deterministic
+  debug fallback, rejects unsupported backend pairs deterministically, and
+  propagates split backend-policy plus solver-status metadata through the
+  shared run path,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
   metadata propagation, and optional HDF5 parity behind the same output
@@ -190,10 +227,10 @@ Current implementation status:
 - richer runtime provider fidelity is now in progress on the existing
   `A-004` and `A-005` seams through in-place hydro and steady-wind aero
   baseline refinements plus re-characterized wind-backed scenario envelopes,
-  while the closed `A-010` backend-selection slice now remains separate from
-  provider work through built-in state-advancer selection, a required
-  SUNDIALS-first default path, and a compile-time-guarded Chrono path rather
-  than mixing solver adoption into provider-selection work.
+  while the closed `A-010` composed-backend slice now remains separate from
+  provider work through split mechanics and integration backend selection,
+  a preferred Chrono plus SUNDIALS standard runtime, and explicit fallback
+  pairs rather than mixing backend adoption into provider-selection work.
 
 ## Validation Lanes
 

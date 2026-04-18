@@ -137,10 +137,14 @@ void expect_matching_output_artifacts(const Json &file_summary,
             mem_summary.at("metadata").at("end_timestamp_utc"));
   EXPECT_EQ(file_summary.at("metadata").at("providers"),
             mem_summary.at("metadata").at("providers"));
-  EXPECT_EQ(file_summary.at("metadata").at("state_advancer_id"),
-            mem_summary.at("metadata").at("state_advancer_id"));
-  EXPECT_EQ(file_summary.at("metadata").at("state_advancer"),
-            mem_summary.at("metadata").at("state_advancer"));
+  EXPECT_EQ(file_summary.at("metadata").at("mechanics_backend_id"),
+            mem_summary.at("metadata").at("mechanics_backend_id"));
+  EXPECT_EQ(file_summary.at("metadata").at("mechanics_backend"),
+            mem_summary.at("metadata").at("mechanics_backend"));
+  EXPECT_EQ(file_summary.at("metadata").at("integration_backend_id"),
+            mem_summary.at("metadata").at("integration_backend_id"));
+  EXPECT_EQ(file_summary.at("metadata").at("integration_backend"),
+            mem_summary.at("metadata").at("integration_backend"));
   EXPECT_EQ(file_summary.at("metadata").at("state_advancement_solver_status"),
             mem_summary.at("metadata").at("state_advancement_solver_status"));
   EXPECT_EQ(file_time_series.at("records"), mem_time_series.at("records"));

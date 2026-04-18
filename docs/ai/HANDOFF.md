@@ -9,11 +9,18 @@
   deterministic default-runtime baseline, strengthening the provider-validity
   contract, and removing stale roadmap or architecture wording that still
   implied another in-place fidelity follow-on under that slice.
-- Closed Slice 3 on `A-010`: built-in state-advancer selection is now fully
-  documented as a closed backend slice with required `sundials_ida` default
-  runtime, explicit `deterministic_baseline` fallback, optional guarded
-  `chrono_rigidbody` path, and structured backend-policy plus runtime
-  solver-status metadata in JSON/HDF5 outputs.
+- Re-opened and re-closed Slice 3 on `A-010` as the composed backend packet:
+  public config now uses `simulation.mechanics_backend` and
+  `simulation.integration_backend`, the preferred supported runtime is
+  `chrono_rigidbody + sundials_ida`, fallback modes are explicit and bounded,
+  and JSON/HDF5 outputs now carry split mechanics and integration backend
+  policy metadata plus runtime solver-status fields.
+- Standard non-libc++ builds now require Chrono via the repo-managed install
+  prefix policy; libc++ sanitizer and coverage lanes remain the explicit
+  no-Chrono verification exceptions.
+- The checked-in Chrono evidence set now covers passive-float, tow,
+  calm-water stroke, headwind stroke, and crosswind stroke on the preferred
+  runtime pair.
 - Completed the workflow-enforcement recovery slice on `External`.
 - Validation summaries now preserve nested child exit codes, stale summary
   files are cleared before each run, and `test_aux.sh` includes a direct
@@ -41,10 +48,10 @@
   reduced-model baseline work implicitly.
 - Slice 3 is no longer an active roadmap slice; future backend work should
   land as a new explicit `A-010` packet instead of reopening the closed
-  SUNDIALS-first selection baseline implicitly.
+  composed-backend baseline implicitly.
 - The former `QT-022` crash path is green under the enforced gates.
 - Active docs now reflect strict-by-default enforcement, restored gate truth,
-  and the closed Slice 3 backend-policy contract.
+  and the closed Slice 3 composed-backend contract.
 
 ## Immediate Next Steps
 1. Choose the next unfinished roadmap slice after the closed Slice 2 and Slice

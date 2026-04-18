@@ -136,13 +136,32 @@ std::string unsupported_provider_message(std::string_view role,
          std::string(provider_id) + "'";
 }
 
-std::string unsupported_state_advancer_message(std::string_view advancer_id) {
-  return "unknown state advancer '" + std::string(advancer_id) + "'";
+std::string legacy_state_advancer_message() {
+  return "simulation.state_advancer has been replaced by "
+         "simulation.mechanics_backend and "
+         "simulation.integration_backend";
 }
 
-std::string unavailable_state_advancer_message(std::string_view advancer_id) {
-  return "state advancer '" + std::string(advancer_id) +
+std::string unsupported_mechanics_backend_message(std::string_view backend_id) {
+  return "unknown mechanics backend '" + std::string(backend_id) + "'";
+}
+
+std::string unavailable_mechanics_backend_message(std::string_view backend_id) {
+  return "mechanics backend '" + std::string(backend_id) +
          "' is unavailable in this build";
+}
+
+std::string
+unsupported_integration_backend_message(std::string_view backend_id) {
+  return "unknown integration backend '" + std::string(backend_id) + "'";
+}
+
+std::string
+unsupported_backend_pair_message(std::string_view mechanics_backend,
+                                 std::string_view integration_backend) {
+  return "backend pair mechanics_backend='" + std::string(mechanics_backend) +
+         "' and integration_backend='" + std::string(integration_backend) +
+         "' is unsupported";
 }
 
 double vector_norm(const Vector3 &value) {
@@ -533,6 +552,91 @@ bool parse_oar_settings(const Json &root, std::string_view key,
                                result);
 }
 
+bool parse_simulation_backend_selection(const Json &simulation,
+                                        SimulationSettings &settings,
+                                        LoadSimulatorConfigResult &result) {
+  settings.mechanics_backend = SimulationSettings{}.mechanics_backend;
+  settings.integration_backend = SimulationSettings{}.integration_backend;
+
+  if (simulation.contains("state_advancer")) {
+    result.diagnostics.push_back(make_error("invalid_value",
+                                            "$.simulation.state_advancer",
+                                            legacy_state_advancer_message()));
+    return false;
+  }
+  if (simulation.contains("mechanics_backend") &&
+      !require_string_field(simulation, "mechanics_backend",
+                            "$.simulation.mechanics_backend",
+                            settings.mechanics_backend, result)) {
+    return false;
+  }
+  if (simulation.contains("integration_backend") &&
+      !require_string_field(simulation, "integration_backend",
+                            "$.simulation.integration_backend",
+                            settings.integration_backend, result)) {
+    return false;
+  }
+  return true;
+}
+
+bool validate_simulation_backend_selection(const SimulationSettings &settings,
+                                           LoadSimulatorConfigResult &result) {
+  const auto mechanics_backend =
+      parse_builtin_mechanics_backend(settings.mechanics_backend);
+  if (!mechanics_backend.has_value()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.simulation.mechanics_backend",
+        unsupported_mechanics_backend_message(settings.mechanics_backend)));
+    return false;
+  }
+
+  const auto integration_backend =
+      parse_builtin_integration_backend(settings.integration_backend);
+  if (!integration_backend.has_value()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.simulation.integration_backend",
+        unsupported_integration_backend_message(settings.integration_backend)));
+    return false;
+  }
+
+  if (*mechanics_backend == BuiltinMechanicsBackendType::chrono_rigidbody &&
+      *integration_backend ==
+          BuiltinIntegrationBackendType::deterministic_baseline) {
+    result.diagnostics.push_back(make_error(
+        "unsupported_value", "$.simulation.integration_backend",
+        unsupported_backend_pair_message(settings.mechanics_backend,
+                                         settings.integration_backend)));
+    return false;
+  }
+
+  if (!builtin_mechanics_backend_supported(*mechanics_backend)) {
+    result.diagnostics.push_back(make_error(
+        "unsupported_value", "$.simulation.mechanics_backend",
+        unavailable_mechanics_backend_message(settings.mechanics_backend)));
+    return false;
+  }
+
+#if !(defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS)
+  if (!builtin_integration_backend_supported(*integration_backend)) {
+    result.diagnostics.push_back(
+        make_error("unsupported_value", "$.simulation.integration_backend",
+                   "integration backend '" + settings.integration_backend +
+                       "' is unavailable in this build"));
+    return false;
+  }
+#endif
+
+  if (!built_in_backend_pair_supported(*mechanics_backend,
+                                       *integration_backend)) {
+    result.diagnostics.push_back(make_error(
+        "unsupported_value", "$.simulation.integration_backend",
+        unsupported_backend_pair_message(settings.mechanics_backend,
+                                         settings.integration_backend)));
+    return false;
+  }
+  return true;
+}
+
 bool parse_simulation_settings(const Json &root, SimulatorConfig &config,
                                LoadSimulatorConfigResult &result) {
   const Json *simulation =
@@ -547,31 +651,9 @@ bool parse_simulation_settings(const Json &root, SimulatorConfig &config,
     return false;
   }
 
-  config.simulation.state_advancer = "sundials_ida";
-  if (!simulation->contains("state_advancer")) {
-    return true;
-  }
-  if (!require_string_field(*simulation, "state_advancer",
-                            "$.simulation.state_advancer",
-                            config.simulation.state_advancer, result)) {
-    return false;
-  }
-
-  const auto state_advancer =
-      parse_builtin_state_advancer(config.simulation.state_advancer);
-  if (!state_advancer.has_value()) {
-    result.diagnostics.push_back(make_error(
-        "invalid_value", "$.simulation.state_advancer",
-        unsupported_state_advancer_message(config.simulation.state_advancer)));
-    return false;
-  }
-  if (!builtin_state_advancer_supported(*state_advancer)) {
-    result.diagnostics.push_back(make_error(
-        "unsupported_value", "$.simulation.state_advancer",
-        unavailable_state_advancer_message(config.simulation.state_advancer)));
-    return false;
-  }
-  return true;
+  return parse_simulation_backend_selection(*simulation, config.simulation,
+                                            result) &&
+         validate_simulation_backend_selection(config.simulation, result);
 }
 
 bool parse_hull_settings(const Json &root, SimulatorConfig &config,
@@ -925,7 +1007,10 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.simulation.duration_s), "s"},
       {"$.simulation.time_step_s",
        format_normalized_double(config.simulation.time_step_s), "s"},
-      {"$.simulation.state_advancer", config.simulation.state_advancer, ""},
+      {"$.simulation.mechanics_backend", config.simulation.mechanics_backend,
+       ""},
+      {"$.simulation.integration_backend",
+       config.simulation.integration_backend, ""},
       {"$.hull.mass_kg", format_normalized_double(config.hull.mass_kg), "kg"},
       {"$.hull.center_of_mass_m", format_vector3(config.hull.center_of_mass_m),
        "m"},

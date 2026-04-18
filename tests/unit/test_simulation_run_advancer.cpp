@@ -393,10 +393,13 @@ TEST(SimulationRun, ReportsInvalidRuntimeStateFromAdvancer) {
   ASSERT_EQ(result.diagnostics.size(), 1U);
   EXPECT_EQ(result.diagnostics.front().code, "non_finite_state");
   EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
-  EXPECT_EQ(result.metadata.state_advancer.policy_id, "external-selection");
+  EXPECT_EQ(result.metadata.mechanics_backend.policy_id, "external-selection");
+  EXPECT_EQ(result.metadata.integration_backend.policy_id,
+            "external-selection");
   EXPECT_EQ(result.metadata.state_advancement_solver_status,
             "advance-invalid-state");
-  EXPECT_EQ(result.metadata.state_advancer_id, "invalid-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "invalid-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id, "invalid-state-advancer");
 }
 
 /**
@@ -555,6 +558,9 @@ TEST(SimulationRun, RejectsNonAdvancingRuntimeStateFromAdvancer) {
   EXPECT_EQ(result.diagnostics.front().path, "$.runtime.state.time_s");
   EXPECT_EQ(result.metadata.state_advancement_solver_status,
             "advance-non-advancing");
-  EXPECT_EQ(result.metadata.state_advancer_id, "non-advancing-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id,
+            "non-advancing-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id,
+            "non-advancing-state-advancer");
   EXPECT_EQ(result.state_history.size(), 1U);
 }

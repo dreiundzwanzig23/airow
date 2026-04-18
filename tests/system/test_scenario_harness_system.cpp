@@ -6,6 +6,8 @@
 #include <string_view>
 #include <vector>
 
+#include "project/aero/baseline_providers.hpp"
+#include "project/hydro/baseline_providers.hpp"
 #include "project/numerics/backend_catalog.hpp"
 #include "project/orchestrator/scenario_harness.hpp"
 #include "project/orchestrator/simulation_run.hpp"
@@ -97,6 +99,42 @@ void clear_output_artifacts(const project::SimulationRunResult &result) {
   remove_file_if_present(result.outputs.summary_path);
   remove_file_if_present(result.outputs.time_series_path);
   remove_file_if_present(result.outputs.hdf5_path);
+}
+
+project::StrokePropulsionHydroCoefficients
+make_hydro_coefficients(const project::ScenarioDefinition &scenario) {
+  project::StrokePropulsionHydroCoefficients coefficients;
+  coefficients.full_blade_immersion_depth_m =
+      scenario.provider.full_blade_immersion_depth_m;
+  coefficients.drag_coefficient_n_s2_per_m2 =
+      scenario.provider.drag_coefficient_n_s2_per_m2;
+  coefficients.hydrostatic_heave_stiffness_n_per_m =
+      scenario.provider.hydrostatic_heave_stiffness_n_per_m;
+  coefficients.hydrostatic_heave_damping_n_s_per_m =
+      scenario.provider.hydrostatic_heave_damping_n_s_per_m;
+  coefficients.roll_restoring_moment_n_m_per_rad =
+      scenario.provider.roll_restoring_moment_n_m_per_rad;
+  coefficients.roll_damping_moment_n_m_s_per_rad =
+      scenario.provider.roll_damping_moment_n_m_s_per_rad;
+  coefficients.pitch_restoring_moment_n_m_per_rad =
+      scenario.provider.pitch_restoring_moment_n_m_per_rad;
+  coefficients.pitch_damping_moment_n_m_s_per_rad =
+      scenario.provider.pitch_damping_moment_n_m_s_per_rad;
+  return coefficients;
+}
+
+project::StrokePropulsionPlaceholderHydroProvider
+make_stroke_hydro_provider(const project::ScenarioDefinition &scenario) {
+  return project::StrokePropulsionPlaceholderHydroProvider(
+      scenario.provider.blade_force_coefficient_n_s_per_m,
+      make_hydro_coefficients(scenario));
+}
+
+project::SteadyWindPlaceholderAeroProvider
+make_stroke_aero_provider(const project::ScenarioDefinition &scenario) {
+  return project::SteadyWindPlaceholderAeroProvider(
+      scenario.aero_provider.drag_coefficient_n_s2_per_m2,
+      scenario.aero_provider.yaw_moment_coefficient_n_m_s2_per_m2);
 }
 
 } // namespace
@@ -200,7 +238,7 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesAcceptanceAndDragCurveChecks) {
  * still passes through the external backend seam.
  */
 TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesWithChronoAdvancer) {
-  if (!project::chrono_state_advancer_supported()) {
+  if (!project::chrono_mechanics_backend_supported()) {
     GTEST_SKIP() << "Chrono support unavailable on this build";
   }
 
@@ -210,7 +248,8 @@ TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesWithChronoAdvancer) {
   ASSERT_TRUE(loaded.scenario.has_value());
 
   auto config = loaded.scenario->config;
-  config.simulation.state_advancer = "chrono_rigidbody";
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
 
   PassivePlaceholderHydroProvider hydro;
   NullAeroProvider aero;
@@ -229,8 +268,8 @@ TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesWithChronoAdvancer) {
       project::evaluate_scenario_result(*loaded.scenario, result);
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer_id,
-            "chrono-rigidbody-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "chrono_rigidbody");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
   EXPECT_TRUE(evaluation.ok());
 
   clear_output_artifacts(result);
@@ -300,7 +339,7 @@ TEST(ScenarioHarnessSystem, TowScenarioReplayIsDeterministic) {
  * still passes through the external backend seam.
  */
 TEST(ScenarioHarnessSystem, TowScenarioPassesWithChronoAdvancer) {
-  if (!project::chrono_state_advancer_supported()) {
+  if (!project::chrono_mechanics_backend_supported()) {
     GTEST_SKIP() << "Chrono support unavailable on this build";
   }
 
@@ -310,7 +349,8 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesWithChronoAdvancer) {
   ASSERT_TRUE(loaded.scenario.has_value());
 
   auto config = loaded.scenario->config;
-  config.simulation.state_advancer = "chrono_rigidbody";
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
 
   TowPlaceholderHydroProvider hydro(
       loaded.scenario->provider.drag_coefficient_n_s2_per_m2);
@@ -330,8 +370,8 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesWithChronoAdvancer) {
       project::evaluate_scenario_result(*loaded.scenario, result);
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer_id,
-            "chrono-rigidbody-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "chrono_rigidbody");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
   EXPECT_TRUE(evaluation.ok());
 
   clear_output_artifacts(result);
@@ -352,7 +392,8 @@ TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesWithSundialsAdvancer) {
   ASSERT_TRUE(loaded.scenario.has_value());
 
   auto config = loaded.scenario->config;
-  config.simulation.state_advancer = "sundials_ida";
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "sundials_ida";
 
   PassivePlaceholderHydroProvider hydro;
   NullAeroProvider aero;
@@ -371,7 +412,8 @@ TEST(ScenarioHarnessSystem, PassiveFloatScenarioPassesWithSundialsAdvancer) {
       project::evaluate_scenario_result(*loaded.scenario, result);
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer_id, "sundials-ida-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "internal_baseline");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
   EXPECT_TRUE(evaluation.ok());
 
   clear_output_artifacts(result);
@@ -392,7 +434,8 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesWithSundialsAdvancer) {
   ASSERT_TRUE(loaded.scenario.has_value());
 
   auto config = loaded.scenario->config;
-  config.simulation.state_advancer = "sundials_ida";
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "sundials_ida";
 
   TowPlaceholderHydroProvider hydro(
       loaded.scenario->provider.drag_coefficient_n_s2_per_m2);
@@ -412,7 +455,142 @@ TEST(ScenarioHarnessSystem, TowScenarioPassesWithSundialsAdvancer) {
       project::evaluate_scenario_result(*loaded.scenario, result);
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer_id, "sundials-ida-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "internal_baseline");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
+  EXPECT_TRUE(evaluation.ok());
+
+  clear_output_artifacts(result);
+}
+
+/**
+ * @test QT-035
+ * @verifies [R-012, R-018]
+ * @notes Given the checked-in calm-water stroke scenario and Chrono backend
+ * support, when the preferred Chrono plus SUNDIALS runtime executes with the
+ * built-in reduced providers, then the checked-in acceptance envelope passes.
+ */
+TEST(ScenarioHarnessSystem, CalmWaterStrokeScenarioPassesWithPreferredBackend) {
+  if (!project::chrono_mechanics_backend_supported()) {
+    GTEST_SKIP() << "Chrono support unavailable on this build";
+  }
+
+  const auto loaded = project::load_scenario_definition_file(
+      scenario_path("calm_water_stroke.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto config = loaded.scenario->config;
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
+  auto hydro = make_stroke_hydro_provider(*loaded.scenario);
+  NullAeroProvider aero;
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 18} + 9h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 18} + 9h + 1s});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+  const auto evaluation =
+      project::evaluate_scenario_result(*loaded.scenario, result);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "chrono_rigidbody");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
+  EXPECT_TRUE(evaluation.ok());
+
+  clear_output_artifacts(result);
+}
+
+/**
+ * @test QT-036
+ * @verifies [R-013, R-018, R-031]
+ * @notes Given the checked-in headwind stroke scenario and Chrono backend
+ * support, when the preferred Chrono plus SUNDIALS runtime executes with the
+ * built-in reduced hydro and aero providers, then the checked-in acceptance
+ * envelope passes.
+ */
+TEST(ScenarioHarnessSystem, HeadwindStrokeScenarioPassesWithPreferredBackend) {
+  if (!project::chrono_mechanics_backend_supported()) {
+    GTEST_SKIP() << "Chrono support unavailable on this build";
+  }
+
+  const auto loaded = project::load_scenario_definition_file(
+      scenario_path("headwind_stroke.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto config = loaded.scenario->config;
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
+  auto hydro = make_stroke_hydro_provider(*loaded.scenario);
+  auto aero = make_stroke_aero_provider(*loaded.scenario);
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 18} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 18} + 10h + 1s});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+  const auto evaluation =
+      project::evaluate_scenario_result(*loaded.scenario, result);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "chrono_rigidbody");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
+  EXPECT_TRUE(evaluation.ok());
+
+  clear_output_artifacts(result);
+}
+
+/**
+ * @test QT-037
+ * @verifies [R-014, R-018, R-031]
+ * @notes Given the checked-in crosswind stroke scenario and Chrono backend
+ * support, when the preferred Chrono plus SUNDIALS runtime executes with the
+ * built-in reduced hydro and aero providers, then the checked-in acceptance
+ * envelope passes.
+ */
+TEST(ScenarioHarnessSystem, CrosswindStrokeScenarioPassesWithPreferredBackend) {
+  if (!project::chrono_mechanics_backend_supported()) {
+    GTEST_SKIP() << "Chrono support unavailable on this build";
+  }
+
+  const auto loaded = project::load_scenario_definition_file(
+      scenario_path("crosswind_stroke.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto config = loaded.scenario->config;
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
+  auto hydro = make_stroke_hydro_provider(*loaded.scenario);
+  auto aero = make_stroke_aero_provider(*loaded.scenario);
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 18} + 11h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 18} + 11h + 1s});
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .hydro_provider = &hydro,
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+  const auto evaluation =
+      project::evaluate_scenario_result(*loaded.scenario, result);
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "chrono_rigidbody");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
   EXPECT_TRUE(evaluation.ok());
 
   clear_output_artifacts(result);

@@ -36,13 +36,18 @@ namespace project {
 
 namespace {
 
-constexpr std::string_view DEFAULT_ADVANCER_ID =
-    "deterministic-baseline-state-advancer";
+constexpr std::string_view INTERNAL_DETERMINISTIC_ADVANCER_ID =
+    "internal-baseline-deterministic-integration-state-advancer";
 constexpr std::string_view DEFAULT_SOLVER_STATUS = "deterministic-baseline";
 constexpr std::string_view INVALID_STEP_SIZE_STATUS = "invalid_step_size";
 constexpr std::string_view NON_FINITE_STATE_STATUS = "non_finite_state";
 #if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
-constexpr std::string_view SUNDIALS_ADVANCER_ID = "sundials-ida-state-advancer";
+constexpr std::string_view INTERNAL_SUNDIALS_ADVANCER_ID =
+    "internal-baseline-sundials-ida-state-advancer";
+#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
+constexpr std::string_view CHRONO_SUNDIALS_ADVANCER_ID =
+    "chrono-rigidbody-sundials-ida-state-advancer";
+#endif
 constexpr std::string_view SUNDIALS_SOLVER_STATUS = "sundials-ida";
 constexpr std::string_view SUNDIALS_CONTEXT_FAILURE_STATUS =
     "sundials-ida-context-initialization-failed";
@@ -55,13 +60,13 @@ constexpr std::string_view SUNDIALS_SETUP_FAILURE_STATUS =
 constexpr std::string_view SUNDIALS_SOLVE_FAILURE_STATUS =
     "sundials-ida-solve-failed";
 #endif
-#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
-constexpr std::string_view CHRONO_ADVANCER_ID =
-    "chrono-rigidbody-state-advancer";
-constexpr std::string_view CHRONO_SOLVER_STATUS = "chrono-rigidbody";
-#endif
 constexpr double HALF = 0.5;
 constexpr double SEGMENT_TIME_EPSILON_S = 1.0e-12;
+
+enum class RuntimeMechanicsBackend {
+  INTERNAL_BASELINE,
+  CHRONO_RIGIDBODY,
+};
 
 struct SegmentAdvanceFailure {
   AdvancerDiagnostic diagnostic;
@@ -168,6 +173,34 @@ bool state_is_finite(const MechanicalStateSnapshot &state) {
          seat_state_is_finite(state.seat) &&
          stroke_state_is_finite(state.stroke) &&
          std::isfinite(state.constraint_residual_max);
+}
+
+bool external_loads_are_finite(const ExternalLoads &loads) {
+  return vector_is_finite(loads.resolved_hydro_force_world_n()) &&
+         vector_is_finite(loads.hydro_moment_world_n_m) &&
+         vector_is_finite(loads.resolved_aero_force_world_n()) &&
+         vector_is_finite(loads.aero_moment_world_n_m);
+}
+
+std::optional<AdvanceResult>
+validate_advance_inputs(const MechanicalStateSnapshot &state,
+                        const ExternalLoads &loads) {
+  if (state_is_finite(state) && external_loads_are_finite(loads)) {
+    return std::nullopt;
+  }
+
+  return AdvanceResult{
+      .state = std::nullopt,
+      .diagnostics = {AdvancerDiagnostic{
+          .code = "non_finite_state",
+          .path = "$.runtime.state",
+          .message =
+              "state advancement requires finite input state and external "
+              "loads",
+      }},
+      .solver_status = std::string(NON_FINITE_STATE_STATUS),
+      .constraint_residual_max = 0.0,
+  };
 }
 
 #if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
@@ -321,6 +354,97 @@ HullDerivatives resolve_hull_derivatives(
            .y = dynamics.angular_acceleration_y_radps2,
            .z = dynamics.angular_acceleration_z_radps2},
   };
+}
+
+#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
+HullDerivatives resolve_hull_derivatives_with_chrono(
+    const SimulatorConfig &config, const Quaternion &orientation,
+    const Vector3 &linear_velocity_world_mps,
+    const Vector3 &angular_velocity_body_radps, const ExternalLoads &loads) {
+  chrono::ChBody body;
+  body.SetMass(config.hull.mass_kg);
+  body.SetInertiaXX(chrono::ChVector3<>(config.hull.inertia_kg_m2.x,
+                                        config.hull.inertia_kg_m2.y,
+                                        config.hull.inertia_kg_m2.z));
+  body.SetPos(chrono::ChVector3<>(0.0, 0.0, 0.0));
+  body.SetRot(chrono::ChQuaternion<>(orientation.w, orientation.x,
+                                     orientation.y, orientation.z));
+  body.SetPosDt(chrono::ChVector3<>(linear_velocity_world_mps.x,
+                                    linear_velocity_world_mps.y,
+                                    linear_velocity_world_mps.z));
+  body.SetAngVelLocal(chrono::ChVector3<>(angular_velocity_body_radps.x,
+                                          angular_velocity_body_radps.y,
+                                          angular_velocity_body_radps.z));
+
+  const auto accumulator = body.AddAccumulator();
+  body.EmptyAccumulator(accumulator);
+  const auto hydro_force = loads.resolved_hydro_force_world_n();
+  const auto aero_force = loads.resolved_aero_force_world_n();
+  body.AccumulateForce(
+      accumulator,
+      chrono::ChVector3<>(hydro_force.x, hydro_force.y, hydro_force.z),
+      body.GetPos(), false);
+  body.AccumulateForce(
+      accumulator,
+      chrono::ChVector3<>(aero_force.x, aero_force.y, aero_force.z),
+      body.GetPos(), false);
+  body.AccumulateTorque(accumulator,
+                        chrono::ChVector3<>(loads.hydro_moment_world_n_m.x,
+                                            loads.hydro_moment_world_n_m.y,
+                                            loads.hydro_moment_world_n_m.z),
+                        false);
+  body.AccumulateTorque(accumulator,
+                        chrono::ChVector3<>(loads.aero_moment_world_n_m.x,
+                                            loads.aero_moment_world_n_m.y,
+                                            loads.aero_moment_world_n_m.z),
+                        false);
+
+  const auto accumulated_force = body.GetAccumulatedForce(accumulator);
+  const auto accumulated_torque = body.GetAccumulatedTorque(accumulator);
+  const Quaternion omega{.x = angular_velocity_body_radps.x,
+                         .y = angular_velocity_body_radps.y,
+                         .z = angular_velocity_body_radps.z,
+                         .w = 0.0};
+  const Quaternion orientation_derivative =
+      quaternion_multiply(normalize_quaternion(orientation), omega);
+
+  return {
+      .linear_velocity_world_mps = linear_velocity_world_mps,
+      .orientation_derivative = {.x = HALF * orientation_derivative.x,
+                                 .y = HALF * orientation_derivative.y,
+                                 .z = HALF * orientation_derivative.z,
+                                 .w = HALF * orientation_derivative.w},
+      .linear_acceleration_world_mps2 =
+          {.x = accumulated_force.x() / config.hull.mass_kg,
+           .y = accumulated_force.y() / config.hull.mass_kg,
+           .z = accumulated_force.z() / config.hull.mass_kg},
+      .angular_acceleration_body_radps2 =
+          {.x = accumulated_torque.x() / config.hull.inertia_kg_m2.x,
+           .y = accumulated_torque.y() / config.hull.inertia_kg_m2.y,
+           .z = accumulated_torque.z() / config.hull.inertia_kg_m2.z},
+  };
+}
+#endif
+
+HullDerivatives resolve_hull_derivatives_for_backend(
+    RuntimeMechanicsBackend mechanics_backend, const SimulatorConfig &config,
+    const Quaternion &orientation, const Vector3 &linear_velocity_world_mps,
+    const Vector3 &angular_velocity_body_radps, const ExternalLoads &loads) {
+#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
+  if (mechanics_backend == RuntimeMechanicsBackend::INTERNAL_BASELINE) {
+    return resolve_hull_derivatives(config, orientation,
+                                    linear_velocity_world_mps,
+                                    angular_velocity_body_radps, loads);
+  }
+  return resolve_hull_derivatives_with_chrono(
+      config, orientation, linear_velocity_world_mps,
+      angular_velocity_body_radps, loads);
+#else
+  (void)mechanics_backend;
+  return resolve_hull_derivatives(config, orientation,
+                                  linear_velocity_world_mps,
+                                  angular_velocity_body_radps, loads);
+#endif
 }
 
 Vector3 blade_tip_world_position(const MechanicalStateSnapshot &state,
@@ -671,7 +795,7 @@ AdvanceResult advance_segmented_state_with_diagnostics(
 class DeterministicBaselineStateAdvancer final : public StateAdvancer {
 public:
   [[nodiscard]] std::string_view identifier() const noexcept override {
-    return DEFAULT_ADVANCER_ID;
+    return INTERNAL_DETERMINISTIC_ADVANCER_ID;
   }
 
   /**
@@ -694,6 +818,10 @@ public:
                         const MechanicalStateSnapshot &state,
                         double step_size_s,
                         const ExternalLoads &loads) override {
+    if (const auto invalid = validate_advance_inputs(state, loads);
+        invalid.has_value()) {
+      return *invalid;
+    }
     const auto dynamics = resolve_load_dynamics(config, loads);
     return advance_segmented_state(
         config, state, step_size_s, DEFAULT_SOLVER_STATUS,
@@ -833,6 +961,8 @@ struct SundialsIdaOwner {
 struct SundialsSegmentUserData {
   const SimulatorConfig *config{};
   const ExternalLoads *loads{};
+  RuntimeMechanicsBackend mechanics_backend{
+      RuntimeMechanicsBackend::INTERNAL_BASELINE};
 };
 
 Quaternion sundials_orientation_from_vector(N_Vector state) {
@@ -890,14 +1020,14 @@ void store_hull_state_in_sundials(N_Vector state,
       snapshot.hull.angular_velocity_body_radps.z;
 }
 
-void store_hull_derivatives_in_sundials(N_Vector derivatives,
-                                        const SimulatorConfig &config,
-                                        const ExternalLoads &loads,
-                                        const MechanicalStateSnapshot &state) {
-  const auto hull_derivatives =
-      resolve_hull_derivatives(config, state.hull.orientation_world_from_body,
-                               state.hull.linear_velocity_world_mps,
-                               state.hull.angular_velocity_body_radps, loads);
+void store_hull_derivatives_in_sundials(
+    N_Vector derivatives, RuntimeMechanicsBackend mechanics_backend,
+    const SimulatorConfig &config, const ExternalLoads &loads,
+    const MechanicalStateSnapshot &state) {
+  const auto hull_derivatives = resolve_hull_derivatives_for_backend(
+      mechanics_backend, config, state.hull.orientation_world_from_body,
+      state.hull.linear_velocity_world_mps,
+      state.hull.angular_velocity_body_radps, loads);
 
   sundials_entry(derivatives, SundialsHullStateIndex::POSITION_X) =
       hull_derivatives.linear_velocity_world_mps.x;
@@ -959,8 +1089,9 @@ int sundials_hull_residual(realtype /*time_s*/, N_Vector state,
   snapshot.hull.angular_velocity_body_radps =
       sundials_angular_velocity_from_vector(state);
 
-  const auto hull_derivatives = resolve_hull_derivatives(
-      *segment->config, snapshot.hull.orientation_world_from_body,
+  const auto hull_derivatives = resolve_hull_derivatives_for_backend(
+      segment->mechanics_backend, *segment->config,
+      snapshot.hull.orientation_world_from_body,
       snapshot.hull.linear_velocity_world_mps,
       snapshot.hull.angular_velocity_body_radps, *segment->loads);
 
@@ -1086,7 +1217,8 @@ void inject_sundials_test_solution_fault(
 
 std::optional<SegmentAdvanceFailure> advance_hull_segment_with_sundials(
     MechanicalStateSnapshot &next, double segment_s,
-    const SimulatorConfig &config, const ExternalLoads &loads) {
+    RuntimeMechanicsBackend mechanics_backend, const SimulatorConfig &config,
+    const ExternalLoads &loads) {
   const auto test_fault_mode = current_sundials_test_fault_mode();
   const realtype current_time_s = static_cast<realtype>(next.time_s);
   const realtype target_time_s = static_cast<realtype>(next.time_s + segment_s);
@@ -1118,9 +1250,14 @@ std::optional<SegmentAdvanceFailure> advance_hull_segment_with_sundials(
   }
 
   store_hull_state_in_sundials(state.value, next);
-  store_hull_derivatives_in_sundials(derivatives.value, config, loads, next);
+  store_hull_derivatives_in_sundials(derivatives.value, mechanics_backend,
+                                     config, loads, next);
 
-  SundialsSegmentUserData segment_data{.config = &config, .loads = &loads};
+  SundialsSegmentUserData segment_data{
+      .config = &config,
+      .loads = &loads,
+      .mechanics_backend = mechanics_backend,
+  };
   const SundialsSetupContext setup_context{
       .ida = ida.value,
       .current_time_s = current_time_s,
@@ -1151,8 +1288,12 @@ std::optional<SegmentAdvanceFailure> advance_hull_segment_with_sundials(
 
 class SundialsIdaStateAdvancer final : public StateAdvancer {
 public:
+  SundialsIdaStateAdvancer(RuntimeMechanicsBackend mechanics_backend,
+                           std::string_view runtime_id) noexcept
+      : mechanics_backend_(mechanics_backend), runtime_id_(runtime_id) {}
+
   [[nodiscard]] std::string_view identifier() const noexcept override {
-    return SUNDIALS_ADVANCER_ID;
+    return runtime_id_;
   }
 
   /**
@@ -1169,14 +1310,22 @@ public:
                         const MechanicalStateSnapshot &state,
                         double step_size_s,
                         const ExternalLoads &loads) override {
+    if (const auto invalid = validate_advance_inputs(state, loads);
+        invalid.has_value()) {
+      return *invalid;
+    }
     return advance_segmented_state_with_diagnostics(
         config, state, step_size_s, SUNDIALS_SOLVER_STATUS,
         [&](MechanicalStateSnapshot &next,
             double segment_s) -> std::optional<SegmentAdvanceFailure> {
-          return advance_hull_segment_with_sundials(next, segment_s, config,
-                                                    loads);
+          return advance_hull_segment_with_sundials(
+              next, segment_s, mechanics_backend_, config, loads);
         });
   }
+
+private:
+  RuntimeMechanicsBackend mechanics_backend_;
+  std::string_view runtime_id_;
 };
 
 #endif
@@ -1246,36 +1395,6 @@ void advance_hull_segment_with_chrono(MechanicalStateSnapshot &next,
       from_chrono_vector(body->GetAngVelLocal());
 }
 
-class ChronoRigidBodyStateAdvancer final : public StateAdvancer {
-public:
-  [[nodiscard]] std::string_view identifier() const noexcept override {
-    return CHRONO_ADVANCER_ID;
-  }
-
-  /**
-   * @design D-042 — Chrono-backed rigid-body state advancer
-   * @title Optional Chrono-backed rigid-body startup and stepping behind the
-   * stable advancer contract for the first backend-wiring slice
-   * @satisfies [A-003, A-010]
-   */
-  StartupResult initialize(const SimulatorConfig &config) override {
-    return initialize_baseline_startup(config, CHRONO_SOLVER_STATUS);
-  }
-
-  AdvanceResult advance(const SimulatorConfig &config,
-                        const MechanicalStateSnapshot &state,
-                        double step_size_s,
-                        const ExternalLoads &loads) override {
-    return advance_segmented_state(
-        config, state, step_size_s, CHRONO_SOLVER_STATUS,
-        [&](MechanicalStateSnapshot &next,
-            double segment_s) -> std::optional<AdvancerDiagnostic> {
-          advance_hull_segment_with_chrono(next, segment_s, config, loads);
-          return std::nullopt;
-        });
-  }
-};
-
 #endif
 
 } // namespace
@@ -1287,36 +1406,69 @@ public:
  * @satisfies [A-002, A-010]
  */
 StateAdvancer &default_state_advancer() {
-  static DeterministicBaselineStateAdvancer advancer;
-  return advancer;
+  // StateAdvancer returns a mutable reference for injected test seams and
+  // shared runtime selection.
+  // NOLINTNEXTLINE(misc-const-correctness)
+  static DeterministicBaselineStateAdvancer deterministic_advancer;
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
+  static SundialsIdaStateAdvancer chrono_sundials_advancer(
+      RuntimeMechanicsBackend::CHRONO_RIGIDBODY, CHRONO_SUNDIALS_ADVANCER_ID);
+  return chrono_sundials_advancer;
+#else
+  static SundialsIdaStateAdvancer internal_sundials_advancer(
+      RuntimeMechanicsBackend::INTERNAL_BASELINE,
+      INTERNAL_SUNDIALS_ADVANCER_ID);
+  return internal_sundials_advancer;
+#endif
+#else
+  return deterministic_advancer;
+#endif
 }
 
-StateAdvancer *builtin_state_advancer(std::string_view id) noexcept {
-  if (id == builtin_state_advancer_id(BuiltinStateAdvancerType::sundials_ida)) {
+StateAdvancer *
+builtin_state_advancer(std::string_view mechanics_backend_id,
+                       std::string_view integration_backend_id) noexcept {
+  const auto mechanics_backend =
+      parse_builtin_mechanics_backend(mechanics_backend_id);
+  const auto integration_backend =
+      parse_builtin_integration_backend(integration_backend_id);
+  if (!mechanics_backend.has_value() || !integration_backend.has_value() ||
+      !built_in_backend_pair_supported(*mechanics_backend,
+                                       *integration_backend)) {
+    return nullptr;
+  }
+
+  StateAdvancer *advancer = nullptr;
+  switch (*integration_backend) {
+  case BuiltinIntegrationBackendType::deterministic_baseline:
+    // Builtin factory returns a mutable pointer through the stable
+    // StateAdvancer interface.
+    // NOLINTNEXTLINE(misc-const-correctness)
+    static DeterministicBaselineStateAdvancer deterministic_advancer;
+    advancer = &deterministic_advancer;
+    break;
+
+  case BuiltinIntegrationBackendType::sundials_ida:
 #if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
-    static SundialsIdaStateAdvancer sundials_advancer;
-    return &sundials_advancer;
-#else
-    return nullptr;
-#endif
-  }
-
-  if (id == builtin_state_advancer_id(
-                BuiltinStateAdvancerType::deterministic_baseline)) {
-    return &default_state_advancer();
-  }
-
-  if (id ==
-      builtin_state_advancer_id(BuiltinStateAdvancerType::chrono_rigidbody)) {
+    static SundialsIdaStateAdvancer internal_sundials_advancer(
+        RuntimeMechanicsBackend::INTERNAL_BASELINE,
+        INTERNAL_SUNDIALS_ADVANCER_ID);
+    advancer = &internal_sundials_advancer;
 #if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
-    static ChronoRigidBodyStateAdvancer advancer;
-    return &advancer;
+    if (*mechanics_backend == BuiltinMechanicsBackendType::chrono_rigidbody) {
+      static SundialsIdaStateAdvancer chrono_sundials_advancer(
+          RuntimeMechanicsBackend::CHRONO_RIGIDBODY,
+          CHRONO_SUNDIALS_ADVANCER_ID);
+      advancer = &chrono_sundials_advancer;
+    }
+#endif
+    break;
 #else
     return nullptr;
 #endif
   }
-
-  return nullptr;
+  return advancer;
 }
 
 #if defined(PROJECT_TEST_HOOKS) && PROJECT_TEST_HOOKS &&                       \

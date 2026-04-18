@@ -12,6 +12,11 @@
 
 namespace {
 
+std::string expected_default_mechanics_backend() {
+  return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
+                                                       : "internal_baseline";
+}
+
 std::string
 make_valid_config_json(std::string_view config_id = "baseline-single-scull") {
   std::ostringstream stream;
@@ -101,7 +106,9 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
   EXPECT_EQ(result.config->config_id, "baseline-single-scull");
   EXPECT_DOUBLE_EQ(result.config->simulation.duration_s, 120.0);
   EXPECT_DOUBLE_EQ(result.config->simulation.time_step_s, 0.01);
-  EXPECT_EQ(result.config->simulation.state_advancer, "sundials_ida");
+  EXPECT_EQ(result.config->simulation.mechanics_backend,
+            expected_default_mechanics_backend());
+  EXPECT_EQ(result.config->simulation.integration_backend, "sundials_ida");
   EXPECT_DOUBLE_EQ(result.config->hull.mass_kg, 14.5);
   EXPECT_DOUBLE_EQ(result.config->seat.min_position_m, -0.4);
   EXPECT_DOUBLE_EQ(result.config->seat.max_position_m, 0.4);
@@ -121,8 +128,15 @@ TEST(SimulatorConfig, ParsesValidJsonText) {
   EXPECT_NE(std::find(result.normalized_config.begin(),
                       result.normalized_config.end(),
                       project::NormalizedConfigEntry{
-                          "$.simulation.state_advancer", "sundials_ida", ""}),
+                          "$.simulation.mechanics_backend",
+                          expected_default_mechanics_backend(), ""}),
             result.normalized_config.end());
+  EXPECT_NE(
+      std::find(result.normalized_config.begin(),
+                result.normalized_config.end(),
+                project::NormalizedConfigEntry{
+                    "$.simulation.integration_backend", "sundials_ida", ""}),
+      result.normalized_config.end());
   EXPECT_NE(std::find(result.normalized_config.begin(),
                       result.normalized_config.end(),
                       project::NormalizedConfigEntry{"$.seat.rail_axis",

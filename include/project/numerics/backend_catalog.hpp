@@ -6,37 +6,59 @@
 
 namespace project {
 
-enum class BuiltinStateAdvancerType {
-  sundials_ida,
-  deterministic_baseline,
+enum class BuiltinMechanicsBackendType {
+  internal_baseline,
   chrono_rigidbody,
 };
 
-struct StateAdvancerMetadata {
+enum class BuiltinIntegrationBackendType {
+  deterministic_baseline,
+  sundials_ida,
+};
+
+struct BackendMetadata {
   std::string id;
   std::string policy_id;
   std::string policy_description;
 
-  bool operator==(const StateAdvancerMetadata &) const = default;
+  bool operator==(const BackendMetadata &) const = default;
 };
 
-[[nodiscard]] std::optional<BuiltinStateAdvancerType>
-parse_builtin_state_advancer(std::string_view id) noexcept;
+[[nodiscard]] std::optional<BuiltinMechanicsBackendType>
+parse_builtin_mechanics_backend(std::string_view id) noexcept;
 
 [[nodiscard]] std::string_view
-builtin_state_advancer_id(BuiltinStateAdvancerType type) noexcept;
+builtin_mechanics_backend_id(BuiltinMechanicsBackendType type) noexcept;
 
-[[nodiscard]] StateAdvancerMetadata
-builtin_state_advancer_metadata(BuiltinStateAdvancerType type) noexcept;
+[[nodiscard]] BackendMetadata
+builtin_mechanics_backend_metadata(BuiltinMechanicsBackendType type) noexcept;
 
-[[nodiscard]] std::optional<StateAdvancerMetadata>
-lookup_builtin_state_advancer_metadata(std::string_view id) noexcept;
+[[nodiscard]] std::optional<BackendMetadata>
+lookup_builtin_mechanics_backend_metadata(std::string_view id) noexcept;
 
 [[nodiscard]] bool
-builtin_state_advancer_supported(BuiltinStateAdvancerType type) noexcept;
+builtin_mechanics_backend_supported(BuiltinMechanicsBackendType type) noexcept;
 
-[[nodiscard]] bool sundials_state_advancer_supported() noexcept;
+[[nodiscard]] std::optional<BuiltinIntegrationBackendType>
+parse_builtin_integration_backend(std::string_view id) noexcept;
 
-[[nodiscard]] bool chrono_state_advancer_supported() noexcept;
+[[nodiscard]] std::string_view
+builtin_integration_backend_id(BuiltinIntegrationBackendType type) noexcept;
+
+[[nodiscard]] BackendMetadata builtin_integration_backend_metadata(
+    BuiltinIntegrationBackendType type) noexcept;
+
+[[nodiscard]] std::optional<BackendMetadata>
+lookup_builtin_integration_backend_metadata(std::string_view id) noexcept;
+
+[[nodiscard]] bool builtin_integration_backend_supported(
+    BuiltinIntegrationBackendType type) noexcept;
+
+[[nodiscard]] bool built_in_backend_pair_supported(
+    BuiltinMechanicsBackendType mechanics_backend,
+    BuiltinIntegrationBackendType integration_backend) noexcept;
+
+[[nodiscard]] bool chrono_mechanics_backend_supported() noexcept;
+[[nodiscard]] bool sundials_integration_backend_supported() noexcept;
 
 } // namespace project

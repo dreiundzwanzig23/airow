@@ -32,8 +32,8 @@ currently wired implementation truth.
 
 | Area | Choice | Status | Role | Notes | Decision |
 |---|---|---|---|---|---|
-| Mechanics backend | Project Chrono | approved | 3D multibody backbone for hull, oars, seat, constraints, and external loads | Default open-source mechanics platform for the simulator runtime | ADR-2026-04-02-007 |
-| Integration library | SUNDIALS IDA/IDAS | approved | Preferred constrained integration path for runtime stepping and sensitivities | Concrete integrator choices still flow through architecture contracts and decision records; this is the default preferred library family | ADR-2026-04-02-007 |
+| Mechanics backend | Project Chrono | approved | 3D multibody backbone for hull, oars, seat, constraints, and external loads | Preferred mechanics backend for the standard non-libc++ runtime build; libc++ sanitizer and coverage lanes remain explicit no-Chrono exceptions | ADR-2026-04-18-009 |
+| Integration library | SUNDIALS IDA/IDAS | approved | Preferred constrained integration path for runtime stepping and sensitivities | Preferred supported runtime pair is `chrono_rigidbody + sundials_ida`; fallback modes remain behind the same project contract | ADR-2026-04-18-009 |
 | Numerical backend policy | Integrator behind a project contract | approved | Hide concrete stepping backend behind stable subsystem interfaces | Prevents solver choice from leaking into requirements or broad implementation surfaces | ADR-2026-04-02-003 |
 
 ## Runtime physics model strategy

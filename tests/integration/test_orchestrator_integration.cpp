@@ -400,7 +400,8 @@ TEST(OrchestratorIntegration, OrchestratorDelegatesToInjectedStateAdvancer) {
   EXPECT_DOUBLE_EQ(advancer.observed_step_sizes[0], 0.4);
   EXPECT_DOUBLE_EQ(advancer.observed_step_sizes[1], 0.4);
   EXPECT_DOUBLE_EQ(advancer.observed_step_sizes[2], 0.2);
-  EXPECT_EQ(result.metadata.state_advancer_id, "recording-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "recording-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id, "recording-state-advancer");
 }
 
 /**
@@ -414,7 +415,8 @@ TEST(OrchestratorIntegration, OrchestratorDelegatesToInjectedStateAdvancer) {
 TEST(OrchestratorIntegration,
      OrchestratorSelectsConfiguredBuiltInStateAdvancer) {
   auto config = make_config("it-built-in-advancer", 1.0, 0.4);
-  config.simulation.state_advancer = "deterministic_baseline";
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "deterministic_baseline";
   RecordingHydroProvider hydro("it-hydro");
   RecordingAeroProvider aero("it-aero");
   FixedClock clock(
@@ -429,11 +431,12 @@ TEST(OrchestratorIntegration,
                                       });
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer.id, "deterministic_baseline");
-  EXPECT_EQ(result.metadata.state_advancer.policy_id,
-            "deterministic-baseline-v1");
-  EXPECT_EQ(result.metadata.state_advancer_id,
-            "deterministic-baseline-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend.id, "internal_baseline");
+  EXPECT_EQ(result.metadata.mechanics_backend.policy_id,
+            "internal-baseline-v1");
+  EXPECT_EQ(result.metadata.integration_backend.id, "deterministic_baseline");
+  EXPECT_EQ(result.metadata.integration_backend.policy_id,
+            "deterministic-baseline-v2");
   EXPECT_EQ(result.metadata.state_advancement_solver_status,
             "deterministic-baseline");
   EXPECT_EQ(result.summary.executed_step_count, 3ULL);
@@ -449,7 +452,8 @@ TEST(OrchestratorIntegration,
 TEST(OrchestratorIntegration,
      InjectedStateAdvancerOverridesConfiguredBuiltInAdvancer) {
   auto config = make_config("it-advancer-override", 1.0, 0.4);
-  config.simulation.state_advancer = "deterministic_baseline";
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "deterministic_baseline";
   RecordingHydroProvider hydro("it-hydro");
   RecordingAeroProvider aero("it-aero");
   RecordingStateAdvancer advancer;
@@ -466,8 +470,11 @@ TEST(OrchestratorIntegration,
                                       });
 
   ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer.policy_id, "external-selection");
-  EXPECT_EQ(result.metadata.state_advancer_id, "recording-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend.policy_id, "external-selection");
+  EXPECT_EQ(result.metadata.integration_backend.policy_id,
+            "external-selection");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "recording-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id, "recording-state-advancer");
   EXPECT_EQ(advancer.initialize_call_count, 1);
 }
 
@@ -481,12 +488,13 @@ TEST(OrchestratorIntegration,
  */
 TEST(OrchestratorIntegration,
      RejectsUnavailableChronoBuiltInAdvancerDeterministically) {
-  if (project::chrono_state_advancer_supported()) {
+  if (project::chrono_mechanics_backend_supported()) {
     GTEST_SKIP() << "Chrono support available on this build";
   }
 
   auto config = make_config("it-chrono-unavailable", 1.0, 0.4);
-  config.simulation.state_advancer = "chrono_rigidbody";
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
   RecordingHydroProvider hydro("it-hydro");
   RecordingAeroProvider aero("it-aero");
   FixedClock clock(
@@ -501,11 +509,12 @@ TEST(OrchestratorIntegration,
                                       });
 
   ASSERT_FALSE(result.ok());
-  EXPECT_EQ(result.metadata.state_advancer.id, "chrono_rigidbody");
-  EXPECT_EQ(result.metadata.state_advancer.policy_id, "chrono-rigidbody-v1");
+  EXPECT_EQ(result.metadata.mechanics_backend.id, "chrono_rigidbody");
+  EXPECT_EQ(result.metadata.mechanics_backend.policy_id, "chrono-rigidbody-v2");
   ASSERT_FALSE(result.diagnostics.empty());
   EXPECT_EQ(result.diagnostics.front().code, "unsupported_state_advancer");
-  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
+  EXPECT_EQ(result.diagnostics.front().path,
+            "$.simulation.integration_backend");
 }
 
 /**

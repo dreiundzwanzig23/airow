@@ -54,7 +54,8 @@ public:
  * SUNDIALS-specific startup status and finite initial state deterministically.
  */
 TEST(StateAdvancementSundials, InitializesStableStartupContract) {
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
 
@@ -77,7 +78,8 @@ TEST(StateAdvancementSundials, InitializesStableStartupContract) {
  * reporting a no-op success.
  */
 TEST(StateAdvancementSundials, AdvancesPositiveSubEpsilonStep) {
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
 
@@ -104,7 +106,8 @@ TEST(StateAdvancementSundials, AdvancesPositiveSubEpsilonStep) {
  * without manufacturing a backend instance.
  */
 TEST(StateAdvancementSundials, RejectsUnknownBuiltinAdvancerId) {
-  EXPECT_EQ(project::builtin_state_advancer("does_not_exist"), nullptr);
+  EXPECT_EQ(project::builtin_state_advancer("does_not_exist", "sundials_ida"),
+            nullptr);
 }
 
 /**
@@ -116,7 +119,8 @@ TEST(StateAdvancementSundials, RejectsUnknownBuiltinAdvancerId) {
  * deterministically.
  */
 TEST(StateAdvancementSundials, AdvancesFromExactCycleBoundaryWithoutStalling) {
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
 
@@ -152,7 +156,8 @@ TEST(StateAdvancementSundials, AdvancesFromExactCycleBoundaryWithoutStalling) {
  * the backend.
  */
 TEST(StateAdvancementSundials, RejectsInvalidStepSizeBeforeSolve) {
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
 
@@ -178,7 +183,8 @@ TEST(StateAdvancementSundials, RejectsInvalidStepSizeBeforeSolve) {
  * rather than manufacturing a solver failure.
  */
 TEST(StateAdvancementSundials, IgnoresUnknownFaultInjectionMode) {
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());
@@ -203,7 +209,8 @@ TEST(StateAdvancementSundials, IgnoresUnknownFaultInjectionMode) {
 TEST(StateAdvancementSundials, RejectsNonFiniteSolvedStateDeterministically) {
   ScopedSundialsFaultMode fault(
       project::SundialsTestFaultMode::non_finite_solution);
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());
@@ -231,7 +238,8 @@ TEST(StateAdvancementSundials,
      MapsContextConstructionFailureDeterministically) {
   ScopedSundialsFaultMode fault(
       project::SundialsTestFaultMode::context_create_failure);
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());
@@ -260,7 +268,8 @@ TEST(StateAdvancementSundials,
 TEST(StateAdvancementSundials, MapsAllocationFailureDeterministically) {
   ScopedSundialsFaultMode fault(
       project::SundialsTestFaultMode::memory_allocation_failure);
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());
@@ -289,7 +298,8 @@ TEST(StateAdvancementSundials,
      MapsSolverInitializationFailureDeterministically) {
   ScopedSundialsFaultMode fault(
       project::SundialsTestFaultMode::solver_initialization_failure);
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());
@@ -317,7 +327,8 @@ TEST(StateAdvancementSundials,
  */
 TEST(StateAdvancementSundials, MapsSetupFailureDeterministically) {
   ScopedSundialsFaultMode fault(project::SundialsTestFaultMode::setup_failure);
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());
@@ -344,7 +355,8 @@ TEST(StateAdvancementSundials, MapsSetupFailureDeterministically) {
  */
 TEST(StateAdvancementSundials, MapsSolveFailureDeterministically) {
   ScopedSundialsFaultMode fault(project::SundialsTestFaultMode::solve_failure);
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());
@@ -372,7 +384,8 @@ TEST(StateAdvancementSundials, MapsSolveFailureDeterministically) {
  */
 TEST(StateAdvancementSundials, MapsResidualUserDataFailureDeterministically) {
   ScopedSundialsFaultMode fault(project::SundialsTestFaultMode::null_user_data);
-  auto *advancer = project::builtin_state_advancer("sundials_ida");
+  auto *advancer =
+      project::builtin_state_advancer("internal_baseline", "sundials_ida");
 
   ASSERT_NE(advancer, nullptr);
   const auto startup = advancer->initialize(make_config());

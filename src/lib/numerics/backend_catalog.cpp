@@ -8,118 +8,197 @@ namespace project {
 
 namespace {
 
-constexpr std::string_view SUNDIALS_IDA_ID = "sundials_ida";
-constexpr std::string_view DETERMINISTIC_BASELINE_ID = "deterministic_baseline";
+constexpr std::string_view INTERNAL_BASELINE_MECHANICS_ID = "internal_baseline";
 constexpr std::string_view CHRONO_RIGIDBODY_ID = "chrono_rigidbody";
-constexpr std::string_view SUNDIALS_POLICY_ID =
-    "sundials-ida-fixed-tolerances-v1";
-constexpr std::string_view DETERMINISTIC_POLICY_ID =
-    "deterministic-baseline-v1";
-constexpr std::string_view CHRONO_POLICY_ID = "chrono-rigidbody-v1";
+constexpr std::string_view DETERMINISTIC_BASELINE_INTEGRATION_ID =
+    "deterministic_baseline";
+constexpr std::string_view SUNDIALS_IDA_ID = "sundials_ida";
+
+constexpr std::string_view INTERNAL_BASELINE_POLICY_ID = "internal-baseline-v1";
+constexpr std::string_view CHRONO_RIGIDBODY_POLICY_ID = "chrono-rigidbody-v2";
+constexpr std::string_view DETERMINISTIC_BASELINE_POLICY_ID =
+    "deterministic-baseline-v2";
+constexpr std::string_view SUNDIALS_IDA_POLICY_ID =
+    "sundials-ida-fixed-tolerances-v2";
 
 } // namespace
 
 /**
- * @design D-040 — Built-in state-advancer catalog and availability policy
- * @title Deterministic built-in state-advancer id parsing and backend
- * availability checks for config validation and runtime selection
+ * @design D-040 — Built-in backend catalog and availability policy
+ * @title Deterministic built-in mechanics-backend and integration-backend id
+ * parsing plus availability checks for config validation and runtime
+ * selection
  * @satisfies [A-001, A-010]
  */
-std::optional<BuiltinStateAdvancerType>
-parse_builtin_state_advancer(std::string_view id) noexcept {
-  if (id == SUNDIALS_IDA_ID) {
-    return BuiltinStateAdvancerType::sundials_ida;
-  }
-  if (id == DETERMINISTIC_BASELINE_ID) {
-    return BuiltinStateAdvancerType::deterministic_baseline;
+std::optional<BuiltinMechanicsBackendType>
+parse_builtin_mechanics_backend(std::string_view id) noexcept {
+  if (id == INTERNAL_BASELINE_MECHANICS_ID) {
+    return BuiltinMechanicsBackendType::internal_baseline;
   }
   if (id == CHRONO_RIGIDBODY_ID) {
-    return BuiltinStateAdvancerType::chrono_rigidbody;
+    return BuiltinMechanicsBackendType::chrono_rigidbody;
   }
   return std::nullopt;
 }
 
 std::string_view
-builtin_state_advancer_id(BuiltinStateAdvancerType type) noexcept {
+builtin_mechanics_backend_id(BuiltinMechanicsBackendType type) noexcept {
   switch (type) {
-  case BuiltinStateAdvancerType::sundials_ida:
-    return SUNDIALS_IDA_ID;
-  case BuiltinStateAdvancerType::deterministic_baseline:
-    return DETERMINISTIC_BASELINE_ID;
-  case BuiltinStateAdvancerType::chrono_rigidbody:
+  case BuiltinMechanicsBackendType::internal_baseline:
+    return INTERNAL_BASELINE_MECHANICS_ID;
+  case BuiltinMechanicsBackendType::chrono_rigidbody:
     return CHRONO_RIGIDBODY_ID;
   }
-  return DETERMINISTIC_BASELINE_ID;
+  return INTERNAL_BASELINE_MECHANICS_ID;
 }
 
-StateAdvancerMetadata
-builtin_state_advancer_metadata(BuiltinStateAdvancerType type) noexcept {
+BackendMetadata
+builtin_mechanics_backend_metadata(BuiltinMechanicsBackendType type) noexcept {
   switch (type) {
-  case BuiltinStateAdvancerType::sundials_ida:
+  case BuiltinMechanicsBackendType::internal_baseline:
     return {
-        .id = std::string(SUNDIALS_IDA_ID),
-        .policy_id = std::string(SUNDIALS_POLICY_ID),
+        .id = std::string(INTERNAL_BASELINE_MECHANICS_ID),
+        .policy_id = std::string(INTERNAL_BASELINE_POLICY_ID),
         .policy_description =
-            "Required SUNDIALS IDA default-runtime backend with fixed relative "
-            "and absolute tolerances of 1e-10 for Slice 3 closure.",
+            "Internal deterministic mechanics backend for fallback and "
+            "cross-check runtime operation.",
     };
-  case BuiltinStateAdvancerType::deterministic_baseline:
-    return {
-        .id = std::string(DETERMINISTIC_BASELINE_ID),
-        .policy_id = std::string(DETERMINISTIC_POLICY_ID),
-        .policy_description =
-            "Stable internal deterministic fallback backend without an "
-            "external solver tolerance policy.",
-    };
-  case BuiltinStateAdvancerType::chrono_rigidbody:
+  case BuiltinMechanicsBackendType::chrono_rigidbody:
     return {
         .id = std::string(CHRONO_RIGIDBODY_ID),
-        .policy_id = std::string(CHRONO_POLICY_ID),
+        .policy_id = std::string(CHRONO_RIGIDBODY_POLICY_ID),
         .policy_description =
-            "Optional build-gated Chrono rigid-body backend with "
-            "backend-internal solver policy.",
+            "Preferred rigid-body mechanics backend for the standard runtime "
+            "build.",
     };
   }
   return {
-      .id = std::string(DETERMINISTIC_BASELINE_ID),
-      .policy_id = std::string(DETERMINISTIC_POLICY_ID),
+      .id = std::string(INTERNAL_BASELINE_MECHANICS_ID),
+      .policy_id = std::string(INTERNAL_BASELINE_POLICY_ID),
       .policy_description =
-          "Stable internal deterministic fallback backend without an external "
-          "solver tolerance policy.",
+          "Internal deterministic mechanics backend for fallback and "
+          "cross-check runtime operation.",
   };
 }
 
-std::optional<StateAdvancerMetadata>
-lookup_builtin_state_advancer_metadata(std::string_view id) noexcept {
-  const auto parsed = parse_builtin_state_advancer(id);
+std::optional<BackendMetadata>
+lookup_builtin_mechanics_backend_metadata(std::string_view id) noexcept {
+  const auto parsed = parse_builtin_mechanics_backend(id);
   if (!parsed.has_value()) {
     return std::nullopt;
   }
-  return builtin_state_advancer_metadata(*parsed);
+  return builtin_mechanics_backend_metadata(*parsed);
 }
 
-bool builtin_state_advancer_supported(BuiltinStateAdvancerType type) noexcept {
+bool builtin_mechanics_backend_supported(
+    BuiltinMechanicsBackendType type) noexcept {
   switch (type) {
-  case BuiltinStateAdvancerType::sundials_ida:
-    return sundials_state_advancer_supported();
-  case BuiltinStateAdvancerType::deterministic_baseline:
+  case BuiltinMechanicsBackendType::internal_baseline:
     return true;
-  case BuiltinStateAdvancerType::chrono_rigidbody:
-    return chrono_state_advancer_supported();
+  case BuiltinMechanicsBackendType::chrono_rigidbody:
+    return chrono_mechanics_backend_supported();
   }
   return false;
 }
 
-bool sundials_state_advancer_supported() noexcept {
-#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
+std::optional<BuiltinIntegrationBackendType>
+parse_builtin_integration_backend(std::string_view id) noexcept {
+  if (id == DETERMINISTIC_BASELINE_INTEGRATION_ID) {
+    return BuiltinIntegrationBackendType::deterministic_baseline;
+  }
+  if (id == SUNDIALS_IDA_ID) {
+    return BuiltinIntegrationBackendType::sundials_ida;
+  }
+  return std::nullopt;
+}
+
+std::string_view
+builtin_integration_backend_id(BuiltinIntegrationBackendType type) noexcept {
+  switch (type) {
+  case BuiltinIntegrationBackendType::deterministic_baseline:
+    return DETERMINISTIC_BASELINE_INTEGRATION_ID;
+  case BuiltinIntegrationBackendType::sundials_ida:
+    return SUNDIALS_IDA_ID;
+  }
+  return DETERMINISTIC_BASELINE_INTEGRATION_ID;
+}
+
+BackendMetadata builtin_integration_backend_metadata(
+    BuiltinIntegrationBackendType type) noexcept {
+  switch (type) {
+  case BuiltinIntegrationBackendType::deterministic_baseline:
+    return {
+        .id = std::string(DETERMINISTIC_BASELINE_INTEGRATION_ID),
+        .policy_id = std::string(DETERMINISTIC_BASELINE_POLICY_ID),
+        .policy_description =
+            "Deterministic explicit integration fallback for internal "
+            "baseline mechanics validation and debugging.",
+    };
+  case BuiltinIntegrationBackendType::sundials_ida:
+    return {
+        .id = std::string(SUNDIALS_IDA_ID),
+        .policy_id = std::string(SUNDIALS_IDA_POLICY_ID),
+        .policy_description =
+            "Preferred constrained integration backend with fixed relative "
+            "and absolute tolerances of 1e-10 for Chrono-backed runtime "
+            "stepping.",
+    };
+  }
+  return {
+      .id = std::string(DETERMINISTIC_BASELINE_INTEGRATION_ID),
+      .policy_id = std::string(DETERMINISTIC_BASELINE_POLICY_ID),
+      .policy_description =
+          "Deterministic explicit integration fallback for internal baseline "
+          "mechanics validation and debugging.",
+  };
+}
+
+std::optional<BackendMetadata>
+lookup_builtin_integration_backend_metadata(std::string_view id) noexcept {
+  const auto parsed = parse_builtin_integration_backend(id);
+  if (!parsed.has_value()) {
+    return std::nullopt;
+  }
+  return builtin_integration_backend_metadata(*parsed);
+}
+
+bool builtin_integration_backend_supported(
+    BuiltinIntegrationBackendType type) noexcept {
+  switch (type) {
+  case BuiltinIntegrationBackendType::deterministic_baseline:
+    return true;
+  case BuiltinIntegrationBackendType::sundials_ida:
+    return sundials_integration_backend_supported();
+  }
+  return false;
+}
+
+bool built_in_backend_pair_supported(
+    BuiltinMechanicsBackendType mechanics_backend,
+    BuiltinIntegrationBackendType integration_backend) noexcept {
+  if (!builtin_mechanics_backend_supported(mechanics_backend) ||
+      !builtin_integration_backend_supported(integration_backend)) {
+    return false;
+  }
+
+  if (mechanics_backend == BuiltinMechanicsBackendType::chrono_rigidbody &&
+      integration_backend ==
+          BuiltinIntegrationBackendType::deterministic_baseline) {
+    return false;
+  }
+  return true;
+}
+
+bool chrono_mechanics_backend_supported() noexcept {
+#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
   return true;
 #else
   return false;
 #endif
 }
 
-bool chrono_state_advancer_supported() noexcept {
-#if defined(PROJECT_HAS_CHRONO) && PROJECT_HAS_CHRONO
+bool sundials_integration_backend_supported() noexcept {
+#if defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
   return true;
 #else
   return false;

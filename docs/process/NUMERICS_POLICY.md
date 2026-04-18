@@ -22,13 +22,20 @@ This document defines the baseline numerics policy for the simulator project.
   solver-status metadata rather than changing the stable diagnostic code set.
 
 ## Built-in backend policy
-- The default runtime backend is `sundials_ida`.
-- The built-in SUNDIALS IDA policy for the default runtime path uses fixed
+- The public runtime backend contract is split into
+  `simulation.mechanics_backend` and `simulation.integration_backend`.
+- The preferred supported runtime pair is
+  `chrono_rigidbody + sundials_ida`.
+- The built-in SUNDIALS IDA policy for the preferred runtime path uses fixed
   `rtol = 1e-10` and `atol = 1e-10`.
-- `deterministic_baseline` remains the explicit fallback when a non-SUNDIALS
-  path is required.
-- `chrono_rigidbody` remains optional and build-gated; its internal solver
-  policy is not yet a user-facing configuration contract.
+- `internal_baseline + sundials_ida` remains the supported fallback and
+  cross-check pair.
+- `internal_baseline + deterministic_baseline` remains the explicit
+  deterministic debug fallback.
+- `chrono_rigidbody + deterministic_baseline` is not a supported backend
+  combination.
+- Stable diagnostic codes remain generic; backend-specific detail is reported
+  through startup and runtime solver-status fields.
 
 ## Tolerances and comparisons
 - Use explicit tolerances when comparing floating-point results.

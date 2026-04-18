@@ -27,15 +27,19 @@
   deterministically, and the former crash reproducer
   `V0_1ClosureSystem.TenCycleStrokeReplayClosesR008` is green again under a
   targeted run.
-- Closed Slice 3 on `A-010` by completing built-in state-advancer selection
-  and backend-policy exposure: `simulation.state_advancer` now supports a
-  stable built-in advancer catalog, `sundials_ida` is the required default
-  runtime path with fixed built-in tolerances, `deterministic_baseline`
-  remains an explicit fallback, and `chrono_rigidbody` remains optional and
-  build-gated with passive-float or tow evidence only. The same slice also now
-  propagates structured backend-policy metadata plus startup and runtime
-  solver-status fields through the shared run path and JSON/HDF5 outputs, with
-  focused coverage in `UT-132..UT-141`, `IT-016..IT-018`, and `QT-031..QT-034`.
+- Closed Slice 3 on `A-010` as the composed backend packet: public config now
+  uses `simulation.mechanics_backend` and
+  `simulation.integration_backend`, the preferred supported runtime is
+  `chrono_rigidbody + sundials_ida`, `internal_baseline + sundials_ida`
+  remains the supported fallback, `internal_baseline + deterministic_baseline`
+  remains the explicit debug fallback, and
+  `chrono_rigidbody + deterministic_baseline` is rejected deterministically.
+  The same slice now propagates structured mechanics and integration backend
+  policy metadata plus startup and runtime solver-status fields through the
+  shared run path and JSON/HDF5 outputs, tightens the standard non-libc++
+  build to require Chrono via the repo-managed install prefix policy, and
+  extends Chrono scenario evidence through passive-float, tow, calm-water
+  stroke, headwind stroke, and crosswind stroke acceptance runs.
 - Continued Slice 2 on `A-004` by deepening the existing built-in hydro ids
   in place without changing provider ids, config schema, output schema, or
   state-advancer coupling: `stroke_propulsion_placeholder` now gates

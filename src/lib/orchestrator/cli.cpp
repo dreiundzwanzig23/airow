@@ -74,7 +74,8 @@ int run_headless_cli(std::span<const std::string_view> args, std::ostream &out,
   if (result.status == RunStatus::success) {
     out << "status=success" << " config_id=" << result.metadata.config_id
         << " version=" << result.metadata.simulator_version
-        << " advancer=" << result.metadata.state_advancer_id
+        << " mechanics_backend=" << result.metadata.mechanics_backend_id
+        << " integration_backend=" << result.metadata.integration_backend_id
         << " startup=" << result.metadata.startup_status
         << " start=" << result.metadata.start_timestamp_utc
         << " end=" << result.metadata.end_timestamp_utc
@@ -92,7 +93,8 @@ int run_headless_cli(std::span<const std::string_view> args, std::ostream &out,
               ? "configuration_error"
               : "runtime_error")
       << " version=" << result.metadata.simulator_version
-      << " advancer=" << result.metadata.state_advancer_id
+      << " mechanics_backend=" << result.metadata.mechanics_backend_id
+      << " integration_backend=" << result.metadata.integration_backend_id
       << " startup=" << result.metadata.startup_status
       << " start=" << result.metadata.start_timestamp_utc
       << " end=" << result.metadata.end_timestamp_utc << '\n';

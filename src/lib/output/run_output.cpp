@@ -318,7 +318,7 @@ Json provider_metadata_json(const ProviderMetadata &provider) {
               {"validity_description", provider.validity_description}};
 }
 
-Json state_advancer_metadata_json(const StateAdvancerMetadata &metadata) {
+Json backend_metadata_json(const BackendMetadata &metadata) {
   return Json{{"id", metadata.id},
               {"policy_id", metadata.policy_id},
               {"policy_description", metadata.policy_description}};
@@ -337,9 +337,12 @@ Json make_summary_document(const SimulationRunResult &result) {
              provider_metadata_json(result.metadata.providers.blade_force)},
             {"aero_load",
              provider_metadata_json(result.metadata.providers.aero_load)}}},
-      {"state_advancer",
-       state_advancer_metadata_json(result.metadata.state_advancer)},
-      {"state_advancer_id", result.metadata.state_advancer_id},
+      {"mechanics_backend",
+       backend_metadata_json(result.metadata.mechanics_backend)},
+      {"mechanics_backend_id", result.metadata.mechanics_backend_id},
+      {"integration_backend",
+       backend_metadata_json(result.metadata.integration_backend)},
+      {"integration_backend_id", result.metadata.integration_backend_id},
       {"startup_status", result.metadata.startup_status},
       {"startup_solver_status", result.metadata.startup_solver_status},
       {"state_advancement_solver_status",
@@ -808,24 +811,24 @@ bool write_provider_metadata_group(hid_t parent, const char *name,
                                 provider.validity_description, diagnostic);
 }
 
-bool write_state_advancer_metadata_group(hid_t parent,
-                                         const StateAdvancerMetadata &metadata,
-                                         RunDiagnostic &diagnostic) {
-  const H5ScopedHandle state_advancer_group(H5Gcreate2(parent, "state_advancer",
-                                                       H5P_DEFAULT, H5P_DEFAULT,
-                                                       H5P_DEFAULT),
-                                            H5Gclose);
-  if (!state_advancer_group.valid()) {
-    diagnostic = make_output_diagnostic(
-        "$.output.hdf5_path", "failed to create HDF5 state_advancer group");
+bool write_backend_metadata_group(hid_t parent, const char *name,
+                                  const BackendMetadata &metadata,
+                                  RunDiagnostic &diagnostic) {
+  const H5ScopedHandle backend_group(
+      H5Gcreate2(parent, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+      H5Gclose);
+  if (!backend_group.valid()) {
+    diagnostic = make_output_diagnostic("$.output.hdf5_path",
+                                        std::string("failed to create HDF5 ") +
+                                            name + " group");
     return false;
   }
 
-  return write_string_attribute(state_advancer_group.id, "id", metadata.id,
+  return write_string_attribute(backend_group.id, "id", metadata.id,
                                 diagnostic) &&
-         write_string_attribute(state_advancer_group.id, "policy_id",
+         write_string_attribute(backend_group.id, "policy_id",
                                 metadata.policy_id, diagnostic) &&
-         write_string_attribute(state_advancer_group.id, "policy_description",
+         write_string_attribute(backend_group.id, "policy_description",
                                 metadata.policy_description, diagnostic);
 }
 
@@ -922,6 +925,63 @@ bool write_hdf5_summary_group(hid_t file, const SimulationRunResult &result,
              result.summary.final_hydro_moment_world_n_m.z, diagnostic);
 }
 
+bool write_hdf5_metadata_attributes(hid_t metadata_group,
+                                    const SimulationRunResult &result,
+                                    RunDiagnostic &diagnostic) {
+  return write_string_attribute(metadata_group, "start_timestamp_utc",
+                                result.metadata.start_timestamp_utc,
+                                diagnostic) &&
+         write_string_attribute(metadata_group, "end_timestamp_utc",
+                                result.metadata.end_timestamp_utc,
+                                diagnostic) &&
+         write_string_attribute(metadata_group, "mechanics_backend_id",
+                                result.metadata.mechanics_backend_id,
+                                diagnostic) &&
+         write_string_attribute(metadata_group, "integration_backend_id",
+                                result.metadata.integration_backend_id,
+                                diagnostic) &&
+         write_string_attribute(metadata_group, "startup_status",
+                                result.metadata.startup_status, diagnostic) &&
+         write_string_attribute(metadata_group, "startup_solver_status",
+                                result.metadata.startup_solver_status,
+                                diagnostic) &&
+         write_string_attribute(
+             metadata_group, "state_advancement_solver_status",
+             result.metadata.state_advancement_solver_status, diagnostic) &&
+         write_double_scalar_dataset(
+             metadata_group, "startup_constraint_residual_max",
+             result.metadata.startup_constraint_residual_max, diagnostic);
+}
+
+bool write_hdf5_metadata_subgroups(hid_t metadata_group,
+                                   const SimulationRunResult &result,
+                                   RunDiagnostic &diagnostic) {
+  const H5ScopedHandle providers_group(H5Gcreate2(metadata_group, "providers",
+                                                  H5P_DEFAULT, H5P_DEFAULT,
+                                                  H5P_DEFAULT),
+                                       H5Gclose);
+  if (!providers_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path", "failed to create HDF5 providers group");
+    return false;
+  }
+  return write_provider_metadata_group(
+             providers_group.id, "hull_resistance",
+             result.metadata.providers.hull_resistance, diagnostic) &&
+         write_provider_metadata_group(providers_group.id, "blade_force",
+                                       result.metadata.providers.blade_force,
+                                       diagnostic) &&
+         write_provider_metadata_group(providers_group.id, "aero_load",
+                                       result.metadata.providers.aero_load,
+                                       diagnostic) &&
+         write_backend_metadata_group(metadata_group, "mechanics_backend",
+                                      result.metadata.mechanics_backend,
+                                      diagnostic) &&
+         write_backend_metadata_group(metadata_group, "integration_backend",
+                                      result.metadata.integration_backend,
+                                      diagnostic);
+}
+
 bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
                                RunDiagnostic &diagnostic) {
   const H5ScopedHandle metadata_group(
@@ -933,47 +993,10 @@ bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,
     return false;
   }
 
-  if (!(write_string_attribute(metadata_group.id, "start_timestamp_utc",
-                               result.metadata.start_timestamp_utc,
-                               diagnostic) &&
-        write_string_attribute(metadata_group.id, "end_timestamp_utc",
-                               result.metadata.end_timestamp_utc, diagnostic) &&
-        write_string_attribute(metadata_group.id, "state_advancer_id",
-                               result.metadata.state_advancer_id, diagnostic) &&
-        write_string_attribute(metadata_group.id, "startup_status",
-                               result.metadata.startup_status, diagnostic) &&
-        write_string_attribute(metadata_group.id, "startup_solver_status",
-                               result.metadata.startup_solver_status,
-                               diagnostic) &&
-        write_string_attribute(
-            metadata_group.id, "state_advancement_solver_status",
-            result.metadata.state_advancement_solver_status, diagnostic) &&
-        write_double_scalar_dataset(
-            metadata_group.id, "startup_constraint_residual_max",
-            result.metadata.startup_constraint_residual_max, diagnostic))) {
+  if (!write_hdf5_metadata_attributes(metadata_group.id, result, diagnostic)) {
     return false;
   }
-
-  const H5ScopedHandle providers_group(H5Gcreate2(metadata_group.id,
-                                                  "providers", H5P_DEFAULT,
-                                                  H5P_DEFAULT, H5P_DEFAULT),
-                                       H5Gclose);
-  if (!providers_group.valid()) {
-    diagnostic = make_output_diagnostic(
-        "$.output.hdf5_path", "failed to create HDF5 providers group");
-    return false;
-  }
-  if (!(write_provider_metadata_group(providers_group.id, "hull_resistance",
-                                      result.metadata.providers.hull_resistance,
-                                      diagnostic) &&
-        write_provider_metadata_group(providers_group.id, "blade_force",
-                                      result.metadata.providers.blade_force,
-                                      diagnostic) &&
-        write_provider_metadata_group(providers_group.id, "aero_load",
-                                      result.metadata.providers.aero_load,
-                                      diagnostic) &&
-        write_state_advancer_metadata_group(
-            metadata_group.id, result.metadata.state_advancer, diagnostic))) {
+  if (!write_hdf5_metadata_subgroups(metadata_group.id, result, diagnostic)) {
     return false;
   }
 

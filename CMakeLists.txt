@@ -69,6 +69,17 @@ find_library(SUNDIALS_SUNLINSOLDENSE_LIBRARY
 find_library(SUNDIALS_IDA_LIBRARY NAMES sundials_ida REQUIRED)
 message(STATUS "SUNDIALS support enabled")
 
+set(PROJECT_SUPPORTED_CHRONO_PREFIX
+    "${CMAKE_CURRENT_SOURCE_DIR}/.external/chrono-install")
+set(PROJECT_STANDARD_CHRONO_REQUIRED ON)
+if(PROJECT_USING_LIBCXX)
+    set(PROJECT_STANDARD_CHRONO_REQUIRED OFF)
+endif()
+if(EXISTS "${PROJECT_SUPPORTED_CHRONO_PREFIX}/lib/cmake/Chrono/ChronoConfig.cmake")
+    list(PREPEND CMAKE_PREFIX_PATH "${PROJECT_SUPPORTED_CHRONO_PREFIX}")
+    message(STATUS "Chrono support probing repo-managed prefix: ${PROJECT_SUPPORTED_CHRONO_PREFIX}")
+endif()
+
 find_package(Chrono QUIET CONFIG)
 set(PROJECT_CHRONO_ENABLED OFF)
 if(Chrono_FOUND)
@@ -94,6 +105,13 @@ endif()
 if(PROJECT_CHRONO_ENABLED)
     message(STATUS "Chrono support enabled")
 else()
+    if(PROJECT_STANDARD_CHRONO_REQUIRED)
+        message(FATAL_ERROR
+            "Chrono support is required for the standard build. "
+            "Provision the repo-managed install with ./scripts/setup_chrono.sh "
+            "or point Chrono_DIR/CMAKE_PREFIX_PATH at a supported Chrono install. "
+            "libc++ sanitizer and coverage lanes remain the explicit no-Chrono exception.")
+    endif()
     if(DEFINED PROJECT_CHRONO_DISABLE_REASON)
         message(STATUS "Chrono support disabled (${PROJECT_CHRONO_DISABLE_REASON})")
     else()

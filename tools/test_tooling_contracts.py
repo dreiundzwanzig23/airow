@@ -184,6 +184,47 @@ def main() -> int:
         "alloc_dealloc_mismatch=0",
         "libc++ sanitizer exception policy",
     )
+    require_contains(
+        cmake_lists,
+        ".external/chrono-install",
+        "repo-managed Chrono prefix policy",
+    )
+    require_contains(
+        cmake_lists,
+        "Chrono support is required for the standard build.",
+        "standard-build Chrono requirement policy",
+    )
+
+    setup_script = (ROOT / "scripts" / "setup.sh").read_text(encoding="utf-8")
+    require_contains(
+        setup_script,
+        'STDLIB="libstdc++"',
+        "libstdc++ standard setup default",
+    )
+    require_contains(
+        setup_script,
+        '"${SCRIPT_DIR}/setup_chrono.sh"',
+        "Chrono provisioning hook in setup",
+    )
+
+    setup_chrono_script = (ROOT / "scripts" / "setup_chrono.sh").read_text(
+        encoding="utf-8"
+    )
+    require_contains(
+        setup_chrono_script,
+        ".external/chrono-install",
+        "supported Chrono install prefix",
+    )
+    require_contains(
+        setup_chrono_script,
+        "BUILD_DEMOS=OFF",
+        "minimal Chrono build policy",
+    )
+    require_contains(
+        setup_chrono_script,
+        "CH_ENABLE_MODULE_IRRLICHT=OFF",
+        "Chrono module minimization policy",
+    )
 
     state_advancement = (ROOT / "src" / "lib" / "numerics" / "state_advancement.cpp").read_text(
         encoding="utf-8"

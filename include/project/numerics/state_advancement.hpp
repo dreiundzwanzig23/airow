@@ -81,7 +81,8 @@ public:
 
 StateAdvancer &default_state_advancer();
 [[nodiscard]] StateAdvancer *
-builtin_state_advancer(std::string_view id) noexcept;
+builtin_state_advancer(std::string_view mechanics_backend_id,
+                       std::string_view integration_backend_id) noexcept;
 
 #if defined(PROJECT_TEST_HOOKS) && PROJECT_TEST_HOOKS &&                       \
     defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS
