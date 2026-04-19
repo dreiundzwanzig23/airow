@@ -10,12 +10,37 @@
 #include <string_view>
 #include <vector>
 
+#include "project/numerics/backend_catalog.hpp"
 #include "project/orchestrator/cli.hpp"
 #include "project/orchestrator/simulation_run.hpp"
 
 namespace {
 
 using namespace std::chrono_literals;
+
+std::filesystem::path write_temp_file(const std::string &file_name,
+                                      const std::string &contents) {
+  const auto path = std::filesystem::temp_directory_path() / file_name;
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << contents;
+  output.close();
+  return path;
+}
+
+void remove_file_if_present(const std::filesystem::path &path) {
+  std::error_code error;
+  std::filesystem::remove(path, error);
+}
+
+std::string expected_default_mechanics_backend_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
+                                                       : "internal_baseline";
+}
+
+std::string expected_default_mechanics_policy_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono-rigidbody-v2"
+                                                       : "internal-baseline-v1";
+}
 
 project::SimulatorConfig make_config(double duration_s = 1.0,
                                      double time_step_s = 0.25) {
@@ -68,70 +93,6 @@ project::SimulatorConfig make_config(double duration_s = 1.0,
           },
       .environment = {},
   };
-}
-
-std::string make_valid_config_json(std::string_view config_id,
-                                   double duration_s = 1.0,
-                                   double time_step_s = 0.5) {
-  std::ostringstream stream;
-  stream << R"({
-        "config_id": ")"
-         << config_id << R"(",
-        "simulation": {
-          "duration_s": )"
-         << duration_s << R"(,
-          "time_step_s": )"
-         << time_step_s << R"(
-        },
-        "hull": {
-          "mass_kg": 14.0,
-          "center_of_mass_m": [0.0, 0.0, 0.0],
-          "inertia_kg_m2": [1.1, 7.8, 8.2],
-          "initial_position_m": [0.0, 0.0, 0.0],
-          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-          "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-        },
-        "oars": {
-          "port": {
-            "inboard_length_m": 0.88,
-            "outboard_length_m": 1.98,
-            "oarlock_position_m": [0.25, -0.82, 0.18]
-          },
-          "starboard": {
-            "inboard_length_m": 0.88,
-            "outboard_length_m": 1.98,
-            "oarlock_position_m": [0.25, 0.82, 0.18]
-          }
-        },
-        "seat": {
-          "rail_axis": [1.0, 0.0, 0.0],
-          "min_position_m": -0.4,
-          "max_position_m": 0.4,
-          "initial_position_m": 0.0
-        },
-        "stroke": {
-          "cycle_duration_s": 1.2,
-          "drive_duration_s": 0.48,
-          "catch_angle_rad": -0.9,
-          "release_angle_rad": 0.6
-        }
-      })";
-  return stream.str();
-}
-
-std::filesystem::path write_temp_file(const std::string &file_name,
-                                      const std::string &contents) {
-  const auto path = std::filesystem::temp_directory_path() / file_name;
-  std::ofstream output(path, std::ios::binary);
-  output << contents;
-  output.close();
-  return path;
-}
-
-void remove_file_if_present(const std::filesystem::path &path) {
-  std::error_code error;
-  std::filesystem::remove(path, error);
 }
 
 class FixedClock final : public project::Clock {
@@ -189,6 +150,53 @@ public:
 
 private:
   std::string identifier_;
+};
+
+class ObservingAeroProvider final : public project::AeroProvider {
+public:
+  std::string_view identifier() const noexcept override {
+    return "observing-aero";
+  }
+
+  project::AeroLoadSample
+  sample_load(const project::StepContext &context,
+              const project::Vector3 &ambient_wind_world_mps) override {
+    observed_times_s.push_back(context.time_s);
+    observed_ambient_wind_world_mps.push_back(ambient_wind_world_mps);
+    return {
+        .apparent_wind_world_mps = ambient_wind_world_mps,
+        .force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+    };
+  }
+
+  std::vector<double> observed_times_s;
+  std::vector<project::Vector3> observed_ambient_wind_world_mps;
+};
+
+class RecordingStateAdvancer final : public project::StateAdvancer {
+public:
+  std::string_view identifier() const noexcept override {
+    return "recording-state-advancer";
+  }
+
+  project::StartupResult
+  initialize(const project::SimulatorConfig &config) override {
+    ++initialize_call_count;
+    return project::default_state_advancer().initialize(config);
+  }
+
+  project::AdvanceResult advance(const project::SimulatorConfig &config,
+                                 const project::MechanicalStateSnapshot &state,
+                                 double step_size_s,
+                                 const project::ExternalLoads &loads) override {
+    ++advance_call_count;
+    return project::default_state_advancer().advance(config, state, step_size_s,
+                                                     loads);
+  }
+
+  int initialize_call_count{};
+  int advance_call_count{};
 };
 
 class InvalidHydroProvider final : public project::HydroProvider {
@@ -259,7 +267,7 @@ public:
 
 /**
  * @test UT-008
- * @verifies [D-010, D-013]
+ * @verifies [D-010, D-013, D-041]
  * @notes Given a validated config and fixed runtime dependencies, when the
  * in-memory run API executes, then it returns deterministic metadata,
  * startup-validity metadata, mechanics state history, and no diagnostics.
@@ -282,10 +290,19 @@ TEST(SimulationRun, ReturnsDeterministicMetadataAndSummary) {
   EXPECT_EQ(result.metadata.providers.hull_resistance.id, "none");
   EXPECT_EQ(result.metadata.providers.blade_force.id, "none");
   EXPECT_EQ(result.metadata.providers.aero_load.id, "none");
-  EXPECT_EQ(result.metadata.state_advancer_id,
-            "deterministic-baseline-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend.id,
+            expected_default_mechanics_backend_id());
+  EXPECT_EQ(result.metadata.mechanics_backend.policy_id,
+            expected_default_mechanics_policy_id());
+  EXPECT_EQ(result.metadata.mechanics_backend_id,
+            expected_default_mechanics_backend_id());
+  EXPECT_EQ(result.metadata.integration_backend.id, "sundials_ida");
+  EXPECT_EQ(result.metadata.integration_backend.policy_id,
+            "sundials-ida-fixed-tolerances-v2");
+  EXPECT_EQ(result.metadata.integration_backend_id, "sundials_ida");
   EXPECT_EQ(result.metadata.startup_status, "success");
-  EXPECT_EQ(result.metadata.startup_solver_status, "deterministic-baseline");
+  EXPECT_EQ(result.metadata.startup_solver_status, "sundials-ida");
+  EXPECT_EQ(result.metadata.state_advancement_solver_status, "sundials-ida");
   EXPECT_EQ(result.summary.final_simulated_time_s, 1.0);
   EXPECT_EQ(result.summary.executed_step_count, 4ULL);
   EXPECT_DOUBLE_EQ(result.summary.distance_m, 0.0);
@@ -431,360 +448,6 @@ TEST(SimulationRun, ReportsProviderExceptions) {
 }
 
 /**
- * @test UT-011
- * @verifies [D-011]
- * @notes Given invalid config content on disk, when the file-backed run entry
- * point is exercised, then configuration diagnostics are mapped into the
- * structured run result without entering the runtime loop.
- */
-TEST(SimulationRun, MapsConfigurationFailuresFromFileBackedEntryPoint) {
-  const auto path = write_temp_file("airow-invalid-run-config.json",
-                                    R"({
-        "config_id": "invalid-run",
-        "simulation": {
-          "duration_s": 1.0
-        },
-        "hull": {
-          "mass_kg": 14.0,
-          "center_of_mass_m": [0.0, 0.0, 0.0],
-          "inertia_kg_m2": [1.1, 7.8, 8.2],
-          "initial_position_m": [0.0, 0.0, 0.0],
-          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-          "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-        },
-        "oars": {
-          "port": {
-            "inboard_length_m": 0.88,
-            "outboard_length_m": 1.98,
-            "oarlock_position_m": [0.25, -0.82, 0.18]
-          },
-          "starboard": {
-            "inboard_length_m": 0.88,
-            "outboard_length_m": 1.98,
-            "oarlock_position_m": [0.25, 0.82, 0.18]
-          }
-        },
-        "seat": {
-          "rail_axis": [1.0, 0.0, 0.0],
-          "min_position_m": -0.4,
-          "max_position_m": 0.4,
-          "initial_position_m": 0.0
-        },
-        "stroke": {
-          "cycle_duration_s": 1.2,
-          "drive_duration_s": 0.48,
-          "catch_angle_rad": -0.9,
-          "release_angle_rad": 0.6
-        }
-      })");
-
-  FixedClock clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 16h,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 16h + 1s});
-
-  const auto result = project::run_simulation_from_config_file(
-      path, project::SimulationDependencies{.clock = &clock});
-  remove_file_if_present(path);
-
-  ASSERT_FALSE(result.ok());
-  EXPECT_EQ(result.status, project::RunStatus::configuration_error);
-  ASSERT_EQ(result.diagnostics.size(), 1U);
-  EXPECT_EQ(result.diagnostics.front().code, "missing_required_field");
-  EXPECT_EQ(result.diagnostics.front().subsystem, "configuration");
-  EXPECT_EQ(result.diagnostics.front().path, "$.simulation.time_step_s");
-  EXPECT_EQ(result.metadata.start_timestamp_utc, "2026-04-03T16:00:00Z");
-  EXPECT_EQ(result.metadata.end_timestamp_utc, "2026-04-03T16:00:01Z");
-}
-
-/**
- * @test UT-013
- * @verifies [D-011]
- * @notes Given valid config content on disk, when the file-backed run entry
- * point is exercised, then it returns the same structured success contract as
- * the in-memory path without introducing configuration diagnostics.
- */
-TEST(SimulationRun, ExecutesSuccessfulFileBackedRun) {
-  const auto path = write_temp_file("airow-valid-run-config.json",
-                                    make_valid_config_json("valid-run"));
-
-  FixedClock clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 17h,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 17h + 1s});
-
-  const auto result = project::run_simulation_from_config_file(
-      path, project::SimulationDependencies{.clock = &clock});
-  remove_file_if_present(path);
-
-  ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.status, project::RunStatus::success);
-  EXPECT_TRUE(result.diagnostics.empty());
-  EXPECT_EQ(result.metadata.config_id, "valid-run");
-  EXPECT_EQ(result.metadata.start_timestamp_utc, "2026-04-03T17:00:00Z");
-  EXPECT_EQ(result.metadata.end_timestamp_utc, "2026-04-03T17:00:01Z");
-  EXPECT_EQ(result.summary.executed_step_count, 2ULL);
-  EXPECT_EQ(result.metadata.startup_status, "success");
-}
-
-/**
- * @test UT-027
- * @verifies [D-011]
- * @notes Given a valid config file and default runtime dependencies, when the
- * file-backed entry point executes without an injected clock, then it still
- * produces non-empty timestamps and the shared mechanics-backed success
- * contract.
- */
-TEST(SimulationRun, ExecutesFileBackedRunWithoutInjectedClock) {
-  const auto path =
-      write_temp_file("airow-valid-run-config-default-clock.json",
-                      make_valid_config_json("valid-run-default-clock"));
-
-  const auto result = project::run_simulation_from_config_file(
-      path, project::SimulationDependencies{});
-  remove_file_if_present(path);
-
-  ASSERT_TRUE(result.ok());
-  EXPECT_EQ(result.status, project::RunStatus::success);
-  EXPECT_EQ(result.metadata.config_id, "valid-run-default-clock");
-  EXPECT_FALSE(result.metadata.start_timestamp_utc.empty());
-  EXPECT_FALSE(result.metadata.end_timestamp_utc.empty());
-  EXPECT_EQ(result.metadata.startup_status, "success");
-}
-
-/**
- * @test UT-033
- * @verifies [D-011]
- * @notes Given an invalid config file and default runtime dependencies, when
- * the file-backed entry point rejects configuration without an injected clock,
- * then it still stamps non-empty timestamps on the configuration error result.
- */
-TEST(SimulationRun, MapsFileBackedConfigurationFailureWithoutInjectedClock) {
-  const auto path =
-      write_temp_file("airow-invalid-run-config-default-clock.json",
-                      R"({
-        "config_id": "invalid-run-default-clock",
-        "simulation": {
-          "duration_s": 1.0
-        }
-      })");
-
-  const auto result = project::run_simulation_from_config_file(
-      path, project::SimulationDependencies{});
-  remove_file_if_present(path);
-
-  ASSERT_FALSE(result.ok());
-  EXPECT_EQ(result.status, project::RunStatus::configuration_error);
-  ASSERT_EQ(result.diagnostics.size(), 1U);
-  EXPECT_EQ(result.diagnostics.front().code, "missing_required_field");
-  EXPECT_FALSE(result.metadata.start_timestamp_utc.empty());
-  EXPECT_FALSE(result.metadata.end_timestamp_utc.empty());
-}
-
-/**
- * @test UT-012
- * @verifies [D-014]
- * @notes Given invalid CLI-style arguments, when the headless CLI wrapper
- * runs, then it rejects usage deterministically without requiring the real
- * process entry point.
- */
-TEST(SimulationRun, HeadlessCliWrapperRejectsInvalidUsage) {
-  std::ostringstream stdout_stream;
-  std::ostringstream stderr_stream;
-
-  {
-    const std::vector<std::string_view> args = {};
-    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
-              64);
-    EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
-  }
-
-  stdout_stream.str("");
-  stdout_stream.clear();
-  stderr_stream.str("");
-  stderr_stream.clear();
-
-  {
-    const std::vector<std::string_view> args = {"--bogus", "value"};
-    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
-              64);
-    EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
-  }
-}
-
-/**
- * @test UT-014
- * @verifies [D-014]
- * @notes Given valid or configuration-invalid config files, when the headless
- * CLI wrapper runs, then it maps the shared run result to stable success and
- * configuration-failure exit codes.
- */
-TEST(SimulationRun, HeadlessCliWrapperMapsSuccessAndConfigurationFailure) {
-  std::ostringstream stdout_stream;
-  std::ostringstream stderr_stream;
-
-  const auto valid_path =
-      write_temp_file("airow-unit-cli-valid-config.json",
-                      make_valid_config_json("unit-cli-valid"));
-  FixedClock valid_clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 1s});
-  const auto valid_path_text = valid_path.string();
-  const std::vector<std::string_view> valid_args = {"--config",
-                                                    valid_path_text};
-
-  EXPECT_EQ(project::run_headless_cli(valid_args, stdout_stream, stderr_stream,
-                                      project::CliDependencies{
-                                          .simulation = {.clock = &valid_clock},
-                                      }),
-            0);
-  EXPECT_NE(stdout_stream.str().find("status=success"), std::string::npos);
-  remove_file_if_present(valid_path);
-
-  stdout_stream.str("");
-  stdout_stream.clear();
-  stderr_stream.str("");
-  stderr_stream.clear();
-
-  const auto invalid_path =
-      write_temp_file("airow-unit-cli-invalid-config.json",
-                      R"({
-          "config_id": "unit-cli-invalid",
-          "simulation": {
-            "duration_s": 1.0
-          },
-          "hull": {
-            "mass_kg": 14.0,
-            "center_of_mass_m": [0.0, 0.0, 0.0],
-            "inertia_kg_m2": [1.1, 7.8, 8.2],
-            "initial_position_m": [0.0, 0.0, 0.0],
-            "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-            "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-            "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-          },
-          "oars": {
-            "port": {
-              "inboard_length_m": 0.88,
-              "outboard_length_m": 1.98,
-              "oarlock_position_m": [0.25, -0.82, 0.18]
-            },
-            "starboard": {
-              "inboard_length_m": 0.88,
-              "outboard_length_m": 1.98,
-              "oarlock_position_m": [0.25, 0.82, 0.18]
-            }
-          },
-          "seat": {
-            "rail_axis": [1.0, 0.0, 0.0],
-            "min_position_m": -0.4,
-            "max_position_m": 0.4,
-            "initial_position_m": 0.0
-          },
-          "stroke": {
-            "cycle_duration_s": 1.2,
-            "drive_duration_s": 0.48,
-            "catch_angle_rad": -0.9,
-            "release_angle_rad": 0.6
-          }
-        })");
-  FixedClock invalid_clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 2min,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 3min});
-  const auto invalid_path_text = invalid_path.string();
-  const std::vector<std::string_view> invalid_args = {"--config",
-                                                      invalid_path_text};
-
-  EXPECT_EQ(
-      project::run_headless_cli(invalid_args, stdout_stream, stderr_stream,
-                                project::CliDependencies{
-                                    .simulation = {.clock = &invalid_clock},
-                                }),
-      2);
-  EXPECT_NE(stderr_stream.str().find("configuration_error"), std::string::npos);
-  remove_file_if_present(invalid_path);
-}
-
-/**
- * @test UT-015
- * @verifies [D-014]
- * @notes Given a runtime provider failure reached through the CLI wrapper,
- * when the headless CLI path executes, then it maps the failure to the stable
- * runtime exit code and message shape.
- */
-TEST(SimulationRun, HeadlessCliWrapperMapsRuntimeFailure) {
-  std::ostringstream stdout_stream;
-  std::ostringstream stderr_stream;
-
-  const auto path = write_temp_file("airow-unit-cli-runtime-config.json",
-                                    make_valid_config_json("unit-cli-runtime"));
-  FixedClock clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 4min,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 22h + 5min});
-  InvalidHydroProviderForCli hydro;
-  const auto path_text = path.string();
-  const std::vector<std::string_view> args = {"--config", path_text};
-
-  EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
-                                      project::CliDependencies{
-                                          .simulation =
-                                              {
-                                                  .hydro_provider = &hydro,
-                                                  .clock = &clock,
-                                              },
-                                      }),
-            3);
-  EXPECT_NE(stderr_stream.str().find("runtime_error"), std::string::npos);
-  remove_file_if_present(path);
-}
-
-/**
- * @test UT-120
- * @verifies [D-031]
- * @notes Given a valid config file and the compact report flag, when the
- * headless CLI wrapper runs, then it keeps the stable exit mapping and appends
- * a human-readable analysis report for successful runs.
- */
-TEST(SimulationRun, HeadlessCliWrapperCanRenderCompactReport) {
-  std::ostringstream stdout_stream;
-  std::ostringstream stderr_stream;
-
-  const auto path = write_temp_file("airow-unit-cli-report-config.json",
-                                    make_valid_config_json("unit-cli-report"));
-  FixedClock clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 1s});
-  const auto path_text = path.string();
-  const std::vector<std::string_view> args = {"--config", path_text, "--report",
-                                              "compact"};
-
-  EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
-                                      project::CliDependencies{
-                                          .simulation = {.clock = &clock},
-                                      }),
-            0);
-  EXPECT_NE(stdout_stream.str().find("Run Analysis"), std::string::npos);
-  EXPECT_NE(stdout_stream.str().find("Coverage"), std::string::npos);
-  EXPECT_TRUE(stderr_stream.str().empty());
-  remove_file_if_present(path);
-}
-
-/**
- * @test UT-121
- * @verifies [D-031]
- * @notes Given an unsupported report mode, when the headless CLI wrapper runs,
- * then it rejects usage deterministically instead of executing the run path.
- */
-TEST(SimulationRun, HeadlessCliWrapperRejectsUnknownReportMode) {
-  std::ostringstream stdout_stream;
-  std::ostringstream stderr_stream;
-
-  const std::vector<std::string_view> args = {"--config", "ignored.json",
-                                              "--report", "verbose"};
-
-  EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream), 64);
-  EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
-}
-
-/**
  * @test UT-104
  * @verifies [D-010, D-012]
  * @notes Given a zero-duration config and recording providers, when the run
@@ -855,4 +518,223 @@ TEST(SimulationRun, BuildsConfiguredBuiltInProvidersWithoutInjectedProviders) {
                             return sample.port_blade_force_world_n.x > 0.0;
                           }));
   EXPECT_NE(result.load_history.front().aero_force_world_n.x, 0.0);
+}
+
+/**
+ * @test UT-232
+ * @verifies [D-044]
+ * @notes Given a calibrated aero provider selection and a valid calibration
+ * artifact reference in the in-memory config, when the shared run path
+ * executes without an injected aero seam, then it records the imported
+ * artifact provenance and uses the calibrated provider successfully.
+ */
+TEST(SimulationRun, BuildsConfiguredCalibratedAeroProviderFromArtifact) {
+  const auto artifact_path =
+      write_temp_file("airow-ut-simulation-run-calibration-artifact.json",
+                      R"({
+        "schema_id": "steady_wind_aero_calibration.v1",
+        "source_id": "wind-tunnel-run",
+        "artifact_version": "2026-04-19",
+        "content_hash": "sha256:ut-run-calibration",
+        "aero": {
+          "steady_wind": {
+            "drag_coefficient_n_s2_per_m2": 2.5,
+            "yaw_moment_coefficient_n_m_s2_per_m2": 1.5
+          }
+        }
+      })");
+  auto config = make_config(0.25, 0.25);
+  config.hull.initial_linear_velocity_mps = {.x = 1.0, .y = -0.5, .z = 0.0};
+  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.5, .z = 0.0};
+  config.providers.hull_resistance = "quadratic_drag_placeholder";
+  config.providers.blade_force = "stroke_propulsion_placeholder";
+  config.providers.aero_load = "steady_wind_calibrated";
+  config.artifacts.calibration.path = artifact_path.string();
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 11h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 11h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_EQ(result.metadata.external_artifacts.size(), 1U);
+  EXPECT_EQ(result.metadata.external_artifacts.front().source_id,
+            "wind-tunnel-run");
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "steady_wind_calibrated");
+  ASSERT_FALSE(result.load_history.empty());
+  EXPECT_DOUBLE_EQ(result.load_history.front().aero_force_world_n.x,
+                   -29.66663456597992);
+
+  remove_file_if_present(artifact_path);
+}
+
+/**
+ * @test UT-233
+ * @verifies [D-044]
+ * @notes Given the calibrated aero provider selection but an injected aero
+ * seam, when the run executes, then the shared run path skips built-in
+ * artifact loading and honors the injected provider successfully.
+ */
+TEST(SimulationRun, InjectedAeroProviderBypassesCalibratedArtifactLoading) {
+  auto config = make_config(0.25, 0.25);
+  config.providers.aero_load = "steady_wind_calibrated";
+  config.artifacts.calibration.path =
+      (std::filesystem::temp_directory_path() /
+       "airow-ut-missing-calibration-artifact.json")
+          .string();
+  RecordingAeroProvider aero("stub-aero");
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 12h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 12h + 1s});
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_TRUE(result.metadata.external_artifacts.empty());
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "steady_wind_calibrated");
+  EXPECT_FALSE(aero.observed_times_s.empty());
+}
+
+/**
+ * @test UT-242
+ * @verifies [D-044]
+ * @notes Given the calibrated aero provider selection with a missing artifact
+ * file, when the in-memory run executes without an injected aero seam, then it
+ * fails deterministically as a configuration error before startup begins.
+ */
+TEST(SimulationRun, ReportsConfigurationErrorForMissingCalibrationArtifact) {
+  auto config = make_config(0.25, 0.25);
+  config.providers.aero_load = "steady_wind_calibrated";
+  config.artifacts.calibration.path =
+      (std::filesystem::temp_directory_path() /
+       "airow-ut-missing-runtime-calibration-artifact.json")
+          .string();
+  remove_file_if_present(config.artifacts.calibration.path);
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 13h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 13h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.status, project::RunStatus::configuration_error);
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "io_error");
+  EXPECT_EQ(result.diagnostics.front().subsystem, "configuration");
+}
+
+/**
+ * @test UT-243
+ * @verifies [D-033]
+ * @notes Given an in-memory config with an unsupported aero provider id that
+ * bypasses the validated file-backed parser, when the shared run path executes
+ * without an injected aero seam, then built-in provider construction falls
+ * back to a null aero provider and the run still emits deterministic zero aero
+ * load rather than crashing.
+ */
+TEST(SimulationRun, UnsupportedInMemoryAeroProviderFallsBackToNullProvider) {
+  auto config = make_config(0.25, 0.25);
+  config.providers.aero_load = "unsupported_runtime_provider";
+  config.environment.ambient_wind_world_mps = {.x = -1.0, .y = 0.5, .z = 0.0};
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 14h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 14h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.providers.aero_load.id,
+            "unsupported_runtime_provider");
+  ASSERT_FALSE(result.load_history.empty());
+  EXPECT_DOUBLE_EQ(result.load_history.front().aero_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(result.load_history.front().aero_moment_world_n_m.z, 0.0);
+}
+
+/**
+ * @test UT-135
+ * @verifies [D-010, D-013, D-041]
+ * @notes Given explicit deterministic built-in state-advancer selection in
+ * config, when the shared run path executes without an injected advancer,
+ * then the built-in deterministic advancer is selected and reported in run
+ * metadata.
+ */
+TEST(SimulationRun, SelectsConfiguredBuiltInStateAdvancerWhenNotInjected) {
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 10h + 1s});
+  auto config = make_config();
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "deterministic_baseline";
+
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "internal_baseline");
+  EXPECT_EQ(result.metadata.integration_backend_id, "deterministic_baseline");
+}
+
+/**
+ * @test UT-136
+ * @verifies [D-010, D-013]
+ * @notes Given both config-selected built-in state-advancer selection and an
+ * injected advancer seam, when the run executes, then the injected advancer
+ * takes precedence over the built-in selection.
+ */
+TEST(SimulationRun, InjectedStateAdvancerOverridesConfiguredBuiltInSelection) {
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 11h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 11h + 1s});
+  RecordingStateAdvancer advancer;
+  auto config = make_config();
+  config.simulation.mechanics_backend = "internal_baseline";
+  config.simulation.integration_backend = "deterministic_baseline";
+
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .state_advancer = &advancer,
+                                          .clock = &clock,
+                                      });
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "recording-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id, "recording-state-advancer");
+  EXPECT_EQ(advancer.initialize_call_count, 1);
+}
+
+/**
+ * @test UT-137
+ * @verifies [D-010, D-041]
+ * @notes Given Chrono backend selection on a build without Chrono support,
+ * when a run is attempted through an in-memory config, then execution fails
+ * deterministically with a backend-specific diagnostic.
+ */
+TEST(SimulationRun, RejectsUnavailableChronoBuiltInStateAdvancerAtRuntime) {
+  if (project::chrono_mechanics_backend_supported()) {
+    GTEST_SKIP() << "Chrono support available on this build";
+  }
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 12h + 1s});
+  auto config = make_config();
+  config.simulation.mechanics_backend = "chrono_rigidbody";
+  config.simulation.integration_backend = "sundials_ida";
+
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.status, project::RunStatus::runtime_error);
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_state_advancer");
+  EXPECT_EQ(result.diagnostics.front().path,
+            "$.simulation.integration_backend");
 }

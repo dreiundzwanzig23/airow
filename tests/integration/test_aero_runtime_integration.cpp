@@ -95,6 +95,64 @@ make_valid_config_json_with_output(std::string_view config_id,
          "}\n";
 }
 
+std::string make_time_varying_config_json_with_output(
+    std::string_view config_id, std::string_view summary_path,
+    std::string_view time_series_path, std::string_view environment_json) {
+  return std::string("{\n") + "  \"config_id\": \"" + std::string(config_id) +
+         "\",\n" +
+         "  \"simulation\": {\n"
+         "    \"duration_s\": 0.5,\n"
+         "    \"time_step_s\": 0.25\n"
+         "  },\n"
+         "  \"hull\": {\n"
+         "    \"mass_kg\": 14.0,\n"
+         "    \"center_of_mass_m\": [0.0, 0.0, 0.0],\n"
+         "    \"inertia_kg_m2\": [1.1, 7.8, 8.2],\n"
+         "    \"initial_position_m\": [0.0, 0.0, 0.0],\n"
+         "    \"initial_orientation_xyzw\": [0.0, 0.0, 0.0, 1.0],\n"
+         "    \"initial_linear_velocity_mps\": [0.0, 0.0, 0.0],\n"
+         "    \"initial_angular_velocity_radps\": [0.0, 0.0, 0.0]\n"
+         "  },\n"
+         "  \"oars\": {\n"
+         "    \"port\": {\n"
+         "      \"inboard_length_m\": 0.88,\n"
+         "      \"outboard_length_m\": 1.98,\n"
+         "      \"oarlock_position_m\": [0.25, -0.82, 0.18]\n"
+         "    },\n"
+         "    \"starboard\": {\n"
+         "      \"inboard_length_m\": 0.88,\n"
+         "      \"outboard_length_m\": 1.98,\n"
+         "      \"oarlock_position_m\": [0.25, 0.82, 0.18]\n"
+         "    }\n"
+         "  },\n"
+         "  \"seat\": {\n"
+         "    \"rail_axis\": [1.0, 0.0, 0.0],\n"
+         "    \"min_position_m\": -0.4,\n"
+         "    \"max_position_m\": 0.4,\n"
+         "    \"initial_position_m\": 0.0\n"
+         "  },\n"
+         "  \"stroke\": {\n"
+         "    \"cycle_duration_s\": 1.2,\n"
+         "    \"drive_duration_s\": 0.48,\n"
+         "    \"catch_angle_rad\": -0.9,\n"
+         "    \"release_angle_rad\": 0.6\n"
+         "  },\n"
+         "  \"environment\": " +
+         std::string(environment_json) +
+         ",\n"
+         "  \"output\": {\n"
+         "    \"summary_path\": \"" +
+         std::string(summary_path) +
+         "\",\n"
+         "    \"time_series_path\": \"" +
+         std::string(time_series_path) +
+         "\",\n"
+         "    \"formats\": [\"json\"],\n"
+         "    \"high_frequency_time_series\": false\n"
+         "  }\n"
+         "}\n";
+}
+
 class FixedClock final : public project::Clock {
 public:
   explicit FixedClock(
@@ -173,6 +231,88 @@ TEST(AeroRuntimeIntegration, OutputArtifactsPreserveWindBackedAeroChannels) {
   EXPECT_EQ(
       first_record.at("aerodynamic_moment_world_n_m").at("vector").at("frame"),
       "world");
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test IT-024
+ * @verifies [A-002, A-005, A-007]
+ * @notes Given a time-varying wind profile on the file-backed shared run path,
+ * when an injected aero seam and JSON outputs are used, then the emitted
+ * ambient-wind and apparent-wind channels reflect the orchestrator-sampled
+ * per-step profile values deterministically.
+ */
+TEST(AeroRuntimeIntegration,
+     FileBackedTimeVaryingWindProfilesReachOutputsAndAeroSampling) {
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-it-aero-wind-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-it-aero-wind-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto config_path =
+      write_temp_file("airow-it-aero-wind-config.json",
+                      make_time_varying_config_json_with_output(
+                          "it-aero-wind-output", summary_path.string(),
+                          time_series_path.string(),
+                          R"({
+    "wind_profile": [
+      {"time_s": 0.0, "ambient_wind_world_mps": [-1.0, 0.0, 0.0]},
+      {"time_s": 0.25, "ambient_wind_world_mps": [-3.0, 0.0, 0.0]}
+    ]
+  })"));
+
+  RecordingAeroProvider aero;
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 15h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 15h + 1s});
+  const auto result = project::run_simulation_from_config_file(
+      config_path, project::SimulationDependencies{
+                       .aero_provider = &aero,
+                       .clock = &clock,
+                   });
+
+  ASSERT_TRUE(result.ok());
+  const auto time_series = read_json_file(time_series_path);
+  const auto &records = time_series.at("records");
+  ASSERT_EQ(records.size(), 2U);
+  EXPECT_EQ(records.at(0).at("ambient_wind_world_mps").at("vector").at("frame"),
+            "world");
+  EXPECT_EQ(
+      records.at(0).at("apparent_wind_world_mps").at("vector").at("frame"),
+      "world");
+  EXPECT_DOUBLE_EQ(records.at(0)
+                       .at("ambient_wind_world_mps")
+                       .at("vector")
+                       .at("value")
+                       .at(0)
+                       .get<double>(),
+                   -1.0);
+  EXPECT_DOUBLE_EQ(records.at(1)
+                       .at("ambient_wind_world_mps")
+                       .at("vector")
+                       .at("value")
+                       .at(0)
+                       .get<double>(),
+                   -3.0);
+  EXPECT_DOUBLE_EQ(records.at(0)
+                       .at("apparent_wind_world_mps")
+                       .at("vector")
+                       .at("value")
+                       .at(0)
+                       .get<double>(),
+                   -1.0);
+  EXPECT_DOUBLE_EQ(records.at(1)
+                       .at("apparent_wind_world_mps")
+                       .at("vector")
+                       .at("value")
+                       .at(0)
+                       .get<double>(),
+                   -3.0);
 
   remove_file_if_present(config_path);
   remove_file_if_present(summary_path);

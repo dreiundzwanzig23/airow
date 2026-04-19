@@ -9,4 +9,8 @@ namespace project {
 void emit_run_outputs(const SimulatorConfig &config,
                       SimulationRunResult &result);
 
+void emit_batch_outputs(std::string_view batch_id,
+                        std::string_view summary_path,
+                        BatchSimulationResult &result);
+
 } // namespace project

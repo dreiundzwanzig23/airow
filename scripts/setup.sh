@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# setup.sh — Ubuntu-only, Clang-first. Supports libc++ (default) or libstdc++.
+# setup.sh — Ubuntu-only, Clang-first. Standard runtime setup uses libstdc++
+# and provisions the supported Chrono install; libc++ remains available for the
+# no-Chrono sanitizer and coverage lanes.
 # Usage:
-#   ./scripts/setup.sh                 # clang + libc++
-#   ./scripts/setup.sh --stdlib=libstdc++   # clang + libstdc++
+#   ./scripts/setup.sh                 # clang + libstdc++ + repo-managed Chrono
+#   ./scripts/setup.sh --stdlib=libc++ # clang + libc++ (auxiliary no-Chrono lanes)
 #   ./scripts/setup.sh --no-build      # install only
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SUPPORTED_CHRONO_PREFIX="${REPO_ROOT}/.external/chrono-install"
+
 NO_BUILD=0
-STDLIB="libc++"
+STDLIB="libstdc++"
 
 for arg in "$@"; do
   case "$arg" in
@@ -19,7 +25,7 @@ done
 
 echo "[INFO] Installing Ubuntu build dependencies (apt) …"
 sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build git llvm clang clang-tidy lld gdb lldb pkg-config libgtest-dev nlohmann-json3-dev python3-pip
+sudo apt-get install -y build-essential cmake ninja-build git llvm clang clang-tidy lld gdb lldb pkg-config libgtest-dev nlohmann-json3-dev python3-pip libsundials-dev libeigen3-dev
 
 echo "[INFO] Installing Python-based quality tools …"
 python3 -m pip install --user lizard --upgrade
@@ -27,7 +33,7 @@ python3 -m pip install --user lizard --upgrade
 if [[ "$STDLIB" == "libc++" ]]; then
   sudo apt-get install -y libc++-dev libc++abi-dev
   CMAKE_ARGS=(-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-stdlib=libc++" -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++")
-  echo "[INFO] Using clang + libc++"
+  echo "[INFO] Using clang + libc++ (Chrono-disabled auxiliary lanes)"
 else
   # libstdc++: ensure the dev toolchain that matches the system-default GCC
   DEFAULT_MAJOR="$(gcc -dumpversion | cut -d. -f1 || echo 13)"
@@ -40,7 +46,15 @@ else
   INC1="/usr/include/c++/${DEFAULT_MAJOR}"
   INC2="/usr/include/${TRIPLE}/c++/${DEFAULT_MAJOR}"
   echo "[INFO] Using clang + libstdc++ includes: $INC1, $INC2"
-  CMAKE_ARGS=(-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXE_LINKER_FLAGS="-L${DEFAULT_LIBDIR}" -DCMAKE_CXX_FLAGS="-isystem ${INC1} -isystem ${INC2}")
+  echo "[INFO] Provisioning supported Chrono install into ${SUPPORTED_CHRONO_PREFIX}"
+  "${SCRIPT_DIR}/setup_chrono.sh"
+  CMAKE_ARGS=(
+    -DCMAKE_C_COMPILER=clang
+    -DCMAKE_CXX_COMPILER=clang++
+    -DCMAKE_EXE_LINKER_FLAGS="-L${DEFAULT_LIBDIR}"
+    -DCMAKE_CXX_FLAGS="-isystem ${INC1} -isystem ${INC2}"
+    "-DCMAKE_PREFIX_PATH=${SUPPORTED_CHRONO_PREFIX}"
+  )
 fi
 
 echo "[INFO] Configuration summary:"

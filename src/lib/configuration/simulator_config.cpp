@@ -1,6 +1,7 @@
 #include "project/configuration/simulator_config.hpp"
 #include "project/configuration/provider_catalog.hpp"
 #include "project/core/geometry.hpp"
+#include "project/numerics/backend_catalog.hpp"
 
 #include <cctype>
 #include <cmath>
@@ -108,6 +109,23 @@ std::string format_quaternion(const Quaternion &value) {
 
 std::string format_bool(bool value) { return value ? "true" : "false"; }
 
+std::vector<NormalizedConfigEntry>
+normalize_wind_samples(std::string_view base_path,
+                       const std::vector<WindSample> &samples) {
+  std::vector<NormalizedConfigEntry> entries;
+  entries.reserve(samples.size() * 2U);
+  for (std::size_t index = 0U; index < samples.size(); ++index) {
+    const auto &sample = samples.at(index);
+    const auto prefix =
+        std::string(base_path) + "[" + std::to_string(index) + "]";
+    entries.push_back(
+        {prefix + ".time_s", format_normalized_double(sample.time_s), "s"});
+    entries.push_back({prefix + ".ambient_wind_world_mps",
+                       format_vector3(sample.ambient_wind_world_mps), "m/s"});
+  }
+  return entries;
+}
+
 [[nodiscard]] bool build_has_hdf5_support() noexcept {
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
   return true;
@@ -129,10 +147,57 @@ std::string format_output_formats(const OutputSettings &output) {
   return "[]";
 }
 
+std::filesystem::path
+resolve_config_relative_path(std::string_view configured_path,
+                             std::string_view source_name) {
+  const std::filesystem::path path{configured_path};
+  if (path.is_absolute() || source_name.empty() || source_name == "<memory>") {
+    return path.lexically_normal();
+  }
+  const std::filesystem::path source_path{source_name};
+  if (!source_path.has_parent_path()) {
+    return path.lexically_normal();
+  }
+  return (source_path.parent_path() / path).lexically_normal();
+}
+
 std::string unsupported_provider_message(std::string_view role,
                                          std::string_view provider_id) {
   return "unknown " + std::string(role) + " provider '" +
          std::string(provider_id) + "'";
+}
+
+std::string missing_calibration_artifact_message(std::string_view provider_id) {
+  return "provider '" + std::string(provider_id) +
+         "' requires $.artifacts.calibration.path";
+}
+
+std::string legacy_state_advancer_message() {
+  return "simulation.state_advancer has been replaced by "
+         "simulation.mechanics_backend and "
+         "simulation.integration_backend";
+}
+
+std::string unsupported_mechanics_backend_message(std::string_view backend_id) {
+  return "unknown mechanics backend '" + std::string(backend_id) + "'";
+}
+
+std::string unavailable_mechanics_backend_message(std::string_view backend_id) {
+  return "mechanics backend '" + std::string(backend_id) +
+         "' is unavailable in this build";
+}
+
+std::string
+unsupported_integration_backend_message(std::string_view backend_id) {
+  return "unknown integration backend '" + std::string(backend_id) + "'";
+}
+
+std::string
+unsupported_backend_pair_message(std::string_view mechanics_backend,
+                                 std::string_view integration_backend) {
+  return "backend pair mechanics_backend='" + std::string(mechanics_backend) +
+         "' and integration_backend='" + std::string(integration_backend) +
+         "' is unsupported";
 }
 
 double vector_norm(const Vector3 &value) {
@@ -523,17 +588,108 @@ bool parse_oar_settings(const Json &root, std::string_view key,
                                result);
 }
 
+bool parse_simulation_backend_selection(const Json &simulation,
+                                        SimulationSettings &settings,
+                                        LoadSimulatorConfigResult &result) {
+  settings.mechanics_backend = SimulationSettings{}.mechanics_backend;
+  settings.integration_backend = SimulationSettings{}.integration_backend;
+
+  if (simulation.contains("state_advancer")) {
+    result.diagnostics.push_back(make_error("invalid_value",
+                                            "$.simulation.state_advancer",
+                                            legacy_state_advancer_message()));
+    return false;
+  }
+  if (simulation.contains("mechanics_backend") &&
+      !require_string_field(simulation, "mechanics_backend",
+                            "$.simulation.mechanics_backend",
+                            settings.mechanics_backend, result)) {
+    return false;
+  }
+  if (simulation.contains("integration_backend") &&
+      !require_string_field(simulation, "integration_backend",
+                            "$.simulation.integration_backend",
+                            settings.integration_backend, result)) {
+    return false;
+  }
+  return true;
+}
+
+bool validate_simulation_backend_selection(const SimulationSettings &settings,
+                                           LoadSimulatorConfigResult &result) {
+  const auto mechanics_backend =
+      parse_builtin_mechanics_backend(settings.mechanics_backend);
+  if (!mechanics_backend.has_value()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.simulation.mechanics_backend",
+        unsupported_mechanics_backend_message(settings.mechanics_backend)));
+    return false;
+  }
+
+  const auto integration_backend =
+      parse_builtin_integration_backend(settings.integration_backend);
+  if (!integration_backend.has_value()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.simulation.integration_backend",
+        unsupported_integration_backend_message(settings.integration_backend)));
+    return false;
+  }
+
+  if (*mechanics_backend == BuiltinMechanicsBackendType::chrono_rigidbody &&
+      *integration_backend ==
+          BuiltinIntegrationBackendType::deterministic_baseline) {
+    result.diagnostics.push_back(make_error(
+        "unsupported_value", "$.simulation.integration_backend",
+        unsupported_backend_pair_message(settings.mechanics_backend,
+                                         settings.integration_backend)));
+    return false;
+  }
+
+  if (!builtin_mechanics_backend_supported(*mechanics_backend)) {
+    result.diagnostics.push_back(make_error(
+        "unsupported_value", "$.simulation.mechanics_backend",
+        unavailable_mechanics_backend_message(settings.mechanics_backend)));
+    return false;
+  }
+
+#if !(defined(PROJECT_HAS_SUNDIALS) && PROJECT_HAS_SUNDIALS)
+  if (!builtin_integration_backend_supported(*integration_backend)) {
+    result.diagnostics.push_back(
+        make_error("unsupported_value", "$.simulation.integration_backend",
+                   "integration backend '" + settings.integration_backend +
+                       "' is unavailable in this build"));
+    return false;
+  }
+#endif
+
+  if (!built_in_backend_pair_supported(*mechanics_backend,
+                                       *integration_backend)) {
+    result.diagnostics.push_back(make_error(
+        "unsupported_value", "$.simulation.integration_backend",
+        unsupported_backend_pair_message(settings.mechanics_backend,
+                                         settings.integration_backend)));
+    return false;
+  }
+  return true;
+}
+
 bool parse_simulation_settings(const Json &root, SimulatorConfig &config,
                                LoadSimulatorConfigResult &result) {
   const Json *simulation =
       require_object(root, "simulation", "$.simulation", result);
-  return simulation != nullptr &&
-         require_non_negative_field(*simulation, "duration_s",
-                                    "$.simulation.duration_s", "duration_s",
-                                    config.simulation.duration_s, result) &&
-         require_positive_field(*simulation, "time_step_s",
-                                "$.simulation.time_step_s", "time_step_s",
-                                config.simulation.time_step_s, result);
+  if (simulation == nullptr ||
+      !require_non_negative_field(*simulation, "duration_s",
+                                  "$.simulation.duration_s", "duration_s",
+                                  config.simulation.duration_s, result) ||
+      !require_positive_field(*simulation, "time_step_s",
+                              "$.simulation.time_step_s", "time_step_s",
+                              config.simulation.time_step_s, result)) {
+    return false;
+  }
+
+  return parse_simulation_backend_selection(*simulation, config.simulation,
+                                            result) &&
+         validate_simulation_backend_selection(config.simulation, result);
 }
 
 bool parse_hull_settings(const Json &root, SimulatorConfig &config,
@@ -663,20 +819,144 @@ bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
   return true;
 }
 
+bool validate_environment_mode_selection(std::string_view path,
+                                         int selected_mode_count,
+                                         LoadSimulatorConfigResult &result) {
+  if (selected_mode_count == 0) {
+    result.diagnostics.push_back(
+        make_error("missing_required_field", std::string(path),
+                   "environment must declare one wind input mode"));
+    return false;
+  }
+  if (selected_mode_count > 1) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", std::string(path),
+                   "environment must declare exactly one wind input mode"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_wind_sample_object(const Json &sample,
+                              const std::string &sample_path,
+                              WindSample &parsed,
+                              LoadSimulatorConfigResult &result) {
+  if (!sample.is_object()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", sample_path, "expected object"));
+    return false;
+  }
+
+  return require_non_negative_field(sample, "time_s", sample_path + ".time_s",
+                                    "time_s", parsed.time_s, result) &&
+         require_vector3_field(sample, "ambient_wind_world_mps",
+                               sample_path + ".ambient_wind_world_mps",
+                               "ambient_wind_world_mps",
+                               parsed.ambient_wind_world_mps, result);
+}
+
+bool validate_wind_sample_time(std::size_t index, double time_s,
+                               double previous_time_s,
+                               const std::string &sample_path,
+                               LoadSimulatorConfigResult &result) {
+  if (index == 0U && time_s != 0.0) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", sample_path + ".time_s",
+                   "first wind sample must start at 0.0 s"));
+    return false;
+  }
+  if (index > 0U && time_s <= previous_time_s) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", sample_path + ".time_s",
+                   "wind sample times must be strictly increasing"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_wind_samples_field(const Json &environment, std::string_view key,
+                              std::string_view path,
+                              std::vector<WindSample> &target,
+                              LoadSimulatorConfigResult &result) {
+  const auto &field = environment.at(key);
+  if (!field.is_array()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected array"));
+    return false;
+  }
+  if (field.empty()) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", std::string(path),
+                   "at least one wind sample is required"));
+    return false;
+  }
+
+  target.clear();
+  target.reserve(field.size());
+  double previous_time_s = -1.0;
+  for (std::size_t index = 0U; index < field.size(); ++index) {
+    const auto sample_path =
+        std::string(path) + "[" + std::to_string(index) + "]";
+    WindSample parsed;
+    if (!parse_wind_sample_object(field.at(index), sample_path, parsed,
+                                  result) ||
+        !validate_wind_sample_time(index, parsed.time_s, previous_time_s,
+                                   sample_path, result)) {
+      return false;
+    }
+    target.push_back(parsed);
+    previous_time_s = parsed.time_s;
+  }
+  return true;
+}
+
+/**
+ * @design D-047 — Time-varying wind input schema and normalization
+ * @title Deterministic environment-schema validation for constant, replayed,
+ * and authored world-frame ambient wind inputs
+ * @satisfies [A-001]
+ */
 bool parse_environment_settings(const Json &root, SimulatorConfig &config,
                                 LoadSimulatorConfigResult &result) {
   config.environment.ambient_wind_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0};
+  config.environment.wind_time_series.clear();
+  config.environment.wind_profile.clear();
   if (!root.contains("environment")) {
     return true;
   }
 
   const Json *environment =
       require_object(root, "environment", "$.environment", result);
-  return environment != nullptr &&
-         require_vector3_field(
-             *environment, "ambient_wind_world_mps",
-             "$.environment.ambient_wind_world_mps", "ambient_wind_world_mps",
-             config.environment.ambient_wind_world_mps, result);
+  if (environment == nullptr) {
+    return false;
+  }
+
+  const bool has_constant = environment->contains("ambient_wind_world_mps");
+  const bool has_time_series = environment->contains("wind_time_series");
+  const bool has_profile = environment->contains("wind_profile");
+  const int selected_mode_count = static_cast<int>(has_constant) +
+                                  static_cast<int>(has_time_series) +
+                                  static_cast<int>(has_profile);
+  if (!validate_environment_mode_selection("$.environment", selected_mode_count,
+                                           result)) {
+    return false;
+  }
+
+  if (has_constant) {
+    return require_vector3_field(
+        *environment, "ambient_wind_world_mps",
+        "$.environment.ambient_wind_world_mps", "ambient_wind_world_mps",
+        config.environment.ambient_wind_world_mps, result);
+  }
+
+  if (has_time_series) {
+    return parse_wind_samples_field(
+        *environment, "wind_time_series", "$.environment.wind_time_series",
+        config.environment.wind_time_series, result);
+  }
+  return parse_wind_samples_field(*environment, "wind_profile",
+                                  "$.environment.wind_profile",
+                                  config.environment.wind_profile, result);
 }
 
 bool parse_provider_selection_field(const Json &providers, std::string_view key,
@@ -737,6 +1017,54 @@ bool parse_provider_settings(const Json &root, SimulatorConfig &config,
          parse_provider_selection_field(
              *providers, "aero_load", "$.providers.aero_load",
              ProviderRole::aero_load, config.providers.aero_load, result);
+}
+
+bool parse_artifact_reference(const Json &root, std::string_view key,
+                              std::string_view path,
+                              std::string_view source_name, std::string &target,
+                              LoadSimulatorConfigResult &result) {
+  if (!root.contains(key)) {
+    return true;
+  }
+  const Json *artifact = require_object(root, key, path, result);
+  if (artifact == nullptr) {
+    return false;
+  }
+  if (!require_string_field(*artifact, "path", std::string(path) + ".path",
+                            target, result)) {
+    return false;
+  }
+  target = resolve_config_relative_path(target, source_name).string();
+  return true;
+}
+
+bool parse_artifact_settings(std::string_view source_name, const Json &root,
+                             SimulatorConfig &config,
+                             LoadSimulatorConfigResult &result) {
+  config.artifacts = {};
+  if (!root.contains("artifacts")) {
+    return true;
+  }
+
+  const Json *artifacts =
+      require_object(root, "artifacts", "$.artifacts", result);
+  return artifacts != nullptr &&
+         parse_artifact_reference(*artifacts, "calibration",
+                                  "$.artifacts.calibration", source_name,
+                                  config.artifacts.calibration.path, result);
+}
+
+bool validate_artifact_requirements(const SimulatorConfig &config,
+                                    LoadSimulatorConfigResult &result) {
+  if (builtin_provider_requires_calibration_artifact(
+          ProviderRole::aero_load, config.providers.aero_load) &&
+      config.artifacts.calibration.path.empty()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.artifacts.calibration.path",
+        missing_calibration_artifact_message(config.providers.aero_load)));
+    return false;
+  }
+  return true;
 }
 
 bool parse_optional_output_string_field(const Json &output,
@@ -868,6 +1196,10 @@ bool parse_output_settings(const Json &root, SimulatorConfig &config,
          parse_optional_output_string_field(output, "hdf5_path",
                                             "$.output.hdf5_path",
                                             config.output.hdf5_path, result) &&
+         parse_optional_output_string_field(
+             output, "truth_model_export_path",
+             "$.output.truth_model_export_path",
+             config.output.truth_model_export_path, result) &&
          parse_output_high_frequency_toggle(output, config.output, result) &&
          parse_output_formats_field(output, config.output, result);
 }
@@ -881,12 +1213,16 @@ bool parse_output_settings(const Json &root, SimulatorConfig &config,
  */
 std::vector<NormalizedConfigEntry>
 normalize_simulator_config(const SimulatorConfig &config) {
-  return {
+  auto entries = std::vector<NormalizedConfigEntry>{
       {"$.config_id", config.config_id, ""},
       {"$.simulation.duration_s",
        format_normalized_double(config.simulation.duration_s), "s"},
       {"$.simulation.time_step_s",
        format_normalized_double(config.simulation.time_step_s), "s"},
+      {"$.simulation.mechanics_backend", config.simulation.mechanics_backend,
+       ""},
+      {"$.simulation.integration_backend",
+       config.simulation.integration_backend, ""},
       {"$.hull.mass_kg", format_normalized_double(config.hull.mass_kg), "kg"},
       {"$.hull.center_of_mass_m", format_vector3(config.hull.center_of_mass_m),
        "m"},
@@ -932,18 +1268,34 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.stroke.drive_blade_depth_m), "m"},
       {"$.stroke.recovery_blade_depth_m",
        format_normalized_double(config.stroke.recovery_blade_depth_m), "m"},
-      {"$.environment.ambient_wind_world_mps",
-       format_vector3(config.environment.ambient_wind_world_mps), "m/s"},
       {"$.providers.hull_resistance", config.providers.hull_resistance, ""},
       {"$.providers.blade_force", config.providers.blade_force, ""},
       {"$.providers.aero_load", config.providers.aero_load, ""},
+      {"$.artifacts.calibration.path", config.artifacts.calibration.path, ""},
       {"$.output.summary_path", config.output.summary_path, ""},
       {"$.output.time_series_path", config.output.time_series_path, ""},
       {"$.output.hdf5_path", config.output.hdf5_path, ""},
+      {"$.output.truth_model_export_path",
+       config.output.truth_model_export_path, ""},
       {"$.output.formats", format_output_formats(config.output), ""},
       {"$.output.high_frequency_time_series",
        format_bool(config.output.high_frequency_time_series), "bool"},
   };
+
+  if (!config.environment.wind_time_series.empty()) {
+    auto wind_entries = normalize_wind_samples(
+        "$.environment.wind_time_series", config.environment.wind_time_series);
+    entries.insert(entries.end(), wind_entries.begin(), wind_entries.end());
+  } else if (!config.environment.wind_profile.empty()) {
+    auto wind_entries = normalize_wind_samples("$.environment.wind_profile",
+                                               config.environment.wind_profile);
+    entries.insert(entries.end(), wind_entries.begin(), wind_entries.end());
+  } else {
+    entries.push_back(
+        {"$.environment.ambient_wind_world_mps",
+         format_vector3(config.environment.ambient_wind_world_mps), "m/s"});
+  }
+  return entries;
 }
 
 /**
@@ -955,7 +1307,7 @@ normalize_simulator_config(const SimulatorConfig &config) {
  */
 LoadSimulatorConfigResult
 parse_simulator_config_text(std::string_view json_text,
-                            std::string_view /*source_name*/) {
+                            std::string_view source_name) {
   if (const auto invalid_literal = find_invalid_numeric_literal(json_text);
       invalid_literal.has_value()) {
     return fail_with(*invalid_literal);
@@ -987,6 +1339,8 @@ parse_simulator_config_text(std::string_view json_text,
       parse_stroke_settings(root, config, result) &&
       parse_environment_settings(root, config, result) &&
       parse_provider_settings(root, config, result) &&
+      parse_artifact_settings(source_name, root, config, result) &&
+      validate_artifact_requirements(config, result) &&
       parse_output_settings(root, config, result)) {
     result.normalized_config = normalize_simulator_config(config);
     result.config = std::move(config);

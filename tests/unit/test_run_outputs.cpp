@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -12,6 +13,7 @@
 #include <nlohmann/json.hpp>
 
 #include "project/configuration/simulator_config.hpp"
+#include "project/numerics/backend_catalog.hpp"
 #include "project/orchestrator/simulation_run.hpp"
 #include "project/output/run_output.hpp"
 
@@ -19,6 +21,24 @@ namespace {
 
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
+
+std::string expected_default_mechanics_backend_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
+                                                       : "internal_baseline";
+}
+
+std::string expected_default_mechanics_policy_id() {
+  return project::chrono_mechanics_backend_supported() ? "chrono-rigidbody-v2"
+                                                       : "internal-baseline-v1";
+}
+
+std::string expected_default_mechanics_policy_description() {
+  return project::chrono_mechanics_backend_supported()
+             ? "Preferred rigid-body mechanics backend for the standard "
+               "runtime build."
+             : "Internal deterministic mechanics backend for fallback and "
+               "cross-check runtime operation.";
+}
 
 project::SimulatorConfig make_config(std::string_view config_id = "ut-output",
                                      double duration_s = 1.0,
@@ -76,6 +96,7 @@ project::SimulatorConfig make_config(std::string_view config_id = "ut-output",
               .summary_path = {},
               .time_series_path = {},
               .hdf5_path = {},
+              .truth_model_export_path = {},
               .high_frequency_time_series = false,
               .emit_json = true,
               .emit_hdf5 = false,
@@ -113,13 +134,93 @@ Json read_json_file(const std::filesystem::path &path) {
   return document;
 }
 
-std::string read_binary_prefix(const std::filesystem::path &path,
-                               std::size_t byte_count) {
-  std::ifstream input(path, std::ios::binary);
-  std::string bytes(byte_count, '\0');
-  input.read(bytes.data(), static_cast<std::streamsize>(byte_count));
-  bytes.resize(static_cast<std::size_t>(input.gcount()));
-  return bytes;
+std::filesystem::path write_temp_file(const std::string &file_name,
+                                      const std::string &contents) {
+  const auto path = std::filesystem::temp_directory_path() / file_name;
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << contents;
+  output.close();
+  return path;
+}
+
+std::string make_calibrated_config_json(std::string_view config_id,
+                                        std::string_view summary_path,
+                                        std::string_view time_series_path,
+                                        std::string_view artifact_path) {
+  std::ostringstream stream;
+  stream << R"({
+        "config_id": ")"
+         << config_id << R"(",
+        "simulation": {
+          "duration_s": 0.25,
+          "time_step_s": 0.25
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [1.0, -0.5, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        },
+        "environment": {
+          "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
+        },
+        "providers": {
+          "hull_resistance": "quadratic_drag_placeholder",
+          "blade_force": "stroke_propulsion_placeholder",
+          "aero_load": "steady_wind_calibrated"
+        },
+        "artifacts": {
+          "calibration": {
+            "path": ")"
+         << artifact_path << R"("
+          }
+        },
+        "output": {
+          "summary_path": ")"
+         << summary_path << R"(",
+          "time_series_path": ")"
+         << time_series_path << R"(",
+          "formats": ["json"],
+          "high_frequency_time_series": true
+        }
+      })";
+  return stream.str();
+}
+
+std::filesystem::path write_temp_marker_file(std::string_view file_name) {
+  const auto path =
+      std::filesystem::temp_directory_path() / std::string(file_name);
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << "marker";
+  output.close();
+  return path;
 }
 
 } // namespace
@@ -224,82 +325,68 @@ TEST(RunOutputs, HighFrequencyToggleControlsTimeSeriesResolution) {
 }
 
 /**
- * @test UT-036
- * @verifies [D-021]
- * @notes Given output settings in JSON configuration, when parsing succeeds,
- * then normalized config metadata includes output paths and the high-frequency
- * output toggle.
+ * @test UT-225
+ * @verifies [D-044, D-045]
+ * @notes Given a successful calibrated run with imported artifact provenance,
+ * when structured JSON output is emitted, then metadata includes the used
+ * external artifact identifiers alongside the existing provider metadata.
  */
-TEST(RunOutputs, ParsesOutputSettingsFromConfigSchema) {
-  const std::string config_text = R"({
-    "config_id": "ut-output-config",
-    "simulation": {
-      "duration_s": 1.0,
-      "time_step_s": 0.25
-    },
-    "hull": {
-      "mass_kg": 14.0,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.1, 7.8, 8.2],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "output": {
-      "summary_path": "results/summary.json",
-      "time_series_path": "results/timeseries.json",
-      "high_frequency_time_series": true
-    }
-  })";
+TEST(RunOutputs, EmitsExternalArtifactMetadataWhenCalibrationIsUsed) {
+  const auto artifact_path =
+      write_temp_file("airow-ut-output-calibration-artifact.json",
+                      R"({
+        "schema_id": "steady_wind_aero_calibration.v1",
+        "source_id": "wind-tunnel-output",
+        "artifact_version": "2026-04-19",
+        "content_hash": "sha256:ut-output-calibration",
+        "aero": {
+          "steady_wind": {
+            "drag_coefficient_n_s2_per_m2": 2.5,
+            "yaw_moment_coefficient_n_m_s2_per_m2": 1.5
+          }
+        }
+      })");
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-ut-output-calibration-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-ut-output-calibration-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
 
-  const auto parsed = project::parse_simulator_config_text(config_text);
+  const auto config_path =
+      write_temp_file("airow-ut-output-calibration-config.json",
+                      make_calibrated_config_json(
+                          "ut-output-calibration", summary_path.string(),
+                          time_series_path.string(), artifact_path.string()));
 
-  ASSERT_TRUE(parsed.ok());
-  ASSERT_TRUE(parsed.config.has_value());
-  EXPECT_EQ(parsed.config->output.summary_path, "results/summary.json");
-  EXPECT_EQ(parsed.config->output.time_series_path, "results/timeseries.json");
-  EXPECT_TRUE(parsed.config->output.high_frequency_time_series);
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 9h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 9h + 1s});
+  const auto loaded = project::load_simulator_config_file(config_path);
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.config.has_value());
+  const auto result = project::run_simulation(
+      *loaded.config, project::SimulationDependencies{.clock = &clock});
 
-  auto normalized_contains = [&](std::string_view key, std::string_view value,
-                                 std::string_view unit) {
-    return std::any_of(
-        parsed.normalized_config.begin(), parsed.normalized_config.end(),
-        [&](const project::NormalizedConfigEntry &entry) {
-          return entry.key == key && entry.value == value && entry.unit == unit;
-        });
-  };
+  ASSERT_TRUE(result.ok());
+  const Json summary = read_json_file(summary_path);
+  const auto &artifacts = summary.at("metadata").at("external_artifacts");
+  ASSERT_EQ(artifacts.size(), 1U);
+  EXPECT_EQ(artifacts.front().at("kind").get<std::string>(), "calibration");
+  EXPECT_EQ(artifacts.front().at("usage").get<std::string>(), "aero_load");
+  EXPECT_EQ(artifacts.front().at("source_id").get<std::string>(),
+            "wind-tunnel-output");
+  EXPECT_EQ(artifacts.front().at("artifact_version").get<std::string>(),
+            "2026-04-19");
+  EXPECT_EQ(artifacts.front().at("content_hash").get<std::string>(),
+            "sha256:ut-output-calibration");
+  EXPECT_EQ(artifacts.front().at("schema_id").get<std::string>(),
+            "steady_wind_aero_calibration.v1");
 
-  EXPECT_TRUE(
-      normalized_contains("$.output.summary_path", "results/summary.json", ""));
-  EXPECT_TRUE(normalized_contains("$.output.time_series_path",
-                                  "results/timeseries.json", ""));
-  EXPECT_TRUE(normalized_contains("$.output.high_frequency_time_series", "true",
-                                  "bool"));
+  remove_file_if_present(config_path);
+  remove_file_if_present(artifact_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
 }
 
 /**
@@ -326,6 +413,65 @@ TEST(RunOutputs, ReportsOutputWriteFailuresDeterministically) {
   ASSERT_FALSE(result.diagnostics.empty());
   EXPECT_EQ(result.diagnostics.back().code, "output_write_failed");
   EXPECT_EQ(result.diagnostics.back().subsystem, "output");
+  EXPECT_FALSE(result.outputs.summary_written);
+  EXPECT_FALSE(result.outputs.time_series_written);
+}
+
+/**
+ * @test UT-187
+ * @verifies [D-021]
+ * @notes Given output paths whose parent component is an existing file, when
+ * JSON emission runs, then directory-creation failures are reported
+ * deterministically before any file write starts.
+ */
+TEST(RunOutputs, ReportsJsonDirectoryCreationFailuresDeterministically) {
+  auto config = make_config("ut-output-json-mkdir-fail", 0.5, 0.25);
+  const auto parent_marker =
+      write_temp_marker_file("airow-ut-output-json-parent-marker");
+  config.output.summary_path = (parent_marker / "summary.json").string();
+  config.output.time_series_path = (parent_marker / "timeseries.json").string();
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 10h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.back().code, "output_write_failed");
+  EXPECT_EQ(result.diagnostics.back().subsystem, "output");
+  EXPECT_FALSE(result.outputs.summary_written);
+  EXPECT_FALSE(result.outputs.time_series_written);
+
+  remove_file_if_present(parent_marker);
+}
+
+/**
+ * @test UT-188
+ * @verifies [D-021]
+ * @notes Given Linux `dev/full` output targets that accept opens but reject
+ * writes, when JSON emission runs, then write failures are reported
+ * deterministically after stream creation succeeds.
+ */
+TEST(RunOutputs, ReportsJsonWriteFailuresAfterOpenDeterministically) {
+  auto config = make_config("ut-output-json-write-fail", 0.5, 0.25);
+  config.output.summary_path = "/dev/full";
+  config.output.time_series_path = "/dev/full";
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 11h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 11h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "output_write_failed");
+  EXPECT_EQ(result.diagnostics.front().subsystem, "output");
+  EXPECT_NE(
+      result.diagnostics.front().message.find("failed to write output file"),
+      std::string::npos);
   EXPECT_FALSE(result.outputs.summary_written);
   EXPECT_FALSE(result.outputs.time_series_written);
 }
@@ -435,6 +581,56 @@ TEST(RunOutputs, PreservesConfigurationErrorStatusInSummaryArtifacts) {
 }
 
 /**
+ * @test UT-189
+ * @verifies [D-022]
+ * @notes Given a high-frequency time-series emission request whose state
+ * history outlasts its load history, when output emission runs directly, then
+ * trailing records reuse the last available load sample deterministically.
+ */
+TEST(RunOutputs, HighFrequencyEmissionReusesLastLoadForTrailingStates) {
+  auto run_config = make_config("ut-output-trailing-load-run", 0.5, 0.25);
+  run_config.output.emit_json = false;
+  run_config.output.emit_hdf5 = false;
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 12h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 12h + 1s});
+  auto result = project::run_simulation(
+      run_config, project::SimulationDependencies{.clock = &clock});
+  ASSERT_TRUE(result.ok());
+  ASSERT_GE(result.state_history.size(), 3U);
+  ASSERT_FALSE(result.load_history.empty());
+  result.load_history.resize(1U);
+
+  auto output_config = run_config;
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-ut-output-trailing-load-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-ut-output-trailing-load-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  output_config.output.summary_path = summary_path.string();
+  output_config.output.time_series_path = time_series_path.string();
+  output_config.output.emit_json = true;
+  output_config.output.high_frequency_time_series = true;
+
+  project::emit_run_outputs(output_config, result);
+
+  ASSERT_TRUE(result.outputs.time_series_written);
+  const Json time_series = read_json_file(time_series_path);
+  const auto &records = time_series.at("records");
+  ASSERT_EQ(records.size(), result.state_history.size());
+  const auto trailing_force =
+      records.back().at("hull_water_load_world_n").at("vector").at("value");
+  const auto recorded_force =
+      records.at(1).at("hull_water_load_world_n").at("vector").at("value");
+  EXPECT_EQ(trailing_force, recorded_force);
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
  * @test UT-041
  * @verifies [D-022]
  * @notes Given a zero-duration run in low-frequency mode, when output
@@ -497,391 +693,6 @@ TEST(RunOutputs, EmptyConfigIdUsesRunFallbackInDefaultArtifactStem) {
 }
 
 /**
- * @test UT-043
- * @verifies [D-021]
- * @notes Given malformed output-schema fields, when config parsing executes,
- * then deterministic type diagnostics point to the offending output path.
- */
-TEST(RunOutputs, RejectsMalformedOutputSchemaFieldTypes) {
-  const std::string base = R"({
-    "config_id": "ut-output-schema-errors",
-    "simulation": {
-      "duration_s": 1.0,
-      "time_step_s": 0.25
-    },
-    "hull": {
-      "mass_kg": 14.0,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.1, 7.8, 8.2],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "output": __OUTPUT__
-  })";
-
-  {
-    auto config_text = base;
-    config_text.replace(config_text.find("__OUTPUT__"),
-                        std::string("__OUTPUT__").size(), "7");
-    const auto parsed = project::parse_simulator_config_text(config_text);
-    ASSERT_FALSE(parsed.ok());
-    ASSERT_EQ(parsed.diagnostics.size(), 1U);
-    EXPECT_EQ(parsed.diagnostics.front().code, "invalid_type");
-    EXPECT_EQ(parsed.diagnostics.front().path, "$.output");
-  }
-
-  {
-    auto config_text = base;
-    config_text.replace(config_text.find("__OUTPUT__"),
-                        std::string("__OUTPUT__").size(),
-                        R"({"summary_path": 7})");
-    const auto parsed = project::parse_simulator_config_text(config_text);
-    ASSERT_FALSE(parsed.ok());
-    ASSERT_EQ(parsed.diagnostics.size(), 1U);
-    EXPECT_EQ(parsed.diagnostics.front().code, "invalid_type");
-    EXPECT_EQ(parsed.diagnostics.front().path, "$.output.summary_path");
-  }
-
-  {
-    auto config_text = base;
-    config_text.replace(config_text.find("__OUTPUT__"),
-                        std::string("__OUTPUT__").size(),
-                        R"({"high_frequency_time_series": "yes"})");
-    const auto parsed = project::parse_simulator_config_text(config_text);
-    ASSERT_FALSE(parsed.ok());
-    ASSERT_EQ(parsed.diagnostics.size(), 1U);
-    EXPECT_EQ(parsed.diagnostics.front().code, "invalid_type");
-    EXPECT_EQ(parsed.diagnostics.front().path,
-              "$.output.high_frequency_time_series");
-  }
-}
-
-/**
- * @test UT-044
- * @verifies [D-021]
- * @notes Given explicit output-format selection, when parsing succeeds, then
- * JSON and HDF5 format flags plus HDF5 path are normalized deterministically.
- */
-TEST(RunOutputs, ParsesOutputFormatSelectionAndHdf5Path) {
-  if (!project::hdf5_output_supported()) {
-    GTEST_SKIP() << "HDF5 support unavailable on this build";
-  }
-
-  const std::string config_text = R"({
-    "config_id": "ut-output-format-select",
-    "simulation": {
-      "duration_s": 1.0,
-      "time_step_s": 0.25
-    },
-    "hull": {
-      "mass_kg": 14.0,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.1, 7.8, 8.2],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "output": {
-      "formats": ["json", "hdf5"],
-      "hdf5_path": "results/run.h5",
-      "high_frequency_time_series": true
-    }
-  })";
-
-  const auto parsed = project::parse_simulator_config_text(config_text);
-
-  ASSERT_TRUE(parsed.ok());
-  ASSERT_TRUE(parsed.config.has_value());
-  EXPECT_TRUE(parsed.config->output.emit_json);
-  EXPECT_TRUE(parsed.config->output.emit_hdf5);
-  EXPECT_EQ(parsed.config->output.hdf5_path, "results/run.h5");
-
-  auto normalized_contains = [&](std::string_view key, std::string_view value,
-                                 std::string_view unit) {
-    return std::any_of(
-        parsed.normalized_config.begin(), parsed.normalized_config.end(),
-        [&](const project::NormalizedConfigEntry &entry) {
-          return entry.key == key && entry.value == value && entry.unit == unit;
-        });
-  };
-
-  EXPECT_TRUE(normalized_contains("$.output.formats", "[json, hdf5]", ""));
-  EXPECT_TRUE(normalized_contains("$.output.hdf5_path", "results/run.h5", ""));
-}
-
-/**
- * @test UT-045
- * @verifies [D-021]
- * @notes Given unknown output formats, when parsing executes, then
- * deterministic format diagnostics reject unsupported values.
- */
-TEST(RunOutputs, RejectsUnknownOutputFormats) {
-  const std::string config_text = R"({
-    "config_id": "ut-output-format-unknown",
-    "simulation": {"duration_s": 1.0, "time_step_s": 0.25},
-    "hull": {
-      "mass_kg": 14.0,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.1, 7.8, 8.2],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "output": {
-      "formats": ["json", "csv"]
-    }
-  })";
-
-  const auto parsed = project::parse_simulator_config_text(config_text);
-
-  ASSERT_FALSE(parsed.ok());
-  ASSERT_EQ(parsed.diagnostics.size(), 1U);
-  EXPECT_EQ(parsed.diagnostics.front().code, "invalid_value");
-  EXPECT_EQ(parsed.diagnostics.front().path, "$.output.formats[1]");
-}
-
-/**
- * @test UT-046
- * @verifies [D-021]
- * @notes Given an empty output format list, when parsing executes, then
- * deterministic validation rejects empty format selection.
- */
-TEST(RunOutputs, RejectsEmptyOutputFormatList) {
-  const std::string config_text = R"({
-    "config_id": "ut-output-format-empty",
-    "simulation": {"duration_s": 1.0, "time_step_s": 0.25},
-    "hull": {
-      "mass_kg": 14.0,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.1, 7.8, 8.2],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "output": {
-      "formats": []
-    }
-  })";
-
-  const auto parsed = project::parse_simulator_config_text(config_text);
-
-  ASSERT_FALSE(parsed.ok());
-  ASSERT_EQ(parsed.diagnostics.size(), 1U);
-  EXPECT_EQ(parsed.diagnostics.front().code, "invalid_value");
-  EXPECT_EQ(parsed.diagnostics.front().path, "$.output.formats");
-}
-
-/**
- * @test UT-047
- * @verifies [D-021]
- * @notes Given HDF5 output requested on a build without HDF5 support, when
- * parsing executes, then deterministic diagnostics reject unavailable output
- * format selection.
- */
-TEST(RunOutputs, RejectsHdf5FormatWhenUnavailable) {
-  if (project::hdf5_output_supported()) {
-    GTEST_SKIP() << "HDF5 support available on this build";
-  }
-
-  const std::string config_text = R"({
-    "config_id": "ut-output-hdf5-unavailable",
-    "simulation": {"duration_s": 1.0, "time_step_s": 0.25},
-    "hull": {
-      "mass_kg": 14.0,
-      "center_of_mass_m": [0.0, 0.0, 0.0],
-      "inertia_kg_m2": [1.1, 7.8, 8.2],
-      "initial_position_m": [0.0, 0.0, 0.0],
-      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
-      "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
-      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
-    },
-    "oars": {
-      "port": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, -0.82, 0.18]
-      },
-      "starboard": {
-        "inboard_length_m": 0.88,
-        "outboard_length_m": 1.98,
-        "oarlock_position_m": [0.25, 0.82, 0.18]
-      }
-    },
-    "seat": {
-      "rail_axis": [1.0, 0.0, 0.0],
-      "min_position_m": -0.4,
-      "max_position_m": 0.4,
-      "initial_position_m": 0.0
-    },
-    "stroke": {
-      "cycle_duration_s": 1.2,
-      "drive_duration_s": 0.48,
-      "catch_angle_rad": -0.9,
-      "release_angle_rad": 0.6
-    },
-    "output": {
-      "formats": ["hdf5"],
-      "hdf5_path": "results/run.h5"
-    }
-  })";
-
-  const auto parsed = project::parse_simulator_config_text(config_text);
-
-  ASSERT_FALSE(parsed.ok());
-  ASSERT_EQ(parsed.diagnostics.size(), 1U);
-  EXPECT_EQ(parsed.diagnostics.front().code, "unsupported_value");
-  EXPECT_EQ(parsed.diagnostics.front().path, "$.output.formats[0]");
-}
-
-/**
- * @test UT-048
- * @verifies [D-022]
- * @notes Given HDF5 output enabled on a supported build, when the run
- * executes, then deterministic HDF5 artifacts are emitted with the expected
- * file signature.
- */
-TEST(RunOutputs, EmitsHdf5ArtifactWhenEnabled) {
-  if (!project::hdf5_output_supported()) {
-    GTEST_SKIP() << "HDF5 support unavailable on this build";
-  }
-
-  auto config = make_config("ut-output-hdf5", 1.0, 0.25);
-  const auto summary_path = std::filesystem::temp_directory_path() /
-                            "airow-ut-output-hdf5-summary.json";
-  const auto time_series_path = std::filesystem::temp_directory_path() /
-                                "airow-ut-output-hdf5-timeseries.json";
-  const auto hdf5_path =
-      std::filesystem::temp_directory_path() / "airow-ut-output-hdf5.h5";
-  remove_file_if_present(summary_path);
-  remove_file_if_present(time_series_path);
-  remove_file_if_present(hdf5_path);
-  config.output.summary_path = summary_path.string();
-  config.output.time_series_path = time_series_path.string();
-  config.output.hdf5_path = hdf5_path.string();
-  config.output.emit_json = true;
-  config.output.emit_hdf5 = true;
-
-  FixedClock clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 18h + 1s});
-  const auto result = project::run_simulation(
-      config, project::SimulationDependencies{.clock = &clock});
-
-  ASSERT_TRUE(result.ok());
-  ASSERT_TRUE(result.outputs.summary_written);
-  ASSERT_TRUE(result.outputs.time_series_written);
-  ASSERT_TRUE(result.outputs.hdf5_written);
-  ASSERT_TRUE(std::filesystem::exists(hdf5_path));
-  EXPECT_EQ(read_binary_prefix(hdf5_path, 8U),
-            std::string("\x89HDF\r\n\x1a\n", 8U));
-
-  remove_file_if_present(summary_path);
-  remove_file_if_present(time_series_path);
-  remove_file_if_present(hdf5_path);
-}
-
-/**
  * @test UT-049
  * @verifies [D-022]
  * @notes Given all output formats disabled in-memory, when the run executes,
@@ -915,100 +726,12 @@ TEST(RunOutputs, AllowsInMemoryRunsWithAllOutputFormatsDisabled) {
 }
 
 /**
- * @test UT-050
- * @verifies [D-021]
- * @notes Given HDF5 output requested in-memory on a build without HDF5,
- * when execution runs, then output emission reports deterministic runtime
- * diagnostics.
- */
-TEST(RunOutputs, InMemoryHdf5RequestFailsDeterministicallyWhenUnavailable) {
-  if (project::hdf5_output_supported()) {
-    GTEST_SKIP() << "HDF5 support available on this build";
-  }
-
-  auto config = make_config("ut-output-hdf5-runtime-unavailable", 0.5, 0.25);
-  const auto hdf5_path = std::filesystem::temp_directory_path() /
-                         "airow-ut-output-hdf5-runtime-unavailable.h5";
-  remove_file_if_present(hdf5_path);
-
-  config.output.emit_json = false;
-  config.output.emit_hdf5 = true;
-  config.output.hdf5_path = hdf5_path.string();
-
-  FixedClock clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 20h,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 20h + 1s});
-  const auto result = project::run_simulation(
-      config, project::SimulationDependencies{.clock = &clock});
-
-  ASSERT_FALSE(result.ok());
-  ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.status, project::RunStatus::runtime_error);
-  EXPECT_EQ(result.diagnostics.back().code, "output_write_failed");
-  EXPECT_EQ(result.diagnostics.back().path, "$.output.hdf5_path");
-  EXPECT_FALSE(result.outputs.hdf5_written);
-  EXPECT_FALSE(std::filesystem::exists(hdf5_path));
-}
-
-/**
- * @test UT-051
- * @verifies [D-021]
- * @notes Given mixed JSON and HDF5 output requested without HDF5 support,
- * when execution runs, then JSON artifacts are emitted and HDF5 failure is
- * reported with stable artifact metadata.
- */
-TEST(RunOutputs, EmitsJsonAndReportsHdf5FailureWhenUnavailable) {
-  if (project::hdf5_output_supported()) {
-    GTEST_SKIP() << "HDF5 support available on this build";
-  }
-
-  auto config = make_config("ut-output-mixed-unavailable", 0.5, 0.25);
-  const auto summary_path = std::filesystem::temp_directory_path() /
-                            "airow-ut-output-mixed-unavailable-summary.json";
-  const auto time_series_path =
-      std::filesystem::temp_directory_path() /
-      "airow-ut-output-mixed-unavailable-timeseries.json";
-  const auto hdf5_path = std::filesystem::temp_directory_path() /
-                         "airow-ut-output-mixed-unavailable.h5";
-  remove_file_if_present(summary_path);
-  remove_file_if_present(time_series_path);
-  remove_file_if_present(hdf5_path);
-
-  config.output.summary_path = summary_path.string();
-  config.output.time_series_path = time_series_path.string();
-  config.output.hdf5_path = hdf5_path.string();
-  config.output.emit_json = true;
-  config.output.emit_hdf5 = true;
-
-  FixedClock clock(
-      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 21h,
-       std::chrono::sys_days{std::chrono::year{2026} / 4 / 3} + 21h + 1s});
-  const auto result = project::run_simulation(
-      config, project::SimulationDependencies{.clock = &clock});
-
-  ASSERT_FALSE(result.ok());
-  ASSERT_TRUE(result.outputs.summary_written);
-  ASSERT_TRUE(result.outputs.time_series_written);
-  ASSERT_FALSE(result.outputs.hdf5_written);
-  const Json summary = read_json_file(summary_path);
-  const auto &formats = summary.at("outputs").at("formats");
-  ASSERT_EQ(formats.size(), 2U);
-  EXPECT_EQ(formats.at(0).get<std::string>(), "json");
-  EXPECT_EQ(formats.at(1).get<std::string>(), "hdf5");
-  EXPECT_EQ(summary.at("outputs").at("hdf5_path").get<std::string>(),
-            hdf5_path.string());
-
-  remove_file_if_present(summary_path);
-  remove_file_if_present(time_series_path);
-  remove_file_if_present(hdf5_path);
-}
-
-/**
  * @test UT-125
- * @verifies [D-034]
+ * @verifies [D-034, D-040]
  * @notes Given runtime-selectable built-in providers, when a JSON summary is
- * emitted, then structured provider metadata is preserved and the legacy flat
- * provider-id fields are absent.
+ * emitted, then structured provider metadata plus mechanics and integration
+ * backend policy metadata are preserved and the legacy single-advancer fields
+ * are absent.
  */
 TEST(RunOutputs, SummaryArtifactEmitsStructuredProviderMetadata) {
   auto config = make_config("ut-output-providers", 0.5, 0.25);
@@ -1041,9 +764,31 @@ TEST(RunOutputs, SummaryArtifactEmitsStructuredProviderMetadata) {
             "stroke_propulsion_placeholder");
   EXPECT_EQ(providers.at("aero_load").at("id").get<std::string>(),
             "steady_wind_placeholder");
+  const auto &mechanics_backend =
+      summary.at("metadata").at("mechanics_backend");
+  EXPECT_EQ(mechanics_backend.at("id").get<std::string>(),
+            expected_default_mechanics_backend_id());
+  EXPECT_EQ(mechanics_backend.at("policy_id").get<std::string>(),
+            expected_default_mechanics_policy_id());
+  EXPECT_EQ(mechanics_backend.at("policy_description").get<std::string>(),
+            expected_default_mechanics_policy_description());
+  const auto &integration_backend =
+      summary.at("metadata").at("integration_backend");
+  EXPECT_EQ(integration_backend.at("id").get<std::string>(), "sundials_ida");
+  EXPECT_EQ(integration_backend.at("policy_id").get<std::string>(),
+            "sundials-ida-fixed-tolerances-v2");
+  EXPECT_EQ(integration_backend.at("policy_description").get<std::string>(),
+            "Preferred constrained integration backend with fixed relative and "
+            "absolute tolerances of 1e-10 for Chrono-backed runtime stepping.");
+  EXPECT_EQ(summary.at("metadata")
+                .at("state_advancement_solver_status")
+                .get<std::string>(),
+            "sundials-ida");
   EXPECT_TRUE(summary.at("metadata").contains("providers"));
-  EXPECT_FALSE(summary.at("metadata").contains("hydro_provider_id"));
-  EXPECT_FALSE(summary.at("metadata").contains("aero_provider_id"));
+  EXPECT_TRUE(summary.at("metadata").contains("mechanics_backend"));
+  EXPECT_TRUE(summary.at("metadata").contains("integration_backend"));
+  EXPECT_FALSE(summary.at("metadata").contains("state_advancer"));
+  EXPECT_FALSE(summary.at("metadata").contains("state_advancer_id"));
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);

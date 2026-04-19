@@ -2,69 +2,65 @@
 
 ## Status
 - The `v0.1` cut line is complete as of 2026-04-05.
-- Slice 0 for human-readable run analysis closed on 2026-04-06 with `R-034`,
-  additive summary-analysis output, optional CLI report modes, and the first
-  offline static report tool.
-- Slice 1 for runtime-selectable providers and structured validity metadata
-  closed on 2026-04-06 with top-level config-driven provider selection,
-  built-in provider composition on the shared run path, and structured
-  provider validity metadata in machine-readable outputs.
-- Slice 2 is now underway across both hydro and steady-wind aero increments:
-  the existing built-in hydro ids have been deepened in place, the existing
-  built-in `steady_wind_placeholder` aero id has been refined in place, and
-  the checked-in wind-backed scenario envelopes have been refreshed against
-  the richer deterministic baseline.
-
+- Slice 0 and Slice 1 are closed.
+- Slice 2 is closed with the current reduced hydro and steady-wind built-in
+  providers as the supported deterministic default-runtime baseline.
+- Slice 3 is closed under `A-010` with
+  `chrono_rigidbody + sundials_ida` as the preferred supported runtime and
+  bounded fallback pairs.
 ## Post-`v0.1` Slices
-
-### Slice 0 — Human-Readable Run Analysis
-- Closed `R-034`.
-- Added compact and full human-readable CLI report modes plus derived
-  single-run analysis metrics in the JSON summary artifact.
-- Added a standard-library-only offline report generator for static HTML and
-  SVG inspection from emitted JSON artifacts.
-
-### Slice 1 — Runtime-Selectable Providers and Validity Metadata
-- Closed `R-020` and `R-033`.
-- Added a top-level `providers` config block for built-in
-  `hull_resistance`, `blade_force`, and `aero_load` selection with
-  deterministic unknown-provider rejection.
-- Added config-driven built-in provider construction on the shared run path,
-  while keeping injected provider seams available for focused tests.
-- Replaced flat provider-id output metadata with structured per-role provider
-  metadata that includes validity identifiers and descriptions.
-
 ### Slice 2 — Reduced-Model Fidelity Expansion
-- Deepen reduced hydro and steady-wind aero behavior behind the existing
-  provider seams while preserving the current deterministic headless run path.
-- Keep `A-004` and `A-005` as the primary owners for richer reduced-model
-  variants and stronger observable scenario fidelity.
-- The current sub-slices keep the existing built-in ids stable:
-  `quadratic_drag_placeholder` and `stroke_propulsion_placeholder` have been
-  refined in place on the hydro side, and `steady_wind_placeholder` is now
-  being refined in place on the aero side without changing the current config
-  or structured metadata schema.
-
+- Closed on 2026-04-18 without changing the stable built-in ids.
+- Owners: `A-004`, `A-005`.
+- Guardrail: keep the stable built-in ids and metadata contracts intact.
 ### Slice 3 — External Backend Wiring and Backend Selection
-- Revisit concrete Chrono and SUNDIALS adoption behind the existing mechanics
-  and state-advancer seams.
-- Anchor this work in `A-010`, with coordinated changes in `A-003` and
-  `A-002` where backend wiring touches mechanics realization or run lifecycle.
-- Keep this slice separate from hydro or aero provider selection.
+- Closed on 2026-04-18.
+- Owners: `A-010`, coordinated with `A-003`, `A-002`.
+- Policy: `simulation.mechanics_backend` and
+  `simulation.integration_backend` stay public; preferred runtime remains
+  `chrono_rigidbody + sundials_ida`; supported fallbacks remain
+  `internal_baseline + sundials_ida` and
+  `internal_baseline + deterministic_baseline`; unsupported
+  `chrono_rigidbody + deterministic_baseline` stays rejected.
 
-### Slice 4 — Calibration and Time-Varying Environment
-- Re-open `R-021`, `R-022`, and `R-023` after provider selection and backend
-  seams are stable.
-- Add external calibration ingestion, provenance propagation, and
-  deterministic time-varying wind support without collapsing the runtime
-  versus truth-model separation boundary.
+### Slice 4A — Calibration Ingestion and Provenance
+- Closed on 2026-04-19 as the first `A-009` packet.
+- Owners: `A-009`, coordinated with `A-001`, `A-005`, `A-007`.
+- Scope: deterministic file-backed calibration loading, required provenance
+  validation, one `steady_wind_calibrated` provider path, and output
+  provenance propagation.
+- Guardrail: keep the default runtime usable without imported artifacts.
+
+### Slice 4B — Time-Varying Wind Input
+- Closed on 2026-04-19.
+- Owners: `A-005`, `A-002`, with `A-001` on schema and `A-006` retaining
+  future wind-aware scheduling hooks.
+- Scope: exclusive steady/series/profile wind modes, per-step sampling,
+  steady-wind parity for constant inputs, emitted ambient-wind channels, and
+  the checked-in `gust_headwind_stroke` replay scenario.
+- Guardrail: keep runtime-versus-truth-model separation intact.
+
+### Slice 4C — Batch Parameter Sweep Execution
+- Closed on 2026-04-19.
+- Primary owners are `A-001`, `A-002`, and `A-007`.
+- Scope: top-level ordered `batch.cases`, per-case overrides, sequential reuse
+  of the shared single-run path, deterministic batch-summary artifacts, and
+  CLI batch auto-detection without batch `--report` support.
+- Guardrail: keep batch orchestration sequential on the existing run path.
+
+### Guardrail Packet — Runtime Separation and Scenario Budgets
+- Closed on 2026-04-19.
+- Primary owners are `A-001`, `A-002`, `A-007`, `A-008`, and `A-009`.
+- Scope: optional `output.truth_model_export_path`, one deterministic JSON
+  truth-model handoff artifact, documented offline re-import boundary on the
+  existing calibrated-artifact path, checked-in
+  `scenarios/performance_budgets.json`, and a dedicated
+  `./scripts/test_performance.sh` lane with a machine-readable budget report.
+- Guardrail: keep optional truth-model tooling out of the default runtime and
+  keep protected-scenario budget checks out of the quick TDD lane.
 
 ## Later Backlog
-- Keep `R-024` and `R-026` as cross-cutting guardrails across the post-`v0.1`
-  slices rather than as the next headline delivery items.
-- `R-025`, `R-027`, `R-028`, `R-029`, and `R-030` remain deferred until the
-  four near-term slices above settle.
-- Add real component-prefixed code paths so component-level depcheck rules
-  become active in production code.
-- Add simulator-specific auxiliary and regression lanes only when they improve
-  local verification without polluting the baseline runtime path.
+- `R-027`, `R-028`, `R-029`, and `R-030` remain deferred until the near-term
+  slices settle.
+- Add real component-prefixed code paths and only add simulator-specific
+  auxiliary or regression lanes when they improve verification materially.

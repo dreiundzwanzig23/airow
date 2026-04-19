@@ -74,6 +74,7 @@ project::SimulatorConfig make_config() {
               .summary_path = {},
               .time_series_path = {},
               .hdf5_path = {},
+              .truth_model_export_path = {},
               .high_frequency_time_series = true,
               .emit_json = true,
               .emit_hdf5 = false,
@@ -109,6 +110,55 @@ Json read_json_file(const std::filesystem::path &path) {
   Json document;
   input >> document;
   return document;
+}
+
+void expect_positive_blade_force_samples(
+    const std::vector<project::LoadSample> &load_history) {
+  bool observed_positive_blade_force = false;
+  for (const auto &sample : load_history) {
+    EXPECT_TRUE(std::isfinite(sample.hull_force_world_n.z));
+    EXPECT_TRUE(std::isfinite(sample.hull_moment_world_n_m.x));
+    EXPECT_TRUE(std::isfinite(sample.port_blade_immersion_depth_m));
+    if (sample.port_blade_force_world_n.x > 0.0) {
+      observed_positive_blade_force = true;
+      EXPECT_DOUBLE_EQ(sample.port_blade_force_world_n.x,
+                       sample.starboard_blade_force_world_n.x);
+      EXPECT_GT(sample.port_blade_immersion_depth_m, 0.0);
+    }
+  }
+  EXPECT_TRUE(observed_positive_blade_force);
+}
+
+void expect_positive_blade_force_channels(const Json &records) {
+  bool observed_positive_blade_channel = false;
+  bool observed_positive_propulsive_power = false;
+  for (const auto &record : records) {
+    const auto port_blade_force = record.at("blade_load_world_n")
+                                      .at("port")
+                                      .at("vector")
+                                      .at("value")[0]
+                                      .get<double>();
+    const auto starboard_blade_force = record.at("blade_load_world_n")
+                                           .at("starboard")
+                                           .at("vector")
+                                           .at("value")[0]
+                                           .get<double>();
+    if (port_blade_force > 0.0) {
+      observed_positive_blade_channel = true;
+      EXPECT_DOUBLE_EQ(port_blade_force, starboard_blade_force);
+      EXPECT_GT(record.at("blade_state")
+                    .at("port")
+                    .at("immersion_depth_m")
+                    .at("value")
+                    .get<double>(),
+                0.0);
+      if (record.at("stroke_power_w").at("value").get<double>() > 0.0) {
+        observed_positive_propulsive_power = true;
+      }
+    }
+  }
+  EXPECT_TRUE(observed_positive_blade_channel);
+  EXPECT_TRUE(observed_positive_propulsive_power);
 }
 
 } // namespace
@@ -148,54 +198,12 @@ TEST(HydroRuntimeIntegration, PropagatesStructuredHydroLoadsIntoOutputs) {
   EXPECT_DOUBLE_EQ(result.load_history.front().port_blade_force_world_n.x, 0.0);
   EXPECT_DOUBLE_EQ(result.load_history.front().starboard_blade_force_world_n.x,
                    0.0);
-
-  bool observed_positive_blade_force = false;
-  for (const auto &sample : result.load_history) {
-    EXPECT_TRUE(std::isfinite(sample.hull_force_world_n.z));
-    EXPECT_TRUE(std::isfinite(sample.hull_moment_world_n_m.x));
-    EXPECT_TRUE(std::isfinite(sample.port_blade_immersion_depth_m));
-    if (sample.port_blade_force_world_n.x > 0.0) {
-      observed_positive_blade_force = true;
-      EXPECT_DOUBLE_EQ(sample.port_blade_force_world_n.x,
-                       sample.starboard_blade_force_world_n.x);
-      EXPECT_GT(sample.port_blade_immersion_depth_m, 0.0);
-    }
-  }
-  EXPECT_TRUE(observed_positive_blade_force);
+  expect_positive_blade_force_samples(result.load_history);
 
   const auto time_series = read_json_file(time_series_path);
   const auto &records = time_series.at("records");
   ASSERT_FALSE(records.empty());
-
-  bool observed_positive_blade_channel = false;
-  bool observed_positive_propulsive_power = false;
-  for (const auto &record : records) {
-    const auto port_blade_force = record.at("blade_load_world_n")
-                                      .at("port")
-                                      .at("vector")
-                                      .at("value")[0]
-                                      .get<double>();
-    const auto starboard_blade_force = record.at("blade_load_world_n")
-                                           .at("starboard")
-                                           .at("vector")
-                                           .at("value")[0]
-                                           .get<double>();
-    if (port_blade_force > 0.0) {
-      observed_positive_blade_channel = true;
-      EXPECT_DOUBLE_EQ(port_blade_force, starboard_blade_force);
-      EXPECT_GT(record.at("blade_state")
-                    .at("port")
-                    .at("immersion_depth_m")
-                    .at("value")
-                    .get<double>(),
-                0.0);
-      if (record.at("stroke_power_w").at("value").get<double>() > 0.0) {
-        observed_positive_propulsive_power = true;
-      }
-    }
-  }
-  EXPECT_TRUE(observed_positive_blade_channel);
-  EXPECT_TRUE(observed_positive_propulsive_power);
+  expect_positive_blade_force_channels(records);
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);

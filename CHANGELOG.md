@@ -2,6 +2,83 @@
 
 ## [Unreleased]
 ### Changed
+- Closed the combined `R-024` / `R-026` guardrail packet: public config now
+  accepts optional `output.truth_model_export_path`, the shared run path can
+  emit one deterministic JSON truth-model handoff bundle without changing the
+  default runtime dependencies or calibrated re-import contract, the repo now
+  carries `scenarios/performance_budgets.json` for the five protected core
+  scenarios, and `./scripts/test_performance.sh` plus
+  `tools/check_scenario_budgets.py` now enforce separate machine-readable
+  performance-budget reporting in `test.sh` and `verify.sh` while leaving
+  `test_tdd.sh` unchanged. This closes `R-024` and `R-026` with `D-052`,
+  `D-053`, `UT-290..UT-297`, `IT-026`, `QT-041`, and `QT-042`.
+- Closed Slice 4C as the deterministic batch-orchestration packet: public
+  config can now define a top-level `batch` container with ordered cases and
+  per-case override objects over one shared base run, the headless CLI now
+  auto-detects batch configs, each case executes sequentially through the
+  shared single-run path with isolated per-case success or failure records and
+  suffixed artifact paths, machine-readable output now includes one
+  deterministic batch-summary artifact with ordered per-case ids, statuses,
+  metrics, diagnostics, and artifact locations, and `R-025` is closed with
+  direct evidence (`D-049`, `D-050`, `D-051`, `UT-261..UT-289`, `IT-025`,
+  `QT-040`).
+- Closed Slice 4B as the deterministic time-varying ambient-wind packet: the
+  public config now accepts exactly one of legacy `ambient_wind_world_mps`,
+  replay-oriented `wind_time_series`, or authored `wind_profile`; sampled
+  series use zero-order hold, keyframe profiles use deterministic linear
+  interpolation, constant series or profile inputs preserve steady-wind load
+  parity, JSON and HDF5 outputs now record the effective
+  `ambient_wind_world_mps` channel, and the checked-in
+  `gust_headwind_stroke` scenario adds the first non-constant requirement-level
+  regression evidence (`D-047`, `D-048`, `UT-245..UT-254`, `IT-024`,
+  `QT-039`).
+- Closed Slice 4A as the first `A-009` packet: the shared run path now
+  supports deterministic file-backed calibration artifact loading, enforces
+  required provenance fields (`source_id`, `artifact_version`,
+  `content_hash`, `schema_id`) before runtime stepping, adds one explicit
+  `steady_wind_calibrated` aero provider without changing the existing
+  default-runtime steady-wind baseline id, and propagates used-artifact
+  provenance into JSON and HDF5 outputs with new evidence
+  (`D-042`, `D-044`, `D-045`, `UT-221..UT-243`, `IT-023`, `QT-038`) while
+  leaving broader `A-009` schema and hydro-side expansion for later work.
+- Closed Slice 2 on `A-004` and `A-005` without reopening hydro or aero
+  behavior: the current `quadratic_drag_placeholder`,
+  `stroke_propulsion_placeholder`, and `steady_wind_placeholder` providers are
+  now documented and tested as the supported deterministic default-runtime
+  reduced-model baseline, and roadmap or architecture wording no longer claims
+  an active fidelity follow-on under that slice.
+- Completed the stop-the-line workflow recovery slice under `A-008`:
+  validation summaries now preserve nested child exit codes, stale summary
+  files are cleared before each run, `test_aux.sh` carries a regression for
+  the validation summary contract, RGR evidence enforcement is strict by
+  default again, the full `test.sh` gate enforces repo-wide test-quality
+  linting again, GoogleTest registration uses runtime discovery so multiline
+  tests cannot be silently skipped, sanitized and GCC CTest presets now carry
+  the discovery-safe sanitizer environment needed for registration and test
+  execution to share the same contract, `D-043` regained direct unit trace
+  coverage through a small dedicated SUNDIALS startup test, and the former
+  ambient `AIROW_SUNDIALS_TEST_FAULT` seam was replaced with an explicit
+  compile-time-gated test hook so production runtime behavior is no longer
+  controlled by an undocumented environment variable.
+- Closed the WSL crash reproducer behind the default `sundials_ida` runtime:
+  positive sub-epsilon advancement steps now still consume simulated time,
+  the shared run loop rejects non-advancing state-advancer results
+  deterministically, and the former crash reproducer
+  `V0_1ClosureSystem.TenCycleStrokeReplayClosesR008` is green again under a
+  targeted run.
+- Closed Slice 3 on `A-010` as the composed backend packet: public config now
+  uses `simulation.mechanics_backend` and
+  `simulation.integration_backend`, the preferred supported runtime is
+  `chrono_rigidbody + sundials_ida`, `internal_baseline + sundials_ida`
+  remains the supported fallback, `internal_baseline + deterministic_baseline`
+  remains the explicit debug fallback, and
+  `chrono_rigidbody + deterministic_baseline` is rejected deterministically.
+  The same slice now propagates structured mechanics and integration backend
+  policy metadata plus startup and runtime solver-status fields through the
+  shared run path and JSON/HDF5 outputs, tightens the standard non-libc++
+  build to require Chrono via the repo-managed install prefix policy, and
+  extends Chrono scenario evidence through passive-float, tow, calm-water
+  stroke, headwind stroke, and crosswind stroke acceptance runs.
 - Continued Slice 2 on `A-004` by deepening the existing built-in hydro ids
   in place without changing provider ids, config schema, output schema, or
   state-advancer coupling: `stroke_propulsion_placeholder` now gates
@@ -78,7 +155,7 @@
   with integration points from the TDD and major-change loops.
 - Tightened the workflow from generic failing-tests-first to explicit
   red-green-refactor enforcement with a mandatory refactor phase, aligned
-  policy and skill playbooks, and a new warning-only
+  policy and skill playbooks, and a new
   `./scripts/check_rgr_evidence.sh` hook in `test_tdd.sh` and `verify.sh`
   for `rgr:red`, `rgr:green`, and `rgr:refactor` marker checks.
 - Added the first `A-008` scenario-harness slice with a public

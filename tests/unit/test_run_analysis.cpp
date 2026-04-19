@@ -8,39 +8,52 @@
 
 namespace {
 
-project::MechanicalStateSnapshot
-make_state(double time_s, double boat_speed_mps, double hull_z_m,
-           double seat_position_m, double port_handle_angle_rad,
-           double starboard_handle_angle_rad, project::StrokePhase phase,
-           double phase_time_s) {
+struct StateSample {
+  double time_s{};
+  double boat_speed_mps{};
+  double hull_z_m{};
+  double seat_position_m{};
+  double port_handle_angle_rad{};
+  double starboard_handle_angle_rad{};
+  project::StrokePhase phase{project::StrokePhase::drive};
+  double phase_time_s{};
+};
+
+project::MechanicalStateSnapshot make_state(const StateSample &sample) {
   return {
-      .time_s = time_s,
+      .time_s = sample.time_s,
       .hull =
           {
-              .position_world_m = {.x = time_s, .y = 0.0, .z = hull_z_m},
+              .position_world_m = {.x = sample.time_s,
+                                   .y = 0.0,
+                                   .z = sample.hull_z_m},
               .orientation_world_from_body =
                   {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
-              .linear_velocity_world_mps = {.x = boat_speed_mps,
+              .linear_velocity_world_mps = {.x = sample.boat_speed_mps,
                                             .y = 0.0,
                                             .z = 0.0},
               .angular_velocity_body_radps = {.x = 0.0, .y = 0.0, .z = 0.0},
           },
       .port_oar =
           {
-              .handle_angle_rad = port_handle_angle_rad,
+              .handle_angle_rad = sample.port_handle_angle_rad,
               .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
-              .blade_tip_position_world_m = {.x = time_s, .y = -1.0, .z = 0.0},
-              .blade_tip_velocity_world_mps = {.x = boat_speed_mps,
+              .blade_tip_position_world_m = {.x = sample.time_s,
+                                             .y = -1.0,
+                                             .z = 0.0},
+              .blade_tip_velocity_world_mps = {.x = sample.boat_speed_mps,
                                                .y = 0.0,
                                                .z = 0.0},
               .blade_immersion_depth_m = 0.0,
           },
       .starboard_oar =
           {
-              .handle_angle_rad = starboard_handle_angle_rad,
+              .handle_angle_rad = sample.starboard_handle_angle_rad,
               .oarlock_position_body_m = {.x = 0.25, .y = 0.82, .z = 0.18},
-              .blade_tip_position_world_m = {.x = time_s, .y = 1.0, .z = 0.0},
-              .blade_tip_velocity_world_mps = {.x = boat_speed_mps,
+              .blade_tip_position_world_m = {.x = sample.time_s,
+                                             .y = 1.0,
+                                             .z = 0.0},
+              .blade_tip_velocity_world_mps = {.x = sample.boat_speed_mps,
                                                .y = 0.0,
                                                .z = 0.0},
               .blade_immersion_depth_m = 0.0,
@@ -48,13 +61,13 @@ make_state(double time_s, double boat_speed_mps, double hull_z_m,
       .seat =
           {
               .rail_axis_body = {.x = 1.0, .y = 0.0, .z = 0.0},
-              .position_along_rail_m = seat_position_m,
+              .position_along_rail_m = sample.seat_position_m,
               .velocity_along_rail_mps = 0.0,
           },
       .stroke =
           {
-              .phase = phase,
-              .phase_time_s = phase_time_s,
+              .phase = sample.phase,
+              .phase_time_s = sample.phase_time_s,
               .cycle_time_s = 1.2,
           },
       .constraint_residual_max = 0.0,
@@ -69,12 +82,33 @@ project::SimulationRunResult make_result() {
   result.metadata.startup_status = "success";
   result.outputs.high_frequency_time_series = false;
 
-  result.state_history.push_back(make_state(0.0, 0.3, 0.02, 0.0, -0.6, -0.55,
-                                            project::StrokePhase::drive, 0.0));
-  result.state_history.push_back(make_state(
-      0.5, 0.7, -0.01, 0.15, 0.2, 0.25, project::StrokePhase::recovery, 0.1));
-  result.state_history.push_back(make_state(1.0, 0.4, 0.01, -0.05, -0.2, -0.15,
-                                            project::StrokePhase::drive, 0.0));
+  result.state_history.push_back(
+      make_state({.time_s = 0.0,
+                  .boat_speed_mps = 0.3,
+                  .hull_z_m = 0.02,
+                  .seat_position_m = 0.0,
+                  .port_handle_angle_rad = -0.6,
+                  .starboard_handle_angle_rad = -0.55,
+                  .phase = project::StrokePhase::drive,
+                  .phase_time_s = 0.0}));
+  result.state_history.push_back(
+      make_state({.time_s = 0.5,
+                  .boat_speed_mps = 0.7,
+                  .hull_z_m = -0.01,
+                  .seat_position_m = 0.15,
+                  .port_handle_angle_rad = 0.2,
+                  .starboard_handle_angle_rad = 0.25,
+                  .phase = project::StrokePhase::recovery,
+                  .phase_time_s = 0.1}));
+  result.state_history.push_back(
+      make_state({.time_s = 1.0,
+                  .boat_speed_mps = 0.4,
+                  .hull_z_m = 0.01,
+                  .seat_position_m = -0.05,
+                  .port_handle_angle_rad = -0.2,
+                  .starboard_handle_angle_rad = -0.15,
+                  .phase = project::StrokePhase::drive,
+                  .phase_time_s = 0.0}));
 
   result.load_history.push_back(project::LoadSample{
       .time_s = 0.0,

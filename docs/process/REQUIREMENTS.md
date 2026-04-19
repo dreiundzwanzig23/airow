@@ -419,13 +419,17 @@ Milestone framing:
   - Loaded datasets are queryable by the configured provider during a run.
   - At least one automated test loads a minimal valid dataset and verifies a successful query.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Change-Note**: Repositioned external calibration ingestion behind the first deterministic runtime milestone.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line. Slice 4A now delivers one
+  deterministic file-backed calibration artifact path on the shared runtime:
+  the simulator validates a versioned machine-readable artifact before
+  stepping, exposes the loaded coefficients through one explicit calibrated
+  aero provider, and keeps the existing default-runtime baseline provider ids
+  unchanged.
 
 ## R-022 — Calibration Provenance Metadata
 - **Title**: Preserve provenance for imported calibration and fitted-model artifacts
@@ -435,13 +439,16 @@ Milestone framing:
   - Missing required provenance metadata causes deterministic rejection of the artifact.
   - A regression test verifies that provenance metadata is propagated into run outputs.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Change-Note**: Repositioned calibration provenance behind the first deterministic runtime milestone together with external artifact ingestion.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line. Slice 4A now requires imported
+  calibration artifacts to declare `source_id`, `artifact_version`,
+  `content_hash`, and `schema_id`, rejects partially specified provenance
+  deterministically, and propagates used-artifact identifiers into JSON and
+  HDF5 run metadata on the calibrated runtime path.
 
 ## R-023 — Time-Varying Wind Input
 - **Title**: Support deterministic time-varying wind for gust and transition studies
@@ -451,13 +458,18 @@ Milestone framing:
   - Replaying the same wind time series yields deterministic results on the same platform.
   - At least one regression scenario includes a non-constant wind input.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Change-Note**: Repositioned time-varying wind behind steady-wind baseline validation.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Delivered post-`v0.1` through an exclusive `environment`
+  wind-input contract: legacy constant `ambient_wind_world_mps`,
+  replay-oriented `wind_time_series` with zero-order hold, or authored
+  `wind_profile` with deterministic linear interpolation. Constant series or
+  profile inputs now preserve steady-wind parity, and
+  `scenarios/gust_headwind_stroke.json` provides the first checked-in
+  non-constant regression artifact.
 
 ## R-024 — Runtime and Truth-Model Separation
 - **Title**: Keep the default runtime path independent of optional high-fidelity toolchains
@@ -467,12 +479,20 @@ Milestone framing:
   - A documented workflow exists to export inputs for offline high-fidelity studies and re-import derived artifacts.
   - Automated verification includes at least one run that proves the default runtime path works without optional tooling present.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-19
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement protects the core runtime from accidental coupling to research-only tooling.
+- **Notes**: The shared runtime now keeps optional truth-model handoff export
+  behind `output.truth_model_export_path`, which stays disabled by default and
+  emits one deterministic JSON input bundle only when requested. The default
+  runtime continues to execute without optional truth-model tooling installed,
+  and the documented re-import path remains the existing validated
+  `steady_wind_calibrated` plus `artifacts.calibration.path` contract rather
+  than a new runtime consumer. Requirement-level closure now rests on
+  `QT-041` for the export path and the existing calibrated-artifact runtime
+  evidence in `QT-038`.
 
 ## R-025 — Batch Parameter Sweep Execution
 - **Title**: Run multiple simulation cases in one headless batch job
@@ -482,13 +502,13 @@ Milestone framing:
   - Batch summary output includes per-case identifiers and summary metrics.
   - Batch output ordering is deterministic for the same input ordering.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
 - **Change-Note**: Repositioned batch execution behind the first single-run deterministic baseline.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Notes**: Delivered after the `v0.1` cut line as the closed Slice 4C batch-orchestration packet.
 
 ## R-026 — Scenario Performance Budget
 - **Title**: Keep core verification scenarios within documented runtime budgets
@@ -498,12 +518,19 @@ Milestone framing:
   - A performance regression in a protected scenario is reported separately from functional test failures.
   - The quick lane remains usable without optional high-fidelity tooling.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-19
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement is about protecting workflow usability as the simulator grows.
+- **Notes**: The repository now carries a checked-in
+  `scenarios/performance_budgets.json` manifest for the five protected core
+  scenarios, a dedicated `./scripts/test_performance.sh` validation lane that
+  reports budget status separately from ordinary functional failures, and a
+  machine-readable budget report generated from the lane summary. The quick
+  `./scripts/test_tdd.sh` lane remains free of these protected-scenario budget
+  checks, while `test.sh` and `verify.sh` now run the dedicated performance
+  lane explicitly. Requirement-level closure rests on `QT-042`.
 
 ## R-027 — Low-Order Balance Control
 - **Title**: Support an optional low-order balance or stabilization controller for the rower model

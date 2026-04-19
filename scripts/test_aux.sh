@@ -9,6 +9,8 @@ test_build_dir="${TEST_BUILD_DIR:-build}"
 validation_run_logged "test-aux-test-lint" ./scripts/lint_tests.sh
 validation_run_logged "test-aux-tooling-contracts" \
   python3 tools/test_tooling_contracts.py
+validation_run_logged "test-aux-validation-output" \
+  python3 tools/test_validation_output.py
 list_output="$(ctest --test-dir "${test_build_dir}" -N -L aux 2>&1 || true)"
 
 if grep -Eq 'Total Tests: 0' <<<"${list_output}"; then

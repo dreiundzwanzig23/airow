@@ -141,29 +141,33 @@ project::SimulatorConfig make_valid_config(std::string_view config_id,
   };
 }
 
-std::string make_valid_config_json(std::string_view config_id,
-                                   double duration_s = 1.0,
-                                   double time_step_s = 0.25,
-                                   double mass_kg = 14.0,
-                                   double seat_initial_position_m = 0.0,
-                                   double drive_duration_s = 0.48,
-                                   std::string_view mass_json = "") {
+struct ConfigJsonOptions {
+  std::string_view config_id;
+  double duration_s{1.0};
+  double time_step_s{0.25};
+  double mass_kg{14.0};
+  double seat_initial_position_m{0.0};
+  double drive_duration_s{0.48};
+  std::string_view mass_json{""};
+};
+
+std::string make_valid_config_json(const ConfigJsonOptions &options) {
   std::ostringstream stream;
   stream << R"({
         "config_id": ")"
-         << config_id << R"(",
+         << options.config_id << R"(",
         "simulation": {
           "duration_s": )"
-         << duration_s << R"(,
+         << options.duration_s << R"(,
           "time_step_s": )"
-         << time_step_s << R"(
+         << options.time_step_s << R"(
         },
         "hull": {
           "mass_kg": )";
-  if (mass_json.empty()) {
-    stream << mass_kg;
+  if (options.mass_json.empty()) {
+    stream << options.mass_kg;
   } else {
-    stream << mass_json;
+    stream << options.mass_json;
   }
   stream << R"(,
           "center_of_mass_m": [0.0, 0.0, 0.0],
@@ -190,12 +194,12 @@ std::string make_valid_config_json(std::string_view config_id,
           "min_position_m": -0.4,
           "max_position_m": 0.4,
           "initial_position_m": )"
-         << seat_initial_position_m << R"(
+         << options.seat_initial_position_m << R"(
         },
         "stroke": {
           "cycle_duration_s": 1.2,
           "drive_duration_s": )"
-         << drive_duration_s << R"(,
+         << options.drive_duration_s << R"(,
           "catch_angle_rad": -0.9,
           "release_angle_rad": 0.6,
           "drive_blade_depth_m": 0.12,
@@ -336,7 +340,8 @@ TEST(V0_1ClosureSystem, HullStateOutputsAndMassValidationCloseR005) {
 
   const auto invalid_path = write_temp_file(
       "airow-qt-r005-invalid-mass.json",
-      make_valid_config_json("qt-r005-invalid-mass", 1.0, 0.25, -1.0));
+      make_valid_config_json(
+          {.config_id = "qt-r005-invalid-mass", .mass_kg = -1.0}));
   const auto invalid_result = project::load_simulator_config_file(invalid_path);
 
   ASSERT_FALSE(invalid_result.ok());
@@ -458,7 +463,8 @@ TEST(V0_1ClosureSystem, SeatOutputsAndValidationCloseR007) {
 
   const auto invalid_path = write_temp_file(
       "airow-qt-r007-invalid-seat.json",
-      make_valid_config_json("qt-r007-invalid-seat", 1.0, 0.25, 14.0, 0.6));
+      make_valid_config_json({.config_id = "qt-r007-invalid-seat",
+                              .seat_initial_position_m = 0.6}));
   const auto invalid_result = project::load_simulator_config_file(invalid_path);
 
   ASSERT_FALSE(invalid_result.ok());
@@ -516,10 +522,10 @@ TEST(V0_1ClosureSystem, TenCycleStrokeReplayClosesR008) {
     EXPECT_TRUE(std::isfinite(state.starboard_oar.handle_angle_rad));
   }
 
-  const auto invalid_path =
-      write_temp_file("airow-qt-r008-invalid-schedule.json",
-                      make_valid_config_json("qt-r008-invalid-schedule", 1.0,
-                                             0.25, 14.0, 0.0, 1.2));
+  const auto invalid_path = write_temp_file(
+      "airow-qt-r008-invalid-schedule.json",
+      make_valid_config_json(
+          {.config_id = "qt-r008-invalid-schedule", .drive_duration_s = 1.2}));
   const auto invalid_result = project::load_simulator_config_file(invalid_path);
 
   ASSERT_FALSE(invalid_result.ok());
@@ -652,8 +658,8 @@ TEST(V0_1ClosureSystem, UnitsAndNumericSafetyCloseR017) {
 
   const auto invalid_path =
       write_temp_file("airow-qt-r017-ambiguous-units.json",
-                      make_valid_config_json("qt-r017-ambiguous", 1.0, 0.25,
-                                             14.0, 0.0, 0.48, R"("14 kg")"));
+                      make_valid_config_json({.config_id = "qt-r017-ambiguous",
+                                              .mass_json = R"("14 kg")"}));
   const auto invalid_result = project::load_simulator_config_file(invalid_path);
 
   ASSERT_FALSE(invalid_result.ok());
@@ -737,7 +743,8 @@ TEST(V0_1ClosureSystem, StartupValidityClosesR032) {
 
     ASSERT_TRUE(result.ok());
     EXPECT_EQ(result.metadata.startup_status, "success");
-    EXPECT_EQ(result.metadata.startup_solver_status, "deterministic-baseline");
+    EXPECT_EQ(result.metadata.startup_solver_status, "sundials-ida");
+    EXPECT_EQ(result.metadata.state_advancement_solver_status, "sundials-ida");
     EXPECT_LE(result.metadata.startup_constraint_residual_max, 1e-12);
     ASSERT_FALSE(result.state_history.empty());
     EXPECT_LE(std::abs(result.state_history.front().constraint_residual_max),

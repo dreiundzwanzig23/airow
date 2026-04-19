@@ -5,6 +5,32 @@ active-window rollover is needed).
 
 Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
 
+## ADR-2026-04-18-009
+- **Date**: 2026-04-18
+- **Context**: The first Slice 3 closure left Chrono as an optional bounded
+  mode even though the approved technology stack already names Project Chrono
+  as the preferred mechanics backbone. That mismatch kept the standard build,
+  runtime defaults, and public backend contract weaker than the intended
+  product direction.
+- **Decision**:
+  - replace the public `simulation.state_advancer` selector with the composed
+    `simulation.mechanics_backend` and
+    `simulation.integration_backend` selectors,
+  - make `chrono_rigidbody + sundials_ida` the preferred supported runtime
+    pair,
+  - keep `internal_baseline + sundials_ida` as the supported fallback and
+    cross-check pair,
+  - keep `internal_baseline + deterministic_baseline` as the explicit
+    deterministic debug fallback,
+  - reject `chrono_rigidbody + deterministic_baseline`,
+  - require Chrono in the standard non-libc++ build and treat libc++ coverage
+    and sanitizer lanes as explicit no-Chrono verification exceptions.
+- **Consequences**:
+  - standard setup and configure flows now need a supported Chrono install,
+  - machine-readable outputs and docs must expose split mechanics and
+    integration backend metadata,
+  - Chrono evidence must extend beyond passive-float and tow into the checked-
+    in stroke scenarios.
 ## ADR-2026-04-02-008
 - **Date**: 2026-04-02
 - **Context**: Before the first simulator-facing implementation slice, the
@@ -138,31 +164,3 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
   - dependency rules and tests can be tightened around known subsystem seams,
   - major changes are more likely to evolve existing components than create
     narrow feature containers.
-## ADR-2026-04-02-001
-- **Date**: 2026-04-02
-- **Context**: The rowing simulator is a multiphysics project with evolving
-  subsystem boundaries. A requirement-driven agent can otherwise drift into a
-  fragile 1:1 `R -> A` mapping and patch-oriented growth.
-- **Decision**:
-  - treat architecture allocation as a mandatory step before TDD,
-  - treat functional delivery as an explicit red-green-refactor loop rather
-    than an implicit failing-tests-first sequence,
-  - require a mandatory behavior-preserving refactor pass after green (or an
-    explicit refactor no-op rationale),
-  - require loop evidence markers (`rgr:red`, `rgr:green`, `rgr:refactor`) in
-    commit messages or evidence notes,
-  - adopt hybrid enforcement first: warning-mode marker checks in local and
-    pre-merge scripts, with opt-in strict mode,
-  - require `A-*` items to represent cohesive subsystem responsibilities rather
-    than requirement mirrors,
-  - require new `A-*` items to carry explicit allocation rationale and future
-    absorption,
-  - distinguish ordinary feature work from major-change work in the workflow.
-- **Consequences**:
-  - architecture synthesis becomes an explicit deliverable,
-  - workflow and skills now carry strict phase entry and exit criteria for
-    red, green, and refactor,
-  - script lanes expose missing RGR evidence early without blocking by default,
-  - Codex work packets should target architectural increments, not raw
-    requirement mirroring,
-  - trace tooling and workflow docs need follow-up updates to enforce this.

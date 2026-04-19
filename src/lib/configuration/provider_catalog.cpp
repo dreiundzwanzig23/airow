@@ -20,8 +20,8 @@ constexpr std::array<ProviderCatalogEntry, 2U> HULL_RESISTANCE_PROVIDERS{{
       "No hull-resistance runtime provider is selected for this run."}},
     {"quadratic_drag_placeholder",
      {"baseline-longitudinal-drag-v1",
-      "Reduced quadratic longitudinal hull drag intended for deterministic "
-      "tow and calm-water baseline studies."}},
+      "Supported reduced longitudinal hull-drag baseline for deterministic "
+      "tow and calm-water default-runtime studies."}},
 }};
 
 constexpr std::array<ProviderCatalogEntry, 2U> BLADE_FORCE_PROVIDERS{{
@@ -30,18 +30,22 @@ constexpr std::array<ProviderCatalogEntry, 2U> BLADE_FORCE_PROVIDERS{{
       "No blade-force runtime provider is selected for this run."}},
     {"stroke_propulsion_placeholder",
      {"baseline-blade-force-v1",
-      "Immersion-aware reduced blade-force model intended for deterministic "
-      "single-scull baseline stroke studies."}},
+      "Supported immersion-aware reduced blade-force baseline for "
+      "deterministic single-scull default-runtime stroke studies."}},
 }};
 
-constexpr std::array<ProviderCatalogEntry, 2U> AERO_LOAD_PROVIDERS{{
+constexpr std::array<ProviderCatalogEntry, 3U> AERO_LOAD_PROVIDERS{{
     {"none",
      {"not_applicable",
       "No aerodynamic runtime provider is selected for this run."}},
     {"steady_wind_placeholder",
      {"baseline-steady-wind-v1",
-      "Reduced steady apparent-wind aero model intended for deterministic "
-      "headwind and crosswind baseline studies."}},
+      "Supported reduced steady apparent-wind aero baseline for "
+      "deterministic headwind and crosswind default-runtime studies."}},
+    {"steady_wind_calibrated",
+     {"external-calibrated-steady-wind-v1",
+      "Calibrated steady apparent-wind aero provider requiring imported "
+      "external calibration artifact provenance."}},
 }};
 
 /**
@@ -79,6 +83,11 @@ lookup_builtin_provider_metadata(ProviderRole role, std::string_view id) {
     return lookup_provider_metadata(AERO_LOAD_PROVIDERS, id);
   }
   return std::nullopt;
+}
+
+bool builtin_provider_requires_calibration_artifact(
+    ProviderRole role, std::string_view id) noexcept {
+  return role == ProviderRole::aero_load && id == "steady_wind_calibrated";
 }
 
 } // namespace project

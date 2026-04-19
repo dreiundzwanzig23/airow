@@ -74,7 +74,8 @@ make_valid_config_json(std::string_view config_id,
                        std::string_view summary_path,
                        std::string_view time_series_path,
                        std::string_view formats_json = R"(["json"])",
-                       std::string_view hdf5_path = "") {
+                       std::string_view hdf5_path = "",
+                       std::string_view truth_model_export_path = "") {
   std::ostringstream stream;
   stream << R"({
         "config_id": ")"
@@ -125,6 +126,8 @@ make_valid_config_json(std::string_view config_id,
          << formats_json << R"(,
           "hdf5_path": ")"
          << hdf5_path << R"(",
+          "truth_model_export_path": ")"
+         << truth_model_export_path << R"(",
           "high_frequency_time_series": true
         }
       })";
@@ -450,4 +453,69 @@ TEST(HeadlessOutputsSystem, CliEmitsProviderValidityMetadata) {
   remove_file_if_present(stderr_path);
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test QT-041
+ * @verifies [R-024]
+ * @notes Given a default-runtime CLI config that requests the optional
+ * truth-model handoff export path, when the run succeeds without any optional
+ * external truth-model tooling present, then the shared runtime still
+ * succeeds and emits the deterministic handoff bundle.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsTruthModelHandoffArtifact) {
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-qt-truth-model-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-truth-model-timeseries.json";
+  const auto export_path = std::filesystem::temp_directory_path() /
+                           "airow-qt-truth-model-export.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(export_path);
+
+  const auto config_path = write_temp_file(
+      "airow-qt-truth-model-config.json",
+      make_valid_config_json("qt-truth-model", summary_path.string(),
+                             time_series_path.string(), R"(["json"])", "",
+                             export_path.string()));
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-truth-model.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-truth-model.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  ASSERT_EQ(decode_exit_code(status), 0);
+  ASSERT_TRUE(std::filesystem::exists(summary_path));
+  ASSERT_TRUE(std::filesystem::exists(time_series_path));
+  ASSERT_TRUE(std::filesystem::exists(export_path));
+
+  const Json summary = Json::parse(read_file(summary_path));
+  const Json handoff = Json::parse(read_file(export_path));
+
+  EXPECT_EQ(summary.at("outputs")
+                .at("truth_model_export")
+                .at("path")
+                .get<std::string>(),
+            export_path.string());
+  EXPECT_EQ(
+      summary.at("outputs").at("truth_model_export").at("written").get<bool>(),
+      true);
+  EXPECT_EQ(handoff.at("schema_id").get<std::string>(),
+            "truth_model_input_handoff.v1");
+  EXPECT_EQ(handoff.at("config_id").get<std::string>(), "qt-truth-model");
+  EXPECT_EQ(handoff.at("state_conventions").at("body_frame").get<std::string>(),
+            "x_forward_y_starboard_z_up");
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(export_path);
 }

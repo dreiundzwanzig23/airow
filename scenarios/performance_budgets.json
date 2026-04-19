@@ -1,0 +1,36 @@
+{
+  "schema_id": "scenario_performance_budgets.v1",
+  "development_environment_class": "repo-default-build",
+  "scenario_budgets": [
+    {
+      "scenario_id": "passive-float",
+      "step_name": "test-performance-passive-float",
+      "ctest_regex": "^ScenarioHarnessSystem\\.PassiveFloatScenarioPassesAcceptanceEnvelope$",
+      "max_duration_seconds": 30
+    },
+    {
+      "scenario_id": "tow-test",
+      "step_name": "test-performance-tow-test",
+      "ctest_regex": "^ScenarioHarnessSystem\\.TowScenarioPassesAcceptanceAndDragCurveChecks$",
+      "max_duration_seconds": 30
+    },
+    {
+      "scenario_id": "calm-water-stroke",
+      "step_name": "test-performance-calm-water-stroke",
+      "ctest_regex": "^ScenarioHarnessSystem\\.CalmWaterStrokeScenarioPassesWithPreferredBackend$",
+      "max_duration_seconds": 45
+    },
+    {
+      "scenario_id": "headwind-stroke",
+      "step_name": "test-performance-headwind-stroke",
+      "ctest_regex": "^ScenarioHarnessSystem\\.HeadwindStrokeScenarioPassesWithPreferredBackend$",
+      "max_duration_seconds": 45
+    },
+    {
+      "scenario_id": "crosswind-stroke",
+      "step_name": "test-performance-crosswind-stroke",
+      "ctest_regex": "^ScenarioHarnessSystem\\.CrosswindStrokeScenarioPassesWithPreferredBackend$",
+      "max_duration_seconds": 45
+    }
+  ]
+}

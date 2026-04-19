@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(agentic_tetris LANGUAGES CXX VERSION 0.2.0)
+project(agentic_tetris LANGUAGES C CXX VERSION 0.2.0)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     include(CheckCXXSourceCompiles)
@@ -20,6 +20,18 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             endif()
         endif()
     endif()
+endif()
+
+set(PROJECT_USING_LIBCXX OFF)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND DETECT_LIBCXX)
+    set(PROJECT_USING_LIBCXX ON)
+endif()
+
+set(PROJECT_SANITIZER_TEST_ENV "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0")
+if(PROJECT_USING_LIBCXX)
+    set(PROJECT_SANITIZER_TEST_ENV
+        "ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0;LSAN_OPTIONS=detect_leaks=0"
+    )
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -43,6 +55,70 @@ else()
     message(STATUS "HDF5 support disabled (library not found)")
 endif()
 
+find_path(SUNDIALS_INCLUDE_DIR sundials/sundials_config.h REQUIRED)
+find_library(SUNDIALS_GENERIC_LIBRARY NAMES sundials_generic REQUIRED)
+find_library(SUNDIALS_NVECSERIAL_LIBRARY NAMES sundials_nvecserial REQUIRED)
+find_library(SUNDIALS_SUNMATRIXDENSE_LIBRARY
+    NAMES sundials_sunmatrixdense
+    REQUIRED
+)
+find_library(SUNDIALS_SUNLINSOLDENSE_LIBRARY
+    NAMES sundials_sunlinsoldense
+    REQUIRED
+)
+find_library(SUNDIALS_IDA_LIBRARY NAMES sundials_ida REQUIRED)
+message(STATUS "SUNDIALS support enabled")
+
+set(PROJECT_SUPPORTED_CHRONO_PREFIX
+    "${CMAKE_CURRENT_SOURCE_DIR}/.external/chrono-install")
+set(PROJECT_STANDARD_CHRONO_REQUIRED ON)
+if(PROJECT_USING_LIBCXX)
+    set(PROJECT_STANDARD_CHRONO_REQUIRED OFF)
+endif()
+if(EXISTS "${PROJECT_SUPPORTED_CHRONO_PREFIX}/lib/cmake/Chrono/ChronoConfig.cmake")
+    list(PREPEND CMAKE_PREFIX_PATH "${PROJECT_SUPPORTED_CHRONO_PREFIX}")
+    message(STATUS "Chrono support probing repo-managed prefix: ${PROJECT_SUPPORTED_CHRONO_PREFIX}")
+endif()
+
+find_package(Chrono QUIET CONFIG)
+set(PROJECT_CHRONO_ENABLED OFF)
+if(Chrono_FOUND)
+    if(TARGET Chrono::Chrono_core)
+        set(PROJECT_CHRONO_ENABLED ON)
+        set(PROJECT_CHRONO_TARGET Chrono::Chrono_core)
+    elseif(TARGET Chrono::Chrono)
+        set(PROJECT_CHRONO_ENABLED ON)
+        set(PROJECT_CHRONO_TARGET Chrono::Chrono)
+    elseif(TARGET Chrono::ChronoEngine)
+        set(PROJECT_CHRONO_ENABLED ON)
+        set(PROJECT_CHRONO_TARGET Chrono::ChronoEngine)
+    elseif(DEFINED CHRONO_LIBRARIES)
+        set(PROJECT_CHRONO_ENABLED ON)
+    endif()
+endif()
+if(PROJECT_CHRONO_ENABLED AND PROJECT_USING_LIBCXX)
+    set(PROJECT_CHRONO_ENABLED OFF)
+    unset(PROJECT_CHRONO_TARGET)
+    set(PROJECT_CHRONO_DISABLE_REASON
+        "installed package is ABI-incompatible with libc++ lanes")
+endif()
+if(PROJECT_CHRONO_ENABLED)
+    message(STATUS "Chrono support enabled")
+else()
+    if(PROJECT_STANDARD_CHRONO_REQUIRED)
+        message(FATAL_ERROR
+            "Chrono support is required for the standard build. "
+            "Provision the repo-managed install with ./scripts/setup_chrono.sh "
+            "or point Chrono_DIR/CMAKE_PREFIX_PATH at a supported Chrono install. "
+            "libc++ sanitizer and coverage lanes remain the explicit no-Chrono exception.")
+    endif()
+    if(DEFINED PROJECT_CHRONO_DISABLE_REASON)
+        message(STATUS "Chrono support disabled (${PROJECT_CHRONO_DISABLE_REASON})")
+    else()
+        message(STATUS "Chrono support disabled (library not found)")
+    endif()
+endif()
+
 option(ENABLE_COVERAGE "Enable LLVM source-based coverage instrumentation" OFF)
 if(ENABLE_COVERAGE)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -58,9 +134,12 @@ include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
     src/lib/aero/baseline_providers.cpp
+    src/lib/aero/calibration_loader.cpp
+    src/lib/calibration/artifact.cpp
     src/lib/configuration/provider_catalog.cpp
     src/lib/configuration/simulator_config.cpp
     src/lib/hydro/baseline_providers.cpp
+    src/lib/numerics/backend_catalog.cpp
     src/lib/numerics/state_advancement.cpp
     src/lib/output/run_analysis.cpp
     src/lib/output/run_output.cpp
@@ -74,7 +153,16 @@ target_include_directories(project_lib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+target_include_directories(project_lib PRIVATE "${SUNDIALS_INCLUDE_DIR}")
 target_link_libraries(project_lib PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(project_lib PRIVATE
+    ${SUNDIALS_GENERIC_LIBRARY}
+    ${SUNDIALS_NVECSERIAL_LIBRARY}
+    ${SUNDIALS_SUNMATRIXDENSE_LIBRARY}
+    ${SUNDIALS_SUNLINSOLDENSE_LIBRARY}
+    ${SUNDIALS_IDA_LIBRARY}
+)
+target_compile_definitions(project_lib PUBLIC PROJECT_HAS_SUNDIALS=1)
 if(HDF5_FOUND)
     if(TARGET HDF5::HDF5)
         target_link_libraries(project_lib PRIVATE HDF5::HDF5)
@@ -85,6 +173,25 @@ if(HDF5_FOUND)
     target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=1)
 else()
     target_compile_definitions(project_lib PUBLIC PROJECT_HAS_HDF5=0)
+endif()
+if(PROJECT_CHRONO_ENABLED)
+    if(DEFINED PROJECT_CHRONO_TARGET)
+        target_link_libraries(project_lib PRIVATE ${PROJECT_CHRONO_TARGET})
+    else()
+        if(DEFINED CHRONO_INCLUDE_DIRS)
+            target_include_directories(project_lib PRIVATE ${CHRONO_INCLUDE_DIRS})
+        endif()
+        target_link_libraries(project_lib PRIVATE ${CHRONO_LIBRARIES})
+    endif()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_CHRONO=1)
+    target_compile_definitions(project_lib PRIVATE
+        PROJECT_CHRONO_CHQUATERNION_HEADER=\"chrono/core/ChQuaternion.h\"
+        PROJECT_CHRONO_CHVECTOR_HEADER=\"chrono/core/ChVector3.h\"
+        PROJECT_CHRONO_CHBODY_HEADER=\"chrono/physics/ChBody.h\"
+        PROJECT_CHRONO_CHSYSTEMNSC_HEADER=\"chrono/physics/ChSystemNSC.h\"
+    )
+else()
+    target_compile_definitions(project_lib PUBLIC PROJECT_HAS_CHRONO=0)
 endif()
 target_compile_definitions(project_lib PUBLIC PROJECT_VERSION_STRING="${PROJECT_VERSION}")
 
@@ -98,6 +205,7 @@ enable_sanitizers(project_app)
 
 include(CTest)
 if(BUILD_TESTING)
+    target_compile_definitions(project_lib PRIVATE PROJECT_TEST_HOOKS=1)
     include(CheckCXXSourceCompiles)
     set(CMAKE_REQUIRED_QUIET ON)
     check_cxx_source_compiles("#include <string>\n#ifndef _LIBCPP_VERSION\n#error not libc++\n#endif\nint main(){return 0;}" USING_LIBCXX)
@@ -128,40 +236,81 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
 
     add_executable(project_tests_unit
+        tests/unit/test_calibration_artifact.cpp
         tests/unit/test_aero_runtime_models.cpp
         tests/unit/test_hydro_runtime_models.cpp
         tests/unit/test_run_analysis.cpp
         tests/unit/test_state_advancement.cpp
+        tests/unit/test_state_advancement_startup_validation.cpp
+        tests/unit/test_state_advancement_validation.cpp
+        tests/unit/test_state_advancement_sundials.cpp
         tests/unit/test_simulator_config.cpp
+        tests/unit/test_simulator_config_runtime.cpp
+        tests/unit/test_simulator_config_truth_model.cpp
+        tests/unit/test_simulator_config_wind.cpp
         tests/unit/test_simulator_config_mechanics.cpp
         tests/unit/test_simulation_run.cpp
+        tests/unit/test_batch_simulation.cpp
+        tests/unit/test_batch_simulation_validation.cpp
+        tests/unit/test_simulation_run_wind.cpp
+        tests/unit/test_simulation_run_cli.cpp
+        tests/unit/test_simulation_run_cli_batch.cpp
         tests/unit/test_simulation_run_advancer.cpp
+        tests/unit/test_simulation_run_state_validation.cpp
+        tests/unit/test_simulation_run_state_validation_additional.cpp
         tests/unit/test_run_outputs.cpp
+        tests/unit/test_run_outputs_truth_model.cpp
+        tests/unit/test_run_outputs_wind.cpp
+        tests/unit/test_run_outputs_hdf5.cpp
+        tests/unit/test_run_outputs_config.cpp
         tests/unit/test_scenario_harness.cpp
+        tests/unit/test_scenario_harness_loader.cpp
+        tests/unit/test_scenario_harness_headwind.cpp
+        tests/unit/test_scenario_harness_crosswind.cpp
         tests/unit/test_scenario_harness_additional.cpp
+        tests/unit/test_scenario_performance_budgets.cpp
     )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
+    if(HDF5_FOUND)
+        if(TARGET HDF5::HDF5)
+            target_link_libraries(project_tests_unit PRIVATE HDF5::HDF5)
+        else()
+            target_include_directories(project_tests_unit PRIVATE ${HDF5_INCLUDE_DIRS})
+            target_link_libraries(project_tests_unit PRIVATE ${HDF5_LIBRARIES})
+        endif()
+    endif()
     set_project_warnings(project_tests_unit)
     enable_sanitizers(project_tests_unit)
+    target_compile_definitions(project_tests_unit PRIVATE
+        PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+        PROJECT_TEST_HOOKS=1
+    )
 
     add_executable(project_tests_integration
+        tests/integration/test_calibration_integration.cpp
         tests/integration/test_hydro_runtime_integration.cpp
         tests/integration/test_aero_runtime_integration.cpp
+        tests/integration/test_batch_orchestrator_integration.cpp
         tests/integration/test_simulator_config_integration.cpp
         tests/integration/test_orchestrator_integration.cpp
         tests/integration/test_run_outputs_integration.cpp
+        tests/integration/test_scenario_performance_integration.cpp
     )
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_integration)
     enable_sanitizers(project_tests_integration)
+    target_compile_definitions(project_tests_integration PRIVATE PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
     add_executable(project_tests_system
+        tests/system/test_calibration_system.cpp
+        tests/system/test_batch_simulation_system.cpp
         tests/system/test_calm_water_scenario_system.cpp
         tests/system/test_examples_system.cpp
         tests/system/test_simulator_config_system.cpp
         tests/system/test_run_analysis_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
+        tests/system/test_performance_lane_system.cpp
         tests/system/test_scenario_harness_system.cpp
         tests/system/test_wind_scenario_system.cpp
         tests/system/test_v0_1_closure_system.cpp
@@ -177,6 +326,7 @@ if(BUILD_TESTING)
 
     add_executable(project_tests_aux_headers
         tests/aux/include_aero_providers.cpp
+        tests/aux/include_calibration_artifact.cpp
         tests/aux/header_self_containment_main.cpp
         tests/aux/include_cli.cpp
         tests/aux/include_geometry.cpp
@@ -187,6 +337,7 @@ if(BUILD_TESTING)
         tests/aux/include_run_output.cpp
         tests/aux/include_run_result.cpp
         tests/aux/include_scenario_harness.cpp
+        tests/aux/include_backend_catalog.cpp
         tests/aux/include_state_advancement.cpp
         tests/aux/include_simulation_run.cpp
         tests/aux/include_simulator_config.cpp
@@ -196,37 +347,39 @@ if(BUILD_TESTING)
     enable_sanitizers(project_tests_aux_headers)
 
     include(GoogleTest)
-    gtest_add_tests(TARGET project_tests_unit TEST_LIST unit_tests_list)
-    gtest_add_tests(TARGET project_tests_integration TEST_LIST integration_tests_list)
-    gtest_add_tests(TARGET project_tests_system TEST_LIST system_tests_list)
-    add_test(NAME project_tests_aux_headers COMMAND project_tests_aux_headers)
-
-    set_tests_properties(
-        ${unit_tests_list}
+    gtest_discover_tests(
+        project_tests_unit
+        TEST_LIST unit_tests_list
+        DISCOVERY_MODE PRE_TEST
         PROPERTIES
             LABELS "unit"
             TIMEOUT 30
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
-    set_tests_properties(
-        ${integration_tests_list}
+    gtest_discover_tests(
+        project_tests_integration
+        TEST_LIST integration_tests_list
+        DISCOVERY_MODE PRE_TEST
         PROPERTIES
             LABELS "integration"
             TIMEOUT 45
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
-    set_tests_properties(
-        ${system_tests_list}
+    gtest_discover_tests(
+        project_tests_system
+        TEST_LIST system_tests_list
+        DISCOVERY_MODE PRE_TEST
         PROPERTIES
             LABELS "system"
             TIMEOUT 60
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
+    add_test(NAME project_tests_aux_headers COMMAND project_tests_aux_headers)
     set_tests_properties(
         project_tests_aux_headers
         PROPERTIES
             LABELS "aux"
             TIMEOUT 15
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0;LSAN_OPTIONS=detect_leaks=0"
+            ENVIRONMENT "${PROJECT_SANITIZER_TEST_ENV}"
     )
 endif()

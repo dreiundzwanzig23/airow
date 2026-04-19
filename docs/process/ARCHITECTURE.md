@@ -87,8 +87,8 @@ The current stable building-block view is organized around ten subsystem owners.
 
 Current implementation emphasis:
 - active: `A-001`, `A-002`, `A-003`, `A-004`, `A-005`, `A-007`, `A-008`,
-  `A-010`,
-- open: `A-006`, `A-009`.
+  `A-009`, `A-010`,
+- open: `A-006`.
 
 ## Runtime View
 
@@ -110,10 +110,14 @@ Current implementation emphasis:
    acceptance rules.
 
 ### Backend Evolution Path
-- The current mechanics and state-advancement slice is backed by a deterministic
-  internal baseline implementation.
-- Preferred external backends such as Project Chrono and SUNDIALS remain behind
-  `A-003` and `A-010` seams and are not the current boundary contracts.
+- The current state-advancement boundary is a composed mechanics plus
+  integration contract: the shared standard runtime prefers
+  `chrono_rigidbody + sundials_ida`, preserves
+  `internal_baseline + sundials_ida` as the supported fallback, and keeps
+  `internal_baseline + deterministic_baseline` as the explicit debug fallback.
+- Concrete backends remain hidden behind `A-010` and are exposed externally
+  only through stable mechanics-backend or integration-backend selection ids,
+  policy metadata, and solver-status fields.
 - Higher-fidelity hydro, aero, and calibration paths are intended to plug in
   behind their subsystem contracts without changing requirement wording or the
   shared orchestration path.
@@ -162,22 +166,27 @@ Implemented baseline today:
   crosswind stroke scenario evaluation.
 
 Still planned or incomplete:
-- deeper reduced hydro runtime fidelity beyond the first widened baseline
-  providers is the current active post-provider-selection slice,
-- apparent wind and reduced aero models beyond the current steady-wind
-  refinement,
-- the steady-wind aero follow-on step is now underway on the existing built-in
-  aero id without changing the current provider-selection or metadata
-  contracts,
-- external calibration ingestion and provenance propagation,
-- concrete Chrono and SUNDIALS backend wiring behind existing seams.
+- the current reduced hydro and steady-wind aero built-in providers are the
+  supported default-runtime baseline for the closed Slice 2 packet,
+- future hydro or aero expansion must be scoped as a new packet without
+  changing the current provider-selection or metadata contracts by default,
+- the closed Slice 4A packet adds one deterministic file-backed calibration
+  artifact path and one explicit calibrated aero provider without changing the
+  existing default-runtime baseline provider ids,
+- the closed Slice 4B packet adds deterministic time-varying ambient-wind
+  inputs plus one checked-in gust scenario without changing the current
+  steady-wind provider ids or the orchestrator-to-aero seam,
+- `A-009` remains in progress for broader artifact schemas and future hydro-
+  side consumers beyond the first calibrated aero path,
+- deeper backend diagnostics, richer stepping policy, or future composed-
+  backend expansion behind the existing seams.
 
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem
-- **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-025, R-028, R-029, R-030, R-031, R-032, R-033]
+- **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-023, R-025, R-028, R-029, R-030, R-031, R-032, R-033]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Parse, validate, normalize, and expose simulator, provider, artifact, and scenario configuration before execution begins.
-- **Owned Concepts**: `SimulatorConfig`; provider selection metadata; schema validation; unit-bearing and frame-bearing field definitions; provider validity metadata; unsupported-scope rejection.
+- **Owned Concepts**: `SimulatorConfig`; provider selection metadata; schema validation; unit-bearing and frame-bearing field definitions; provider validity metadata; unsupported-scope rejection; constant and time-varying ambient-wind input definitions.
 - **Inputs**: Machine-readable run configuration; batch definitions; external artifact metadata; selected provider and model identifiers.
 - **Outputs**: Validated in-memory configuration; deterministic validation diagnostics; normalized run metadata inputs.
 - **Depends On**: Core validation helpers and documented process policies for units, state conventions, and provenance.
@@ -186,9 +195,22 @@ Still planned or incomplete:
 - **Allocation Rationale**: Centralizes all boundary validation so requirements about deterministic rejection, units, provider selection, and scope control do not fragment across runtime subsystems.
 - **Future Absorption**: Additional model toggles, boat-class expansion gates, richer artifact schemas, and future frame-bearing configuration definitions should be absorbed here before touching runtime logic.
 - **Interfaces**: File-backed and in-memory JSON configuration loading contract returning validated `SimulatorConfig`, deterministic diagnostics, and normalized configuration metadata suitable for later runtime orchestration.
+  The same boundary also absorbs ordered batch definitions through a top-level
+  `batch.cases` contract that applies deterministic per-case override objects
+  onto one validated shared base configuration before runtime execution.
   The current slice also validates the optional top-level `providers` block
   (`hull_resistance`, `blade_force`, `aero_load`) against the built-in runtime
-  provider catalog and rejects unknown selections before execution.
+  provider catalog and rejects unknown selections before execution. The closed
+  backend slice extends the same boundary with
+  `simulation.mechanics_backend` and `simulation.integration_backend`
+  selection for built-in backend ids, defaulting to the preferred supported
+  runtime for the current build and rejecting unknown, unavailable, or
+  unsupported backend pairs deterministically. The current `R-024` guardrail
+  packet extends the same boundary with one optional
+  `output.truth_model_export_path` field that is disabled by default, echoed
+  through normalized metadata when present, and used only to request a
+  deterministic offline truth-model handoff artifact without changing the
+  normal runtime path.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -207,8 +229,18 @@ Still planned or incomplete:
   deterministic single-run execution path, plus injected hydro and aero stub
   provider seams, stable run-result metadata, exit-code mapping for the first
   headless baseline, config-driven built-in provider construction when injected
-  provider seams are absent, and optional human-readable report rendering
-  modes for successful single-run inspection.
+  provider seams are absent, config-driven built-in mechanics and integration
+  backend composition when an injected advancer seam is absent, one shared
+  ambient-wind sampler that resolves legacy constant wind, replayed sampled
+  wind, or authored wind profiles into the per-step world-frame ambient vector
+  passed to the aero seam, one ordered batch executor that reuses the same
+  shared single-run path for each resolved case while preserving deterministic
+  case ordering and isolated per-case results, optional human-readable report
+  rendering modes for successful single-run inspection, and one optional
+  truth-model handoff export mode that emits a deterministic JSON input bundle
+  when `output.truth_model_export_path` is configured while leaving the
+  ordinary runtime lifecycle unchanged and free of mandatory external
+  truth-model tooling.
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
@@ -224,6 +256,10 @@ Still planned or incomplete:
 - **Allocation Rationale**: Keeps the mechanics backbone as the central physical state owner rather than leaking motion ownership into individual requirement-driven feature slices.
 - **Future Absorption**: Expanded body representations, future crew support, and deeper rower dynamics should be absorbed here behind stable state contracts.
 - **Interfaces**: Mechanics state contract, external-load application contract, and subsystem initialization contract for state advancement. The current realization slice establishes boundary-visible hull, oar, seat, and stroke state behind the orchestrator seam using a deterministic internal baseline implementation that remains independent of concrete Chrono types.
+  The closed backend slice promotes Chrono-backed rigid-body realization to the
+  preferred standard runtime build while keeping the same boundary-visible
+  state contract and preserving the deterministic internal baseline path as a
+  fallback and cross-check implementation.
 
 ## A-004 — Hydro Runtime Models
 - **Title**: Reduced hydrodynamic runtime models
@@ -246,12 +282,13 @@ Still planned or incomplete:
   resistance and blade-force roles, couples longitudinal and vertical
   hydro-force components plus roll or pitch restoring moments into the
   internal baseline advancer, and leaves fuller sway or yaw hydro dynamics for
-  later work. The next fidelity pass keeps the existing built-in
+  later work. Slice 2 closure keeps the existing built-in
   `quadratic_drag_placeholder` and `stroke_propulsion_placeholder` ids stable
-  while deepening them in place with richer low-speed hull damping plus
-  speed-squared resistance and stronger phase-, immersion-, and backward-slip-
-  shaped blade propulsion behavior. This pass remains provider-only and
-  preserves the current `A-010` load-to-motion coupling boundary.
+  as the supported reduced default-runtime baseline with low-speed hull
+  damping, speed-squared resistance, and phase-, immersion-, and backward-
+  slip-shaped blade propulsion behavior. Future hydro expansion remains
+  provider-only and should preserve the current `A-010` load-to-motion
+  coupling boundary unless a later architecture packet says otherwise.
 
 ## A-005 — Aero Runtime Models
 - **Title**: Reduced aerodynamic runtime models
@@ -272,12 +309,17 @@ Still planned or incomplete:
   slice resolves the built-in `steady_wind_placeholder` or `none` provider from
   configuration, propagates full aero vectors and yaw-sign information through
   outputs and scenario evaluation, and keeps dynamic state advancement coupled
-  only to the longitudinal aero-force component. The current fidelity follow-on
-  keeps the existing built-in `steady_wind_placeholder` id stable while
-  deepening it in place with richer steady headwind drag sensitivity and
-  stronger steady crosswind lateral or yaw behavior, without opening
-  time-varying wind support or broadening the current state-advancer coupling
-  boundary.
+  only to the longitudinal aero-force component. Slice 2 closure keeps the
+  existing built-in `steady_wind_placeholder` id stable as the supported
+  reduced steady-wind default-runtime baseline with explicit headwind drag
+  sensitivity plus deterministic crosswind lateral and yaw behavior. Slice 4B
+  extends the same provider seam to consume orchestrator-sampled time-varying
+  ambient-wind vectors without changing the built-in provider ids or
+  broadening the current state-advancer coupling boundary. Slice 4A adds a
+  separate built-in
+  `steady_wind_calibrated` provider id that consumes a validated imported
+  calibration artifact through `A-009` while leaving the baseline id and its
+  default-runtime contract unchanged.
 
 ## A-006 — Control and Stroke Input
 - **Title**: Stroke scheduling and low-order control subsystem
@@ -292,7 +334,11 @@ Still planned or incomplete:
 - **Invariants**: Prescribed schedules replay deterministically; invalid schedules are rejected before runtime; optional controllers remain finite and can be disabled cleanly.
 - **Allocation Rationale**: Separates rower-input generation from mechanics and load-provider ownership so input strategies can evolve independently.
 - **Future Absorption**: Richer control modes and eventual deeper rower representations should be absorbed here until a stronger biomechanics boundary is justified.
-- **Interfaces**: Planned stroke schedule contract and optional controller contract.
+- **Interfaces**: Planned stroke schedule contract and optional controller
+  contract. Slice 4B keeps time-varying wind ownership out of this subsystem
+  for now, but preserves future wind-aware scheduling hooks so later control or
+  pacing work can consume the same validated time-varying input definitions
+  without moving ambient-wind sampling out of `A-002`.
 
 ## A-007 — Output and Diagnostics
 - **Title**: Structured outputs and runtime diagnostics subsystem
@@ -314,11 +360,16 @@ Still planned or incomplete:
   structured hull/blade force channels, force/power accounting channels,
   deterministic sampling policy, structured per-role provider metadata with
   validity descriptors in JSON or HDF5 summaries, stable diagnostics when
-  requested formats are unavailable, and additive derived-analysis summaries
-  suitable for CLI and offline single-run inspection. Hydro fidelity work must
-  preserve the existing structured provider metadata and emitted artifact
-  schema while updating only the numeric contents implied by the richer runtime
-  providers.
+  requested formats are unavailable, additive derived-analysis summaries
+  suitable for CLI and offline single-run inspection, and one deterministic
+  batch-summary artifact that records ordered per-case identifiers, statuses,
+  headline metrics, diagnostics, and emitted per-case artifact locations.
+  Hydro fidelity work must preserve the existing structured provider metadata
+  and emitted artifact schema while updating only the numeric contents implied
+  by the richer runtime providers. The current `R-024` packet adds one optional
+  JSON truth-model handoff artifact with its own explicit schema id and emitted
+  path metadata, but keeps it disabled by default and separate from imported
+  external-artifact provenance reporting.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
@@ -338,12 +389,20 @@ Still planned or incomplete:
   checked-in scenario definition loading and acceptance-envelope evaluation
   against runtime results, with passive-float, tow, calm-water stroke,
   headwind stroke, and crosswind stroke scenario artifacts under
-  `scenarios/`.
+  `scenarios/`. The workflow-facing validation lane wrappers under
+  `scripts/` also belong to this subsystem: they must propagate nested step
+  failures without rewriting the exit status, and any emitted validation
+  summary JSON must report step status and exit codes truthfully enough to be
+  used as machine-readable local-gate evidence. The current `R-026` guardrail
+  packet extends the same public surface with a checked-in
+  `scenarios/performance_budgets.json` manifest for the protected core
+  reference scenarios plus a deterministic budget-evaluation contract used by a
+  dedicated performance-validation lane.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem
 - **Satisfies**: [R-021, R-022, R-024]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Own ingestion and metadata handling for external calibration datasets and derived model artifacts while keeping the runtime path loosely coupled.
 - **Owned Concepts**: Calibration dataset loading; artifact provenance metadata; re-imported lookup or surrogate artifacts; offline truth-model handoff boundaries.
 - **Inputs**: External machine-readable datasets; artifact identifiers; source hashes and versions; provider lookup requests.
@@ -353,7 +412,18 @@ Still planned or incomplete:
 - **Invariants**: Imported artifacts carry deterministic provenance; malformed artifacts are rejected before use; default runtime remains usable without optional calibration-generation tooling.
 - **Allocation Rationale**: Isolates external data and provenance concerns so runtime subsystems can consume calibrated artifacts without becoming responsible for artifact lifecycle policy.
 - **Future Absorption**: Surrogate-model ingestion, richer dataset schemas, and offline export/import workflows should extend this subsystem.
-- **Interfaces**: Planned calibration dataset contract, artifact metadata contract, and provider-facing query contract.
+- **Interfaces**: Calibration dataset contract, artifact metadata contract, and
+  provider-facing query contract. The active Slice 4A realization introduces a
+  file-backed machine-readable calibration artifact boundary with required
+  provenance fields (`source_id`, `artifact_version`, `content_hash`, and
+  `schema_id`), deterministic validation before runtime stepping, and a first
+  provider-facing coefficient lookup path for one explicit calibrated aero
+  provider without changing the existing default built-in provider ids. Future
+  `A-009` work remains responsible for richer schemas, additional runtime
+  consumers, and offline import or export evolution beyond this first path. The
+  current `R-024` packet keeps re-import on the existing validated calibration
+  artifact path while formalizing the first exported offline handoff artifact
+  schema for truth-model studies.
 
 ## A-010 — Numerical Integration and State Advancement
 - **Title**: Numerical integration and consistent state-advancement subsystem
@@ -372,5 +442,10 @@ Still planned or incomplete:
   contract, and solver-diagnostic contract. The current realization slice
   establishes a stable advancer interface plus deterministic internal startup
   and stepping behavior, explicit blade-immersion or blade-tip-velocity state,
-  and widened hydro-force coupling while deferring Chrono or SUNDIALS
-  integration behind that seam.
+  and widened hydro-force coupling. The closed backend slice adds stable
+  built-in mechanics-backend and integration-backend catalogs, a preferred
+  `chrono_rigidbody + sundials_ida` standard runtime with fixed built-in
+  SUNDIALS tolerances, explicit supported fallback pairs, deterministic
+  rejection of unsupported backend combinations, and stable startup and
+  runtime solver-status plus split backend-policy metadata propagation through
+  the shared run path and machine-readable outputs.

@@ -81,3 +81,43 @@ acceptance-envelope intent.
   - `expected_yaw_moment_z_sign = positive`
   - `min_abs_yaw_moment_z_n_m = 0.8`
 - Verification lane: `QT-017`
+
+## Post-`v0.1` Scenario Artifacts
+
+### Gust Headwind Stroke (`scenarios/gust_headwind_stroke.json`)
+- Scenario id: `gust-headwind-stroke`
+- Current hydro provider mode: deterministic `stroke_propulsion_placeholder`
+- Current aero provider mode: deterministic `steady_wind_placeholder`
+- Provider parameters:
+  - `blade_force_coefficient_n_s_per_m = 4.0`
+  - `drag_coefficient_n_s2_per_m2 = 0.8` (hydro)
+  - `full_blade_immersion_depth_m = 0.12`
+  - `drag_coefficient_n_s2_per_m2 = 0.4` (aero)
+  - `yaw_moment_coefficient_n_m_s2_per_m2 = 0.75`
+- Ambient wind profile:
+  - `wind_profile[0] = { time_s = 0.0, ambient_wind_world_mps = [-0.05, 0.0, 0.0] }`
+  - `wind_profile[1] = { time_s = 1.2, ambient_wind_world_mps = [-0.2, 0.0, 0.0] }`
+  - `wind_profile[2] = { time_s = 2.4, ambient_wind_world_mps = [-0.05, 0.0, 0.0] }`
+- Acceptance envelope:
+  - `min_distance_m = 0.0`
+  - `max_mean_speed_mps = 0.5`
+- Verification lane: `QT-039`
+
+## Protected Performance Budget Manifest
+
+### Performance Budgets (`scenarios/performance_budgets.json`)
+- Schema id: `scenario_performance_budgets.v1`
+- Development environment class: `repo-default-build`
+- Protected scenarios:
+  - `passive-float`
+  - `tow-test`
+  - `calm-water-stroke`
+  - `headwind-stroke`
+  - `crosswind-stroke`
+- Dedicated lane: `./scripts/test_performance.sh`
+- Output contract:
+  - one separate validation summary JSON for the lane,
+  - one machine-readable budget report keyed by protected `scenario_id` and
+    `step_name`.
+- Scope guardrail: `gust-headwind-stroke` and batch jobs are intentionally
+  outside the first protected budget manifest.

@@ -1,51 +1,37 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-11
+- 2026-04-19
 
 ## What Changed In This Session
-- Started Slice 2A on `A-004` by deepening the existing built-in hydro ids in
-  place instead of adding new provider ids or changing config or output
-  schema.
-- Landed low-speed-damped built-in hull resistance and phase-shaped
-  drive-phase blade propulsion under new hydro design items (`D-036`,
-  `D-037`) with new unit evidence (`UT-127`, `UT-128`).
-- Continued the same in-place hydro slice by tightening
-  `stroke_propulsion_placeholder` so propulsive blade force now requires
-  backward blade slip, exact catch or release clamps to zero blade load, and
-  the interior drive regains a stronger deterministic propulsion envelope,
-  adding new unit evidence (`UT-131`) while preserving the current provider
-  ids, config schema, output schema, and `A-010` coupling boundary.
-- Re-characterized the checked-in calm-water, headwind, and crosswind scenario
-  envelopes to the richer deterministic hydro baselines while preserving the
-  current provider-selection and structured metadata contracts.
-- Continued Slice 2B on `A-005` by deepening the existing built-in
-  `steady_wind_placeholder` aero id in place instead of adding a new provider
-  id or changing config or output schema.
-- Landed stronger low-apparent-wind headwind drag sensitivity, explicit
-  lateral crosswind force, and speed-shaped yaw response under new aero design
-  items (`D-038`, `D-039`) with new unit evidence (`UT-129`, `UT-130`).
-- Re-characterized the checked-in headwind and crosswind scenario envelopes to
-  the richer deterministic steady-wind aero baseline while preserving the
-  current provider-selection and structured metadata contracts.
+- Closed the combined `R-024` / `R-026` guardrail packet.
+- Public config now accepts optional `output.truth_model_export_path`, and the
+  shared run path emits one deterministic JSON truth-model handoff bundle only
+  when that path is configured.
+- The default runtime still executes without optional truth-model tooling, and
+  runtime re-import remains the existing calibrated-artifact path through
+  `steady_wind_calibrated` plus `artifacts.calibration.path`.
+- Added `scenarios/performance_budgets.json` for the five protected core
+  scenarios plus public budget-loading and evaluation contracts in the
+  scenario-harness API.
+- Added `./scripts/test_performance.sh` and
+  `tools/check_scenario_budgets.py` so protected-scenario runtime budgets are
+  reported separately from ordinary functional failures with a machine-readable
+  budget report.
+- `test.sh` and `verify.sh` now run the dedicated performance lane; the quick
+  `test_tdd.sh` lane remains unchanged.
 
 ## Current Technical Posture
-- `v0.1`, the observability slice, and the provider-selection slice remain
-  closed on the main roadmap, and Slice 2 is now underway through both hydro
-  and steady-wind aero fidelity increments on the existing built-in ids.
-- The shared run path still has two stable compatibility surfaces for later
-  work: the human-readable run-analysis feature set and the structured
-  provider-selection plus validity-metadata contract.
-- External solver adoption remains deferred until the dedicated backend slice.
-- Evidence note: `rgr:red` reproduced the new hydro boundary or slip failures
-  in `UT-128`, `UT-131`, and `IT-009`; `rgr:green` updated the built-in hydro
-  blade-force shaping; `rgr:refactor` was a no-op beyond tightening the
-  phase-boundary helper and syncing the refreshed scenario envelopes.
+- The truth-model handoff path is one-way JSON export only in the current
+  packet.
+- The protected performance-budget lane should remain separate from the quick
+  TDD loop.
+- Future calibration growth should stay under explicit `A-009` packets.
 
 ## Immediate Next Steps
-1. Keep any further Slice 2 work on the existing built-in ids and preserve the
-   landed `providers` config schema plus structured provider metadata.
-2. Revisit concrete Chrono and SUNDIALS wiring only in the later backend slice
-   under `A-010`.
-3. Re-open calibration and time-varying environment work only after backend
-   direction and the reduced-model baselines are stable.
+1. Keep the closed truth-model handoff export and performance-budget lane
+   stable while later backlog items settle.
+2. Keep future calibration growth under explicit `A-009` packets so schema or
+   consumer expansion does not erode the closed Slice 4A contract.
+3. Treat the deferred `R-027..R-030` cluster as later backlog unless a
+   smaller stop-the-line defect preempts it.

@@ -164,6 +164,7 @@ public:
     return {
         .state = next,
         .diagnostics = {},
+        .solver_status = "advance-invalid-state",
         .constraint_residual_max = 0.0,
     };
   }
@@ -278,6 +279,7 @@ public:
             .path = "$.runtime.advance",
             .message = "state advancement rejected the requested step",
         }},
+        .solver_status = "advance-diagnostic",
         .constraint_residual_max = 0.0,
     };
   }
@@ -307,6 +309,36 @@ public:
     return {
         .state = std::nullopt,
         .diagnostics = {},
+        .solver_status = "advance-missing-state",
+        .constraint_residual_max = 0.0,
+    };
+  }
+};
+
+class NonAdvancingStateAdvancer final : public project::StateAdvancer {
+public:
+  std::string_view identifier() const noexcept override {
+    return "non-advancing-state-advancer";
+  }
+
+  project::StartupResult
+  initialize(const project::SimulatorConfig &config) override {
+    return {
+        .state = make_valid_startup_state(config),
+        .diagnostics = {},
+        .solver_status = "startup-ok",
+        .constraint_residual_max = 0.0,
+    };
+  }
+
+  project::AdvanceResult
+  advance(const project::SimulatorConfig & /*config*/,
+          const project::MechanicalStateSnapshot &state, double /*step_size_s*/,
+          const project::ExternalLoads & /*loads*/) override {
+    return {
+        .state = state,
+        .diagnostics = {},
+        .solver_status = "advance-non-advancing",
         .constraint_residual_max = 0.0,
     };
   }
@@ -361,7 +393,13 @@ TEST(SimulationRun, ReportsInvalidRuntimeStateFromAdvancer) {
   ASSERT_EQ(result.diagnostics.size(), 1U);
   EXPECT_EQ(result.diagnostics.front().code, "non_finite_state");
   EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
-  EXPECT_EQ(result.metadata.state_advancer_id, "invalid-state-advancer");
+  EXPECT_EQ(result.metadata.mechanics_backend.policy_id, "external-selection");
+  EXPECT_EQ(result.metadata.integration_backend.policy_id,
+            "external-selection");
+  EXPECT_EQ(result.metadata.state_advancement_solver_status,
+            "advance-invalid-state");
+  EXPECT_EQ(result.metadata.mechanics_backend_id, "invalid-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id, "invalid-state-advancer");
 }
 
 /**
@@ -474,6 +512,8 @@ TEST(SimulationRun, MapsUnknownProviderAndAdvancementContractFailures) {
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "advance_contract_failure");
     EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
+    EXPECT_EQ(result.metadata.state_advancement_solver_status,
+              "advance-diagnostic");
     ASSERT_EQ(result.state_history.size(), 1U);
   }
 
@@ -489,6 +529,38 @@ TEST(SimulationRun, MapsUnknownProviderAndAdvancementContractFailures) {
     ASSERT_EQ(result.diagnostics.size(), 1U);
     EXPECT_EQ(result.diagnostics.front().code, "state_advancement_failed");
     EXPECT_EQ(result.diagnostics.front().path, "$.runtime.state");
+    EXPECT_EQ(result.metadata.state_advancement_solver_status,
+              "advance-missing-state");
     ASSERT_EQ(result.state_history.size(), 1U);
   }
+}
+
+/**
+ * @test UT-144
+ * @verifies [D-017]
+ * @notes Given an injected state advancer that reports success without
+ * increasing simulated time, when the shared run loop executes, then it
+ * fails deterministically with a state-advancement diagnostic instead of
+ * accumulating unbounded history.
+ */
+TEST(SimulationRun, RejectsNonAdvancingRuntimeStateFromAdvancer) {
+  NonAdvancingStateAdvancer advancer;
+
+  const auto result = project::run_simulation(
+      make_config(),
+      project::SimulationDependencies{.state_advancer = &advancer});
+
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.status, project::RunStatus::runtime_error);
+  ASSERT_EQ(result.diagnostics.size(), 1U);
+  EXPECT_EQ(result.diagnostics.front().code, "non_advancing_state");
+  EXPECT_EQ(result.diagnostics.front().subsystem, "state_advancement");
+  EXPECT_EQ(result.diagnostics.front().path, "$.runtime.state.time_s");
+  EXPECT_EQ(result.metadata.state_advancement_solver_status,
+            "advance-non-advancing");
+  EXPECT_EQ(result.metadata.mechanics_backend_id,
+            "non-advancing-state-advancer");
+  EXPECT_EQ(result.metadata.integration_backend_id,
+            "non-advancing-state-advancer");
+  EXPECT_EQ(result.state_history.size(), 1U);
 }
