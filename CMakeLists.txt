@@ -245,6 +245,7 @@ if(BUILD_TESTING)
         tests/unit/test_state_advancement_validation.cpp
         tests/unit/test_state_advancement_sundials.cpp
         tests/unit/test_simulator_config.cpp
+        tests/unit/test_simulator_config_scope.cpp
         tests/unit/test_simulator_config_runtime.cpp
         tests/unit/test_simulator_config_truth_model.cpp
         tests/unit/test_simulator_config_wind.cpp

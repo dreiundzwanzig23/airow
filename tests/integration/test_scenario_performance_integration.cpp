@@ -28,8 +28,8 @@ std::filesystem::path performance_manifest_path() {
  */
 TEST(ScenarioPerformanceIntegration,
      CheckedInPerformanceBudgetManifestLoadsAndEvaluatesPassingSamples) {
-  const auto loaded =
-      project::load_scenario_performance_budget_file(performance_manifest_path());
+  const auto loaded = project::load_scenario_performance_budget_file(
+      performance_manifest_path());
 
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.manifest.has_value());

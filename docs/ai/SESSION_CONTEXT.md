@@ -3,46 +3,45 @@
 ## Snapshot
 - **Date**: 2026-04-19
 - **Branch**: `External`
-- **Current Objective**: Keep the recently closed post-`v0.1` packets stable
-  while the next deferred backlog items settle.
+- **Current Objective**: Move the repo from an implicit post-`v0.1` fidelity
+  backlog to an explicit, milestone-based plan for hull-performance and
+  stroke-dynamics studies without destabilizing the validated reduced baseline.
 
 ## Current State
 - The simulator remains a headless-first single-scull runtime with active
   `A-001`, `A-002`, `A-003`, `A-004`, `A-005`, `A-007`, `A-008`, `A-009`, and
-  `A-010` contracts under `include/project/**`.
-- Closed baseline packets remain stable:
-  Slice 2 keeps the reduced hydro and steady-wind default-runtime providers,
-  Slice 3 keeps `chrono_rigidbody + sundials_ida` as the preferred supported
-  runtime, Slice 4A keeps the first calibrated-artifact ingestion path,
-  Slice 4B keeps the one-of wind-input schema, and Slice 4C keeps ordered
-  batch execution on the shared run path.
-- `R-021`, `R-022`, `R-023`, and `R-025` remain `DONE`.
-- `R-024` is now `DONE`: config accepts optional
-  `output.truth_model_export_path`, the shared run path emits one
-  deterministic JSON handoff bundle only when requested, and re-import stays
-  on the existing calibrated-artifact runtime path.
-- `R-026` is now `DONE`: the repo ships
-  `scenarios/performance_budgets.json`, a dedicated
-  `./scripts/test_performance.sh` lane, and a machine-readable budget report,
-  while `./scripts/test_tdd.sh` stays free of protected-scenario budget
-  checks.
-- `A-009` remains `IN_PROGRESS` for richer schemas and future hydro-side
-  consumers beyond the first calibrated aero path and first truth-model
-  handoff boundary.
-- Workflow enforcement remains strict with `rgr:red`, `rgr:green`, and
-  `rgr:refactor` evidence, and the required repo gates are expected to stay
-  green from this state.
+  `A-010` contracts.
+- Closed baseline packets remain the reference floor: reduced hydro and
+  steady-wind providers, preferred `chrono_rigidbody + sundials_ida`,
+  first calibration ingestion path, time-varying wind, batch execution,
+  truth-model export guardrail, performance budgets, and explicit single-scull
+  scope control.
+- `docs/process/FIDELITY_GAP_MAP.md` now defines the next major phase as eight
+  milestones covering trust-envelope definition, measurement or calibration
+  foundations, low-order actuation, calibrated reduced blade and hull models,
+  study-facing validation scenarios, offline-loop concretization, and
+  uncertainty reporting.
+- `docs/process/REQUIREMENTS.md` now carries the new `R-035..R-049` packet,
+  all still `OPEN`, so the planning state is explicit without claiming runtime
+  closure prematurely.
+- `docs/process/ARCHITECTURE.md` now allocates those milestones onto the
+  existing subsystem owners, preserving `A-004` runtime hydro ownership,
+  `A-009` external artifact ownership, and `A-010` numerics ownership as
+  separate concerns.
 
 ## Guardrails
-- Keep active AI docs compact and non-duplicative.
-- Keep workflow or gate policy changes synchronized across scripts, README,
-  process docs, and AI context in the same slice.
-- Keep `A-001` focused on configuration or validation and `A-002` focused on
-  orchestration or lifecycle behavior.
+- Keep the current reduced built-in providers and scenario evidence framed as
+  the validated baseline, not as already calibrated research fidelity.
+- Keep future calibrated reduced runtime work distinct from offline truth-model
+  tooling and artifact-generation workflows.
+- Keep `A-006` bounded to low-order actuation or control; do not let it become
+  a full biomechanics container.
+- Keep `A-010` responsible for constrained startup, stepping, and solver
+  diagnostics rather than hydro or control semantics.
 
 ## Next Actions
-1. Keep the closed guardrail packet stable while later backlog items settle.
-2. Extend `A-009` only through new explicit packets so richer schemas or
-   hydro-side consumers do not blur the closed Slice 4A boundary.
-3. Treat `R-027`, `R-028`, `R-029`, and `R-030` as the next deferred backlog
-   candidates unless a smaller stop-the-line defect preempts them.
+1. Implement the Milestone 2 measurement or calibration foundation.
+2. Add the first Milestone 3 low-order actuation mode and bounded rower
+   coupling packet.
+3. Defer calibrated blade and hull provider work until those boundary contracts
+   and outputs are stable.

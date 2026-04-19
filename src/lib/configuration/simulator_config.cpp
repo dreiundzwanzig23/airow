@@ -819,6 +819,29 @@ bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
   return true;
 }
 
+bool parse_boat_class(const Json &root, SimulatorConfig &config,
+                      LoadSimulatorConfigResult &result) {
+  config.boat_class = "single_scull";
+  if (!root.contains("boat_class")) {
+    return true;
+  }
+
+  if (!require_string_field(root, "boat_class", "$.boat_class",
+                            config.boat_class, result)) {
+    return false;
+  }
+
+  if (config.boat_class != "single_scull") {
+    result.diagnostics.push_back(
+        make_error("unsupported_value", "$.boat_class",
+                   "boat_class '" + config.boat_class +
+                       "' is unsupported; only 'single_scull' is available"));
+    return false;
+  }
+
+  return true;
+}
+
 bool validate_environment_mode_selection(std::string_view path,
                                          int selected_mode_count,
                                          LoadSimulatorConfigResult &result) {
@@ -1204,6 +1227,28 @@ bool parse_output_settings(const Json &root, SimulatorConfig &config,
          parse_output_formats_field(output, config.output, result);
 }
 
+bool parse_runtime_config_sections(const Json &root, SimulatorConfig &config,
+                                   LoadSimulatorConfigResult &result) {
+  return require_string_field(root, "config_id", "$.config_id",
+                              config.config_id, result) &&
+         parse_boat_class(root, config, result) &&
+         parse_simulation_settings(root, config, result) &&
+         parse_hull_settings(root, config, result) &&
+         parse_oar_pair_settings(root, config, result) &&
+         parse_seat_settings(root, config, result) &&
+         parse_stroke_settings(root, config, result) &&
+         parse_environment_settings(root, config, result);
+}
+
+bool parse_optional_config_sections(std::string_view source_name,
+                                    const Json &root, SimulatorConfig &config,
+                                    LoadSimulatorConfigResult &result) {
+  return parse_provider_settings(root, config, result) &&
+         parse_artifact_settings(source_name, root, config, result) &&
+         validate_artifact_requirements(config, result) &&
+         parse_output_settings(root, config, result);
+}
+
 } // namespace
 
 /**
@@ -1215,6 +1260,7 @@ std::vector<NormalizedConfigEntry>
 normalize_simulator_config(const SimulatorConfig &config) {
   auto entries = std::vector<NormalizedConfigEntry>{
       {"$.config_id", config.config_id, ""},
+      {"$.boat_class", config.boat_class, ""},
       {"$.simulation.duration_s",
        format_normalized_double(config.simulation.duration_s), "s"},
       {"$.simulation.time_step_s",
@@ -1330,18 +1376,8 @@ parse_simulator_config_text(std::string_view json_text,
   LoadSimulatorConfigResult result;
   SimulatorConfig config;
 
-  if (require_string_field(root, "config_id", "$.config_id", config.config_id,
-                           result) &&
-      parse_simulation_settings(root, config, result) &&
-      parse_hull_settings(root, config, result) &&
-      parse_oar_pair_settings(root, config, result) &&
-      parse_seat_settings(root, config, result) &&
-      parse_stroke_settings(root, config, result) &&
-      parse_environment_settings(root, config, result) &&
-      parse_provider_settings(root, config, result) &&
-      parse_artifact_settings(source_name, root, config, result) &&
-      validate_artifact_requirements(config, result) &&
-      parse_output_settings(root, config, result)) {
+  if (parse_runtime_config_sections(root, config, result) &&
+      parse_optional_config_sections(source_name, root, config, result)) {
     result.normalized_config = normalize_simulator_config(config);
     result.config = std::move(config);
   }

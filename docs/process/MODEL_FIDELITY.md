@@ -13,6 +13,18 @@ This document defines fidelity expectations for the rowing simulator.
   `output.truth_model_export_path`; runtime re-import stays on the existing
   validated calibration-artifact path.
 
+## Fidelity tiers
+- The current validated runtime is the reduced-model baseline used for
+  deterministic single-scull execution and bounded scenario evidence.
+- The next planned fidelity tier is a calibrated reduced runtime that still
+  runs inside the default simulator loop while consuming richer measured-data
+  and calibration artifacts.
+- Offline truth models remain a separate optional tier used to generate,
+  compare, or fit reduced artifacts rather than a replacement runtime.
+- User-facing docs, scenario evidence, and run reports must distinguish these
+  tiers explicitly; do not blur a calibrated reduced model into an online
+  truth-model claim.
+
 ## Closure model expectations
 - Every reduced model should state its intended validity range.
 - Every reduced runtime provider should expose validity metadata suitable for
@@ -23,6 +35,8 @@ This document defines fidelity expectations for the rowing simulator.
   unless a later scoped packet explicitly reopens hydro or aero behavior.
 - Every calibrated model should identify its calibration source or artifact.
 - Runtime provider selection must remain explicit and configuration-controlled.
+- Future fidelity expansion should deepen the calibrated reduced runtime before
+  broadening the offline truth-model consumer surface.
 
 ## Guardrails
 - Do not make optional truth-model tooling a hidden runtime dependency.

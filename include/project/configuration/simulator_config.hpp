@@ -148,6 +148,7 @@ struct SimulatorConfig {
   ProviderSelectionSettings providers{};
   ArtifactSettings artifacts{};
   OutputSettings output{};
+  std::string boat_class{"single_scull"};
 
   bool operator==(const SimulatorConfig &) const = default;
 };

@@ -69,10 +69,10 @@ void remove_file_if_present(const std::filesystem::path &path) {
  * runtime envelopes.
  */
 TEST(PerformanceLaneSystem, ScriptEmitsSeparateBudgetReport) {
-  const auto summary_path =
-      std::filesystem::temp_directory_path() / "airow-qt-performance-summary.json";
-  const auto report_path =
-      std::filesystem::temp_directory_path() / "airow-qt-performance-report.json";
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-qt-performance-summary.json";
+  const auto report_path = std::filesystem::temp_directory_path() /
+                           "airow-qt-performance-report.json";
   const auto stdout_path =
       std::filesystem::temp_directory_path() / "airow-qt-performance.stdout";
   const auto stderr_path =
@@ -80,14 +80,13 @@ TEST(PerformanceLaneSystem, ScriptEmitsSeparateBudgetReport) {
   remove_file_if_present(summary_path);
   remove_file_if_present(report_path);
 
-  const auto command = "cd " + shell_quote(kProjectSourceDir.string()) +
-                       " && TEST_BUILD_DIR=build VALIDATION_SUMMARY_PATH=" +
-                       shell_quote(summary_path.string()) +
-                       " PERFORMANCE_BUDGET_REPORT_PATH=" +
-                       shell_quote(report_path.string()) +
-                       " ./scripts/test_performance.sh > " +
-                       shell_quote(stdout_path.string()) + " 2> " +
-                       shell_quote(stderr_path.string());
+  const auto command =
+      "cd " + shell_quote(kProjectSourceDir.string()) +
+      " && TEST_BUILD_DIR=build VALIDATION_SUMMARY_PATH=" +
+      shell_quote(summary_path.string()) +
+      " PERFORMANCE_BUDGET_REPORT_PATH=" + shell_quote(report_path.string()) +
+      " ./scripts/test_performance.sh > " + shell_quote(stdout_path.string()) +
+      " 2> " + shell_quote(stderr_path.string());
   const auto status = std::system(command.c_str());
 
   ASSERT_EQ(decode_exit_code(status), 0);

@@ -25,7 +25,12 @@ backend wiring separate before deferred calibration or time-varying
 environment workflows. The current post-`v0.1` guardrail packet now also adds
 an optional offline truth-model handoff export path and a dedicated protected-
 scenario performance-budget lane without changing the default runtime
-dependencies.
+dependencies. The next planned phase is now defined as a milestone-based
+fidelity program for single-scull hull-performance and stroke-dynamics studies,
+with measurement and calibration foundations, low-order actuation, calibrated
+reduced runtime models, coupled validation scenarios, and explicit trust or
+uncertainty reporting staged separately from the current validated reduced
+baseline.
 
 ## Quick Start
 
@@ -93,6 +98,17 @@ Run one headless baseline case:
 ./build/project_app --config /path/to/config.json
 ```
 
+Make the supported scope explicit in a config when helpful:
+```json
+{
+  "boat_class": "single_scull"
+}
+```
+
+Omitting `boat_class` still defaults to `single_scull`. Any other explicit
+value is rejected before runtime startup; crew and sweep support remain future
+expansion only in the current repository state.
+
 Request an offline truth-model handoff export without changing the runtime
 path:
 ```json
@@ -158,6 +174,8 @@ Current implemented library surface:
   `A-003` and `A-010` slice
 - reusable in-memory single-run API with injected hydro, aero, and
   state-advancer seams plus structured state/load history
+- optional top-level `boat_class` scope selector, defaulting to
+  `single_scull` and rejecting unsupported crew or sweep scope explicitly
 - top-level config-driven built-in provider selection for
   `hull_resistance`, `blade_force`, and `aero_load`
 - optional file-backed external calibration artifact loading with
@@ -225,6 +243,7 @@ Current implemented library surface:
 Primary planning and process sources:
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
+- `docs/process/FIDELITY_GAP_MAP.md`
 - `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/TECHNOLOGY_STACK.md`
 - `docs/ai/DECISIONS.md`
@@ -236,6 +255,7 @@ ownership catalog.
 
 Current intent:
 - single-scull simulator first,
+- crew and sweep remain future expansion rather than current capability,
 - headless executable plus reusable library API,
 - 3D mechanics core with reduced hydro and aero runtime models,
 - explicit world-frame, sign, and orientation conventions at simulator
@@ -243,6 +263,9 @@ Current intent:
 - explicit numerical integration and startup-validity ownership separate from
   mechanics ownership,
 - optional high-fidelity calibration workflows kept outside the default runtime,
+- next-phase fidelity work focused on hull-performance and stroke-dynamics
+  studies through calibrated reduced runtime models rather than online
+  truth-model execution,
 - real simulator code should now land inside the hardened architecture-first
   workflow rather than extending the bootstrap sample.
 
@@ -283,7 +306,12 @@ Current implementation status:
   while the closed `A-010` composed-backend slice now remains separate from
   provider work through split mechanics and integration backend selection,
   a preferred Chrono plus SUNDIALS standard runtime, and explicit fallback
-  pairs rather than mixing backend adoption into provider-selection work.
+  pairs rather than mixing backend adoption into provider-selection work,
+- the next major planning packet now keeps that reduced baseline intact while
+  staging the future fidelity gap through
+  `docs/process/FIDELITY_GAP_MAP.md`, starting with measurement or calibration
+  foundations and the first low-order actuation slice before calibrated blade
+  or hull providers are reopened.
 
 Time-varying wind config uses an exclusive one-of contract under
 `environment`:

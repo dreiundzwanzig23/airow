@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 ### Changed
+- Added a milestone-based fidelity gap map for the next major single-scull
+  phase in `docs/process/FIDELITY_GAP_MAP.md`, updated the roadmap and
+  architecture allocation around eight staged milestones for hull-performance
+  and stroke-dynamics studies, and appended the new `R-035..R-049`
+  requirement packet covering trust-envelope reporting, measurement and
+  calibration contracts, low-order actuation, calibrated reduced blade and
+  hull models, study-facing scenarios, offline-loop consistency, and
+  uncertainty reporting while keeping the current reduced-model runtime as the
+  validated baseline.
+- Closed the `R-030` scope-guardrail packet: public config now accepts an
+  optional top-level `boat_class` selector, omitted configs still normalize to
+  `single_scull`, explicit unsupported boat classes are rejected
+  deterministically before runtime stepping instead of silently falling back to
+  the baseline path, and README or process wording now keeps crew and sweep
+  support framed as future expansion only. This closes `R-030` with new
+  evidence (`UT-298..UT-300`, `QT-043`) on the existing `D-001` /
+  `D-008` / `A-001` boundary.
 - Closed the combined `R-024` / `R-026` guardrail packet: public config now
   accepts optional `output.truth_model_export_path`, the shared run path can
   emit one deterministic JSON truth-model handoff bundle without changing the

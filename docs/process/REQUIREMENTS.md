@@ -51,6 +51,13 @@ Milestone framing:
 - `v0.1` should not depend on external calibration ingestion, time-varying
   wind, batch sweeps, low-order balance control, flexible oars, or disturbance
   inputs beyond the steady baseline cases.
+- The next fidelity phase should preserve that closed baseline while extending
+  the simulator toward research-oriented hull-performance and stroke-dynamics
+  studies through milestone-scoped reduced-model, calibration, and reporting
+  work.
+- The next fidelity phase must keep the validated reduced baseline,
+  future calibrated reduced runtime, and optional offline truth-model
+  workflows explicitly distinct.
 
 ## R-001 — Configuration Loading and Validation
 - **Title**: Load and validate simulation configuration deterministically
@@ -585,12 +592,12 @@ Milestone framing:
   - Public-facing documentation identifies crew and sweep support as future expansion rather than current capability.
   - Adding unsupported boat classes does not silently fall back to single-scull behavior.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-19
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement protects scope clarity while keeping the architecture extensible.
+- **Notes**: This requirement protects scope clarity while keeping the architecture extensible. The current packet now formalizes one optional top-level `boat_class` selector at the configuration boundary, defaults omitted configs to `single_scull`, rejects any explicit unsupported boat class deterministically before runtime stepping, and keeps README scope wording aligned with future crew and sweep expansion remaining out of scope today.
 
 ## R-031 — State and Frame Conventions
 - **Title**: Define explicit state, frame, and sign conventions at the simulator boundary
@@ -659,3 +666,228 @@ Milestone framing:
 - **Needs-Review**: no
 - **Notes**: This slice is intentionally limited to single-run understanding.
   Run-to-run comparison and batch sweep analysis remain separate follow-on work.
+
+## R-035 — Fidelity Trust Envelope for Study Claims
+- **Title**: Make study fidelity scope and trust envelope explicit in docs and outputs
+- **Acceptance Criteria**:
+  - User-facing documentation defines the supported single-scull hull-performance and stroke-dynamics study questions for the active fidelity phase.
+  - Machine-readable outputs and human-readable reports identify whether a run is operating as the validated reduced baseline, a calibrated reduced study path, or an out-of-validity use.
+  - Project documentation distinguishes the current validated reduced runtime, future calibrated reduced runtime, and optional offline truth-model workflows without conflating them.
+  - At least one checked-in validation artifact or report fixture ties a study conclusion to an explicit trust envelope.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement anchors Milestone 1 and Milestone 8 in `docs/process/FIDELITY_GAP_MAP.md`.
+
+## R-036 — Measurement Dataset Contract
+- **Title**: Accept versioned measured boat, rigging, and athlete datasets for calibration-facing workflows
+- **Acceptance Criteria**:
+  - The simulator accepts a versioned machine-readable dataset bundle describing at least boat, rigging, and athlete parameters with explicit units and identifiers.
+  - Missing required measurement fields, invalid units, or inconsistent identifiers are rejected deterministically with field-specific diagnostics.
+  - Accepted datasets expose normalized identifiers and provenance metadata to runtime consumers and outputs.
+  - At least one automated test loads a minimal valid measurement bundle and verifies normalized metadata.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This is the first calibration-foundation boundary for Milestone 2.
+
+## R-037 — Measured Trial Time-Series Import
+- **Title**: Import versioned measured rowing-trial time series for comparison and calibration
+- **Acceptance Criteria**:
+  - The simulator accepts a versioned measured-trial artifact with monotonic sample times and machine-readable channel descriptors.
+  - The imported trial can carry boat-motion channels plus stroke-kinematic or measured load/power channels needed for later comparison workflows.
+  - Duplicate timestamps, non-monotonic time bases, or unsupported channel definitions are rejected deterministically before execution.
+  - Run metadata records the imported trial identifier and the aligned sample window when the artifact is used.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement is separate from generic calibration artifacts because later measured-vs-sim comparison needs time-aligned trial semantics.
+
+## R-038 — Boat, Rigging, and Mass-Distribution Parameterization
+- **Title**: Represent hull, rigging, and mass-distribution parameter sets explicitly
+- **Acceptance Criteria**:
+  - A run configuration or imported artifact can specify hull mass properties, athlete mass-distribution parameters, and rigging geometry without editing source code.
+  - Invalid geometry references, inconsistent frame definitions, or physically impossible parameter values are rejected deterministically before runtime stepping.
+  - Machine-readable outputs record the active hull, rigging, and mass-distribution identifiers used for the run.
+  - At least one validation artifact demonstrates that changing a parameter set changes reported trim, resistance, or performance metrics.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement supports both hull-performance studies and later low-order rower coupling work.
+
+## R-039 — Force- or Power-Driven Stroke Actuation
+- **Title**: Support non-kinematic stroke actuation modes suitable for stroke-dynamics studies
+- **Acceptance Criteria**:
+  - A run can select a prescribed-kinematic, force-driven, or power-driven reduced stroke-actuation mode by configuration.
+  - Invalid or overconstrained actuation definitions are rejected deterministically before stepping begins.
+  - The selected actuation mode and its key bounded inputs are recorded in run metadata and outputs.
+  - At least one automated validation scenario exercises a non-kinematic actuation mode without requiring a full biomechanics stack.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement begins Milestone 3 and intentionally remains lower order than a musculoskeletal rower model.
+
+## R-040 — Low-Order Rower Inertial Coupling
+- **Title**: Couple rower mass or center-of-mass motion into reduced stroke studies
+- **Acceptance Criteria**:
+  - The simulator can enable or disable a low-order rower inertial coupling model that changes hull load distribution or motion during the stroke.
+  - With the coupling disabled, existing reduced-baseline prescribed-motion scenarios remain valid within documented tolerance.
+  - With the coupling enabled under documented bounds, startup diagnostics and runtime outputs remain finite and deterministic.
+  - Outputs report the rower inertial or center-of-mass contribution needed for later stroke-dynamics analysis.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement keeps rower coupling low-order and bounded; it is not a request for full-body biomechanics.
+
+## R-041 — Blade Slip and Propulsion-Efficiency Metrics
+- **Title**: Report blade slip, effective propulsive work, and loss metrics
+- **Acceptance Criteria**:
+  - Machine-readable outputs include per-run or intra-stroke blade-slip metrics and at least one effective propulsive-work or propulsion-efficiency metric.
+  - Metric definitions identify the relevant frames, signs, or validity conditions.
+  - Outputs mark the metric unavailable or out-of-validity when the active provider or data path cannot support it.
+  - At least one analysis artifact compares these metrics across two stroke variants or provider modes.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: These metrics are needed before technique comparisons can be framed as more than speed-only questions.
+
+## R-042 — Blade Entry and Extraction Behavior
+- **Title**: Represent catch, immersed drive, extraction, and dry-transition behavior in the reduced blade model
+- **Acceptance Criteria**:
+  - The active reduced blade-water model distinguishes catch, immersed drive, extraction, and recovery or dry transitions with finite deterministic loads.
+  - Partial immersion, loss of immersion, and slip-direction changes are handled without singularities or silent sign flips.
+  - Run outputs expose phase markers or transition timing needed for later technique analysis.
+  - At least one validation artifact exercises sensitivity to catch or release timing.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement deepens the reduced blade model without requiring online free-surface truth-model execution.
+
+## R-043 — Calibrated Reduced Blade-Water Provider
+- **Title**: Support a calibrated reduced blade provider derived from explicit external artifacts
+- **Acceptance Criteria**:
+  - A run can select a calibrated reduced blade-water provider by configuration without recompilation.
+  - The imported artifact exposes provenance, validity range, and calibration-error metadata that propagate into outputs.
+  - Out-of-range use or missing calibration metadata is flagged deterministically before or during reporting.
+  - At least one validation scenario compares calibrated reduced blade outputs against reference blade or propulsion data using documented agreement metrics.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This is the blade-side runtime consumer that turns the existing offline boundary into a real fidelity loop.
+
+## R-044 — Calibrated Reduced Hull-Performance Provider
+- **Title**: Support a calibrated reduced hull provider for resistance, trim, and loading studies
+- **Acceptance Criteria**:
+  - A run can select a reduced hull-performance provider that responds to speed, attitude, loading, or rigging parameters without recompilation.
+  - The provider exposes provenance, validity range, and calibration metadata suitable for run reporting.
+  - Machine-readable outputs report the hull-resistance or trim-related terms needed for hull-performance comparison.
+  - At least one validation scenario demonstrates meaningful differences across two hull, loading, or rigging parameterizations.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement targets reduced calibrated runtime behavior, not online CFD in the default simulator loop.
+
+## R-045 — Technique Comparison Scenarios
+- **Title**: Provide named validation scenarios for technique and timing comparison questions
+- **Acceptance Criteria**:
+  - The scenario harness can compare at least two technique or timing variants derived from a shared baseline run definition.
+  - Scenario outputs report deterministic delta metrics for speed, acceleration, blade slip, and efficiency or loss metrics when supported by the active providers.
+  - Scenario metadata records the varied technique parameters and comparison window.
+  - At least one checked-in scenario studies a technique question instead of only reproducing a baseline pass or fail run.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement is the scenario-level bridge from richer outputs to real stroke-dynamics studies.
+
+## R-046 — Hull and Rigging Sensitivity Scenarios
+- **Title**: Provide named validation scenarios for hull, loading, and rigging sensitivity questions
+- **Acceptance Criteria**:
+  - The scenario harness can run a named set of hull, loading, or rigging variations from a shared baseline definition.
+  - Scenario outputs report deterministic delta metrics for resistance, trim, and mean-speed behavior across the set.
+  - Scenario metadata identifies the varied geometry, rigging, or mass-distribution parameters.
+  - At least one checked-in scenario studies a hull or rigging sensitivity question instead of only baseline motion existence.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement is the scenario-level bridge from calibrated reduced hull providers to hull-performance questions.
+
+## R-047 — Measured-vs-Sim Agreement Metrics
+- **Title**: Compare simulated runs against measured rowing trials with explicit agreement metrics
+- **Acceptance Criteria**:
+  - The simulator can compare a run against an imported measured trial over a declared time window.
+  - Comparison output reports agreement metrics for at least speed, stroke timing or phase, and one measured load or power channel when present.
+  - Missing channels or partial trial coverage are handled deterministically and recorded in the comparison output.
+  - At least one checked-in validation artifact encodes a measured-vs-sim comparison workflow.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This requirement closes the loop between measurement ingestion and scenario-backed study trust.
+
+## R-048 — Truth-Model Export and Re-Import Consistency
+- **Title**: Keep offline study export and reduced-artifact re-import contracts mutually consistent
+- **Acceptance Criteria**:
+  - Exported offline-study artifacts and re-imported reduced-fit artifacts share stable identifiers for geometry, rigging, boundary conditions, and reference frames.
+  - Imported artifacts whose identifiers, units, or frames do not match the declared export contract are rejected deterministically.
+  - Outputs record lineage from runtime run definition to offline-study artifact and back to the reduced provider or artifact used in the run.
+  - At least one regression test verifies round-trip contract consistency without invoking external truth-model tooling.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This keeps `A-009` grounded as a boundary-management subsystem instead of an ad hoc file bucket.
+
+## R-049 — Uncertainty and Validity Reporting
+- **Title**: Expose uncertainty, fit quality, and out-of-validity reporting for study-facing outputs
+- **Acceptance Criteria**:
+  - Machine-readable outputs and human-readable reports expose validity-range status plus fit-quality, uncertainty, or confidence annotations for the active reduced providers and imported artifacts.
+  - Runs that exceed declared validity ranges surface deterministic warnings or degraded-trust metadata instead of silently reporting full-confidence conclusions.
+  - Scenario and comparison reports indicate whether their reported conclusions fall inside or outside the documented trust envelope.
+  - At least one validation artifact exercises an out-of-validity or low-confidence reporting path.
+- **Priority**: P1
+- **Status**: OPEN
+- **Created**: 2026-04-19
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: This is the reporting half of the fidelity-trust packet and depends on explicit model provenance and validity metadata.

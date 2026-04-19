@@ -178,26 +178,84 @@ Still planned or incomplete:
   steady-wind provider ids or the orchestrator-to-aero seam,
 - `A-009` remains in progress for broader artifact schemas and future hydro-
   side consumers beyond the first calibrated aero path,
+- the next fidelity phase is now staged in
+  `docs/process/FIDELITY_GAP_MAP.md` as a milestone plan for hull-performance
+  and stroke-dynamics studies that preserves the current reduced baseline as
+  the reference floor,
+- the highest-value near-term packet is measurement and calibration foundation
+  work plus the first low-order actuation slice, before calibrated blade or
+  hull providers are reopened,
 - deeper backend diagnostics, richer stepping policy, or future composed-
   backend expansion behind the existing seams.
 
+## Next Fidelity-Phase Allocation
+
+The next major phase extends the existing subsystem map instead of creating new
+top-level owners.
+
+- Milestone 1 `Fidelity Target and Trust Envelope`
+  - Primary owners: `A-007`, `A-008`
+  - Supporting owners: `A-001`, `A-009`
+  - Requirement packet: `R-035`, `R-049`
+- Milestone 2 `Measurement and Calibration Foundation`
+  - Primary owners: `A-001`, `A-009`
+  - Supporting owners: `A-007`, `A-008`
+  - Requirement packet: `R-036`, `R-037`, `R-038`, `R-048`
+- Milestone 3 `Low-Order Actuation and Rower Coupling`
+  - Primary owners: `A-006`, `A-003`
+  - Supporting owners: `A-010`, `A-007`
+  - Requirement packet: `R-039`, `R-040`, `R-041`
+- Milestone 4 `Calibrated Reduced Blade-Water Model`
+  - Primary owners: `A-004`, `A-009`
+  - Supporting owners: `A-007`, `A-008`, `A-010`
+  - Requirement packet: `R-041`, `R-042`, `R-043`
+- Milestone 5 `Calibrated Reduced Hull-Performance Model`
+  - Primary owners: `A-004`
+  - Supporting owners: `A-003`, `A-009`, `A-007`, `A-008`
+  - Requirement packet: `R-038`, `R-044`, `R-046`
+- Milestone 6 `Coupled Validation Scenarios`
+  - Primary owners: `A-008`, `A-007`
+  - Supporting owners: `A-004`, `A-006`, `A-009`
+  - Requirement packet: `R-045`, `R-046`, `R-047`
+- Milestone 7 `Real Offline Truth-Model Loop`
+  - Primary owners: `A-009`
+  - Supporting owners: `A-001`, `A-007`, `A-004`
+  - Requirement packet: `R-043`, `R-044`, `R-048`
+- Milestone 8 `Uncertainty and Trust Reporting`
+  - Primary owners: `A-007`, `A-009`
+  - Supporting owners: `A-008`, `A-001`
+  - Requirement packet: `R-035`, `R-049`
+
+Allocation guardrails:
+- keep `A-004` focused on reduced runtime hydro behavior and `A-009` focused
+  on external artifact contracts, provenance, and offline-loop boundaries,
+- keep `A-010` focused on constrained initialization, stepping, and solver
+  diagnostics needed by richer coupling rather than on hydro or control model
+  semantics,
+- keep `A-006` limited to low-order actuation and control rather than turning
+  it into a full biomechanics container.
+
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem
-- **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-023, R-025, R-028, R-029, R-030, R-031, R-032, R-033]
+- **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-023, R-025, R-028, R-029, R-030, R-031, R-032, R-033, R-036, R-037, R-038, R-039, R-048, R-049]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Parse, validate, normalize, and expose simulator, provider, artifact, and scenario configuration before execution begins.
-- **Owned Concepts**: `SimulatorConfig`; provider selection metadata; schema validation; unit-bearing and frame-bearing field definitions; provider validity metadata; unsupported-scope rejection; constant and time-varying ambient-wind input definitions.
+- **Owned Concepts**: `SimulatorConfig`; provider selection metadata; schema validation; unit-bearing and frame-bearing field definitions; provider validity metadata; unsupported-scope rejection; constant and time-varying ambient-wind input definitions; measurement or rigging or athlete dataset boundary contracts; measured-trial import metadata; trust-envelope-bearing configuration definitions.
 - **Inputs**: Machine-readable run configuration; batch definitions; external artifact metadata; selected provider and model identifiers.
 - **Outputs**: Validated in-memory configuration; deterministic validation diagnostics; normalized run metadata inputs.
 - **Depends On**: Core validation helpers and documented process policies for units, state conventions, and provenance.
 - **Must Not Depend On**: Mechanics stepping logic; hydro or aero algorithm internals; scenario execution state.
 - **Invariants**: Invalid or ambiguous configuration never reaches runtime stepping; accepted values are normalized deterministically; unsupported scope is rejected explicitly.
 - **Allocation Rationale**: Centralizes all boundary validation so requirements about deterministic rejection, units, provider selection, and scope control do not fragment across runtime subsystems.
-- **Future Absorption**: Additional model toggles, boat-class expansion gates, richer artifact schemas, and future frame-bearing configuration definitions should be absorbed here before touching runtime logic.
+- **Future Absorption**: Additional model toggles, boat-class expansion gates, richer artifact schemas, measurement or rigging parameter-set contracts, measured-trial import definitions, truth-model exchange identifiers, and future frame-bearing configuration definitions should be absorbed here before touching runtime logic.
 - **Interfaces**: File-backed and in-memory JSON configuration loading contract returning validated `SimulatorConfig`, deterministic diagnostics, and normalized configuration metadata suitable for later runtime orchestration.
   The same boundary also absorbs ordered batch definitions through a top-level
   `batch.cases` contract that applies deterministic per-case override objects
   onto one validated shared base configuration before runtime execution.
+  The same boundary now also owns the optional top-level `boat_class`
+  selector, defaulting omitted configs to `single_scull` and rejecting any
+  explicit unsupported boat class deterministically before runtime stepping so
+  future scope expansion cannot silently alias onto the baseline runtime.
   The current slice also validates the optional top-level `providers` block
   (`hull_resistance`, `blade_force`, `aero_load`) against the built-in runtime
   provider catalog and rejects unknown selections before execution. The closed
@@ -244,17 +302,17 @@ Still planned or incomplete:
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
-- **Satisfies**: [R-005, R-006, R-007, R-008, R-012, R-027, R-028, R-030, R-031, R-032]
+- **Satisfies**: [R-005, R-006, R-007, R-008, R-012, R-027, R-028, R-030, R-031, R-032, R-038, R-039, R-040, R-044]
 - **Status**: IN_PROGRESS
-- **Responsibility**: Own the constrained 3D mechanical state for hull, oars, seat, optional flexible oar behavior, and optional stabilization control coupling points.
-- **Owned Concepts**: Hull rigid-body state; oar kinematics; seat travel state; prescribed stroke state; consistent initial mechanical state; optional balance control interfaces; optional rigid vs flexible oar representation.
+- **Responsibility**: Own the constrained 3D mechanical state for hull, oars, seat, optional flexible oar behavior, low-order rower inertial coupling points, and optional stabilization control coupling points.
+- **Owned Concepts**: Hull rigid-body state; oar kinematics; seat travel state; prescribed stroke state; consistent initial mechanical state; low-order rower center-of-mass coupling points; optional balance control interfaces; optional rigid vs flexible oar representation.
 - **Inputs**: Validated geometry and mass properties; control or prescribed stroke inputs; external hydro and aero loads.
 - **Outputs**: 3D state trajectories; state-initialization and constraint-residual diagnostics; blade and hull state needed by load providers.
 - **Depends On**: Core math/contracts; control and stroke input; hydro and aero load contracts.
 - **Must Not Depend On**: Output formatting internals; calibration dataset ingestion; scenario acceptance logic; hard-coded solver-backend policy.
-- **Invariants**: Mechanical state remains finite in nominal runs; constraints remain bounded by documented tolerances; startup assembly exposes enough information for consistent initialization; optional mechanics modes do not silently change the baseline rigid path.
+- **Invariants**: Mechanical state remains finite in nominal runs; constraints remain bounded by documented tolerances; startup assembly exposes enough information for consistent initialization; optional mechanics modes do not silently change the baseline rigid path; unsupported boat classes are rejected at the configuration boundary rather than silently entering the single-scull mechanics path.
 - **Allocation Rationale**: Keeps the mechanics backbone as the central physical state owner rather than leaking motion ownership into individual requirement-driven feature slices.
-- **Future Absorption**: Expanded body representations, future crew support, and deeper rower dynamics should be absorbed here behind stable state contracts.
+- **Future Absorption**: Expanded body representations, future crew support, low-order rower inertial coupling, hull or rigging parameter-set realization, and deeper rower dynamics should be absorbed here behind stable state contracts.
 - **Interfaces**: Mechanics state contract, external-load application contract, and subsystem initialization contract for state advancement. The current realization slice establishes boundary-visible hull, oar, seat, and stroke state behind the orchestrator seam using a deterministic internal baseline implementation that remains independent of concrete Chrono types.
   The closed backend slice promotes Chrono-backed rigid-body realization to the
   preferred standard runtime build while keeping the same boundary-visible
@@ -263,17 +321,17 @@ Still planned or incomplete:
 
 ## A-004 — Hydro Runtime Models
 - **Title**: Reduced hydrodynamic runtime models
-- **Satisfies**: [R-009, R-010, R-011, R-012, R-020, R-021, R-022, R-024, R-029, R-033]
+- **Satisfies**: [R-009, R-010, R-011, R-012, R-020, R-021, R-022, R-024, R-029, R-033, R-041, R-042, R-043, R-044, R-046, R-049]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Compute hydrostatic and reduced hydrodynamic loads for the hull and blades during default runtime execution.
-- **Owned Concepts**: Hull flotation model; hull resistance providers; blade-water load providers; provider validity metadata; disturbance-to-water-load coupling points.
+- **Owned Concepts**: Hull flotation model; hull resistance providers; blade-water load providers; provider validity metadata; blade slip or propulsion-efficiency metric inputs; calibrated reduced hull or blade provider variants; disturbance-to-water-load coupling points.
 - **Inputs**: Mechanics state; validated provider selection; optional calibration datasets; optional disturbance definitions.
 - **Outputs**: Hull and blade load vectors; immersion diagnostics; provider metadata for outputs and validity reporting.
 - **Depends On**: Core math/contracts; mechanics state contracts; configuration/provider selection; optional calibration contracts.
 - **Must Not Depend On**: Aero internals; orchestrator lifecycle logic; high-fidelity truth-model toolchains in the default runtime path.
 - **Invariants**: Reduced-model providers remain callable without optional high-fidelity tooling; dry or zero-speed limits behave deterministically; provider outputs stay finite or fail deterministically; each provider carries explicit validity metadata suitable for run reporting.
 - **Allocation Rationale**: Concentrates water-load logic into one subsystem so runtime hydro behavior evolves through replaceable providers instead of requirement-specific patches.
-- **Future Absorption**: Additional resistance, blade, wave, and lookup-driven hydro providers should be absorbed here behind shared contracts.
+- **Future Absorption**: Additional resistance, blade, wave, lookup-driven hydro providers, calibrated reduced blade models, calibrated reduced hull-performance models, and trim or off-axis penalty terms should be absorbed here behind shared contracts.
 - **Interfaces**: Public hydro-provider seam in the shared run path that now
   returns structured hull force or moment plus per-blade world-force and
   immersion samples for deterministic reduced passive, tow, and calm-water
@@ -323,17 +381,17 @@ Still planned or incomplete:
 
 ## A-006 — Control and Stroke Input
 - **Title**: Stroke scheduling and low-order control subsystem
-- **Satisfies**: [R-008, R-023, R-027]
+- **Satisfies**: [R-008, R-023, R-027, R-039, R-040, R-041, R-045]
 - **Status**: OPEN
-- **Responsibility**: Generate deterministic prescribed stroke inputs and optional low-order stabilization control outputs.
-- **Owned Concepts**: Stroke schedule definition; phase timing; controller mode selection; wind-aware input scheduling hooks.
+- **Responsibility**: Generate deterministic prescribed stroke inputs plus bounded low-order actuation and optional stabilization control outputs.
+- **Owned Concepts**: Stroke schedule definition; phase timing; force-driven or power-driven actuation modes; controller mode selection; wind-aware input scheduling hooks.
 - **Inputs**: Validated schedule and control configuration; optional time-varying inputs; mechanics state feedback when control mode requires it.
 - **Outputs**: Stroke commands; optional control outputs; mode metadata for run reporting.
 - **Depends On**: Core math/contracts; configuration and validation; mechanics feedback contracts.
 - **Must Not Depend On**: Hydro or aero algorithm internals; scenario result evaluation; output serialization internals.
 - **Invariants**: Prescribed schedules replay deterministically; invalid schedules are rejected before runtime; optional controllers remain finite and can be disabled cleanly.
 - **Allocation Rationale**: Separates rower-input generation from mechanics and load-provider ownership so input strategies can evolve independently.
-- **Future Absorption**: Richer control modes and eventual deeper rower representations should be absorbed here until a stronger biomechanics boundary is justified.
+- **Future Absorption**: Richer low-order actuation modes, bounded rower-coupling controls, technique-comparison input families, and eventual deeper rower representations should be absorbed here until a stronger biomechanics boundary is justified.
 - **Interfaces**: Planned stroke schedule contract and optional controller
   contract. Slice 4B keeps time-varying wind ownership out of this subsystem
   for now, but preserves future wind-aware scheduling hooks so later control or
@@ -342,17 +400,17 @@ Still planned or incomplete:
 
 ## A-007 — Output and Diagnostics
 - **Title**: Structured outputs and runtime diagnostics subsystem
-- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034]
+- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034, R-035, R-041, R-045, R-046, R-047, R-049]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Capture machine-readable summaries, time series, metadata, actionable diagnostics, and human-readable derived analysis for single and batch runs.
-- **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs; derived run-analysis summaries; offline report generation contracts.
+- **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs; derived run-analysis summaries; comparison metrics; trust-envelope and uncertainty reporting; offline report generation contracts.
 - **Inputs**: Run lifecycle events; mechanics, hydro, aero, control, and numerical integration outputs; calibration provenance identifiers.
 - **Outputs**: Summary artifacts; time-series artifacts; diagnostic records; per-case batch result summaries.
 - **Depends On**: Orchestrator lifecycle contracts; subsystem output contracts; configuration metadata; provenance metadata.
 - **Must Not Depend On**: Mechanics stepping internals; provider algorithms; scenario pass/fail policy logic.
 - **Invariants**: Output ordering is deterministic; enabled outputs include required identifiers, provenance, validity metadata, and frame or unit annotations for vector quantities; failure diagnostics remain stable and actionable.
 - **Allocation Rationale**: Prevents metadata, diagnostics, and serialization concerns from leaking into every runtime subsystem.
-- **Future Absorption**: Richer artifact formats, streamed diagnostics, and analysis-facing summaries should grow here behind stable output contracts.
+- **Future Absorption**: Richer artifact formats, streamed diagnostics, analysis-facing summaries, comparison reports, slip or efficiency metrics, measured-trial agreement outputs, and trust or uncertainty annotations should grow here behind stable output contracts.
 - **Interfaces**: Stable run-result contract with deterministic JSON summary and
   time-series artifact emission plus optional HDF5 artifact emission selected
   at runtime configuration (`json`, `hdf5`, or both). The output contract
@@ -373,17 +431,17 @@ Still planned or incomplete:
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
-- **Satisfies**: [R-018, R-019, R-024, R-026, R-029]
+- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
-- **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines.
+- **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines; technique-comparison suites; hull or rigging sensitivity suites; measured-trial comparison suites.
 - **Inputs**: Scenario configurations; run outputs; documented acceptance envelopes; process test-lane policy.
 - **Outputs**: Scenario pass/fail results; validation metadata; protected baseline definitions for regression and characterization work.
 - **Depends On**: Orchestrator result contracts; output artifacts; process policies for numerics and fidelity.
 - **Must Not Depend On**: Runtime subsystem internals beyond their public outputs; calibration generation internals; CLI-specific code paths.
 - **Invariants**: Named baseline scenarios remain headlessly runnable; acceptance checks are deterministic; quick verification lanes stay independent of optional high-fidelity tooling.
 - **Allocation Rationale**: Gives validation and scenario ownership one stable home instead of scattering it across tests, scripts, and individual feature requirements.
-- **Future Absorption**: Expanded scenario catalogs, acceptance dashboards, and protected characterization suites should extend this subsystem.
+- **Future Absorption**: Expanded scenario catalogs, acceptance dashboards, protected characterization suites, technique-comparison packs, hull or rigging sensitivity packs, and measured-trial agreement suites should extend this subsystem.
 - **Interfaces**: Public scenario-harness contract in
   `include/project/orchestrator/scenario_harness.hpp` for deterministic
   checked-in scenario definition loading and acceptance-envelope evaluation
@@ -401,17 +459,17 @@ Still planned or incomplete:
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem
-- **Satisfies**: [R-021, R-022, R-024]
+- **Satisfies**: [R-021, R-022, R-024, R-036, R-037, R-043, R-044, R-048, R-049]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Own ingestion and metadata handling for external calibration datasets and derived model artifacts while keeping the runtime path loosely coupled.
-- **Owned Concepts**: Calibration dataset loading; artifact provenance metadata; re-imported lookup or surrogate artifacts; offline truth-model handoff boundaries.
+- **Owned Concepts**: Calibration dataset loading; measured-trial artifact loading; artifact provenance metadata; re-imported lookup or surrogate artifacts; offline truth-model handoff boundaries; export or import lineage management.
 - **Inputs**: External machine-readable datasets; artifact identifiers; source hashes and versions; provider lookup requests.
 - **Outputs**: Queryable calibration data contracts; validated provenance metadata; imported artifact handles for runtime providers.
 - **Depends On**: Configuration and validation; output/provenance contracts; hydro and aero provider contracts.
 - **Must Not Depend On**: Orchestrator lifecycle logic; mechanics state ownership; mandatory installation of offline truth-model toolchains.
 - **Invariants**: Imported artifacts carry deterministic provenance; malformed artifacts are rejected before use; default runtime remains usable without optional calibration-generation tooling.
 - **Allocation Rationale**: Isolates external data and provenance concerns so runtime subsystems can consume calibrated artifacts without becoming responsible for artifact lifecycle policy.
-- **Future Absorption**: Surrogate-model ingestion, richer dataset schemas, and offline export/import workflows should extend this subsystem.
+- **Future Absorption**: Surrogate-model ingestion, richer dataset schemas, measured-trial artifacts, hydro-side calibrated providers, and offline export/import workflows should extend this subsystem.
 - **Interfaces**: Calibration dataset contract, artifact metadata contract, and
   provider-facing query contract. The active Slice 4A realization introduces a
   file-backed machine-readable calibration artifact boundary with required
@@ -427,7 +485,7 @@ Still planned or incomplete:
 
 ## A-010 — Numerical Integration and State Advancement
 - **Title**: Numerical integration and consistent state-advancement subsystem
-- **Satisfies**: [R-004, R-016, R-032]
+- **Satisfies**: [R-004, R-016, R-032, R-039, R-040]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Own consistent initialization, solver-backend abstraction, state-advancement policy, and solver-facing diagnostics while keeping concrete numerical backends replaceable.
 - **Owned Concepts**: Consistent initialization; step-size and tolerance policy; solver backend selection; convergence and termination diagnostics; replay-stable state advancement.
@@ -437,7 +495,7 @@ Still planned or incomplete:
 - **Must Not Depend On**: Hydro or aero provider internals beyond public load contracts; output serialization internals; optional offline truth-model toolchains.
 - **Invariants**: Concrete solver choice remains hidden behind a stable contract; consistent initialization occurs before runtime stepping; solver failures map to deterministic diagnostics; replay expectations remain scoped to the same executable and platform unless a broader guarantee is documented.
 - **Allocation Rationale**: Separates numerical backend ownership and startup validity from physical-state ownership so mechanics models and solver strategies can evolve independently without leaking backend choices into product requirements.
-- **Future Absorption**: Alternative integrators, sensitivity analysis support, adaptive stepping policies, and richer DAE initialization helpers should extend this subsystem.
+- **Future Absorption**: Alternative integrators, sensitivity analysis support, adaptive stepping policies, richer DAE initialization helpers, and the constrained startup or stepping support needed by low-order actuation and rower inertial coupling should extend this subsystem.
 - **Interfaces**: Consistent-initialization contract, state-advancement
   contract, and solver-diagnostic contract. The current realization slice
   establishes a stable advancer interface plus deterministic internal startup
