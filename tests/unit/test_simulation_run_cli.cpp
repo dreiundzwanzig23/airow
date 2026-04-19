@@ -450,6 +450,38 @@ TEST(SimulationRunCli, HeadlessCliWrapperCanRenderCompactReport) {
 }
 
 /**
+ * @test UT-287
+ * @verifies [D-031]
+ * @notes Given a valid config file and the full report flag, when the headless
+ * CLI wrapper runs, then it accepts the mode and appends the full analysis
+ * report instead of rejecting the request.
+ */
+TEST(SimulationRunCli, HeadlessCliWrapperCanRenderFullReport) {
+  std::ostringstream stdout_stream;
+  std::ostringstream stderr_stream;
+
+  const auto path =
+      write_temp_file("airow-unit-cli-report-full-config.json",
+                      make_valid_config_json("unit-cli-report-full"));
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 2s,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 8h + 3s});
+  const auto path_text = path.string();
+  const std::vector<std::string_view> args = {"--config", path_text, "--report",
+                                              "full"};
+
+  EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
+                                      project::CliDependencies{
+                                          .simulation = {.clock = &clock},
+                                      }),
+            0);
+  EXPECT_NE(stdout_stream.str().find("Run Analysis"), std::string::npos);
+  EXPECT_TRUE(stderr_stream.str().empty());
+
+  remove_file_if_present(path);
+}
+
+/**
  * @test UT-121
  * @verifies [D-031]
  * @notes Given an unsupported report mode, when the headless CLI wrapper runs,

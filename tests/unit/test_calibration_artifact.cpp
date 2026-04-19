@@ -33,9 +33,8 @@ void remove_file_if_present(const std::filesystem::path &path) {
  * coefficients are exposed for provider queries.
  */
 TEST(CalibrationArtifact, LoadsValidSteadyWindCalibrationArtifact) {
-  const auto artifact_path = write_temp_file(
-      "airow-ut-calibration-valid.json",
-      R"({
+  const auto artifact_path = write_temp_file("airow-ut-calibration-valid.json",
+                                             R"({
         "schema_id": "steady_wind_aero_calibration.v1",
         "source_id": "wind-tunnel-42",
         "artifact_version": "2026-04-19",
@@ -61,9 +60,9 @@ TEST(CalibrationArtifact, LoadsValidSteadyWindCalibrationArtifact) {
   ASSERT_TRUE(loaded.artifact->steady_wind_aero.has_value());
   EXPECT_DOUBLE_EQ(
       loaded.artifact->steady_wind_aero->drag_coefficient_n_s2_per_m2, 2.75);
-  EXPECT_DOUBLE_EQ(loaded.artifact->steady_wind_aero
-                       ->yaw_moment_coefficient_n_m_s2_per_m2,
-                   1.25);
+  EXPECT_DOUBLE_EQ(
+      loaded.artifact->steady_wind_aero->yaw_moment_coefficient_n_m_s2_per_m2,
+      1.25);
 
   remove_file_if_present(artifact_path);
 }
@@ -76,9 +75,9 @@ TEST(CalibrationArtifact, LoadsValidSteadyWindCalibrationArtifact) {
  * deterministic schema-specific diagnostic.
  */
 TEST(CalibrationArtifact, RejectsArtifactMissingRequiredProvenanceMetadata) {
-  const auto artifact_path = write_temp_file(
-      "airow-ut-calibration-missing-hash.json",
-      R"({
+  const auto artifact_path =
+      write_temp_file("airow-ut-calibration-missing-hash.json",
+                      R"({
         "schema_id": "steady_wind_aero_calibration.v1",
         "source_id": "wind-tunnel-42",
         "artifact_version": "2026-04-19",
@@ -365,9 +364,9 @@ TEST(CalibrationArtifact, RejectsNonNumericCoefficientField) {
  * provenance metadata for the shared runtime binding path.
  */
 TEST(CalibrationArtifact, LoadsSteadyWindCalibrationForAeroRuntimeBinding) {
-  const auto artifact_path = write_temp_file(
-      "airow-ut-aero-calibration-valid.json",
-      R"({
+  const auto artifact_path =
+      write_temp_file("airow-ut-aero-calibration-valid.json",
+                      R"({
         "schema_id": "steady_wind_aero_calibration.v1",
         "source_id": "wind-tunnel-42",
         "artifact_version": "2026-04-19",
@@ -386,8 +385,8 @@ TEST(CalibrationArtifact, LoadsSteadyWindCalibrationForAeroRuntimeBinding) {
   ASSERT_TRUE(loaded.coefficients.has_value());
   ASSERT_TRUE(loaded.metadata.has_value());
   EXPECT_DOUBLE_EQ(loaded.coefficients->drag_coefficient_n_s2_per_m2, 2.75);
-  EXPECT_DOUBLE_EQ(
-      loaded.coefficients->yaw_moment_coefficient_n_m_s2_per_m2, 1.25);
+  EXPECT_DOUBLE_EQ(loaded.coefficients->yaw_moment_coefficient_n_m_s2_per_m2,
+                   1.25);
   EXPECT_EQ(loaded.metadata->path, artifact_path.string());
   EXPECT_EQ(loaded.metadata->source_id, "wind-tunnel-42");
   EXPECT_EQ(loaded.metadata->artifact_version, "2026-04-19");

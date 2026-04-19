@@ -246,13 +246,19 @@ if(BUILD_TESTING)
         tests/unit/test_state_advancement_sundials.cpp
         tests/unit/test_simulator_config.cpp
         tests/unit/test_simulator_config_runtime.cpp
+        tests/unit/test_simulator_config_wind.cpp
         tests/unit/test_simulator_config_mechanics.cpp
         tests/unit/test_simulation_run.cpp
+        tests/unit/test_batch_simulation.cpp
+        tests/unit/test_batch_simulation_validation.cpp
+        tests/unit/test_simulation_run_wind.cpp
         tests/unit/test_simulation_run_cli.cpp
+        tests/unit/test_simulation_run_cli_batch.cpp
         tests/unit/test_simulation_run_advancer.cpp
         tests/unit/test_simulation_run_state_validation.cpp
         tests/unit/test_simulation_run_state_validation_additional.cpp
         tests/unit/test_run_outputs.cpp
+        tests/unit/test_run_outputs_wind.cpp
         tests/unit/test_run_outputs_hdf5.cpp
         tests/unit/test_run_outputs_config.cpp
         tests/unit/test_scenario_harness.cpp
@@ -281,6 +287,7 @@ if(BUILD_TESTING)
         tests/integration/test_calibration_integration.cpp
         tests/integration/test_hydro_runtime_integration.cpp
         tests/integration/test_aero_runtime_integration.cpp
+        tests/integration/test_batch_orchestrator_integration.cpp
         tests/integration/test_simulator_config_integration.cpp
         tests/integration/test_orchestrator_integration.cpp
         tests/integration/test_run_outputs_integration.cpp
@@ -292,6 +299,7 @@ if(BUILD_TESTING)
 
     add_executable(project_tests_system
         tests/system/test_calibration_system.cpp
+        tests/system/test_batch_simulation_system.cpp
         tests/system/test_calm_water_scenario_system.cpp
         tests/system/test_examples_system.cpp
         tests/system/test_simulator_config_system.cpp

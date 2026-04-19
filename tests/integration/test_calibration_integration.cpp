@@ -118,9 +118,9 @@ private:
  * calibrated coefficients on the first aero sample.
  */
 TEST(CalibrationIntegration, FileBackedRunUsesCalibratedAeroArtifact) {
-  const auto artifact_path = write_temp_file(
-      "airow-it-calibration-artifact.json",
-      R"({
+  const auto artifact_path =
+      write_temp_file("airow-it-calibration-artifact.json",
+                      R"({
         "schema_id": "steady_wind_aero_calibration.v1",
         "source_id": "wind-tunnel-it",
         "artifact_version": "2026-04-19",

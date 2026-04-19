@@ -26,11 +26,34 @@ struct SimulationDependencies {
   Clock *clock{};
 };
 
+struct BatchCaseConfig {
+  std::string case_id;
+  SimulatorConfig config;
+
+  bool operator==(const BatchCaseConfig &) const = default;
+};
+
+struct BatchSimulationConfig {
+  std::string batch_id;
+  std::string summary_path;
+  std::vector<BatchCaseConfig> cases;
+
+  bool operator==(const BatchSimulationConfig &) const = default;
+};
+
 SimulationRunResult
 run_simulation(const SimulatorConfig &config,
                const SimulationDependencies &dependencies = {});
 
 SimulationRunResult run_simulation_from_config_file(
+    const std::filesystem::path &path,
+    const SimulationDependencies &dependencies = {});
+
+BatchSimulationResult
+run_batch_simulation(const BatchSimulationConfig &config,
+                     const SimulationDependencies &dependencies = {});
+
+BatchSimulationResult run_batch_simulation_from_config_file(
     const std::filesystem::path &path,
     const SimulationDependencies &dependencies = {});
 

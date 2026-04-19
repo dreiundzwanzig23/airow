@@ -17,10 +17,12 @@
 
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
 #include <H5Apublic.h>
+#include <H5Dpublic.h>
 #include <H5Fpublic.h>
 #include <H5Gpublic.h>
 #include <H5Ipublic.h>
 #include <H5Ppublic.h>
+#include <H5Spublic.h>
 #include <H5Tpublic.h>
 #endif
 
@@ -234,6 +236,67 @@ std::string make_calibrated_hdf5_config_json(std::string_view config_id,
   return stream.str();
 }
 
+std::string
+make_time_varying_hdf5_config_json(std::string_view config_id,
+                                   std::string_view hdf5_path,
+                                   std::string_view environment_json) {
+  std::ostringstream stream;
+  stream << R"({
+        "config_id": ")"
+         << config_id << R"(",
+        "simulation": {
+          "duration_s": 0.5,
+          "time_step_s": 0.25
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [1.0, -0.5, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        },
+        "environment": )"
+         << environment_json << R"(,
+        "providers": {
+          "hull_resistance": "quadratic_drag_placeholder",
+          "blade_force": "stroke_propulsion_placeholder",
+          "aero_load": "steady_wind_placeholder"
+        },
+        "output": {
+          "formats": ["hdf5"],
+          "hdf5_path": ")"
+         << hdf5_path << R"("
+        }
+      })";
+  return stream.str();
+}
+
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
 class H5ScopedHandle final {
 public:
@@ -295,6 +358,23 @@ std::string read_hdf5_string_attribute(hid_t object, const char *name) {
     value.resize(null_pos);
   }
   return value;
+}
+
+std::vector<double> read_hdf5_double_dataset(hid_t group, const char *name) {
+  const H5ScopedHandle dataset(H5Dopen2(group, name, H5P_DEFAULT), H5Dclose);
+  EXPECT_TRUE(dataset.valid());
+  const H5ScopedHandle space(H5Dget_space(dataset.id), H5Sclose);
+  EXPECT_TRUE(space.valid());
+  hsize_t dims[1] = {0};
+  EXPECT_EQ(H5Sget_simple_extent_ndims(space.id), 1);
+  EXPECT_GE(H5Sget_simple_extent_dims(space.id, dims, nullptr), 0);
+  std::vector<double> values(static_cast<std::size_t>(dims[0]), 0.0);
+  if (!values.empty()) {
+    EXPECT_GE(H5Dread(dataset.id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL,
+                      H5P_DEFAULT, values.data()),
+              0);
+  }
+  return values;
 }
 
 struct ExpectedBackendMetadata {
@@ -671,5 +751,69 @@ TEST(RunOutputsHdf5, EmitsJsonAndReportsHdf5FailureWhenUnavailable) {
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+  remove_file_if_present(hdf5_path);
+}
+
+/**
+ * @test UT-254
+ * @verifies [D-022]
+ * @notes Given a time-varying wind series on an HDF5-capable build, when HDF5
+ * output is emitted, then the effective ambient-wind datasets are written with
+ * one scalar channel per world-frame component.
+ */
+TEST(RunOutputsHdf5, EmitsEffectiveAmbientWindDatasets) {
+  if (!project::hdf5_output_supported()) {
+    GTEST_SKIP() << "HDF5 support unavailable on this build";
+  }
+
+  const auto hdf5_path =
+      std::filesystem::temp_directory_path() / "airow-ut-output-wind.h5";
+  remove_file_if_present(hdf5_path);
+  const auto config_path =
+      write_temp_file("airow-ut-output-wind-hdf5-config.json",
+                      make_time_varying_hdf5_config_json("ut-output-wind-hdf5",
+                                                         hdf5_path.string(),
+                                                         R"({
+          "wind_time_series": [
+            {"time_s": 0.0, "ambient_wind_world_mps": [-1.0, 0.0, 0.0]},
+            {"time_s": 0.25, "ambient_wind_world_mps": [-3.0, 0.0, 0.0]}
+          ]
+        })"));
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 14h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 14h + 1s});
+  const auto result = project::run_simulation_from_config_file(
+      config_path, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.outputs.hdf5_written);
+
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+  const H5ScopedHandle file(
+      H5Fopen(hdf5_path.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT),
+      H5Fclose);
+  ASSERT_TRUE(file.valid());
+  const H5ScopedHandle time_series_group(
+      H5Gopen2(file.id, "/time_series", H5P_DEFAULT), H5Gclose);
+  ASSERT_TRUE(time_series_group.valid());
+  const auto ambient_x = read_hdf5_double_dataset(time_series_group.id,
+                                                  "ambient_wind_world_mps_x");
+  const auto ambient_y = read_hdf5_double_dataset(time_series_group.id,
+                                                  "ambient_wind_world_mps_y");
+  const auto ambient_z = read_hdf5_double_dataset(time_series_group.id,
+                                                  "ambient_wind_world_mps_z");
+  ASSERT_EQ(ambient_x.size(), 2U);
+  ASSERT_EQ(ambient_y.size(), 2U);
+  ASSERT_EQ(ambient_z.size(), 2U);
+  EXPECT_DOUBLE_EQ(ambient_x.at(0), -1.0);
+  EXPECT_DOUBLE_EQ(ambient_x.at(1), -3.0);
+  EXPECT_DOUBLE_EQ(ambient_y.at(0), 0.0);
+  EXPECT_DOUBLE_EQ(ambient_y.at(1), 0.0);
+  EXPECT_DOUBLE_EQ(ambient_z.at(0), 0.0);
+  EXPECT_DOUBLE_EQ(ambient_z.at(1), 0.0);
+#endif
+
+  remove_file_if_present(config_path);
   remove_file_if_present(hdf5_path);
 }

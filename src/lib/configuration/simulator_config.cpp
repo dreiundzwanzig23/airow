@@ -109,6 +109,23 @@ std::string format_quaternion(const Quaternion &value) {
 
 std::string format_bool(bool value) { return value ? "true" : "false"; }
 
+std::vector<NormalizedConfigEntry>
+normalize_wind_samples(std::string_view base_path,
+                       const std::vector<WindSample> &samples) {
+  std::vector<NormalizedConfigEntry> entries;
+  entries.reserve(samples.size() * 2U);
+  for (std::size_t index = 0U; index < samples.size(); ++index) {
+    const auto &sample = samples.at(index);
+    const auto prefix =
+        std::string(base_path) + "[" + std::to_string(index) + "]";
+    entries.push_back(
+        {prefix + ".time_s", format_normalized_double(sample.time_s), "s"});
+    entries.push_back({prefix + ".ambient_wind_world_mps",
+                       format_vector3(sample.ambient_wind_world_mps), "m/s"});
+  }
+  return entries;
+}
+
 [[nodiscard]] bool build_has_hdf5_support() noexcept {
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
   return true;
@@ -802,20 +819,144 @@ bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
   return true;
 }
 
+bool validate_environment_mode_selection(std::string_view path,
+                                         int selected_mode_count,
+                                         LoadSimulatorConfigResult &result) {
+  if (selected_mode_count == 0) {
+    result.diagnostics.push_back(
+        make_error("missing_required_field", std::string(path),
+                   "environment must declare one wind input mode"));
+    return false;
+  }
+  if (selected_mode_count > 1) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", std::string(path),
+                   "environment must declare exactly one wind input mode"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_wind_sample_object(const Json &sample,
+                              const std::string &sample_path,
+                              WindSample &parsed,
+                              LoadSimulatorConfigResult &result) {
+  if (!sample.is_object()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", sample_path, "expected object"));
+    return false;
+  }
+
+  return require_non_negative_field(sample, "time_s", sample_path + ".time_s",
+                                    "time_s", parsed.time_s, result) &&
+         require_vector3_field(sample, "ambient_wind_world_mps",
+                               sample_path + ".ambient_wind_world_mps",
+                               "ambient_wind_world_mps",
+                               parsed.ambient_wind_world_mps, result);
+}
+
+bool validate_wind_sample_time(std::size_t index, double time_s,
+                               double previous_time_s,
+                               const std::string &sample_path,
+                               LoadSimulatorConfigResult &result) {
+  if (index == 0U && time_s != 0.0) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", sample_path + ".time_s",
+                   "first wind sample must start at 0.0 s"));
+    return false;
+  }
+  if (index > 0U && time_s <= previous_time_s) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", sample_path + ".time_s",
+                   "wind sample times must be strictly increasing"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_wind_samples_field(const Json &environment, std::string_view key,
+                              std::string_view path,
+                              std::vector<WindSample> &target,
+                              LoadSimulatorConfigResult &result) {
+  const auto &field = environment.at(key);
+  if (!field.is_array()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected array"));
+    return false;
+  }
+  if (field.empty()) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", std::string(path),
+                   "at least one wind sample is required"));
+    return false;
+  }
+
+  target.clear();
+  target.reserve(field.size());
+  double previous_time_s = -1.0;
+  for (std::size_t index = 0U; index < field.size(); ++index) {
+    const auto sample_path =
+        std::string(path) + "[" + std::to_string(index) + "]";
+    WindSample parsed;
+    if (!parse_wind_sample_object(field.at(index), sample_path, parsed,
+                                  result) ||
+        !validate_wind_sample_time(index, parsed.time_s, previous_time_s,
+                                   sample_path, result)) {
+      return false;
+    }
+    target.push_back(parsed);
+    previous_time_s = parsed.time_s;
+  }
+  return true;
+}
+
+/**
+ * @design D-047 — Time-varying wind input schema and normalization
+ * @title Deterministic environment-schema validation for constant, replayed,
+ * and authored world-frame ambient wind inputs
+ * @satisfies [A-001]
+ */
 bool parse_environment_settings(const Json &root, SimulatorConfig &config,
                                 LoadSimulatorConfigResult &result) {
   config.environment.ambient_wind_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0};
+  config.environment.wind_time_series.clear();
+  config.environment.wind_profile.clear();
   if (!root.contains("environment")) {
     return true;
   }
 
   const Json *environment =
       require_object(root, "environment", "$.environment", result);
-  return environment != nullptr &&
-         require_vector3_field(
-             *environment, "ambient_wind_world_mps",
-             "$.environment.ambient_wind_world_mps", "ambient_wind_world_mps",
-             config.environment.ambient_wind_world_mps, result);
+  if (environment == nullptr) {
+    return false;
+  }
+
+  const bool has_constant = environment->contains("ambient_wind_world_mps");
+  const bool has_time_series = environment->contains("wind_time_series");
+  const bool has_profile = environment->contains("wind_profile");
+  const int selected_mode_count = static_cast<int>(has_constant) +
+                                  static_cast<int>(has_time_series) +
+                                  static_cast<int>(has_profile);
+  if (!validate_environment_mode_selection("$.environment", selected_mode_count,
+                                           result)) {
+    return false;
+  }
+
+  if (has_constant) {
+    return require_vector3_field(
+        *environment, "ambient_wind_world_mps",
+        "$.environment.ambient_wind_world_mps", "ambient_wind_world_mps",
+        config.environment.ambient_wind_world_mps, result);
+  }
+
+  if (has_time_series) {
+    return parse_wind_samples_field(
+        *environment, "wind_time_series", "$.environment.wind_time_series",
+        config.environment.wind_time_series, result);
+  }
+  return parse_wind_samples_field(*environment, "wind_profile",
+                                  "$.environment.wind_profile",
+                                  config.environment.wind_profile, result);
 }
 
 bool parse_provider_selection_field(const Json &providers, std::string_view key,
@@ -1068,7 +1209,7 @@ bool parse_output_settings(const Json &root, SimulatorConfig &config,
  */
 std::vector<NormalizedConfigEntry>
 normalize_simulator_config(const SimulatorConfig &config) {
-  return {
+  auto entries = std::vector<NormalizedConfigEntry>{
       {"$.config_id", config.config_id, ""},
       {"$.simulation.duration_s",
        format_normalized_double(config.simulation.duration_s), "s"},
@@ -1123,8 +1264,6 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.stroke.drive_blade_depth_m), "m"},
       {"$.stroke.recovery_blade_depth_m",
        format_normalized_double(config.stroke.recovery_blade_depth_m), "m"},
-      {"$.environment.ambient_wind_world_mps",
-       format_vector3(config.environment.ambient_wind_world_mps), "m/s"},
       {"$.providers.hull_resistance", config.providers.hull_resistance, ""},
       {"$.providers.blade_force", config.providers.blade_force, ""},
       {"$.providers.aero_load", config.providers.aero_load, ""},
@@ -1136,6 +1275,21 @@ normalize_simulator_config(const SimulatorConfig &config) {
       {"$.output.high_frequency_time_series",
        format_bool(config.output.high_frequency_time_series), "bool"},
   };
+
+  if (!config.environment.wind_time_series.empty()) {
+    auto wind_entries = normalize_wind_samples(
+        "$.environment.wind_time_series", config.environment.wind_time_series);
+    entries.insert(entries.end(), wind_entries.begin(), wind_entries.end());
+  } else if (!config.environment.wind_profile.empty()) {
+    auto wind_entries = normalize_wind_samples("$.environment.wind_profile",
+                                               config.environment.wind_profile);
+    entries.insert(entries.end(), wind_entries.begin(), wind_entries.end());
+  } else {
+    entries.push_back(
+        {"$.environment.ambient_wind_world_mps",
+         format_vector3(config.environment.ambient_wind_world_mps), "m/s"});
+  }
+  return entries;
 }
 
 /**

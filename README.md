@@ -95,6 +95,11 @@ Run one case with the human-readable compact report:
 ./build/project_app --config /path/to/config.json --report compact
 ```
 
+Run one ordered batch job from the same entry point:
+```bash
+./build/project_app --config /path/to/batch.json
+```
+
 Runnable example catalog:
 ```bash
 ./examples/run_example.sh passive_float
@@ -144,8 +149,12 @@ Current implemented library surface:
 - structured hydro force or moment vectors, final passive-float equilibrium
   diagnostics, and explicit blade-immersion or blade-tip-velocity channels in
   runtime outputs
-- explicit world-frame ambient-wind configuration plus structured
-  apparent-wind and aerodynamic-moment channels in runtime outputs
+- explicit world-frame ambient-wind configuration plus replay-oriented
+  `wind_time_series` and authored `wind_profile` inputs, with structured
+  ambient-wind, apparent-wind, and aerodynamic-moment channels in runtime
+  outputs
+- top-level ordered batch execution with per-case override objects, stable
+  per-case result records, and deterministic batch-summary artifact emission
 - output-format selection (`json`, `hdf5`, or both) with deterministic
   configuration rejection when HDF5 is requested but unavailable in the build
 - configuration-controlled high-frequency time-series emission
@@ -207,10 +216,12 @@ Current implementation status:
 - the `v0.1` roadmap cut line is complete at the requirement level,
 - `A-001 Configuration and Validation` is now in progress with a real public
   contract for deterministic JSON loading and validation of mechanics-startup
-  inputs plus the top-level built-in provider-selection schema,
+  inputs plus the top-level built-in provider-selection schema and ordered
+  batch container,
 - `A-002 Simulation Orchestrator` is now in progress with a shared single-run
-  path for CLI and in-memory execution plus config-driven built-in provider
-  construction when injected seams are absent,
+  path for CLI and in-memory execution, config-driven built-in provider
+  construction when injected seams are absent, and a closed sequential batch
+  packet that reuses that same shared run path,
 - `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
   Advancement` are now in progress through a closed composed-backend slice:
   the shared standard runtime prefers `chrono_rigidbody + sundials_ida`,
@@ -221,15 +232,16 @@ Current implementation status:
   shared run path,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
-  metadata propagation, and optional HDF5 parity behind the same output
-  contract,
+  metadata propagation, optional HDF5 parity behind the same output contract,
+  and deterministic batch-summary artifact emission for ordered multi-case
+  jobs,
 - `A-005 Aero Runtime Models` is now in progress with the first steady-wind
   apparent-wind and aerodynamic-load slice, runtime-selectable built-in
   provider wiring, and an in-place steady-wind fidelity refinement on the
   existing built-in aero id,
 - `A-008 Scenario Harness and Validation` is now in progress with a public
   scenario-harness API and runtime-backed passive-float/tow/calm-water/
-  headwind/crosswind `QT-*` evidence,
+  headwind/crosswind/gust-headwind `QT-*` evidence,
 - bootstrap-only placeholder code has been removed from the compiled targets,
 - richer runtime provider fidelity is now in progress on the existing
   `A-004` and `A-005` seams through in-place hydro and steady-wind aero
@@ -238,6 +250,77 @@ Current implementation status:
   provider work through split mechanics and integration backend selection,
   a preferred Chrono plus SUNDIALS standard runtime, and explicit fallback
   pairs rather than mixing backend adoption into provider-selection work.
+
+Time-varying wind config uses an exclusive one-of contract under
+`environment`:
+
+```json
+{
+  "environment": {
+    "ambient_wind_world_mps": [-2.0, 0.0, 0.0]
+  }
+}
+```
+
+```json
+{
+  "environment": {
+    "wind_time_series": [
+      { "time_s": 0.0, "ambient_wind_world_mps": [-0.5, 0.0, 0.0] },
+      { "time_s": 1.0, "ambient_wind_world_mps": [-1.5, 0.0, 0.0] }
+    ]
+  }
+}
+```
+
+```json
+{
+  "environment": {
+    "wind_profile": [
+      { "time_s": 0.0, "ambient_wind_world_mps": [-0.1, 0.0, 0.0] },
+      { "time_s": 1.2, "ambient_wind_world_mps": [-0.3, 0.0, 0.0] }
+    ]
+  }
+}
+```
+
+`wind_time_series` replays samples with zero-order hold, while `wind_profile`
+linearly interpolates between keyframes. Mixing these modes in one config is
+rejected deterministically.
+
+Batch jobs add one top-level `batch` container around the shared base run
+definition:
+
+```json
+{
+  "config_id": "baseline-sweep",
+  "simulation": {
+    "duration_s": 2.0,
+    "time_step_s": 0.5
+  },
+  "batch": {
+    "summary_path": "results/batch-summary.json",
+    "cases": [
+      { "case_id": "baseline" },
+      {
+        "case_id": "gusty",
+        "overrides": {
+          "environment": {
+            "wind_profile": [
+              { "time_s": 0.0, "ambient_wind_world_mps": [-0.1, 0.0, 0.0] },
+              { "time_s": 1.0, "ambient_wind_world_mps": [-0.4, 0.0, 0.0] }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+Each case gets a derived config id, isolated artifact paths, and a separate
+status record in the batch summary. Human-readable `--report` modes remain
+single-run only.
 
 ## Validation Lanes
 

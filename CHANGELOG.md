@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 ### Changed
+- Closed Slice 4C as the deterministic batch-orchestration packet: public
+  config can now define a top-level `batch` container with ordered cases and
+  per-case override objects over one shared base run, the headless CLI now
+  auto-detects batch configs, each case executes sequentially through the
+  shared single-run path with isolated per-case success or failure records and
+  suffixed artifact paths, machine-readable output now includes one
+  deterministic batch-summary artifact with ordered per-case ids, statuses,
+  metrics, diagnostics, and artifact locations, and `R-025` is closed with
+  direct evidence (`D-049`, `D-050`, `D-051`, `UT-261..UT-289`, `IT-025`,
+  `QT-040`).
+- Closed Slice 4B as the deterministic time-varying ambient-wind packet: the
+  public config now accepts exactly one of legacy `ambient_wind_world_mps`,
+  replay-oriented `wind_time_series`, or authored `wind_profile`; sampled
+  series use zero-order hold, keyframe profiles use deterministic linear
+  interpolation, constant series or profile inputs preserve steady-wind load
+  parity, JSON and HDF5 outputs now record the effective
+  `ambient_wind_world_mps` channel, and the checked-in
+  `gust_headwind_stroke` scenario adds the first non-constant requirement-level
+  regression evidence (`D-047`, `D-048`, `UT-245..UT-254`, `IT-024`,
+  `QT-039`).
 - Closed Slice 4A as the first `A-009` packet: the shared run path now
   supports deterministic file-backed calibration artifact loading, enforces
   required provenance fields (`source_id`, `artifact_version`,

@@ -90,8 +90,17 @@ struct StrokeSettings {
   bool operator==(const StrokeSettings &) const = default;
 };
 
+struct WindSample {
+  double time_s{};
+  Vector3 ambient_wind_world_mps;
+
+  bool operator==(const WindSample &) const = default;
+};
+
 struct EnvironmentSettings {
   Vector3 ambient_wind_world_mps;
+  std::vector<WindSample> wind_time_series;
+  std::vector<WindSample> wind_profile;
 
   bool operator==(const EnvironmentSettings &) const = default;
 };

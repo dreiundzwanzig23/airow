@@ -270,3 +270,74 @@ TEST(WindScenarioSystem, HeadwindScenarioEmitsFiniteWindChannels) {
 
   clear_output_artifacts(result);
 }
+
+/**
+ * @test QT-039
+ * @verifies [R-004, R-015, R-023]
+ * @notes Given a checked-in gusting headwind scenario with non-constant wind
+ * input, when the shared run path executes it twice on the same executable
+ * with fixed clocks and built-in providers, then both runs match exactly and
+ * the emitted ambient-wind channel changes over the scenario.
+ */
+TEST(WindScenarioSystem, GustHeadwindScenarioReplaysDeterministically) {
+  const auto loaded = project::load_scenario_definition_file(
+      scenario_path("gust_headwind_stroke.json"));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  auto hydro_first = make_hydro_provider(*loaded.scenario);
+  auto aero_first = make_aero_provider(*loaded.scenario);
+  auto hydro_second = make_hydro_provider(*loaded.scenario);
+  auto aero_second = make_aero_provider(*loaded.scenario);
+  FixedClock first_clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 16h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 16h + 1s});
+  FixedClock second_clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 16h + 2min,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 16h + 2min +
+           1s});
+
+  const auto first_result = project::run_simulation(
+      loaded.scenario->config, project::SimulationDependencies{
+                                   .hydro_provider = &hydro_first,
+                                   .aero_provider = &aero_first,
+                                   .clock = &first_clock,
+                               });
+  const auto second_result = project::run_simulation(
+      loaded.scenario->config, project::SimulationDependencies{
+                                   .hydro_provider = &hydro_second,
+                                   .aero_provider = &aero_second,
+                                   .clock = &second_clock,
+                               });
+
+  ASSERT_TRUE(first_result.ok());
+  ASSERT_TRUE(second_result.ok());
+  EXPECT_TRUE(
+      project::evaluate_scenario_result(*loaded.scenario, first_result).ok());
+  EXPECT_TRUE(
+      project::evaluate_scenario_result(*loaded.scenario, second_result).ok());
+  EXPECT_EQ(first_result.summary, second_result.summary);
+  EXPECT_EQ(first_result.load_history, second_result.load_history);
+
+  const auto time_series =
+      read_json_file(first_result.outputs.time_series_path);
+  const auto &records = time_series.at("records");
+  ASSERT_EQ(records.size(), 2U);
+  EXPECT_EQ(records.at(0).at("ambient_wind_world_mps").at("vector").at("frame"),
+            "world");
+  EXPECT_NE(records.at(0)
+                .at("ambient_wind_world_mps")
+                .at("vector")
+                .at("value")
+                .at(0)
+                .get<double>(),
+            records.at(1)
+                .at("ambient_wind_world_mps")
+                .at("vector")
+                .at("value")
+                .at(0)
+                .get<double>());
+
+  clear_output_artifacts(first_result);
+  clear_output_artifacts(second_result);
+}

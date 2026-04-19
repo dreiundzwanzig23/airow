@@ -29,8 +29,8 @@ struct SteadyWindAeroCalibrationCoefficients {
   double drag_coefficient_n_s2_per_m2{};
   double yaw_moment_coefficient_n_m_s2_per_m2{};
 
-  bool operator==(const SteadyWindAeroCalibrationCoefficients &) const =
-      default;
+  bool
+  operator==(const SteadyWindAeroCalibrationCoefficients &) const = default;
 };
 
 struct CalibrationArtifact {

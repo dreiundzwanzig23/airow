@@ -26,9 +26,8 @@ constexpr std::string_view STEADY_WIND_AERO_SCHEMA_ID =
  * provider-facing coefficient extraction for the first `A-009` slice
  * @satisfies [A-009]
  */
-CalibrationArtifactDiagnostic make_diagnostic(std::string code,
-                                              std::string path,
-                                              std::string message) {
+CalibrationArtifactDiagnostic
+make_diagnostic(std::string code, std::string path, std::string message) {
   return {
       .code = std::move(code),
       .path = std::move(path),
@@ -106,9 +105,8 @@ bool require_positive_number_field(const Json &root, std::string_view key,
   return true;
 }
 
-bool parse_steady_wind_schema(
-    const Json &root, CalibrationArtifact &artifact,
-    LoadCalibrationArtifactResult &result) {
+bool parse_steady_wind_schema(const Json &root, CalibrationArtifact &artifact,
+                              LoadCalibrationArtifactResult &result) {
   const Json *aero = require_object(root, "aero", "$.aero", result);
   if (aero == nullptr) {
     return false;
@@ -169,10 +167,10 @@ parse_calibration_artifact_text(std::string_view json_text,
   }
 
   if (artifact.provenance.schema_id != STEADY_WIND_AERO_SCHEMA_ID) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.schema_id",
-        "unsupported calibration schema '" + artifact.provenance.schema_id +
-            "'"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.schema_id",
+                        "unsupported calibration schema '" +
+                            artifact.provenance.schema_id + "'"));
     return result;
   }
 

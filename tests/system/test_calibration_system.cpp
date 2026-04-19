@@ -148,9 +148,9 @@ std::string make_calibrated_config_json(std::string_view config_id,
  * emitted summary records the artifact identifiers used during the run.
  */
 TEST(CalibrationSystem, CliEmitsImportedCalibrationArtifactMetadata) {
-  const auto artifact_path = write_temp_file(
-      "airow-qt-calibration-artifact.json",
-      R"({
+  const auto artifact_path =
+      write_temp_file("airow-qt-calibration-artifact.json",
+                      R"({
         "schema_id": "steady_wind_aero_calibration.v1",
         "source_id": "wind-tunnel-qt",
         "artifact_version": "2026-04-19",
@@ -162,18 +162,18 @@ TEST(CalibrationSystem, CliEmitsImportedCalibrationArtifactMetadata) {
           }
         }
       })");
-  const auto summary_path =
-      std::filesystem::temp_directory_path() / "airow-qt-calibration-summary.json";
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-qt-calibration-summary.json";
   const auto time_series_path = std::filesystem::temp_directory_path() /
                                 "airow-qt-calibration-timeseries.json";
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
 
-  const auto config_path = write_temp_file(
-      "airow-qt-calibration-config.json",
-      make_calibrated_config_json("qt-calibration", summary_path.string(),
-                                  time_series_path.string(),
-                                  artifact_path.string()));
+  const auto config_path =
+      write_temp_file("airow-qt-calibration-config.json",
+                      make_calibrated_config_json(
+                          "qt-calibration", summary_path.string(),
+                          time_series_path.string(), artifact_path.string()));
   const auto stdout_path =
       std::filesystem::temp_directory_path() / "airow-qt-calibration.stdout";
   const auto stderr_path =
@@ -189,7 +189,10 @@ TEST(CalibrationSystem, CliEmitsImportedCalibrationArtifactMetadata) {
   const Json summary = Json::parse(read_file(summary_path));
   const auto &artifacts = summary.at("metadata").at("external_artifacts");
   ASSERT_EQ(artifacts.size(), 1U);
-  EXPECT_EQ(summary.at("metadata").at("providers").at("aero_load").at("id")
+  EXPECT_EQ(summary.at("metadata")
+                .at("providers")
+                .at("aero_load")
+                .at("id")
                 .get<std::string>(),
             "steady_wind_calibrated");
   EXPECT_EQ(artifacts.front().at("source_id").get<std::string>(),

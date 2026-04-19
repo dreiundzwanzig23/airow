@@ -21,7 +21,9 @@
 #include <ctime>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
+#include <ios>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -30,9 +32,14 @@
 #include <utility>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+
 namespace project {
 
 namespace {
+
+using Json = nlohmann::json;
 
 #ifndef PROJECT_VERSION_STRING
 #define PROJECT_VERSION_STRING "0.0.0"
@@ -41,6 +48,21 @@ namespace {
 constexpr double DEFAULT_STEADY_WIND_DRAG_COEFFICIENT_N_S2_PER_M2 = 1.5;
 constexpr double DEFAULT_STEADY_WIND_YAW_MOMENT_COEFFICIENT_N_M_S2_PER_M2 =
     0.75;
+
+struct BatchDefinitionCase {
+  std::string case_id;
+  Json overrides;
+};
+
+struct LoadedBatchDefinition {
+  std::string batch_id;
+  std::string summary_path;
+  Json base_config_json;
+  std::vector<BatchDefinitionCase> cases;
+  std::vector<RunDiagnostic> diagnostics;
+
+  [[nodiscard]] bool ok() const noexcept { return diagnostics.empty(); }
+};
 
 /**
  * @design D-033 — Built-in runtime provider composition and factory binding
@@ -135,6 +157,63 @@ format_aero_provider_label(const ProviderSelectionMetadata &metadata) {
 
 Vector3 sum_vectors(const Vector3 &lhs, const Vector3 &rhs) {
   return {.x = lhs.x + rhs.x, .y = lhs.y + rhs.y, .z = lhs.z + rhs.z};
+}
+
+std::string sanitize_identifier(std::string_view value) {
+  std::string sanitized;
+  sanitized.reserve(value.size());
+  for (const char ch : value) {
+    if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+        (ch >= '0' && ch <= '9') || ch == '-' || ch == '_') {
+      sanitized.push_back(ch);
+    } else {
+      sanitized.push_back('_');
+    }
+  }
+  if (sanitized.empty()) {
+    return "case";
+  }
+  return sanitized;
+}
+
+std::string derived_case_config_id(std::string_view batch_id,
+                                   std::string_view case_id) {
+  return std::string(batch_id) + "__" + std::string(case_id);
+}
+
+std::filesystem::path suffixed_output_path(const std::filesystem::path &path,
+                                           std::string_view case_id) {
+  if (path.empty()) {
+    return path;
+  }
+  const auto stem = path.stem().string();
+  const auto extension = path.extension().string();
+  const auto file_name = stem + "-" + sanitize_identifier(case_id) + extension;
+  if (path.has_parent_path()) {
+    return path.parent_path() / file_name;
+  }
+  return {file_name};
+}
+
+void isolate_case_outputs(std::string_view case_id, SimulatorConfig &config) {
+  if (!config.output.summary_path.empty()) {
+    config.output.summary_path =
+        suffixed_output_path(std::filesystem::path(config.output.summary_path),
+                             case_id)
+            .string();
+  }
+  if (!config.output.time_series_path.empty()) {
+    config.output.time_series_path =
+        suffixed_output_path(
+            std::filesystem::path(config.output.time_series_path), case_id)
+            .string();
+  }
+  if (!config.output.hdf5_path.empty()) {
+    config.output.hdf5_path =
+        suffixed_output_path(std::filesystem::path(config.output.hdf5_path),
+                             case_id)
+            .string();
+  }
 }
 
 class CompositeHydroProvider final : public HydroProvider {
@@ -313,6 +392,13 @@ std::string format_timestamp(std::chrono::system_clock::time_point instant) {
   return stream.str();
 }
 
+std::string current_timestamp(const SimulationDependencies &dependencies) {
+  const auto instant = dependencies.clock != nullptr
+                           ? dependencies.clock->now_utc()
+                           : std::chrono::system_clock::now();
+  return format_timestamp(instant);
+}
+
 bool vector_is_finite(const Vector3 &value) {
   return std::isfinite(value.x) && std::isfinite(value.y) &&
          std::isfinite(value.z);
@@ -458,6 +544,59 @@ Vector3 apparent_wind_world(const StepContext &context,
   };
 }
 
+Vector3 interpolate_vector3(const Vector3 &start, const Vector3 &finish,
+                            double alpha) {
+  return {
+      .x = start.x + (finish.x - start.x) * alpha,
+      .y = start.y + (finish.y - start.y) * alpha,
+      .z = start.z + (finish.z - start.z) * alpha,
+  };
+}
+
+/**
+ * @design D-048 — Shared time-varying ambient wind sampling
+ * @title Deterministic orchestration-time sampling for constant, replayed, and
+ * keyframed ambient wind inputs on the shared run path
+ * @satisfies [A-002]
+ */
+Vector3 sampled_ambient_wind_world_mps(const EnvironmentSettings &environment,
+                                       double time_s) {
+  if (!environment.wind_time_series.empty()) {
+    Vector3 selected =
+        environment.wind_time_series.front().ambient_wind_world_mps;
+    for (const auto &sample : environment.wind_time_series) {
+      if (sample.time_s > time_s) {
+        break;
+      }
+      selected = sample.ambient_wind_world_mps;
+    }
+    return selected;
+  }
+
+  if (!environment.wind_profile.empty()) {
+    if (environment.wind_profile.size() == 1U ||
+        time_s <= environment.wind_profile.front().time_s) {
+      return environment.wind_profile.front().ambient_wind_world_mps;
+    }
+
+    for (std::size_t index = 1U; index < environment.wind_profile.size();
+         ++index) {
+      const auto &previous = environment.wind_profile.at(index - 1U);
+      const auto &current = environment.wind_profile.at(index);
+      if (time_s <= current.time_s) {
+        const double span_s = current.time_s - previous.time_s;
+        const double alpha =
+            span_s > 0.0 ? (time_s - previous.time_s) / span_s : 0.0;
+        return interpolate_vector3(previous.ambient_wind_world_mps,
+                                   current.ambient_wind_world_mps, alpha);
+      }
+    }
+    return environment.wind_profile.back().ambient_wind_world_mps;
+  }
+
+  return environment.ambient_wind_world_mps;
+}
+
 bool aero_load_is_finite(const AeroLoadSample &load) {
   return vector_is_finite(load.apparent_wind_world_mps) &&
          vector_is_finite(load.force_world_n) &&
@@ -533,6 +672,8 @@ bool advance_one_step(const SimulatorConfig &config,
                       SimulationRunResult &result,
                       MechanicalStateSnapshot &state) {
   const StepContext context{.time_s = state.time_s, .state = state};
+  const Vector3 ambient_wind_world_mps =
+      sampled_ambient_wind_world_mps(config.environment, state.time_s);
   HydroLoadSample hydro_load;
   AeroLoadSample aero_load;
   if (!sample_hydro_load(hydro_provider, context,
@@ -540,8 +681,7 @@ bool advance_one_step(const SimulatorConfig &config,
                          result, hydro_load) ||
       !sample_aero_load(aero_provider, context,
                         format_aero_provider_label(result.metadata.providers),
-                        config.environment.ambient_wind_world_mps, result,
-                        aero_load)) {
+                        ambient_wind_world_mps, result, aero_load)) {
     return false;
   }
   result.load_history.push_back(LoadSample{
@@ -560,6 +700,7 @@ bool advance_one_step(const SimulatorConfig &config,
       .port_blade_immersion_depth_m = hydro_load.port_blade_immersion_depth_m,
       .starboard_blade_immersion_depth_m =
           hydro_load.starboard_blade_immersion_depth_m,
+      .ambient_wind_world_mps = ambient_wind_world_mps,
       .apparent_wind_world_mps = aero_load.apparent_wind_world_mps,
       .aero_force_world_n = aero_load.force_world_n,
       .aero_moment_world_n_m = aero_load.moment_world_n_m,
@@ -652,6 +793,313 @@ void finalize_summary(SimulationRunResult &result,
   }
 }
 
+RunDiagnostic make_batch_configuration_diagnostic(std::string code,
+                                                  std::string path,
+                                                  std::string message) {
+  return {
+      .code = std::move(code),
+      .subsystem = "configuration",
+      .path = std::move(path),
+      .message = std::move(message),
+  };
+}
+
+bool append_batch_definition_diagnostic(LoadedBatchDefinition &loaded,
+                                        std::string code, std::string path,
+                                        std::string message) {
+  loaded.diagnostics.push_back(make_batch_configuration_diagnostic(
+      std::move(code), std::move(path), std::move(message)));
+  return false;
+}
+
+std::optional<Json>
+load_json_document(const std::filesystem::path &path,
+                   std::vector<RunDiagnostic> &diagnostics) {
+  const std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    diagnostics.push_back(make_batch_configuration_diagnostic(
+        "file_read_failed", "$",
+        "failed to open configuration file '" + path.string() + "'"));
+    return std::nullopt;
+  }
+
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+
+  try {
+    return Json::parse(buffer.str());
+  } catch (const Json::parse_error &error) {
+    diagnostics.push_back(make_batch_configuration_diagnostic(
+        "invalid_json", "$",
+        "invalid JSON in configuration file '" + path.string() +
+            "': " + error.what()));
+    return std::nullopt;
+  }
+}
+
+std::optional<std::string>
+required_string_member(const Json &object, std::string_view key,
+                       std::string_view path, LoadedBatchDefinition &loaded) {
+  if (!object.contains(key)) {
+    append_batch_definition_diagnostic(loaded, "missing_required_field",
+                                       std::string(path),
+                                       "missing required field");
+    return std::nullopt;
+  }
+  if (!object.at(key).is_string()) {
+    append_batch_definition_diagnostic(loaded, "invalid_type",
+                                       std::string(path), "expected string");
+    return std::nullopt;
+  }
+  return object.at(key).get<std::string>();
+}
+
+const Json *required_object_member(const Json &object, std::string_view key,
+                                   std::string_view path,
+                                   LoadedBatchDefinition &loaded,
+                                   std::string_view missing_message) {
+  if (!object.contains(key)) {
+    append_batch_definition_diagnostic(loaded, "missing_required_field",
+                                       std::string(path),
+                                       std::string(missing_message));
+    return nullptr;
+  }
+  if (!object.at(key).is_object()) {
+    append_batch_definition_diagnostic(loaded, "invalid_type",
+                                       std::string(path), "expected object");
+    return nullptr;
+  }
+  return &object.at(key);
+}
+
+const Json *required_array_member(const Json &object, std::string_view key,
+                                  std::string_view path,
+                                  LoadedBatchDefinition &loaded) {
+  if (!object.contains(key)) {
+    append_batch_definition_diagnostic(loaded, "missing_required_field",
+                                       std::string(path),
+                                       "missing required field");
+    return nullptr;
+  }
+  if (!object.at(key).is_array()) {
+    append_batch_definition_diagnostic(loaded, "invalid_type",
+                                       std::string(path), "expected array");
+    return nullptr;
+  }
+  return &object.at(key);
+}
+
+bool load_batch_summary_path(const Json &batch, LoadedBatchDefinition &loaded) {
+  if (!batch.contains("summary_path")) {
+    return true;
+  }
+  if (!batch.at("summary_path").is_string()) {
+    return append_batch_definition_diagnostic(
+        loaded, "invalid_type", "$.batch.summary_path", "expected string");
+  }
+  loaded.summary_path = batch.at("summary_path").get<std::string>();
+  return true;
+}
+
+bool append_batch_case_definition(const Json &case_value, std::size_t index,
+                                  std::vector<std::string> &seen_case_ids,
+                                  LoadedBatchDefinition &loaded) {
+  const auto case_path = "$.batch.cases[" + std::to_string(index) + "]";
+  if (!case_value.is_object()) {
+    return append_batch_definition_diagnostic(loaded, "invalid_type", case_path,
+                                              "expected object");
+  }
+
+  const auto case_id = required_string_member(case_value, "case_id",
+                                              case_path + ".case_id", loaded);
+  if (!case_id.has_value()) {
+    return false;
+  }
+  if (case_id->empty()) {
+    return append_batch_definition_diagnostic(loaded, "invalid_value",
+                                              case_path + ".case_id",
+                                              "case_id must not be empty");
+  }
+  if (std::find(seen_case_ids.begin(), seen_case_ids.end(), *case_id) !=
+      seen_case_ids.end()) {
+    return append_batch_definition_diagnostic(
+        loaded, "duplicate_value", case_path + ".case_id",
+        "duplicate case_id '" + *case_id + "'");
+  }
+
+  Json overrides = Json::object();
+  if (case_value.contains("overrides")) {
+    if (!case_value.at("overrides").is_object()) {
+      return append_batch_definition_diagnostic(
+          loaded, "invalid_type", case_path + ".overrides", "expected object");
+    }
+    overrides = case_value.at("overrides");
+  }
+
+  seen_case_ids.push_back(*case_id);
+  loaded.cases.push_back(BatchDefinitionCase{
+      .case_id = *case_id,
+      .overrides = std::move(overrides),
+  });
+  return true;
+}
+
+/**
+ * @design D-049 — File-backed batch-definition loading
+ * @title Deterministic batch container validation and ordered case-override
+ * extraction ahead of shared single-run execution
+ * @satisfies [A-001, A-002]
+ */
+LoadedBatchDefinition
+load_batch_definition_file(const std::filesystem::path &path) {
+  LoadedBatchDefinition loaded;
+  const auto document = load_json_document(path, loaded.diagnostics);
+  if (!document.has_value()) {
+    return loaded;
+  }
+  if (!document->is_object()) {
+    loaded.diagnostics.push_back(make_batch_configuration_diagnostic(
+        "invalid_type", "$", "expected object"));
+    return loaded;
+  }
+
+  const auto &root = *document;
+  const auto batch_id =
+      required_string_member(root, "config_id", "$.config_id", loaded);
+  if (!batch_id.has_value()) {
+    return loaded;
+  }
+  loaded.batch_id = *batch_id;
+
+  const auto *batch = required_object_member(root, "batch", "$.batch", loaded,
+                                             "missing required object field");
+  if (batch == nullptr) {
+    return loaded;
+  }
+
+  if (!load_batch_summary_path(*batch, loaded)) {
+    return loaded;
+  }
+
+  const auto *cases =
+      required_array_member(*batch, "cases", "$.batch.cases", loaded);
+  if (cases == nullptr) {
+    return loaded;
+  }
+  if (cases->empty()) {
+    append_batch_definition_diagnostic(
+        loaded, "invalid_value", "$.batch.cases",
+        "batch.cases must contain at least one case");
+    return loaded;
+  }
+
+  loaded.base_config_json = root;
+  loaded.base_config_json.erase("batch");
+
+  std::vector<std::string> seen_case_ids;
+  for (std::size_t index = 0; index < cases->size(); ++index) {
+    if (!append_batch_case_definition(cases->at(index), index, seen_case_ids,
+                                      loaded)) {
+      return loaded;
+    }
+  }
+  return loaded;
+}
+
+SimulationRunResult make_case_configuration_error_result(
+    std::string config_id, std::string start_timestamp_utc,
+    std::string end_timestamp_utc,
+    const std::vector<ValidationDiagnostic> &diagnostics,
+    const std::vector<NormalizedConfigEntry> &normalized_config) {
+  SimulationRunResult result;
+  result.status = RunStatus::configuration_error;
+  result.metadata.simulator_version = PROJECT_VERSION_STRING;
+  result.metadata.config_id = std::move(config_id);
+  result.metadata.start_timestamp_utc = std::move(start_timestamp_utc);
+  result.metadata.end_timestamp_utc = std::move(end_timestamp_utc);
+  result.metadata.normalized_config = normalized_config;
+  for (const auto &diagnostic : diagnostics) {
+    result.diagnostics.push_back(RunDiagnostic{
+        .code = diagnostic.code,
+        .subsystem = "configuration",
+        .path = diagnostic.path,
+        .message = diagnostic.message,
+    });
+  }
+  return result;
+}
+
+BatchRunSummary
+summarize_batch_cases(const std::vector<BatchCaseResult> &case_results) {
+  BatchRunSummary summary;
+  summary.total_case_count = static_cast<std::uint64_t>(case_results.size());
+  for (const auto &case_result : case_results) {
+    switch (case_result.run_result.status) {
+    case RunStatus::success:
+      ++summary.succeeded_case_count;
+      break;
+    case RunStatus::configuration_error:
+      ++summary.configuration_error_case_count;
+      break;
+    case RunStatus::runtime_error:
+      ++summary.runtime_error_case_count;
+      break;
+    }
+  }
+  return summary;
+}
+
+BatchSimulationResult initialize_batch_result(std::string batch_id,
+                                              std::string start_timestamp_utc) {
+  BatchSimulationResult result;
+  result.status = RunStatus::success;
+  result.batch_id = std::move(batch_id);
+  result.simulator_version = PROJECT_VERSION_STRING;
+  result.start_timestamp_utc = std::move(start_timestamp_utc);
+  return result;
+}
+
+void finalize_batch_status(BatchSimulationResult &result) {
+  result.summary = summarize_batch_cases(result.case_results);
+  if (result.summary.configuration_error_case_count > 0U ||
+      result.summary.runtime_error_case_count > 0U) {
+    result.status = RunStatus::runtime_error;
+  } else {
+    result.status = RunStatus::success;
+  }
+}
+
+BatchCaseResult execute_batch_case(const std::string &batch_id,
+                                   const std::filesystem::path &source_path,
+                                   const BatchDefinitionCase &case_definition,
+                                   const Json &base_config_json,
+                                   const SimulationDependencies &dependencies) {
+  Json resolved = base_config_json;
+  resolved.merge_patch(case_definition.overrides);
+  const auto config_id =
+      derived_case_config_id(batch_id, case_definition.case_id);
+  resolved["config_id"] = config_id;
+
+  const auto loaded =
+      parse_simulator_config_text(resolved.dump(), source_path.string());
+  if (!loaded.ok() || !loaded.config.has_value()) {
+    return BatchCaseResult{
+        .case_id = case_definition.case_id,
+        .run_result = make_case_configuration_error_result(
+            config_id, current_timestamp(dependencies),
+            current_timestamp(dependencies), loaded.diagnostics,
+            loaded.normalized_config),
+    };
+  }
+
+  auto config = loaded.config.value();
+  isolate_case_outputs(case_definition.case_id, config);
+  return BatchCaseResult{
+      .case_id = case_definition.case_id,
+      .run_result = run_simulation(config, dependencies),
+  };
+}
+
 } // namespace
 
 /**
@@ -664,13 +1112,6 @@ void finalize_summary(SimulationRunResult &result,
  */
 SimulationRunResult run_simulation(const SimulatorConfig &config,
                                    const SimulationDependencies &dependencies) {
-  auto current_timestamp = [&]() {
-    const auto instant = dependencies.clock != nullptr
-                             ? dependencies.clock->now_utc()
-                             : std::chrono::system_clock::now();
-    return format_timestamp(instant);
-  };
-
   auto owned_providers = build_runtime_providers(config, dependencies);
   HydroProvider *hydro_provider =
       dependencies.hydro_provider != nullptr
@@ -691,8 +1132,8 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
     result.status = RunStatus::configuration_error;
     result.metadata.simulator_version = PROJECT_VERSION_STRING;
     result.metadata.config_id = config.config_id;
-    result.metadata.start_timestamp_utc = current_timestamp();
-    result.metadata.end_timestamp_utc = current_timestamp();
+    result.metadata.start_timestamp_utc = current_timestamp(dependencies);
+    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
     result.metadata.providers = selected_provider_metadata(config);
     result.metadata.normalized_config = normalize_simulator_config(config);
     result.metadata.external_artifacts =
@@ -706,7 +1147,7 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    * @satisfies [A-002]
    */
   if (selected_advancer == nullptr) {
-    stamp_run_metadata(result, config, current_timestamp(),
+    stamp_run_metadata(result, config, current_timestamp(dependencies),
                        config.simulation.mechanics_backend,
                        config.simulation.integration_backend, false);
     append_runtime_failure(result, "state_advancement",
@@ -717,14 +1158,14 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
                                "' and integration_backend='" +
                                config.simulation.integration_backend +
                                "' is unavailable in this build");
-    result.metadata.end_timestamp_utc = current_timestamp();
+    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
     emit_run_outputs(config, result);
     return result;
   }
 
   auto &advancer = *selected_advancer;
 
-  stamp_run_metadata(result, config, current_timestamp(),
+  stamp_run_metadata(result, config, current_timestamp(dependencies),
                      dependencies.state_advancer != nullptr
                          ? advancer.identifier()
                          : config.simulation.mechanics_backend,
@@ -745,14 +1186,14 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    * @satisfies [A-002, A-010]
    */
   if (!accept_startup_result(result, startup)) {
-    result.metadata.end_timestamp_utc = current_timestamp();
+    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
     emit_run_outputs(config, result);
     return result;
   }
   if (!startup.state.has_value()) {
     append_runtime_failure(result, "startup", "$.startup", "startup_failed",
                            "startup reported success without a state");
-    result.metadata.end_timestamp_utc = current_timestamp();
+    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
     emit_run_outputs(config, result);
     return result;
   }
@@ -776,7 +1217,7 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
   }
 
   finalize_summary(result, state, executed_step_count, initial_x_m);
-  result.metadata.end_timestamp_utc = current_timestamp();
+  result.metadata.end_timestamp_utc = current_timestamp(dependencies);
   emit_run_outputs(config, result);
   return result;
 }
@@ -791,20 +1232,13 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
 SimulationRunResult
 run_simulation_from_config_file(const std::filesystem::path &path,
                                 const SimulationDependencies &dependencies) {
-  auto current_timestamp = [&]() {
-    const auto instant = dependencies.clock != nullptr
-                             ? dependencies.clock->now_utc()
-                             : std::chrono::system_clock::now();
-    return format_timestamp(instant);
-  };
-
   const auto loaded = load_simulator_config_file(path);
   if (!loaded.ok()) {
     SimulationRunResult result;
     result.status = RunStatus::configuration_error;
     result.metadata.simulator_version = PROJECT_VERSION_STRING;
-    result.metadata.start_timestamp_utc = current_timestamp();
-    result.metadata.end_timestamp_utc = current_timestamp();
+    result.metadata.start_timestamp_utc = current_timestamp(dependencies);
+    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
     result.metadata.normalized_config = loaded.normalized_config;
 
     for (const auto &diagnostic : loaded.diagnostics) {
@@ -822,8 +1256,8 @@ run_simulation_from_config_file(const std::filesystem::path &path,
     SimulationRunResult result;
     result.status = RunStatus::configuration_error;
     result.metadata.simulator_version = PROJECT_VERSION_STRING;
-    result.metadata.start_timestamp_utc = current_timestamp();
-    result.metadata.end_timestamp_utc = current_timestamp();
+    result.metadata.start_timestamp_utc = current_timestamp(dependencies);
+    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
     result.diagnostics.push_back(RunDiagnostic{
         .code = "missing_loaded_config",
         .subsystem = "configuration",
@@ -835,6 +1269,67 @@ run_simulation_from_config_file(const std::filesystem::path &path,
   }
 
   return run_simulation(loaded.config.value(), dependencies);
+}
+
+/**
+ * @design D-050 — Ordered batch execution through the shared single-run path
+ * @title Deterministic headless batch orchestration with per-case result
+ * isolation on the existing runtime seam
+ * @satisfies [A-002, A-007]
+ */
+BatchSimulationResult
+run_batch_simulation(const BatchSimulationConfig &config,
+                     const SimulationDependencies &dependencies) {
+  BatchSimulationResult result =
+      initialize_batch_result(config.batch_id, current_timestamp(dependencies));
+  for (const auto &case_config : config.cases) {
+    auto isolated = case_config.config;
+    isolate_case_outputs(case_config.case_id, isolated);
+    result.case_results.push_back(BatchCaseResult{
+        .case_id = case_config.case_id,
+        .run_result = run_simulation(isolated, dependencies),
+    });
+  }
+  finalize_batch_status(result);
+  result.end_timestamp_utc = current_timestamp(dependencies);
+  emit_batch_outputs(config.batch_id, config.summary_path, result);
+  return result;
+}
+
+BatchSimulationResult run_batch_simulation_from_config_file(
+    const std::filesystem::path &path,
+    const SimulationDependencies &dependencies) {
+  const auto loaded = load_batch_definition_file(path);
+  if (!loaded.ok()) {
+    BatchSimulationResult result = initialize_batch_result(
+        loaded.batch_id, current_timestamp(dependencies));
+    result.status = RunStatus::configuration_error;
+    result.diagnostics = loaded.diagnostics;
+    result.end_timestamp_utc = current_timestamp(dependencies);
+    return result;
+  }
+
+  BatchSimulationConfig config{
+      .batch_id = loaded.batch_id,
+      .summary_path = loaded.summary_path,
+      .cases = {},
+  };
+  BatchSimulationResult result =
+      initialize_batch_result(config.batch_id, current_timestamp(dependencies));
+  for (const auto &case_definition : loaded.cases) {
+    result.case_results.push_back(
+        execute_batch_case(loaded.batch_id, path, case_definition,
+                           loaded.base_config_json, dependencies));
+  }
+  config.cases.reserve(result.case_results.size());
+  for (const auto &case_result : result.case_results) {
+    config.cases.push_back(BatchCaseConfig{.case_id = case_result.case_id,
+                                           .config = SimulatorConfig{}});
+  }
+  finalize_batch_status(result);
+  result.end_timestamp_utc = current_timestamp(dependencies);
+  emit_batch_outputs(config.batch_id, config.summary_path, result);
+  return result;
 }
 
 } // namespace project

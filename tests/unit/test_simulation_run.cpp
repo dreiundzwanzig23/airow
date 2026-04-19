@@ -152,6 +152,28 @@ private:
   std::string identifier_;
 };
 
+class ObservingAeroProvider final : public project::AeroProvider {
+public:
+  std::string_view identifier() const noexcept override {
+    return "observing-aero";
+  }
+
+  project::AeroLoadSample
+  sample_load(const project::StepContext &context,
+              const project::Vector3 &ambient_wind_world_mps) override {
+    observed_times_s.push_back(context.time_s);
+    observed_ambient_wind_world_mps.push_back(ambient_wind_world_mps);
+    return {
+        .apparent_wind_world_mps = ambient_wind_world_mps,
+        .force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+    };
+  }
+
+  std::vector<double> observed_times_s;
+  std::vector<project::Vector3> observed_ambient_wind_world_mps;
+};
+
 class RecordingStateAdvancer final : public project::StateAdvancer {
 public:
   std::string_view identifier() const noexcept override {

@@ -44,6 +44,8 @@ using Json = nlohmann::json;
 
 constexpr std::string_view HDF5_SCHEMA_VERSION = "a007-hdf5-v2";
 constexpr std::string_view OUTPUT_SCHEMA_VERSION_V2 = "a007-json-v2";
+constexpr std::string_view BATCH_OUTPUT_SCHEMA_VERSION_V1 =
+    "a007-batch-json-v1";
 
 [[nodiscard]] bool build_has_hdf5_support() noexcept {
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
@@ -110,6 +112,11 @@ std::filesystem::path default_time_series_path(const SimulatorConfig &config) {
 std::filesystem::path default_hdf5_path(const SimulatorConfig &config) {
   return std::filesystem::temp_directory_path() /
          ("airow-" + sanitize_config_id(config.config_id) + ".h5");
+}
+
+std::filesystem::path default_batch_summary_path(std::string_view batch_id) {
+  return std::filesystem::temp_directory_path() /
+         ("airow-" + sanitize_config_id(batch_id) + "-batch-summary.json");
 }
 
 RunDiagnostic make_output_diagnostic(std::string path, std::string message) {
@@ -215,6 +222,18 @@ Json diagnostics_json(const SimulationRunResult &result) {
   return diagnostics;
 }
 
+Json batch_diagnostics_json(
+    const std::vector<RunDiagnostic> &diagnostics_input) {
+  Json diagnostics = Json::array();
+  for (const auto &diagnostic : diagnostics_input) {
+    diagnostics.push_back(Json{{"code", diagnostic.code},
+                               {"subsystem", diagnostic.subsystem},
+                               {"path", diagnostic.path},
+                               {"message", diagnostic.message}});
+  }
+  return diagnostics;
+}
+
 Json analysis_envelope_json(const ScalarEnvelope &envelope,
                             std::string_view unit) {
   return Json{{"min", envelope.min},
@@ -304,6 +323,27 @@ Json output_formats_json(const OutputArtifacts &outputs) {
     formats.push_back("hdf5");
   }
   return formats;
+}
+
+Json batch_case_json(const BatchCaseResult &case_result) {
+  return Json{
+      {"case_id", case_result.case_id},
+      {"config_id", case_result.run_result.metadata.config_id},
+      {"status", run_status_text(case_result.run_result.status)},
+      {"summary",
+       Json{{"final_simulated_time_s",
+             case_result.run_result.summary.final_simulated_time_s},
+            {"executed_step_count",
+             case_result.run_result.summary.executed_step_count},
+            {"distance_m", case_result.run_result.summary.distance_m},
+            {"mean_speed_mps", case_result.run_result.summary.mean_speed_mps}}},
+      {"diagnostics",
+       batch_diagnostics_json(case_result.run_result.diagnostics)},
+      {"outputs",
+       Json{{"summary_path", case_result.run_result.outputs.summary_path},
+            {"time_series_path",
+             case_result.run_result.outputs.time_series_path},
+            {"hdf5_path", case_result.run_result.outputs.hdf5_path}}}};
 }
 
 /**
@@ -441,6 +481,7 @@ Json time_series_record_json(const MechanicalStateSnapshot &state,
   const auto port_blade_load = loads.resolved_port_blade_force_world_n();
   const auto starboard_blade_load =
       loads.resolved_starboard_blade_force_world_n();
+  const auto ambient_wind = loads.ambient_wind_world_mps;
   const auto apparent_wind = loads.apparent_wind_world_mps;
   const auto aero_load = loads.aero_force_world_n;
   const auto aero_moment = loads.aero_moment_world_n_m;
@@ -495,6 +536,8 @@ Json time_series_record_json(const MechanicalStateSnapshot &state,
              Json{{"immersion_depth_m",
                    scalar_channel(loads.starboard_blade_immersion_depth_m,
                                   "m")}}}}},
+      {"ambient_wind_world_mps",
+       Json{{"vector", vector_channel(ambient_wind, "m/s", "world")}}},
       {"apparent_wind_world_mps",
        Json{{"vector", vector_channel(apparent_wind, "m/s", "world")}}},
       {"aerodynamic_load_world_n",
@@ -530,6 +573,30 @@ Json make_time_series_document(const SimulationRunResult &result,
               {"status", run_status_text(result.status)},
               {"high_frequency_time_series", high_frequency_time_series},
               {"records", records}};
+}
+
+Json make_batch_summary_document(const BatchSimulationResult &result) {
+  Json cases = Json::array();
+  for (const auto &case_result : result.case_results) {
+    cases.push_back(batch_case_json(case_result));
+  }
+
+  return Json{
+      {"schema_version", BATCH_OUTPUT_SCHEMA_VERSION_V1},
+      {"batch_id", result.batch_id},
+      {"simulator_version", result.simulator_version},
+      {"status", run_status_text(result.status)},
+      {"start_timestamp_utc", result.start_timestamp_utc},
+      {"end_timestamp_utc", result.end_timestamp_utc},
+      {"summary",
+       Json{{"total_case_count", result.summary.total_case_count},
+            {"succeeded_case_count", result.summary.succeeded_case_count},
+            {"configuration_error_case_count",
+             result.summary.configuration_error_case_count},
+            {"runtime_error_case_count",
+             result.summary.runtime_error_case_count}}},
+      {"diagnostics", batch_diagnostics_json(result.diagnostics)},
+      {"cases", cases}};
 }
 
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
@@ -1087,6 +1154,9 @@ struct Hdf5TimeSeriesChannels {
   std::vector<double> port_blade_immersion_depth_m;
   std::vector<double> starboard_blade_immersion_depth_m;
   std::vector<double> aero_force_x_n;
+  std::vector<double> ambient_wind_world_mps_x;
+  std::vector<double> ambient_wind_world_mps_y;
+  std::vector<double> ambient_wind_world_mps_z;
   std::vector<double> apparent_wind_world_mps_x;
   std::vector<double> apparent_wind_world_mps_y;
   std::vector<double> apparent_wind_world_mps_z;
@@ -1112,77 +1182,88 @@ struct VectorDatasetSpec {
   const std::vector<double> *z;
 };
 
+void reserve_hdf5_time_series_channels(Hdf5TimeSeriesChannels &channels,
+                                       std::size_t sample_count) {
+  channels.time_s.reserve(sample_count);
+  channels.boat_speed_mps.reserve(sample_count);
+  channels.hydro_force_x_n.reserve(sample_count);
+  channels.port_blade_force_x_n.reserve(sample_count);
+  channels.starboard_blade_force_x_n.reserve(sample_count);
+  channels.hydro_force_world_n_x.reserve(sample_count);
+  channels.hydro_force_world_n_y.reserve(sample_count);
+  channels.hydro_force_world_n_z.reserve(sample_count);
+  channels.hydro_moment_world_n_m_x.reserve(sample_count);
+  channels.hydro_moment_world_n_m_y.reserve(sample_count);
+  channels.hydro_moment_world_n_m_z.reserve(sample_count);
+  channels.port_blade_immersion_depth_m.reserve(sample_count);
+  channels.starboard_blade_immersion_depth_m.reserve(sample_count);
+  channels.aero_force_x_n.reserve(sample_count);
+  channels.ambient_wind_world_mps_x.reserve(sample_count);
+  channels.ambient_wind_world_mps_y.reserve(sample_count);
+  channels.ambient_wind_world_mps_z.reserve(sample_count);
+  channels.apparent_wind_world_mps_x.reserve(sample_count);
+  channels.apparent_wind_world_mps_y.reserve(sample_count);
+  channels.apparent_wind_world_mps_z.reserve(sample_count);
+  channels.aero_force_world_n_x.reserve(sample_count);
+  channels.aero_force_world_n_y.reserve(sample_count);
+  channels.aero_force_world_n_z.reserve(sample_count);
+  channels.aero_moment_world_n_m_x.reserve(sample_count);
+  channels.aero_moment_world_n_m_y.reserve(sample_count);
+  channels.aero_moment_world_n_m_z.reserve(sample_count);
+  channels.stroke_power_w.reserve(sample_count);
+  channels.stroke_phase.reserve(sample_count);
+}
+
+void append_hdf5_time_series_sample(Hdf5TimeSeriesChannels &channels,
+                                    const MechanicalStateSnapshot &state,
+                                    const LoadSample &loads) {
+  const auto speed = state.hull.linear_velocity_world_mps.x;
+  channels.time_s.push_back(state.time_s);
+  channels.boat_speed_mps.push_back(speed);
+  channels.hydro_force_x_n.push_back(loads.hydro_force_x_n);
+  channels.port_blade_force_x_n.push_back(loads.port_blade_force_x_n);
+  channels.starboard_blade_force_x_n.push_back(loads.starboard_blade_force_x_n);
+  channels.hydro_force_world_n_x.push_back(
+      loads.resolved_hull_force_world_n().x);
+  channels.hydro_force_world_n_y.push_back(
+      loads.resolved_hull_force_world_n().y);
+  channels.hydro_force_world_n_z.push_back(
+      loads.resolved_hull_force_world_n().z);
+  channels.hydro_moment_world_n_m_x.push_back(loads.hull_moment_world_n_m.x);
+  channels.hydro_moment_world_n_m_y.push_back(loads.hull_moment_world_n_m.y);
+  channels.hydro_moment_world_n_m_z.push_back(loads.hull_moment_world_n_m.z);
+  channels.port_blade_immersion_depth_m.push_back(
+      loads.port_blade_immersion_depth_m);
+  channels.starboard_blade_immersion_depth_m.push_back(
+      loads.starboard_blade_immersion_depth_m);
+  channels.aero_force_x_n.push_back(loads.aero_force_x_n);
+  channels.ambient_wind_world_mps_x.push_back(loads.ambient_wind_world_mps.x);
+  channels.ambient_wind_world_mps_y.push_back(loads.ambient_wind_world_mps.y);
+  channels.ambient_wind_world_mps_z.push_back(loads.ambient_wind_world_mps.z);
+  channels.apparent_wind_world_mps_x.push_back(loads.apparent_wind_world_mps.x);
+  channels.apparent_wind_world_mps_y.push_back(loads.apparent_wind_world_mps.y);
+  channels.apparent_wind_world_mps_z.push_back(loads.apparent_wind_world_mps.z);
+  channels.aero_force_world_n_x.push_back(loads.aero_force_world_n.x);
+  channels.aero_force_world_n_y.push_back(loads.aero_force_world_n.y);
+  channels.aero_force_world_n_z.push_back(loads.aero_force_world_n.z);
+  channels.aero_moment_world_n_m_x.push_back(loads.aero_moment_world_n_m.x);
+  channels.aero_moment_world_n_m_y.push_back(loads.aero_moment_world_n_m.y);
+  channels.aero_moment_world_n_m_z.push_back(loads.aero_moment_world_n_m.z);
+  channels.stroke_power_w.push_back(
+      (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * speed);
+  channels.stroke_phase.push_back(stroke_phase_text(state.stroke.phase));
+}
+
 Hdf5TimeSeriesChannels
 collect_hdf5_time_series_channels(const SimulationRunResult &result,
                                   bool high_frequency_time_series) {
   Hdf5TimeSeriesChannels channels;
   const auto indices = sample_indices(result, high_frequency_time_series);
-  channels.time_s.reserve(indices.size());
-  channels.boat_speed_mps.reserve(indices.size());
-  channels.hydro_force_x_n.reserve(indices.size());
-  channels.port_blade_force_x_n.reserve(indices.size());
-  channels.starboard_blade_force_x_n.reserve(indices.size());
-  channels.hydro_force_world_n_x.reserve(indices.size());
-  channels.hydro_force_world_n_y.reserve(indices.size());
-  channels.hydro_force_world_n_z.reserve(indices.size());
-  channels.hydro_moment_world_n_m_x.reserve(indices.size());
-  channels.hydro_moment_world_n_m_y.reserve(indices.size());
-  channels.hydro_moment_world_n_m_z.reserve(indices.size());
-  channels.port_blade_immersion_depth_m.reserve(indices.size());
-  channels.starboard_blade_immersion_depth_m.reserve(indices.size());
-  channels.aero_force_x_n.reserve(indices.size());
-  channels.apparent_wind_world_mps_x.reserve(indices.size());
-  channels.apparent_wind_world_mps_y.reserve(indices.size());
-  channels.apparent_wind_world_mps_z.reserve(indices.size());
-  channels.aero_force_world_n_x.reserve(indices.size());
-  channels.aero_force_world_n_y.reserve(indices.size());
-  channels.aero_force_world_n_z.reserve(indices.size());
-  channels.aero_moment_world_n_m_x.reserve(indices.size());
-  channels.aero_moment_world_n_m_y.reserve(indices.size());
-  channels.aero_moment_world_n_m_z.reserve(indices.size());
-  channels.stroke_power_w.reserve(indices.size());
-  channels.stroke_phase.reserve(indices.size());
+  reserve_hdf5_time_series_channels(channels, indices.size());
 
   for (const auto index : indices) {
-    const auto &state = result.state_history.at(index);
-    const auto &loads = load_for_state_index(result, index);
-    const auto speed = state.hull.linear_velocity_world_mps.x;
-
-    channels.time_s.push_back(state.time_s);
-    channels.boat_speed_mps.push_back(speed);
-    channels.hydro_force_x_n.push_back(loads.hydro_force_x_n);
-    channels.port_blade_force_x_n.push_back(loads.port_blade_force_x_n);
-    channels.starboard_blade_force_x_n.push_back(
-        loads.starboard_blade_force_x_n);
-    channels.hydro_force_world_n_x.push_back(
-        loads.resolved_hull_force_world_n().x);
-    channels.hydro_force_world_n_y.push_back(
-        loads.resolved_hull_force_world_n().y);
-    channels.hydro_force_world_n_z.push_back(
-        loads.resolved_hull_force_world_n().z);
-    channels.hydro_moment_world_n_m_x.push_back(loads.hull_moment_world_n_m.x);
-    channels.hydro_moment_world_n_m_y.push_back(loads.hull_moment_world_n_m.y);
-    channels.hydro_moment_world_n_m_z.push_back(loads.hull_moment_world_n_m.z);
-    channels.port_blade_immersion_depth_m.push_back(
-        loads.port_blade_immersion_depth_m);
-    channels.starboard_blade_immersion_depth_m.push_back(
-        loads.starboard_blade_immersion_depth_m);
-    channels.aero_force_x_n.push_back(loads.aero_force_x_n);
-    channels.apparent_wind_world_mps_x.push_back(
-        loads.apparent_wind_world_mps.x);
-    channels.apparent_wind_world_mps_y.push_back(
-        loads.apparent_wind_world_mps.y);
-    channels.apparent_wind_world_mps_z.push_back(
-        loads.apparent_wind_world_mps.z);
-    channels.aero_force_world_n_x.push_back(loads.aero_force_world_n.x);
-    channels.aero_force_world_n_y.push_back(loads.aero_force_world_n.y);
-    channels.aero_force_world_n_z.push_back(loads.aero_force_world_n.z);
-    channels.aero_moment_world_n_m_x.push_back(loads.aero_moment_world_n_m.x);
-    channels.aero_moment_world_n_m_y.push_back(loads.aero_moment_world_n_m.y);
-    channels.aero_moment_world_n_m_z.push_back(loads.aero_moment_world_n_m.z);
-    channels.stroke_power_w.push_back(
-        (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * speed);
-    channels.stroke_phase.push_back(stroke_phase_text(state.stroke.phase));
+    append_hdf5_time_series_sample(channels, result.state_history.at(index),
+                                   load_for_state_index(result, index));
   }
 
   return channels;
@@ -1217,11 +1298,13 @@ bool write_hdf5_scalar_time_series(hid_t group,
 bool write_hdf5_vector_time_series(hid_t group,
                                    const Hdf5TimeSeriesChannels &channels,
                                    RunDiagnostic &diagnostic) {
-  const std::array<VectorDatasetSpec, 5> vector_specs{{
+  const std::array<VectorDatasetSpec, 6> vector_specs{{
       {"hydro_force_world_n", &channels.hydro_force_world_n_x,
        &channels.hydro_force_world_n_y, &channels.hydro_force_world_n_z},
       {"hydro_moment_world_n_m", &channels.hydro_moment_world_n_m_x,
        &channels.hydro_moment_world_n_m_y, &channels.hydro_moment_world_n_m_z},
+      {"ambient_wind_world_mps", &channels.ambient_wind_world_mps_x,
+       &channels.ambient_wind_world_mps_y, &channels.ambient_wind_world_mps_z},
       {"apparent_wind_world_mps", &channels.apparent_wind_world_mps_x,
        &channels.apparent_wind_world_mps_y,
        &channels.apparent_wind_world_mps_z},
@@ -1371,6 +1454,34 @@ void emit_run_outputs(const SimulatorConfig &config,
       result.diagnostics.push_back(std::move(diagnostic));
     }
   }
+}
+
+/**
+ * @design D-051 — Deterministic batch-summary artifact emission
+ * @title Stable machine-readable batch result summary with ordered per-case
+ * identifiers, statuses, metrics, and artifact locations
+ * @satisfies [A-007]
+ */
+void emit_batch_outputs(std::string_view batch_id,
+                        std::string_view summary_path,
+                        BatchSimulationResult &result) {
+  result.outputs.schema_version = std::string(BATCH_OUTPUT_SCHEMA_VERSION_V1);
+
+  const auto resolved_summary_path = summary_path.empty()
+                                         ? default_batch_summary_path(batch_id)
+                                         : std::filesystem::path(summary_path);
+  result.outputs.summary_path = resolved_summary_path.string();
+
+  RunDiagnostic diagnostic;
+  if (write_json_file(resolved_summary_path,
+                      make_batch_summary_document(result), diagnostic)) {
+    result.outputs.summary_written = true;
+    return;
+  }
+
+  result.outputs.summary_written = false;
+  result.status = RunStatus::runtime_error;
+  result.diagnostics.push_back(std::move(diagnostic));
 }
 
 } // namespace project

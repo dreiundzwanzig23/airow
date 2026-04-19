@@ -28,7 +28,8 @@ load_steady_wind_aero_calibration(const std::filesystem::path &path) {
     return result;
   }
 
-  const auto &artifact = loaded.artifact.value(); // NOLINT(bugprone-unchecked-optional-access)
+  const auto &artifact =
+      loaded.artifact.value(); // NOLINT(bugprone-unchecked-optional-access)
   if (!artifact.steady_wind_aero.has_value()) {
     result.diagnostics.push_back(ImportedAeroCalibrationDiagnostic{
         .code = "missing_required_field",

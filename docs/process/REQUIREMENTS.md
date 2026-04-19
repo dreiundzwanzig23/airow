@@ -458,13 +458,18 @@ Milestone framing:
   - Replaying the same wind time series yields deterministic results on the same platform.
   - At least one regression scenario includes a non-constant wind input.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Change-Note**: Repositioned time-varying wind behind steady-wind baseline validation.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Delivered post-`v0.1` through an exclusive `environment`
+  wind-input contract: legacy constant `ambient_wind_world_mps`,
+  replay-oriented `wind_time_series` with zero-order hold, or authored
+  `wind_profile` with deterministic linear interpolation. Constant series or
+  profile inputs now preserve steady-wind parity, and
+  `scenarios/gust_headwind_stroke.json` provides the first checked-in
+  non-constant regression artifact.
 
 ## R-024 — Runtime and Truth-Model Separation
 - **Title**: Keep the default runtime path independent of optional high-fidelity toolchains
@@ -489,13 +494,13 @@ Milestone framing:
   - Batch summary output includes per-case identifiers and summary metrics.
   - Batch output ordering is deterministic for the same input ordering.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
 - **Change-Note**: Repositioned batch execution behind the first single-run deterministic baseline.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Notes**: Delivered after the `v0.1` cut line as the closed Slice 4C batch-orchestration packet.
 
 ## R-026 — Scenario Performance Budget
 - **Title**: Keep core verification scenarios within documented runtime budgets
