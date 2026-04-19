@@ -18,6 +18,20 @@ namespace {
 
 using namespace std::chrono_literals;
 
+std::filesystem::path write_temp_file(const std::string &file_name,
+                                      const std::string &contents) {
+  const auto path = std::filesystem::temp_directory_path() / file_name;
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << contents;
+  output.close();
+  return path;
+}
+
+void remove_file_if_present(const std::filesystem::path &path) {
+  std::error_code error;
+  std::filesystem::remove(path, error);
+}
+
 std::string expected_default_mechanics_backend_id() {
   return project::chrono_mechanics_backend_supported() ? "chrono_rigidbody"
                                                        : "internal_baseline";
@@ -482,6 +496,143 @@ TEST(SimulationRun, BuildsConfiguredBuiltInProvidersWithoutInjectedProviders) {
                             return sample.port_blade_force_world_n.x > 0.0;
                           }));
   EXPECT_NE(result.load_history.front().aero_force_world_n.x, 0.0);
+}
+
+/**
+ * @test UT-232
+ * @verifies [D-044]
+ * @notes Given a calibrated aero provider selection and a valid calibration
+ * artifact reference in the in-memory config, when the shared run path
+ * executes without an injected aero seam, then it records the imported
+ * artifact provenance and uses the calibrated provider successfully.
+ */
+TEST(SimulationRun, BuildsConfiguredCalibratedAeroProviderFromArtifact) {
+  const auto artifact_path =
+      write_temp_file("airow-ut-simulation-run-calibration-artifact.json",
+                      R"({
+        "schema_id": "steady_wind_aero_calibration.v1",
+        "source_id": "wind-tunnel-run",
+        "artifact_version": "2026-04-19",
+        "content_hash": "sha256:ut-run-calibration",
+        "aero": {
+          "steady_wind": {
+            "drag_coefficient_n_s2_per_m2": 2.5,
+            "yaw_moment_coefficient_n_m_s2_per_m2": 1.5
+          }
+        }
+      })");
+  auto config = make_config(0.25, 0.25);
+  config.hull.initial_linear_velocity_mps = {.x = 1.0, .y = -0.5, .z = 0.0};
+  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.5, .z = 0.0};
+  config.providers.hull_resistance = "quadratic_drag_placeholder";
+  config.providers.blade_force = "stroke_propulsion_placeholder";
+  config.providers.aero_load = "steady_wind_calibrated";
+  config.artifacts.calibration.path = artifact_path.string();
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 11h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 11h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_EQ(result.metadata.external_artifacts.size(), 1U);
+  EXPECT_EQ(result.metadata.external_artifacts.front().source_id,
+            "wind-tunnel-run");
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "steady_wind_calibrated");
+  ASSERT_FALSE(result.load_history.empty());
+  EXPECT_DOUBLE_EQ(result.load_history.front().aero_force_world_n.x,
+                   -29.66663456597992);
+
+  remove_file_if_present(artifact_path);
+}
+
+/**
+ * @test UT-233
+ * @verifies [D-044]
+ * @notes Given the calibrated aero provider selection but an injected aero
+ * seam, when the run executes, then the shared run path skips built-in
+ * artifact loading and honors the injected provider successfully.
+ */
+TEST(SimulationRun, InjectedAeroProviderBypassesCalibratedArtifactLoading) {
+  auto config = make_config(0.25, 0.25);
+  config.providers.aero_load = "steady_wind_calibrated";
+  config.artifacts.calibration.path =
+      (std::filesystem::temp_directory_path() /
+       "airow-ut-missing-calibration-artifact.json")
+          .string();
+  RecordingAeroProvider aero("stub-aero");
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 12h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 12h + 1s});
+  const auto result =
+      project::run_simulation(config, project::SimulationDependencies{
+                                          .aero_provider = &aero,
+                                          .clock = &clock,
+                                      });
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_TRUE(result.metadata.external_artifacts.empty());
+  EXPECT_EQ(result.metadata.providers.aero_load.id, "steady_wind_calibrated");
+  EXPECT_FALSE(aero.observed_times_s.empty());
+}
+
+/**
+ * @test UT-242
+ * @verifies [D-044]
+ * @notes Given the calibrated aero provider selection with a missing artifact
+ * file, when the in-memory run executes without an injected aero seam, then it
+ * fails deterministically as a configuration error before startup begins.
+ */
+TEST(SimulationRun, ReportsConfigurationErrorForMissingCalibrationArtifact) {
+  auto config = make_config(0.25, 0.25);
+  config.providers.aero_load = "steady_wind_calibrated";
+  config.artifacts.calibration.path =
+      (std::filesystem::temp_directory_path() /
+       "airow-ut-missing-runtime-calibration-artifact.json")
+          .string();
+  remove_file_if_present(config.artifacts.calibration.path);
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 13h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 13h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  EXPECT_EQ(result.status, project::RunStatus::configuration_error);
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "io_error");
+  EXPECT_EQ(result.diagnostics.front().subsystem, "configuration");
+}
+
+/**
+ * @test UT-243
+ * @verifies [D-033]
+ * @notes Given an in-memory config with an unsupported aero provider id that
+ * bypasses the validated file-backed parser, when the shared run path executes
+ * without an injected aero seam, then built-in provider construction falls
+ * back to a null aero provider and the run still emits deterministic zero aero
+ * load rather than crashing.
+ */
+TEST(SimulationRun, UnsupportedInMemoryAeroProviderFallsBackToNullProvider) {
+  auto config = make_config(0.25, 0.25);
+  config.providers.aero_load = "unsupported_runtime_provider";
+  config.environment.ambient_wind_world_mps = {.x = -1.0, .y = 0.5, .z = 0.0};
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 14h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 14h + 1s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  EXPECT_EQ(result.metadata.providers.aero_load.id,
+            "unsupported_runtime_provider");
+  ASSERT_FALSE(result.load_history.empty());
+  EXPECT_DOUBLE_EQ(result.load_history.front().aero_force_world_n.x, 0.0);
+  EXPECT_DOUBLE_EQ(result.load_history.front().aero_moment_world_n_m.z, 0.0);
 }
 
 /**

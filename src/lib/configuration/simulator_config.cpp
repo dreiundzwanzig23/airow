@@ -130,10 +130,29 @@ std::string format_output_formats(const OutputSettings &output) {
   return "[]";
 }
 
+std::filesystem::path
+resolve_config_relative_path(std::string_view configured_path,
+                             std::string_view source_name) {
+  const std::filesystem::path path{configured_path};
+  if (path.is_absolute() || source_name.empty() || source_name == "<memory>") {
+    return path.lexically_normal();
+  }
+  const std::filesystem::path source_path{source_name};
+  if (!source_path.has_parent_path()) {
+    return path.lexically_normal();
+  }
+  return (source_path.parent_path() / path).lexically_normal();
+}
+
 std::string unsupported_provider_message(std::string_view role,
                                          std::string_view provider_id) {
   return "unknown " + std::string(role) + " provider '" +
          std::string(provider_id) + "'";
+}
+
+std::string missing_calibration_artifact_message(std::string_view provider_id) {
+  return "provider '" + std::string(provider_id) +
+         "' requires $.artifacts.calibration.path";
 }
 
 std::string legacy_state_advancer_message() {
@@ -859,6 +878,54 @@ bool parse_provider_settings(const Json &root, SimulatorConfig &config,
              ProviderRole::aero_load, config.providers.aero_load, result);
 }
 
+bool parse_artifact_reference(const Json &root, std::string_view key,
+                              std::string_view path,
+                              std::string_view source_name, std::string &target,
+                              LoadSimulatorConfigResult &result) {
+  if (!root.contains(key)) {
+    return true;
+  }
+  const Json *artifact = require_object(root, key, path, result);
+  if (artifact == nullptr) {
+    return false;
+  }
+  if (!require_string_field(*artifact, "path", std::string(path) + ".path",
+                            target, result)) {
+    return false;
+  }
+  target = resolve_config_relative_path(target, source_name).string();
+  return true;
+}
+
+bool parse_artifact_settings(std::string_view source_name, const Json &root,
+                             SimulatorConfig &config,
+                             LoadSimulatorConfigResult &result) {
+  config.artifacts = {};
+  if (!root.contains("artifacts")) {
+    return true;
+  }
+
+  const Json *artifacts =
+      require_object(root, "artifacts", "$.artifacts", result);
+  return artifacts != nullptr &&
+         parse_artifact_reference(*artifacts, "calibration",
+                                  "$.artifacts.calibration", source_name,
+                                  config.artifacts.calibration.path, result);
+}
+
+bool validate_artifact_requirements(const SimulatorConfig &config,
+                                    LoadSimulatorConfigResult &result) {
+  if (builtin_provider_requires_calibration_artifact(
+          ProviderRole::aero_load, config.providers.aero_load) &&
+      config.artifacts.calibration.path.empty()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.artifacts.calibration.path",
+        missing_calibration_artifact_message(config.providers.aero_load)));
+    return false;
+  }
+  return true;
+}
+
 bool parse_optional_output_string_field(const Json &output,
                                         std::string_view key,
                                         std::string_view path,
@@ -1061,6 +1128,7 @@ normalize_simulator_config(const SimulatorConfig &config) {
       {"$.providers.hull_resistance", config.providers.hull_resistance, ""},
       {"$.providers.blade_force", config.providers.blade_force, ""},
       {"$.providers.aero_load", config.providers.aero_load, ""},
+      {"$.artifacts.calibration.path", config.artifacts.calibration.path, ""},
       {"$.output.summary_path", config.output.summary_path, ""},
       {"$.output.time_series_path", config.output.time_series_path, ""},
       {"$.output.hdf5_path", config.output.hdf5_path, ""},
@@ -1079,7 +1147,7 @@ normalize_simulator_config(const SimulatorConfig &config) {
  */
 LoadSimulatorConfigResult
 parse_simulator_config_text(std::string_view json_text,
-                            std::string_view /*source_name*/) {
+                            std::string_view source_name) {
   if (const auto invalid_literal = find_invalid_numeric_literal(json_text);
       invalid_literal.has_value()) {
     return fail_with(*invalid_literal);
@@ -1111,6 +1179,8 @@ parse_simulator_config_text(std::string_view json_text,
       parse_stroke_settings(root, config, result) &&
       parse_environment_settings(root, config, result) &&
       parse_provider_settings(root, config, result) &&
+      parse_artifact_settings(source_name, root, config, result) &&
+      validate_artifact_requirements(config, result) &&
       parse_output_settings(root, config, result)) {
     result.normalized_config = normalize_simulator_config(config);
     result.config = std::move(config);

@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <initializer_list>
 #include <sstream>
 #include <string>
@@ -74,12 +76,39 @@ Json parse_valid_config_json(
 
 std::string dump_json(const Json &root) { return root.dump(2); }
 
+std::filesystem::path write_temp_file(const std::filesystem::path &path,
+                                      const std::string &contents) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << contents;
+  output.close();
+  return path;
+}
+
+void remove_file_if_present(const std::filesystem::path &path) {
+  std::error_code error;
+  std::filesystem::remove(path, error);
+}
+
 std::string runtime_provider_selection_json(std::string_view aero_provider) {
   auto root = parse_valid_config_json("provider-selection");
   root["providers"] = Json{
       {"hull_resistance", "quadratic_drag_placeholder"},
       {"blade_force", "stroke_propulsion_placeholder"},
       {"aero_load", std::string(aero_provider)},
+  };
+  return dump_json(root);
+}
+
+std::string
+calibrated_provider_selection_json(std::string_view calibration_path) {
+  auto root = parse_valid_config_json("provider-selection");
+  root["providers"] = Json{
+      {"hull_resistance", "quadratic_drag_placeholder"},
+      {"blade_force", "stroke_propulsion_placeholder"},
+      {"aero_load", "steady_wind_calibrated"},
+  };
+  root["artifacts"] = Json{
+      {"calibration", Json{{"path", std::string(calibration_path)}}},
   };
   return dump_json(root);
 }
@@ -326,6 +355,8 @@ TEST(SimulatorConfigRuntime, BuiltInProviderCatalogExposesValidityMetadata) {
       project::ProviderRole::aero_load, "none");
   const auto aero_steady = project::lookup_builtin_provider_metadata(
       project::ProviderRole::aero_load, "steady_wind_placeholder");
+  const auto aero_calibrated = project::lookup_builtin_provider_metadata(
+      project::ProviderRole::aero_load, "steady_wind_calibrated");
 
   ASSERT_TRUE(hull_none.has_value());
   ASSERT_TRUE(hull_drag.has_value());
@@ -333,6 +364,7 @@ TEST(SimulatorConfigRuntime, BuiltInProviderCatalogExposesValidityMetadata) {
   ASSERT_TRUE(blade_propulsion.has_value());
   ASSERT_TRUE(aero_none.has_value());
   ASSERT_TRUE(aero_steady.has_value());
+  ASSERT_TRUE(aero_calibrated.has_value());
   EXPECT_EQ(hull_none->validity_id, "not_applicable");
   EXPECT_EQ(hull_drag->validity_id, "baseline-longitudinal-drag-v1");
   EXPECT_EQ(hull_drag->validity_description,
@@ -348,4 +380,113 @@ TEST(SimulatorConfigRuntime, BuiltInProviderCatalogExposesValidityMetadata) {
   EXPECT_EQ(aero_steady->validity_description,
             "Supported reduced steady apparent-wind aero baseline for "
             "deterministic headwind and crosswind default-runtime studies.");
+  EXPECT_EQ(aero_calibrated->validity_id, "external-calibrated-steady-wind-v1");
+  EXPECT_TRUE(project::builtin_provider_requires_calibration_artifact(
+      project::ProviderRole::aero_load, "steady_wind_calibrated"));
+  EXPECT_FALSE(project::builtin_provider_requires_calibration_artifact(
+      project::ProviderRole::hull_resistance, "quadratic_drag_placeholder"));
+}
+
+/**
+ * @test UT-221
+ * @verifies [D-032]
+ * @notes Given the explicit calibrated aero provider selection and a file-
+ * backed calibration artifact reference, when configuration parsing runs, then
+ * the provider id and artifact path are normalized deterministically.
+ */
+TEST(SimulatorConfigRuntime,
+     ParsesCalibratedAeroProviderSelectionAndArtifactReference) {
+  const auto calibration_path =
+      (std::filesystem::temp_directory_path() / "airow-ut-calibration.json")
+          .string();
+  const auto result = project::parse_simulator_config_text(
+      calibrated_provider_selection_json(calibration_path));
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.config.has_value());
+  EXPECT_EQ(result.config->providers.aero_load, "steady_wind_calibrated");
+  EXPECT_EQ(result.config->artifacts.calibration.path, calibration_path);
+  EXPECT_NE(
+      std::find(result.normalized_config.begin(),
+                result.normalized_config.end(),
+                project::NormalizedConfigEntry{"$.artifacts.calibration.path",
+                                               calibration_path, ""}),
+      result.normalized_config.end());
+}
+
+/**
+ * @test UT-222
+ * @verifies [D-032]
+ * @notes Given the calibrated aero provider selection without a calibration
+ * artifact reference, when configuration parsing runs, then validation rejects
+ * the missing artifact path deterministically before runtime stepping.
+ */
+TEST(SimulatorConfigRuntime,
+     RejectsCalibratedAeroProviderWithoutArtifactReference) {
+  auto root = parse_valid_config_json("provider-selection");
+  root["providers"] = Json{
+      {"hull_resistance", "quadratic_drag_placeholder"},
+      {"blade_force", "stroke_propulsion_placeholder"},
+      {"aero_load", "steady_wind_calibrated"},
+  };
+  const auto result = project::parse_simulator_config_text(dump_json(root));
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
+  EXPECT_EQ(result.diagnostics.front().path, "$.artifacts.calibration.path");
+}
+
+/**
+ * @test UT-240
+ * @verifies [D-001]
+ * @notes Given a non-object artifacts block, when configuration parsing runs,
+ * then validation rejects the top-level artifacts path deterministically.
+ */
+TEST(SimulatorConfigRuntime, RejectsNonObjectArtifactsBlock) {
+  auto root = parse_valid_config_json("provider-selection");
+  root["providers"] = Json{
+      {"aero_load", "steady_wind_calibrated"},
+  };
+  root["artifacts"] = "invalid";
+
+  const auto result = project::parse_simulator_config_text(dump_json(root));
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
+  EXPECT_EQ(result.diagnostics.front().path, "$.artifacts");
+}
+
+/**
+ * @test UT-241
+ * @verifies [D-001]
+ * @notes Given a file-backed config with a relative calibration artifact path,
+ * when the loader reads the config file, then it resolves the artifact path
+ * relative to the config location deterministically.
+ */
+TEST(SimulatorConfigRuntime,
+     FileBackedConfigResolvesRelativeCalibrationArtifactPath) {
+  const auto temp_dir =
+      std::filesystem::temp_directory_path() / "airow-ut-config-artifacts";
+  std::filesystem::create_directories(temp_dir);
+  const auto config_path = temp_dir / "config.json";
+  const auto artifact_path = temp_dir / "artifact.json";
+  auto root = parse_valid_config_json("provider-selection");
+  root["providers"] = Json{
+      {"aero_load", "steady_wind_calibrated"},
+  };
+  root["artifacts"] = Json{
+      {"calibration", Json{{"path", "artifact.json"}}},
+  };
+  write_temp_file(config_path, dump_json(root));
+
+  const auto result = project::load_simulator_config_file(config_path);
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.config.has_value());
+  EXPECT_EQ(result.config->artifacts.calibration.path,
+            artifact_path.lexically_normal().string());
+
+  remove_file_if_present(config_path);
 }

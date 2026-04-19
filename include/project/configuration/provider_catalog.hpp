@@ -27,4 +27,8 @@ struct ProviderSelectionMetadata {
 [[nodiscard]] std::optional<ProviderMetadata>
 lookup_builtin_provider_metadata(ProviderRole role, std::string_view id);
 
+[[nodiscard]] bool
+builtin_provider_requires_calibration_artifact(ProviderRole role,
+                                               std::string_view id) noexcept;
+
 } // namespace project

@@ -104,6 +104,18 @@ struct ProviderSelectionSettings {
   bool operator==(const ProviderSelectionSettings &) const = default;
 };
 
+struct CalibrationArtifactReferenceSettings {
+  std::string path;
+
+  bool operator==(const CalibrationArtifactReferenceSettings &) const = default;
+};
+
+struct ArtifactSettings {
+  CalibrationArtifactReferenceSettings calibration{};
+
+  bool operator==(const ArtifactSettings &) const = default;
+};
+
 struct OutputSettings {
   std::string summary_path;
   std::string time_series_path;
@@ -124,6 +136,7 @@ struct SimulatorConfig {
   StrokeSettings stroke;
   EnvironmentSettings environment;
   ProviderSelectionSettings providers{};
+  ArtifactSettings artifacts{};
   OutputSettings output{};
 
   bool operator==(const SimulatorConfig &) const = default;

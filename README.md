@@ -108,6 +108,7 @@ artifacts under `scenarios/`.
 
 Current implemented library surface:
 - `include/project/aero/baseline_providers.hpp`
+- `include/project/calibration/artifact.hpp`
 - `include/project/configuration/provider_catalog.hpp`
 - `include/project/configuration/simulator_config.hpp`
 - `include/project/hydro/baseline_providers.hpp`
@@ -127,6 +128,8 @@ Current implemented library surface:
   state-advancer seams plus structured state/load history
 - top-level config-driven built-in provider selection for
   `hull_resistance`, `blade_force`, and `aero_load`
+- optional file-backed external calibration artifact loading with
+  deterministic schema or provenance validation on the shared runtime path
 - top-level config-driven composed backend selection for
   `mechanics_backend` and `integration_backend`, with preferred
   `chrono_rigidbody + sundials_ida`, supported
@@ -161,9 +164,13 @@ Current implemented library surface:
   backward-slip gating and zero-load catch or release boundaries
 - deterministic aero baseline provider for steady apparent-wind, low-speed-
   sensitive headwind drag, lateral crosswind force, and speed-shaped yaw-
-  moment reporting behind the shared `AeroProvider` seam
+  moment reporting behind the shared `AeroProvider` seam, plus an explicit
+  `steady_wind_calibrated` built-in id that consumes imported steady-wind
+  drag and yaw coefficients from a validated calibration artifact
 - structured provider metadata in run summaries with per-role provider ids plus
   validity identifiers and descriptions
+- structured external-artifact provenance metadata in JSON and HDF5 outputs
+  when a run uses an imported calibration artifact
 - optional `--report compact|full` CLI output for human-readable run-state and
   load-envelope inspection
 - offline `python3 tools/run_analysis.py --summary <path> --time-series <path>

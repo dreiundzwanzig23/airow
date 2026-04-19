@@ -22,6 +22,18 @@ struct RunDiagnostic {
   bool operator==(const RunDiagnostic &) const = default;
 };
 
+struct ExternalArtifactMetadata {
+  std::string kind;
+  std::string usage;
+  std::string path;
+  std::string source_id;
+  std::string artifact_version;
+  std::string content_hash;
+  std::string schema_id;
+
+  bool operator==(const ExternalArtifactMetadata &) const = default;
+};
+
 struct RunMetadata {
   std::string simulator_version;
   std::string config_id;
@@ -36,6 +48,7 @@ struct RunMetadata {
   std::string startup_solver_status{};
   std::string state_advancement_solver_status{};
   double startup_constraint_residual_max{};
+  std::vector<ExternalArtifactMetadata> external_artifacts;
   std::vector<NormalizedConfigEntry> normalized_config;
 
   bool operator==(const RunMetadata &) const = default;

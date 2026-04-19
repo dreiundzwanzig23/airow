@@ -419,13 +419,17 @@ Milestone framing:
   - Loaded datasets are queryable by the configured provider during a run.
   - At least one automated test loads a minimal valid dataset and verifies a successful query.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Change-Note**: Repositioned external calibration ingestion behind the first deterministic runtime milestone.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line. Slice 4A now delivers one
+  deterministic file-backed calibration artifact path on the shared runtime:
+  the simulator validates a versioned machine-readable artifact before
+  stepping, exposes the loaded coefficients through one explicit calibrated
+  aero provider, and keeps the existing default-runtime baseline provider ids
+  unchanged.
 
 ## R-022 — Calibration Provenance Metadata
 - **Title**: Preserve provenance for imported calibration and fitted-model artifacts
@@ -435,13 +439,16 @@ Milestone framing:
   - Missing required provenance metadata causes deterministic rejection of the artifact.
   - A regression test verifies that provenance metadata is propagated into run outputs.
 - **Priority**: P2
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-02
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Change-Note**: Repositioned calibration provenance behind the first deterministic runtime milestone together with external artifact ingestion.
-- **Notes**: Not part of the `v0.1` cut line.
+- **Updated**: 2026-04-19
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Not part of the `v0.1` cut line. Slice 4A now requires imported
+  calibration artifacts to declare `source_id`, `artifact_version`,
+  `content_hash`, and `schema_id`, rejects partially specified provenance
+  deterministically, and propagates used-artifact identifiers into JSON and
+  HDF5 run metadata on the calibrated runtime path.
 
 ## R-023 — Time-Varying Wind Input
 - **Title**: Support deterministic time-varying wind for gust and transition studies

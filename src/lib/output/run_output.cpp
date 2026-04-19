@@ -324,6 +324,22 @@ Json backend_metadata_json(const BackendMetadata &metadata) {
               {"policy_description", metadata.policy_description}};
 }
 
+/**
+ * @design D-045 — External artifact provenance emission
+ * @title Deterministic machine-readable shaping for imported external artifact
+ * provenance used during runtime execution
+ * @satisfies [A-007, A-009]
+ */
+Json external_artifact_json(const ExternalArtifactMetadata &artifact) {
+  return Json{{"kind", artifact.kind},
+              {"usage", artifact.usage},
+              {"path", artifact.path},
+              {"source_id", artifact.source_id},
+              {"artifact_version", artifact.artifact_version},
+              {"content_hash", artifact.content_hash},
+              {"schema_id", artifact.schema_id}};
+}
+
 Json make_summary_document(const SimulationRunResult &result) {
   Json metadata = Json{
       {"config_id", result.metadata.config_id},
@@ -349,6 +365,12 @@ Json make_summary_document(const SimulationRunResult &result) {
        result.metadata.state_advancement_solver_status},
       {"startup_constraint_residual_max",
        result.metadata.startup_constraint_residual_max}};
+
+  Json external_artifacts = Json::array();
+  for (const auto &artifact : result.metadata.external_artifacts) {
+    external_artifacts.push_back(external_artifact_json(artifact));
+  }
+  metadata["external_artifacts"] = external_artifacts;
 
   Json normalized_config = Json::array();
   for (const auto &entry : result.metadata.normalized_config) {
@@ -832,6 +854,34 @@ bool write_backend_metadata_group(hid_t parent, const char *name,
                                 metadata.policy_description, diagnostic);
 }
 
+bool write_external_artifact_group(hid_t parent, const char *name,
+                                   const ExternalArtifactMetadata &artifact,
+                                   RunDiagnostic &diagnostic) {
+  const H5ScopedHandle artifact_group(
+      H5Gcreate2(parent, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+      H5Gclose);
+  if (!artifact_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path", "failed to create HDF5 external artifact group");
+    return false;
+  }
+
+  return write_string_attribute(artifact_group.id, "kind", artifact.kind,
+                                diagnostic) &&
+         write_string_attribute(artifact_group.id, "usage", artifact.usage,
+                                diagnostic) &&
+         write_string_attribute(artifact_group.id, "path", artifact.path,
+                                diagnostic) &&
+         write_string_attribute(artifact_group.id, "source_id",
+                                artifact.source_id, diagnostic) &&
+         write_string_attribute(artifact_group.id, "artifact_version",
+                                artifact.artifact_version, diagnostic) &&
+         write_string_attribute(artifact_group.id, "content_hash",
+                                artifact.content_hash, diagnostic) &&
+         write_string_attribute(artifact_group.id, "schema_id",
+                                artifact.schema_id, diagnostic);
+}
+
 bool write_hdf5_normalized_config_group(hid_t metadata_group,
                                         const SimulationRunResult &result,
                                         RunDiagnostic &diagnostic) {
@@ -964,6 +1014,24 @@ bool write_hdf5_metadata_subgroups(hid_t metadata_group,
     diagnostic = make_output_diagnostic(
         "$.output.hdf5_path", "failed to create HDF5 providers group");
     return false;
+  }
+  const H5ScopedHandle external_artifacts_group(
+      H5Gcreate2(metadata_group, "external_artifacts", H5P_DEFAULT, H5P_DEFAULT,
+                 H5P_DEFAULT),
+      H5Gclose);
+  if (!external_artifacts_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path", "failed to create HDF5 external_artifacts group");
+    return false;
+  }
+  for (std::size_t index = 0; index < result.metadata.external_artifacts.size();
+       ++index) {
+    if (!write_external_artifact_group(
+            external_artifacts_group.id,
+            ("artifact_" + std::to_string(index)).c_str(),
+            result.metadata.external_artifacts.at(index), diagnostic)) {
+      return false;
+    }
   }
   return write_provider_metadata_group(
              providers_group.id, "hull_resistance",

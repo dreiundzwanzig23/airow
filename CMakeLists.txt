@@ -134,6 +134,8 @@ include(cmake/Sanitizers.cmake)
 
 add_library(project_lib
     src/lib/aero/baseline_providers.cpp
+    src/lib/aero/calibration_loader.cpp
+    src/lib/calibration/artifact.cpp
     src/lib/configuration/provider_catalog.cpp
     src/lib/configuration/simulator_config.cpp
     src/lib/hydro/baseline_providers.cpp
@@ -234,6 +236,7 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
 
     add_executable(project_tests_unit
+        tests/unit/test_calibration_artifact.cpp
         tests/unit/test_aero_runtime_models.cpp
         tests/unit/test_hydro_runtime_models.cpp
         tests/unit/test_run_analysis.cpp
@@ -275,6 +278,7 @@ if(BUILD_TESTING)
     )
 
     add_executable(project_tests_integration
+        tests/integration/test_calibration_integration.cpp
         tests/integration/test_hydro_runtime_integration.cpp
         tests/integration/test_aero_runtime_integration.cpp
         tests/integration/test_simulator_config_integration.cpp
@@ -287,6 +291,7 @@ if(BUILD_TESTING)
     target_compile_definitions(project_tests_integration PRIVATE PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
     add_executable(project_tests_system
+        tests/system/test_calibration_system.cpp
         tests/system/test_calm_water_scenario_system.cpp
         tests/system/test_examples_system.cpp
         tests/system/test_simulator_config_system.cpp
@@ -308,6 +313,7 @@ if(BUILD_TESTING)
 
     add_executable(project_tests_aux_headers
         tests/aux/include_aero_providers.cpp
+        tests/aux/include_calibration_artifact.cpp
         tests/aux/header_self_containment_main.cpp
         tests/aux/include_cli.cpp
         tests/aux/include_geometry.cpp

@@ -1,5 +1,6 @@
 #include "project/orchestrator/simulation_run.hpp"
 #include "project/aero/baseline_providers.hpp"
+#include "project/aero/calibration_loader.hpp"
 #include "project/aero/provider.hpp"
 #include "project/configuration/provider_catalog.hpp"
 #include "project/configuration/simulator_config.hpp"
@@ -22,10 +23,12 @@
 #include <filesystem>
 #include <iomanip>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace project {
 
@@ -201,7 +204,22 @@ std::unique_ptr<HydroProvider> make_blade_force_provider(std::string_view id) {
   return nullptr;
 }
 
-std::unique_ptr<AeroProvider> make_aero_provider(std::string_view id) {
+struct RuntimeOwnedProviders {
+  std::unique_ptr<HydroProvider> hydro_provider;
+  std::unique_ptr<AeroProvider> aero_provider;
+};
+
+struct RuntimeProviderBuildResult {
+  RuntimeOwnedProviders providers;
+  std::vector<ExternalArtifactMetadata> external_artifacts;
+  std::vector<RunDiagnostic> diagnostics;
+
+  [[nodiscard]] bool ok() const noexcept { return diagnostics.empty(); }
+};
+
+std::unique_ptr<AeroProvider> make_aero_provider(
+    std::string_view id,
+    const ImportedSteadyWindAeroCoefficients *calibration_coefficients) {
   if (id == "none") {
     return nullptr;
   }
@@ -210,21 +228,73 @@ std::unique_ptr<AeroProvider> make_aero_provider(std::string_view id) {
         DEFAULT_STEADY_WIND_DRAG_COEFFICIENT_N_S2_PER_M2,
         DEFAULT_STEADY_WIND_YAW_MOMENT_COEFFICIENT_N_M_S2_PER_M2);
   }
+  if (id == "steady_wind_calibrated" && calibration_coefficients != nullptr) {
+    return std::make_unique<CalibratedSteadyWindAeroProvider>(
+        calibration_coefficients->drag_coefficient_n_s2_per_m2,
+        calibration_coefficients->yaw_moment_coefficient_n_m_s2_per_m2);
+  }
   return nullptr;
 }
 
-struct RuntimeOwnedProviders {
-  std::unique_ptr<HydroProvider> hydro_provider;
-  std::unique_ptr<AeroProvider> aero_provider;
-};
+RuntimeProviderBuildResult
+build_runtime_providers(const SimulatorConfig &config,
+                        const SimulationDependencies &dependencies) {
+  /**
+   * @design D-044 — Imported calibration artifact runtime binding
+   * @title Deterministic external calibration artifact loading and calibrated
+   * aero-provider construction on the shared run path
+   * @satisfies [A-002, A-005, A-009]
+   */
+  RuntimeProviderBuildResult result;
+  if (dependencies.hydro_provider == nullptr) {
+    result.providers.hydro_provider = std::make_unique<CompositeHydroProvider>(
+        make_hull_resistance_provider(config.providers.hull_resistance),
+        make_blade_force_provider(config.providers.blade_force));
+  }
 
-RuntimeOwnedProviders build_runtime_providers(const SimulatorConfig &config) {
-  RuntimeOwnedProviders providers;
-  providers.hydro_provider = std::make_unique<CompositeHydroProvider>(
-      make_hull_resistance_provider(config.providers.hull_resistance),
-      make_blade_force_provider(config.providers.blade_force));
-  providers.aero_provider = make_aero_provider(config.providers.aero_load);
-  return providers;
+  const ImportedSteadyWindAeroCoefficients *calibration_coefficients = nullptr;
+  std::optional<ImportedSteadyWindAeroCoefficients>
+      loaded_calibration_coefficients;
+  if (dependencies.aero_provider == nullptr &&
+      builtin_provider_requires_calibration_artifact(
+          ProviderRole::aero_load, config.providers.aero_load)) {
+    const auto loaded =
+        load_steady_wind_aero_calibration(config.artifacts.calibration.path);
+    if (!loaded.ok()) {
+      for (const auto &diagnostic : loaded.diagnostics) {
+        result.diagnostics.push_back(RunDiagnostic{
+            .code = diagnostic.code,
+            .subsystem = "configuration",
+            .path = diagnostic.path,
+            .message = diagnostic.message,
+        });
+      }
+      return result;
+    }
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    loaded_calibration_coefficients = loaded.coefficients.value();
+    const auto &loaded_coefficients =
+        loaded_calibration_coefficients
+            .value(); // NOLINT(bugprone-unchecked-optional-access)
+    calibration_coefficients = &loaded_coefficients;
+    const auto &metadata =
+        loaded.metadata.value(); // NOLINT(bugprone-unchecked-optional-access)
+    result.external_artifacts.push_back(ExternalArtifactMetadata{
+        .kind = "calibration",
+        .usage = "aero_load",
+        .path = metadata.path,
+        .source_id = metadata.source_id,
+        .artifact_version = metadata.artifact_version,
+        .content_hash = metadata.content_hash,
+        .schema_id = metadata.schema_id,
+    });
+  }
+
+  if (dependencies.aero_provider == nullptr) {
+    result.providers.aero_provider = make_aero_provider(
+        config.providers.aero_load, calibration_coefficients);
+  }
+  return result;
 }
 
 /**
@@ -601,13 +671,15 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
     return format_timestamp(instant);
   };
 
-  auto owned_providers = build_runtime_providers(config);
-  HydroProvider *hydro_provider = dependencies.hydro_provider != nullptr
-                                      ? dependencies.hydro_provider
-                                      : owned_providers.hydro_provider.get();
-  AeroProvider *aero_provider = dependencies.aero_provider != nullptr
-                                    ? dependencies.aero_provider
-                                    : owned_providers.aero_provider.get();
+  auto owned_providers = build_runtime_providers(config, dependencies);
+  HydroProvider *hydro_provider =
+      dependencies.hydro_provider != nullptr
+          ? dependencies.hydro_provider
+          : owned_providers.providers.hydro_provider.get();
+  AeroProvider *aero_provider =
+      dependencies.aero_provider != nullptr
+          ? dependencies.aero_provider
+          : owned_providers.providers.aero_provider.get();
   StateAdvancer *selected_advancer =
       dependencies.state_advancer != nullptr
           ? dependencies.state_advancer
@@ -615,6 +687,19 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
                                    config.simulation.integration_backend);
 
   SimulationRunResult result;
+  if (!owned_providers.ok()) {
+    result.status = RunStatus::configuration_error;
+    result.metadata.simulator_version = PROJECT_VERSION_STRING;
+    result.metadata.config_id = config.config_id;
+    result.metadata.start_timestamp_utc = current_timestamp();
+    result.metadata.end_timestamp_utc = current_timestamp();
+    result.metadata.providers = selected_provider_metadata(config);
+    result.metadata.normalized_config = normalize_simulator_config(config);
+    result.metadata.external_artifacts =
+        std::move(owned_providers.external_artifacts);
+    result.diagnostics = std::move(owned_providers.diagnostics);
+    return result;
+  }
   /**
    * @design D-013 — Run metadata stamping
    * @title Stable version, timestamp, provider, and normalized-config metadata
@@ -647,6 +732,8 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
                          ? advancer.identifier()
                          : config.simulation.integration_backend,
                      dependencies.state_advancer != nullptr);
+  result.metadata.external_artifacts =
+      std::move(owned_providers.external_artifacts);
 
   const auto startup = advancer.initialize(config);
   apply_startup_metadata(result, startup);

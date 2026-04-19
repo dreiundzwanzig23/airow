@@ -3,6 +3,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -139,6 +140,15 @@ Json read_json_file(const std::filesystem::path &path) {
   return document;
 }
 
+std::filesystem::path write_temp_file(const std::string &file_name,
+                                      const std::string &contents) {
+  const auto path = std::filesystem::temp_directory_path() / file_name;
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << contents;
+  output.close();
+  return path;
+}
+
 std::string read_binary_prefix(const std::filesystem::path &path,
                                std::size_t byte_count) {
   std::ifstream input(path, std::ios::binary);
@@ -155,6 +165,73 @@ std::filesystem::path write_temp_marker_file(std::string_view file_name) {
   output << "marker";
   output.close();
   return path;
+}
+
+std::string make_calibrated_hdf5_config_json(std::string_view config_id,
+                                             std::string_view artifact_path,
+                                             std::string_view hdf5_path) {
+  std::ostringstream stream;
+  stream << R"({
+        "config_id": ")"
+         << config_id << R"(",
+        "simulation": {
+          "duration_s": 0.25,
+          "time_step_s": 0.25
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [1.0, -0.5, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        },
+        "environment": {
+          "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
+        },
+        "providers": {
+          "hull_resistance": "quadratic_drag_placeholder",
+          "blade_force": "stroke_propulsion_placeholder",
+          "aero_load": "steady_wind_calibrated"
+        },
+        "artifacts": {
+          "calibration": {
+            "path": ")"
+         << artifact_path << R"("
+          }
+        },
+        "output": {
+          "formats": ["hdf5"],
+          "hdf5_path": ")"
+         << hdf5_path << R"("
+        }
+      })";
+  return stream.str();
 }
 
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
@@ -318,6 +395,79 @@ TEST(RunOutputsHdf5, EmitsHdf5ArtifactWhenEnabled) {
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+  remove_file_if_present(hdf5_path);
+}
+
+/**
+ * @test UT-231
+ * @verifies [D-045]
+ * @notes Given a calibrated run that emits HDF5 output, when the artifact is
+ * written on an HDF5-capable build, then the imported external artifact
+ * provenance is recorded under the metadata external-artifacts group.
+ */
+TEST(RunOutputsHdf5, EmitsExternalArtifactMetadataInHdf5Output) {
+  if (!project::hdf5_output_supported()) {
+    GTEST_SKIP() << "HDF5 support unavailable on this build";
+  }
+
+  const auto artifact_path =
+      write_temp_file("airow-ut-output-hdf5-calibration-artifact.json",
+                      R"({
+        "schema_id": "steady_wind_aero_calibration.v1",
+        "source_id": "wind-tunnel-hdf5",
+        "artifact_version": "2026-04-19",
+        "content_hash": "sha256:ut-hdf5-calibration",
+        "aero": {
+          "steady_wind": {
+            "drag_coefficient_n_s2_per_m2": 2.5,
+            "yaw_moment_coefficient_n_m_s2_per_m2": 1.5
+          }
+        }
+      })");
+  const auto hdf5_path = std::filesystem::temp_directory_path() /
+                         "airow-ut-output-hdf5-calibration.h5";
+  remove_file_if_present(hdf5_path);
+  const auto config_path =
+      write_temp_file("airow-ut-output-hdf5-calibration-config.json",
+                      make_calibrated_hdf5_config_json(
+                          "ut-output-hdf5-calibration", artifact_path.string(),
+                          hdf5_path.string()));
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 10h + 1s});
+  const auto result = project::run_simulation_from_config_file(
+      config_path, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.outputs.hdf5_written);
+  ASSERT_TRUE(std::filesystem::exists(hdf5_path));
+
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+  const H5ScopedHandle file(
+      H5Fopen(hdf5_path.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT),
+      H5Fclose);
+  ASSERT_TRUE(file.valid());
+  const H5ScopedHandle artifact_group(
+      H5Gopen2(file.id, "/metadata/external_artifacts/artifact_0", H5P_DEFAULT),
+      H5Gclose);
+  ASSERT_TRUE(artifact_group.valid());
+  EXPECT_EQ(read_hdf5_string_attribute(artifact_group.id, "kind"),
+            "calibration");
+  EXPECT_EQ(read_hdf5_string_attribute(artifact_group.id, "usage"),
+            "aero_load");
+  EXPECT_EQ(read_hdf5_string_attribute(artifact_group.id, "source_id"),
+            "wind-tunnel-hdf5");
+  EXPECT_EQ(read_hdf5_string_attribute(artifact_group.id, "artifact_version"),
+            "2026-04-19");
+  EXPECT_EQ(read_hdf5_string_attribute(artifact_group.id, "content_hash"),
+            "sha256:ut-hdf5-calibration");
+  EXPECT_EQ(read_hdf5_string_attribute(artifact_group.id, "schema_id"),
+            "steady_wind_aero_calibration.v1");
+#endif
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(artifact_path);
   remove_file_if_present(hdf5_path);
 }
 

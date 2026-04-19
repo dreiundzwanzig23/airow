@@ -87,8 +87,8 @@ The current stable building-block view is organized around ten subsystem owners.
 
 Current implementation emphasis:
 - active: `A-001`, `A-002`, `A-003`, `A-004`, `A-005`, `A-007`, `A-008`,
-  `A-010`,
-- open: `A-006`, `A-009`.
+  `A-009`, `A-010`,
+- open: `A-006`.
 
 ## Runtime View
 
@@ -170,7 +170,12 @@ Still planned or incomplete:
   supported default-runtime baseline for the closed Slice 2 packet,
 - future hydro or aero expansion must be scoped as a new packet without
   changing the current provider-selection or metadata contracts by default,
-- external calibration ingestion and provenance propagation,
+- the closed Slice 4A packet adds one deterministic file-backed calibration
+  artifact path and one explicit calibrated aero provider without changing the
+  existing default-runtime baseline provider ids,
+- `A-009` remains in progress for broader artifact schemas and future hydro-
+  side consumers beyond the first calibrated aero path,
+- deferred Slice 4B deterministic time-varying wind support,
 - deeper backend diagnostics, richer stepping policy, or future composed-
   backend expansion behind the existing seams.
 
@@ -290,7 +295,10 @@ Still planned or incomplete:
   reduced steady-wind default-runtime baseline with explicit headwind drag
   sensitivity plus deterministic crosswind lateral and yaw behavior, without
   opening time-varying wind support or broadening the current state-advancer
-  coupling boundary.
+  coupling boundary. Slice 4A adds a separate built-in
+  `steady_wind_calibrated` provider id that consumes a validated imported
+  calibration artifact through `A-009` while leaving the baseline id and its
+  default-runtime contract unchanged.
 
 ## A-006 — Control and Stroke Input
 - **Title**: Stroke scheduling and low-order control subsystem
@@ -360,7 +368,7 @@ Still planned or incomplete:
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem
 - **Satisfies**: [R-021, R-022, R-024]
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Responsibility**: Own ingestion and metadata handling for external calibration datasets and derived model artifacts while keeping the runtime path loosely coupled.
 - **Owned Concepts**: Calibration dataset loading; artifact provenance metadata; re-imported lookup or surrogate artifacts; offline truth-model handoff boundaries.
 - **Inputs**: External machine-readable datasets; artifact identifiers; source hashes and versions; provider lookup requests.
@@ -370,7 +378,15 @@ Still planned or incomplete:
 - **Invariants**: Imported artifacts carry deterministic provenance; malformed artifacts are rejected before use; default runtime remains usable without optional calibration-generation tooling.
 - **Allocation Rationale**: Isolates external data and provenance concerns so runtime subsystems can consume calibrated artifacts without becoming responsible for artifact lifecycle policy.
 - **Future Absorption**: Surrogate-model ingestion, richer dataset schemas, and offline export/import workflows should extend this subsystem.
-- **Interfaces**: Planned calibration dataset contract, artifact metadata contract, and provider-facing query contract.
+- **Interfaces**: Calibration dataset contract, artifact metadata contract, and
+  provider-facing query contract. The active Slice 4A realization introduces a
+  file-backed machine-readable calibration artifact boundary with required
+  provenance fields (`source_id`, `artifact_version`, `content_hash`, and
+  `schema_id`), deterministic validation before runtime stepping, and a first
+  provider-facing coefficient lookup path for one explicit calibrated aero
+  provider without changing the existing default built-in provider ids. Future
+  `A-009` work remains responsible for richer schemas, additional runtime
+  consumers, and offline import or export evolution beyond this first path.
 
 ## A-010 — Numerical Integration and State Advancement
 - **Title**: Numerical integration and consistent state-advancement subsystem

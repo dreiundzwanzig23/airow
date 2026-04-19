@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 ### Changed
+- Closed Slice 4A as the first `A-009` packet: the shared run path now
+  supports deterministic file-backed calibration artifact loading, enforces
+  required provenance fields (`source_id`, `artifact_version`,
+  `content_hash`, `schema_id`) before runtime stepping, adds one explicit
+  `steady_wind_calibrated` aero provider without changing the existing
+  default-runtime steady-wind baseline id, and propagates used-artifact
+  provenance into JSON and HDF5 outputs with new evidence
+  (`D-042`, `D-044`, `D-045`, `UT-221..UT-243`, `IT-023`, `QT-038`) while
+  leaving broader `A-009` schema and hydro-side expansion for later work.
 - Closed Slice 2 on `A-004` and `A-005` without reopening hydro or aero
   behavior: the current `quadratic_drag_placeholder`,
   `stroke_propulsion_placeholder`, and `steady_wind_placeholder` providers are
