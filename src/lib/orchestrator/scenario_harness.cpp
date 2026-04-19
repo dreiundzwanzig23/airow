@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "project/configuration/simulator_config.hpp"
 #include "project/output/run_result.hpp"
@@ -648,6 +649,186 @@ load_scenario_file_with_io_check(const std::filesystem::path &path) {
 }
 
 /**
+ * @design D-053 — Scenario performance-budget manifests and evaluation
+ * @title Deterministic protected-scenario budget loading and validation-lane
+ * duration checks
+ * @satisfies [A-008]
+ */
+bool require_positive_integer_field(
+    const Json &root, std::string_view key, std::string_view path, int &value,
+    std::string_view label, LoadScenarioPerformanceBudgetResult &result) {
+  if (!root.contains(key)) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", std::string(path), "missing required field"));
+    return false;
+  }
+  const auto &field = root.at(key);
+  if (!field.is_number_integer()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected integer"));
+    return false;
+  }
+  value = field.get<int>();
+  if (value <= 0) {
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value", std::string(path),
+                   std::string(label) + " must be a positive integer"));
+    return false;
+  }
+  return true;
+}
+
+bool require_budget_string_field(const Json &root, std::string_view key,
+                                 std::string_view path, std::string &value,
+                                 LoadScenarioPerformanceBudgetResult &result) {
+  if (!root.contains(key)) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", std::string(path), "missing required field"));
+    return false;
+  }
+  const auto &field = root.at(key);
+  if (!field.is_string()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected string"));
+    return false;
+  }
+  value = field.get<std::string>();
+  return true;
+}
+
+bool parse_performance_budget_entry(
+    const Json &entry, std::size_t index,
+    ScenarioPerformanceBudgetManifest &manifest,
+    LoadScenarioPerformanceBudgetResult &result) {
+  if (!entry.is_object()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_type", "$.scenario_budgets[" + std::to_string(index) + "]",
+        "expected object"));
+    return false;
+  }
+
+  ScenarioPerformanceBudget budget;
+  const auto base_path = "$.scenario_budgets[" + std::to_string(index) + "]";
+  if (!require_budget_string_field(entry, "scenario_id",
+                                   base_path + ".scenario_id",
+                                   budget.scenario_id, result) ||
+      !require_budget_string_field(entry, "step_name", base_path + ".step_name",
+                                   budget.step_name, result) ||
+      !require_budget_string_field(entry, "ctest_regex",
+                                   base_path + ".ctest_regex",
+                                   budget.ctest_regex, result) ||
+      !require_positive_integer_field(
+          entry, "max_duration_seconds", base_path + ".max_duration_seconds",
+          budget.max_duration_seconds, "max_duration_seconds", result)) {
+    return false;
+  }
+
+  const auto duplicate_scenario = std::find_if(
+      manifest.scenario_budgets.begin(), manifest.scenario_budgets.end(),
+      [&](const ScenarioPerformanceBudget &existing) {
+        return existing.scenario_id == budget.scenario_id;
+      });
+  if (duplicate_scenario != manifest.scenario_budgets.end()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", base_path + ".scenario_id",
+        "scenario_id must be unique within the performance budget manifest"));
+    return false;
+  }
+
+  const auto duplicate_step = std::find_if(
+      manifest.scenario_budgets.begin(), manifest.scenario_budgets.end(),
+      [&](const ScenarioPerformanceBudget &existing) {
+        return existing.step_name == budget.step_name;
+      });
+  if (duplicate_step != manifest.scenario_budgets.end()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", base_path + ".step_name",
+        "step_name must be unique within the performance budget manifest"));
+    return false;
+  }
+
+  manifest.scenario_budgets.push_back(std::move(budget));
+  return true;
+}
+
+LoadScenarioPerformanceBudgetResult
+load_scenario_performance_budget_from_stream(
+    std::istream &input, const std::filesystem::path &path) {
+  Json root;
+  try {
+    input >> root;
+  } catch (const std::exception &error) {
+    return {
+        .manifest = std::nullopt,
+        .diagnostics = {make_error("scenario_parse_error", "$",
+                                   "failed to parse performance budget file '" +
+                                       path.string() + "': " + error.what())},
+    };
+  }
+
+  LoadScenarioPerformanceBudgetResult result;
+  if (!root.is_object()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", "$", "expected object"));
+    return result;
+  }
+
+  ScenarioPerformanceBudgetManifest manifest;
+  if (!require_budget_string_field(root, "schema_id", "$.schema_id",
+                                   manifest.schema_id, result) ||
+      !require_budget_string_field(root, "development_environment_class",
+                                   "$.development_environment_class",
+                                   manifest.development_environment_class,
+                                   result)) {
+    return result;
+  }
+
+  if (!root.contains("scenario_budgets")) {
+    result.diagnostics.push_back(make_error("missing_required_field",
+                                            "$.scenario_budgets",
+                                            "missing required field"));
+    return result;
+  }
+  const auto &scenario_budgets = root.at("scenario_budgets");
+  if (!scenario_budgets.is_array()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", "$.scenario_budgets", "expected array"));
+    return result;
+  }
+  if (scenario_budgets.empty()) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", "$.scenario_budgets",
+                   "at least one protected scenario budget is required"));
+    return result;
+  }
+
+  for (std::size_t index = 0; index < scenario_budgets.size(); ++index) {
+    if (!parse_performance_budget_entry(scenario_budgets.at(index), index,
+                                        manifest, result)) {
+      return result;
+    }
+  }
+
+  result.manifest = std::move(manifest);
+  return result;
+}
+
+LoadScenarioPerformanceBudgetResult
+load_scenario_performance_budget_file_with_io_check(
+    const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return {
+        .manifest = std::nullopt,
+        .diagnostics = {make_error("scenario_io_error", "$",
+                                   "failed to open performance budget file '" +
+                                       path.string() + "'")},
+    };
+  }
+  return load_scenario_performance_budget_from_stream(input, path);
+}
+
+/**
  * @design D-024 — Scenario acceptance evaluation
  * @title Deterministic acceptance checks for passive-float, tow, and
  * calm-water baseline scenarios
@@ -667,6 +848,16 @@ double expected_tow_drag(double drag_coefficient, double speed_mps) {
 void append_issue(ScenarioEvaluationResult &evaluation, std::string code,
                   std::string path, std::string message) {
   evaluation.issues.push_back(ScenarioEvaluationIssue{
+      .code = std::move(code),
+      .path = std::move(path),
+      .message = std::move(message),
+  });
+}
+
+void append_performance_issue(ScenarioPerformanceBudgetEvaluationResult &result,
+                              std::string code, std::string path,
+                              std::string message) {
+  result.issues.push_back(ScenarioPerformanceBudgetIssue{
       .code = std::move(code),
       .path = std::move(path),
       .message = std::move(message),
@@ -859,6 +1050,11 @@ load_scenario_definition_file(const std::filesystem::path &path) {
   return load_scenario_file_with_io_check(path);
 }
 
+LoadScenarioPerformanceBudgetResult
+load_scenario_performance_budget_file(const std::filesystem::path &path) {
+  return load_scenario_performance_budget_file_with_io_check(path);
+}
+
 ScenarioEvaluationResult
 evaluate_scenario_result(const ScenarioDefinition &scenario,
                          const SimulationRunResult &result) {
@@ -899,6 +1095,49 @@ evaluate_scenario_result(const ScenarioDefinition &scenario,
   evaluate_tow_runtime_drag_direction(result, evaluation);
   evaluate_tow_drag_curve(scenario, evaluation);
   return evaluation;
+}
+
+ScenarioPerformanceBudgetEvaluationResult evaluate_scenario_performance_budgets(
+    const ScenarioPerformanceBudgetManifest &manifest,
+    const std::vector<ScenarioPerformanceSample> &samples) {
+  ScenarioPerformanceBudgetEvaluationResult result;
+
+  for (std::size_t index = 0; index < manifest.scenario_budgets.size();
+       ++index) {
+    const auto &budget = manifest.scenario_budgets.at(index);
+    const auto sample_it =
+        std::find_if(samples.begin(), samples.end(),
+                     [&](const ScenarioPerformanceSample &sample) {
+                       return sample.step_name == budget.step_name;
+                     });
+    if (sample_it == samples.end()) {
+      append_performance_issue(
+          result, "performance_budget_missing_step",
+          "$.scenario_budgets[" + std::to_string(index) + "].step_name",
+          "missing validation step for protected scenario '" +
+              budget.scenario_id + "'");
+      continue;
+    }
+
+    if (sample_it->status != "pass" || sample_it->exit_code != 0) {
+      append_performance_issue(
+          result, "performance_budget_step_failed",
+          "$.scenario_budgets[" + std::to_string(index) + "].step_name",
+          "validation step for protected scenario '" + budget.scenario_id +
+              "' did not pass before budget evaluation");
+      continue;
+    }
+
+    if (sample_it->duration_seconds > budget.max_duration_seconds) {
+      append_performance_issue(result, "performance_budget_exceeded",
+                               "$.scenario_budgets[" + std::to_string(index) +
+                                   "].max_duration_seconds",
+                               "protected scenario '" + budget.scenario_id +
+                                   "' exceeded its documented runtime budget");
+    }
+  }
+
+  return result;
 }
 
 } // namespace project

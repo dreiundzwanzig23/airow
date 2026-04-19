@@ -102,3 +102,22 @@ acceptance-envelope intent.
   - `min_distance_m = 0.0`
   - `max_mean_speed_mps = 0.5`
 - Verification lane: `QT-039`
+
+## Protected Performance Budget Manifest
+
+### Performance Budgets (`scenarios/performance_budgets.json`)
+- Schema id: `scenario_performance_budgets.v1`
+- Development environment class: `repo-default-build`
+- Protected scenarios:
+  - `passive-float`
+  - `tow-test`
+  - `calm-water-stroke`
+  - `headwind-stroke`
+  - `crosswind-stroke`
+- Dedicated lane: `./scripts/test_performance.sh`
+- Output contract:
+  - one separate validation summary JSON for the lane,
+  - one machine-readable budget report keyed by protected `scenario_id` and
+    `step_name`.
+- Scope guardrail: `gust-headwind-stroke` and batch jobs are intentionally
+  outside the first protected budget manifest.

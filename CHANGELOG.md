@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 ### Changed
+- Closed the combined `R-024` / `R-026` guardrail packet: public config now
+  accepts optional `output.truth_model_export_path`, the shared run path can
+  emit one deterministic JSON truth-model handoff bundle without changing the
+  default runtime dependencies or calibrated re-import contract, the repo now
+  carries `scenarios/performance_budgets.json` for the five protected core
+  scenarios, and `./scripts/test_performance.sh` plus
+  `tools/check_scenario_budgets.py` now enforce separate machine-readable
+  performance-budget reporting in `test.sh` and `verify.sh` while leaving
+  `test_tdd.sh` unchanged. This closes `R-024` and `R-026` with `D-052`,
+  `D-053`, `UT-290..UT-297`, `IT-026`, `QT-041`, and `QT-042`.
 - Closed Slice 4C as the deterministic batch-orchestration packet: public
   config can now define a top-level `batch` container with ordered cases and
   per-case override objects over one shared base run, the headless CLI now

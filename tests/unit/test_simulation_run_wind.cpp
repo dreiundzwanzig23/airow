@@ -268,16 +268,16 @@ TEST(SimulationRunWind, WindProfileInterpolatesLinearlyAtRunSteps) {
  * then the aerodynamic load history matches exactly.
  */
 TEST(SimulationRunWind, ConstantWindSeriesMatchesLegacySteadyWindLoads) {
-  const auto constant_config_path = write_temp_file(
-      "airow-ut-wind-constant-vector.json",
-      make_file_backed_config_json_with_builtin_aero("wind-constant-vector",
-                                                     0.5, 0.25, R"({
+  const auto constant_config_path =
+      write_temp_file("airow-ut-wind-constant-vector.json",
+                      make_file_backed_config_json_with_builtin_aero(
+                          "wind-constant-vector", 0.5, 0.25, R"({
     "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
   })"));
-  const auto series_config_path = write_temp_file(
-      "airow-ut-wind-constant-series.json",
-      make_file_backed_config_json_with_builtin_aero("wind-constant-series",
-                                                     0.5, 0.25, R"({
+  const auto series_config_path =
+      write_temp_file("airow-ut-wind-constant-series.json",
+                      make_file_backed_config_json_with_builtin_aero(
+                          "wind-constant-series", 0.5, 0.25, R"({
     "wind_time_series": [
       {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]}
     ]
@@ -319,16 +319,16 @@ TEST(SimulationRunWind, ConstantWindSeriesMatchesLegacySteadyWindLoads) {
  * both paths, then the aerodynamic load history matches exactly.
  */
 TEST(SimulationRunWind, ConstantWindProfileMatchesLegacySteadyWindLoads) {
-  const auto constant_config_path = write_temp_file(
-      "airow-ut-wind-constant-vector-profile.json",
-      make_file_backed_config_json_with_builtin_aero(
-          "wind-constant-vector-profile", 0.5, 0.25, R"({
+  const auto constant_config_path =
+      write_temp_file("airow-ut-wind-constant-vector-profile.json",
+                      make_file_backed_config_json_with_builtin_aero(
+                          "wind-constant-vector-profile", 0.5, 0.25, R"({
     "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
   })"));
-  const auto profile_config_path = write_temp_file(
-      "airow-ut-wind-constant-profile.json",
-      make_file_backed_config_json_with_builtin_aero("wind-constant-profile",
-                                                     0.5, 0.25, R"({
+  const auto profile_config_path =
+      write_temp_file("airow-ut-wind-constant-profile.json",
+                      make_file_backed_config_json_with_builtin_aero(
+                          "wind-constant-profile", 0.5, 0.25, R"({
     "wind_profile": [
       {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]},
       {"time_s": 0.5, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]}

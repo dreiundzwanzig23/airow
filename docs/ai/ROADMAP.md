@@ -48,9 +48,18 @@
   CLI batch auto-detection without batch `--report` support.
 - Guardrail: keep batch orchestration sequential on the existing run path.
 
+### Guardrail Packet — Runtime Separation and Scenario Budgets
+- Closed on 2026-04-19.
+- Primary owners are `A-001`, `A-002`, `A-007`, `A-008`, and `A-009`.
+- Scope: optional `output.truth_model_export_path`, one deterministic JSON
+  truth-model handoff artifact, documented offline re-import boundary on the
+  existing calibrated-artifact path, checked-in
+  `scenarios/performance_budgets.json`, and a dedicated
+  `./scripts/test_performance.sh` lane with a machine-readable budget report.
+- Guardrail: keep optional truth-model tooling out of the default runtime and
+  keep protected-scenario budget checks out of the quick TDD lane.
+
 ## Later Backlog
-- Keep `R-024` and `R-026` as cross-cutting guardrails rather than the next
-  headline delivery items.
 - `R-027`, `R-028`, `R-029`, and `R-030` remain deferred until the near-term
   slices settle.
 - Add real component-prefixed code paths and only add simulator-specific

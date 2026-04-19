@@ -22,7 +22,10 @@ integration selection, now closed with the preferred
 and structured backend-policy plus solver-status metadata in
 machine-readable outputs; the roadmap now keeps reduced-model fidelity and
 backend wiring separate before deferred calibration or time-varying
-environment workflows.
+environment workflows. The current post-`v0.1` guardrail packet now also adds
+an optional offline truth-model handoff export path and a dedicated protected-
+scenario performance-budget lane without changing the default runtime
+dependencies.
 
 ## Quick Start
 
@@ -90,6 +93,21 @@ Run one headless baseline case:
 ./build/project_app --config /path/to/config.json
 ```
 
+Request an offline truth-model handoff export without changing the runtime
+path:
+```json
+{
+  "output": {
+    "truth_model_export_path": "/path/to/truth-model-input.json"
+  }
+}
+```
+
+The exported JSON bundle is optional and disabled by default. Runtime
+re-import stays on the existing calibrated-artifact path through
+`providers.aero_load = "steady_wind_calibrated"` plus
+`artifacts.calibration.path`.
+
 Run one case with the human-readable compact report:
 ```bash
 ./build/project_app --config /path/to/config.json --report compact
@@ -110,6 +128,15 @@ Runnable example catalog:
 See `examples/README.md` for the checked-in CLI configs, output locations, and
 the distinction between direct example configs and the scenario-harness
 artifacts under `scenarios/`.
+
+Protected-scenario performance guardrail:
+```bash
+./scripts/test_performance.sh
+```
+
+That lane evaluates the checked-in `scenarios/performance_budgets.json`
+manifest separately from ordinary functional test failures. The quick
+`./scripts/test_tdd.sh` lane stays free of those budget checks.
 
 Current implemented library surface:
 - `include/project/aero/baseline_providers.hpp`
@@ -135,6 +162,9 @@ Current implemented library surface:
   `hull_resistance`, `blade_force`, and `aero_load`
 - optional file-backed external calibration artifact loading with
   deterministic schema or provenance validation on the shared runtime path
+- optional `output.truth_model_export_path` for one deterministic JSON offline
+  handoff bundle, disabled by default and kept separate from runtime import
+  consumers
 - top-level config-driven composed backend selection for
   `mechanics_backend` and `integration_backend`, with preferred
   `chrono_rigidbody + sundials_ida`, supported
@@ -166,6 +196,10 @@ Current implemented library surface:
 - deterministic scenario-definition loading and acceptance-envelope evaluation
   for checked-in passive-float, tow, calm-water stroke, headwind stroke, and
   crosswind stroke artifacts in `scenarios/*.json`
+- checked-in protected-scenario performance budgets in
+  `scenarios/performance_budgets.json` plus a dedicated
+  `./scripts/test_performance.sh` validation lane and machine-readable budget
+  report
 - deterministic hydro baseline providers for passive float, tow drag, and
   calm-water stroke propulsion behind the shared `HydroProvider` seam, now
   including reduced hydrostatic restoring loads, low-speed-damped built-in

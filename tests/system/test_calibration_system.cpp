@@ -142,7 +142,7 @@ std::string make_calibrated_config_json(std::string_view config_id,
 
 /**
  * @test QT-038
- * @verifies [R-021, R-022]
+ * @verifies [R-021, R-022, R-024]
  * @notes Given a CLI run that selects the calibrated aero provider and points
  * at a valid imported calibration artifact, when execution succeeds, then the
  * emitted summary records the artifact identifiers used during the run.

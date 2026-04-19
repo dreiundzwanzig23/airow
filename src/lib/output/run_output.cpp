@@ -46,6 +46,8 @@ constexpr std::string_view HDF5_SCHEMA_VERSION = "a007-hdf5-v2";
 constexpr std::string_view OUTPUT_SCHEMA_VERSION_V2 = "a007-json-v2";
 constexpr std::string_view BATCH_OUTPUT_SCHEMA_VERSION_V1 =
     "a007-batch-json-v1";
+constexpr std::string_view TRUTH_MODEL_HANDOFF_SCHEMA_VERSION_V1 =
+    "truth_model_input_handoff.v1";
 
 [[nodiscard]] bool build_has_hdf5_support() noexcept {
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
@@ -325,6 +327,17 @@ Json output_formats_json(const OutputArtifacts &outputs) {
   return formats;
 }
 
+Json configured_output_formats_json(const OutputSettings &output) {
+  Json formats = Json::array();
+  if (output.emit_json) {
+    formats.push_back("json");
+  }
+  if (output.emit_hdf5) {
+    formats.push_back("hdf5");
+  }
+  return formats;
+}
+
 Json batch_case_json(const BatchCaseResult &case_result) {
   return Json{
       {"case_id", case_result.case_id},
@@ -343,7 +356,12 @@ Json batch_case_json(const BatchCaseResult &case_result) {
        Json{{"summary_path", case_result.run_result.outputs.summary_path},
             {"time_series_path",
              case_result.run_result.outputs.time_series_path},
-            {"hdf5_path", case_result.run_result.outputs.hdf5_path}}}};
+            {"hdf5_path", case_result.run_result.outputs.hdf5_path},
+            {"truth_model_export",
+             Json{{"path",
+                   case_result.run_result.outputs.truth_model_export_path},
+                  {"written", case_result.run_result.outputs
+                                  .truth_model_export_written}}}}}};
 }
 
 /**
@@ -378,6 +396,158 @@ Json external_artifact_json(const ExternalArtifactMetadata &artifact) {
               {"artifact_version", artifact.artifact_version},
               {"content_hash", artifact.content_hash},
               {"schema_id", artifact.schema_id}};
+}
+
+Json wind_sample_json(const WindSample &sample) {
+  return Json{{"time_s", sample.time_s},
+              {"ambient_wind_world_mps",
+               Json::array({sample.ambient_wind_world_mps.x,
+                            sample.ambient_wind_world_mps.y,
+                            sample.ambient_wind_world_mps.z})}};
+}
+
+Json truth_model_inputs_json(const SimulatorConfig &config) {
+  Json environment{
+      {"ambient_wind_world_mps",
+       Json::array({config.environment.ambient_wind_world_mps.x,
+                    config.environment.ambient_wind_world_mps.y,
+                    config.environment.ambient_wind_world_mps.z})},
+  };
+  if (!config.environment.wind_time_series.empty()) {
+    Json wind_time_series = Json::array();
+    for (const auto &sample : config.environment.wind_time_series) {
+      wind_time_series.push_back(wind_sample_json(sample));
+    }
+    environment["wind_time_series"] = std::move(wind_time_series);
+  }
+  if (!config.environment.wind_profile.empty()) {
+    Json wind_profile = Json::array();
+    for (const auto &sample : config.environment.wind_profile) {
+      wind_profile.push_back(wind_sample_json(sample));
+    }
+    environment["wind_profile"] = std::move(wind_profile);
+  }
+
+  Json artifacts = Json::object();
+  if (!config.artifacts.calibration.path.empty()) {
+    artifacts["calibration"] =
+        Json{{"path", config.artifacts.calibration.path}};
+  }
+
+  Json inputs{
+      {"simulation",
+       Json{{"duration_s", config.simulation.duration_s},
+            {"time_step_s", config.simulation.time_step_s},
+            {"mechanics_backend", config.simulation.mechanics_backend},
+            {"integration_backend", config.simulation.integration_backend}}},
+      {"hull",
+       Json{{"mass_kg", config.hull.mass_kg},
+            {"center_of_mass_m", Json::array({config.hull.center_of_mass_m.x,
+                                              config.hull.center_of_mass_m.y,
+                                              config.hull.center_of_mass_m.z})},
+            {"inertia_kg_m2", Json::array({config.hull.inertia_kg_m2.x,
+                                           config.hull.inertia_kg_m2.y,
+                                           config.hull.inertia_kg_m2.z})},
+            {"initial_position_m",
+             Json::array({config.hull.initial_position_m.x,
+                          config.hull.initial_position_m.y,
+                          config.hull.initial_position_m.z})},
+            {"initial_orientation_xyzw",
+             Json::array({config.hull.initial_orientation_xyzw.x,
+                          config.hull.initial_orientation_xyzw.y,
+                          config.hull.initial_orientation_xyzw.z,
+                          config.hull.initial_orientation_xyzw.w})},
+            {"initial_linear_velocity_mps",
+             Json::array({config.hull.initial_linear_velocity_mps.x,
+                          config.hull.initial_linear_velocity_mps.y,
+                          config.hull.initial_linear_velocity_mps.z})},
+            {"initial_angular_velocity_radps",
+             Json::array({config.hull.initial_angular_velocity_radps.x,
+                          config.hull.initial_angular_velocity_radps.y,
+                          config.hull.initial_angular_velocity_radps.z})}}},
+      {"oars",
+       Json{
+           {"port",
+            Json{{"inboard_length_m", config.oars.port.inboard_length_m},
+                 {"outboard_length_m", config.oars.port.outboard_length_m},
+                 {"oarlock_position_m",
+                  Json::array({config.oars.port.oarlock_position_m.x,
+                               config.oars.port.oarlock_position_m.y,
+                               config.oars.port.oarlock_position_m.z})}}},
+           {"starboard",
+            Json{
+                {"inboard_length_m", config.oars.starboard.inboard_length_m},
+                {"outboard_length_m", config.oars.starboard.outboard_length_m},
+                {"oarlock_position_m",
+                 Json::array({config.oars.starboard.oarlock_position_m.x,
+                              config.oars.starboard.oarlock_position_m.y,
+                              config.oars.starboard.oarlock_position_m.z})}}}}},
+      {"seat", Json{{"rail_axis", Json::array({config.seat.rail_axis.x,
+                                               config.seat.rail_axis.y,
+                                               config.seat.rail_axis.z})},
+                    {"min_position_m", config.seat.min_position_m},
+                    {"max_position_m", config.seat.max_position_m},
+                    {"initial_position_m", config.seat.initial_position_m}}},
+      {"stroke",
+       Json{{"cycle_duration_s", config.stroke.cycle_duration_s},
+            {"drive_duration_s", config.stroke.drive_duration_s},
+            {"catch_angle_rad", config.stroke.catch_angle_rad},
+            {"release_angle_rad", config.stroke.release_angle_rad},
+            {"drive_blade_depth_m", config.stroke.drive_blade_depth_m},
+            {"recovery_blade_depth_m", config.stroke.recovery_blade_depth_m}}},
+      {"environment", std::move(environment)},
+      {"providers", Json{{"hull_resistance", config.providers.hull_resistance},
+                         {"blade_force", config.providers.blade_force},
+                         {"aero_load", config.providers.aero_load}}},
+      {"output",
+       Json{{"summary_path", config.output.summary_path},
+            {"time_series_path", config.output.time_series_path},
+            {"hdf5_path", config.output.hdf5_path},
+            {"truth_model_export_path", config.output.truth_model_export_path},
+            {"formats", configured_output_formats_json(config.output)},
+            {"high_frequency_time_series",
+             config.output.high_frequency_time_series}}}};
+  if (!artifacts.empty()) {
+    inputs["artifacts"] = std::move(artifacts);
+  }
+  return inputs;
+}
+
+Json truth_model_handoff_document(const SimulatorConfig &config,
+                                  const SimulationRunResult &result) {
+  /**
+   * @design D-052 — Optional truth-model handoff export contract
+   * @title Deterministic one-way JSON handoff shaping for offline truth-model
+   * studies without changing the default runtime import boundary
+   * @satisfies [A-007, A-009]
+   */
+  Json external_artifacts = Json::array();
+  for (const auto &artifact : result.metadata.external_artifacts) {
+    external_artifacts.push_back(external_artifact_json(artifact));
+  }
+
+  Json normalized_config = Json::array();
+  for (const auto &entry : result.metadata.normalized_config) {
+    normalized_config.push_back(
+        Json{{"key", entry.key}, {"value", entry.value}, {"unit", entry.unit}});
+  }
+
+  return Json{
+      {"schema_id", TRUTH_MODEL_HANDOFF_SCHEMA_VERSION_V1},
+      {"config_id", result.metadata.config_id},
+      {"simulator_version", result.metadata.simulator_version},
+      {"generated_at_utc", result.metadata.end_timestamp_utc},
+      {"units", Json{{"system", "SI"}}},
+      {"state_conventions",
+       Json{{"world_frame", "x_forward_y_starboard_z_up"},
+            {"body_frame", "x_forward_y_starboard_z_up"},
+            {"orientation", "world_from_body_quaternion_xyzw"}}},
+      {"providers", Json{{"hull_resistance", config.providers.hull_resistance},
+                         {"blade_force", config.providers.blade_force},
+                         {"aero_load", config.providers.aero_load}}},
+      {"inputs", truth_model_inputs_json(config)},
+      {"normalized_config", std::move(normalized_config)},
+      {"external_artifacts", std::move(external_artifacts)}};
 }
 
 Json make_summary_document(const SimulationRunResult &result) {
@@ -442,12 +612,16 @@ Json make_summary_document(const SimulationRunResult &result) {
       {"analysis", analysis_json(result)},
       {"metadata", metadata},
       {"diagnostics", diagnostics_json(result)},
-      {"outputs", Json{{"summary_path", result.outputs.summary_path},
-                       {"time_series_path", result.outputs.time_series_path},
-                       {"hdf5_path", result.outputs.hdf5_path},
-                       {"formats", output_formats_json(result.outputs)},
-                       {"high_frequency_time_series",
-                        result.outputs.high_frequency_time_series}}}};
+      {"outputs",
+       Json{{"summary_path", result.outputs.summary_path},
+            {"time_series_path", result.outputs.time_series_path},
+            {"hdf5_path", result.outputs.hdf5_path},
+            {"truth_model_export",
+             Json{{"path", result.outputs.truth_model_export_path},
+                  {"written", result.outputs.truth_model_export_written}}},
+            {"formats", output_formats_json(result.outputs)},
+            {"high_frequency_time_series",
+             result.outputs.high_frequency_time_series}}}};
 }
 
 Json orientation_channel(const Quaternion &orientation) {
@@ -1388,6 +1562,114 @@ bool write_hdf5_file(const std::filesystem::path &path,
 
 #endif
 
+void record_output_failure(SimulationRunResult &result,
+                           RunDiagnostic &&diagnostic) {
+  result.status = RunStatus::runtime_error;
+  result.diagnostics.push_back(std::move(diagnostic));
+}
+
+struct ResolvedRunOutputPaths {
+  std::filesystem::path summary_path;
+  std::filesystem::path time_series_path;
+  std::filesystem::path hdf5_path;
+  std::filesystem::path truth_model_export_path;
+};
+
+ResolvedRunOutputPaths resolve_run_output_paths(const SimulatorConfig &config) {
+  return {
+      .summary_path = config.output.summary_path.empty()
+                          ? default_summary_path(config)
+                          : std::filesystem::path(config.output.summary_path),
+      .time_series_path =
+          config.output.time_series_path.empty()
+              ? default_time_series_path(config)
+              : std::filesystem::path(config.output.time_series_path),
+      .hdf5_path = config.output.hdf5_path.empty()
+                       ? default_hdf5_path(config)
+                       : std::filesystem::path(config.output.hdf5_path),
+      .truth_model_export_path =
+          config.output.truth_model_export_path.empty()
+              ? std::filesystem::path{}
+              : std::filesystem::path(config.output.truth_model_export_path),
+  };
+}
+
+void assign_output_paths(const ResolvedRunOutputPaths &paths,
+                         SimulationRunResult &result) {
+  result.outputs.summary_path = paths.summary_path.string();
+  result.outputs.time_series_path = paths.time_series_path.string();
+  result.outputs.hdf5_path = paths.hdf5_path.string();
+  result.outputs.truth_model_export_path =
+      paths.truth_model_export_path.empty()
+          ? std::string{}
+          : paths.truth_model_export_path.string();
+}
+
+void emit_truth_model_export(const SimulatorConfig &config,
+                             const ResolvedRunOutputPaths &paths,
+                             SimulationRunResult &result) {
+  if (paths.truth_model_export_path.empty()) {
+    return;
+  }
+
+  RunDiagnostic diagnostic;
+  if (write_json_file(paths.truth_model_export_path,
+                      truth_model_handoff_document(config, result),
+                      diagnostic)) {
+    result.outputs.truth_model_export_written = true;
+    return;
+  }
+
+  result.outputs.truth_model_export_written = false;
+  record_output_failure(result, std::move(diagnostic));
+}
+
+void emit_json_outputs(const SimulatorConfig &config,
+                       const ResolvedRunOutputPaths &paths,
+                       SimulationRunResult &result) {
+  if (!config.output.emit_json) {
+    return;
+  }
+
+  RunDiagnostic diagnostic;
+  if (write_json_file(paths.summary_path, make_summary_document(result),
+                      diagnostic)) {
+    result.outputs.summary_written = true;
+  } else {
+    result.outputs.summary_written = false;
+    record_output_failure(result, std::move(diagnostic));
+  }
+
+  if (write_json_file(paths.time_series_path,
+                      make_time_series_document(
+                          result, config.output.high_frequency_time_series),
+                      diagnostic)) {
+    result.outputs.time_series_written = true;
+    return;
+  }
+
+  result.outputs.time_series_written = false;
+  record_output_failure(result, std::move(diagnostic));
+}
+
+void emit_hdf5_output(const SimulatorConfig &config,
+                      const ResolvedRunOutputPaths &paths,
+                      SimulationRunResult &result) {
+  if (!config.output.emit_hdf5) {
+    return;
+  }
+
+  RunDiagnostic diagnostic;
+  if (write_hdf5_file(paths.hdf5_path, result,
+                      config.output.high_frequency_time_series, diagnostic)) {
+    result.outputs.hdf5_written = true;
+    return;
+  }
+
+  result.outputs.hdf5_written = false;
+  record_output_failure(result, std::move(diagnostic));
+}
+
 } // namespace
 
 bool hdf5_output_supported() noexcept { return build_has_hdf5_support(); }
@@ -1404,56 +1686,12 @@ void emit_run_outputs(const SimulatorConfig &config,
       config.output.high_frequency_time_series;
   result.outputs.emit_json = config.output.emit_json;
   result.outputs.emit_hdf5 = config.output.emit_hdf5;
-
-  const auto summary_path =
-      config.output.summary_path.empty()
-          ? default_summary_path(config)
-          : std::filesystem::path(config.output.summary_path);
-  const auto time_series_path =
-      config.output.time_series_path.empty()
-          ? default_time_series_path(config)
-          : std::filesystem::path(config.output.time_series_path);
-  const auto hdf5_path = config.output.hdf5_path.empty()
-                             ? default_hdf5_path(config)
-                             : std::filesystem::path(config.output.hdf5_path);
-
-  result.outputs.summary_path = summary_path.string();
-  result.outputs.time_series_path = time_series_path.string();
-  result.outputs.hdf5_path = hdf5_path.string();
-
-  RunDiagnostic diagnostic;
-  if (config.output.emit_json) {
-    if (write_json_file(summary_path, make_summary_document(result),
-                        diagnostic)) {
-      result.outputs.summary_written = true;
-    } else {
-      result.outputs.summary_written = false;
-      result.status = RunStatus::runtime_error;
-      result.diagnostics.push_back(std::move(diagnostic));
-    }
-
-    if (write_json_file(time_series_path,
-                        make_time_series_document(
-                            result, config.output.high_frequency_time_series),
-                        diagnostic)) {
-      result.outputs.time_series_written = true;
-    } else {
-      result.outputs.time_series_written = false;
-      result.status = RunStatus::runtime_error;
-      result.diagnostics.push_back(std::move(diagnostic));
-    }
-  }
-
-  if (config.output.emit_hdf5) {
-    if (write_hdf5_file(hdf5_path, result,
-                        config.output.high_frequency_time_series, diagnostic)) {
-      result.outputs.hdf5_written = true;
-    } else {
-      result.outputs.hdf5_written = false;
-      result.status = RunStatus::runtime_error;
-      result.diagnostics.push_back(std::move(diagnostic));
-    }
-  }
+  result.outputs.truth_model_export_written = false;
+  const auto paths = resolve_run_output_paths(config);
+  assign_output_paths(paths, result);
+  emit_truth_model_export(config, paths, result);
+  emit_json_outputs(config, paths, result);
+  emit_hdf5_output(config, paths, result);
 }
 
 /**

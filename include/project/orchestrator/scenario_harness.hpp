@@ -101,11 +101,67 @@ struct ScenarioEvaluationResult {
   [[nodiscard]] bool ok() const noexcept { return issues.empty(); }
 };
 
+struct ScenarioPerformanceBudget {
+  std::string scenario_id;
+  std::string step_name;
+  std::string ctest_regex;
+  int max_duration_seconds{};
+
+  bool operator==(const ScenarioPerformanceBudget &) const = default;
+};
+
+struct ScenarioPerformanceBudgetManifest {
+  std::string schema_id;
+  std::string development_environment_class;
+  std::vector<ScenarioPerformanceBudget> scenario_budgets;
+
+  bool operator==(const ScenarioPerformanceBudgetManifest &) const = default;
+};
+
+struct LoadScenarioPerformanceBudgetResult {
+  std::optional<ScenarioPerformanceBudgetManifest> manifest;
+  std::vector<ValidationDiagnostic> diagnostics;
+
+  [[nodiscard]] bool ok() const noexcept {
+    return manifest.has_value() && diagnostics.empty();
+  }
+};
+
+struct ScenarioPerformanceSample {
+  std::string step_name;
+  std::string status;
+  int exit_code{};
+  int duration_seconds{};
+
+  bool operator==(const ScenarioPerformanceSample &) const = default;
+};
+
+struct ScenarioPerformanceBudgetIssue {
+  std::string code;
+  std::string path;
+  std::string message;
+
+  bool operator==(const ScenarioPerformanceBudgetIssue &) const = default;
+};
+
+struct ScenarioPerformanceBudgetEvaluationResult {
+  std::vector<ScenarioPerformanceBudgetIssue> issues;
+
+  [[nodiscard]] bool ok() const noexcept { return issues.empty(); }
+};
+
 LoadScenarioDefinitionResult
 load_scenario_definition_file(const std::filesystem::path &path);
 
 ScenarioEvaluationResult
 evaluate_scenario_result(const ScenarioDefinition &scenario,
                          const SimulationRunResult &result);
+
+LoadScenarioPerformanceBudgetResult
+load_scenario_performance_budget_file(const std::filesystem::path &path);
+
+ScenarioPerformanceBudgetEvaluationResult evaluate_scenario_performance_budgets(
+    const ScenarioPerformanceBudgetManifest &manifest,
+    const std::vector<ScenarioPerformanceSample> &samples);
 
 } // namespace project

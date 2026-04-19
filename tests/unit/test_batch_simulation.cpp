@@ -191,11 +191,10 @@ private:
  * overrides, and derives deterministic per-case config ids.
  */
 TEST(BatchSimulation, FileBackedBatchAppliesOrderedCaseOverrides) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-ordered.json",
-      make_valid_batch_config_json(
-          "unit-batch-ordered",
-          R"([
+  const auto path =
+      write_temp_file("airow-unit-batch-ordered.json",
+                      make_valid_batch_config_json("unit-batch-ordered",
+                                                   R"([
             { "case_id": "baseline" },
             { "case_id": "longer", "overrides": {
                 "simulation": { "duration_s": 2.0, "time_step_s": 0.5 }
@@ -219,10 +218,10 @@ TEST(BatchSimulation, FileBackedBatchAppliesOrderedCaseOverrides) {
             "unit-batch-ordered__baseline");
   EXPECT_EQ(result.case_results[1].run_result.metadata.config_id,
             "unit-batch-ordered__longer");
-  EXPECT_DOUBLE_EQ(result.case_results[0].run_result.summary.final_simulated_time_s,
-                   1.0);
-  EXPECT_DOUBLE_EQ(result.case_results[1].run_result.summary.final_simulated_time_s,
-                   2.0);
+  EXPECT_DOUBLE_EQ(
+      result.case_results[0].run_result.summary.final_simulated_time_s, 1.0);
+  EXPECT_DOUBLE_EQ(
+      result.case_results[1].run_result.summary.final_simulated_time_s, 2.0);
 
   for (const auto &case_result : result.case_results) {
     remove_run_artifacts(case_result.run_result);
@@ -239,17 +238,15 @@ TEST(BatchSimulation, FileBackedBatchAppliesOrderedCaseOverrides) {
  * batch definition before case execution with a stable diagnostic path.
  */
 TEST(BatchSimulation, FileBackedBatchRejectsDuplicateCaseIds) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-duplicate.json",
-      make_valid_batch_config_json(
-          "unit-batch-duplicate",
-          R"([
+  const auto path =
+      write_temp_file("airow-unit-batch-duplicate.json",
+                      make_valid_batch_config_json("unit-batch-duplicate",
+                                                   R"([
             { "case_id": "repeat" },
             { "case_id": "repeat" }
           ])"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -269,9 +266,8 @@ TEST(BatchSimulation, FileBackedBatchRejectsDuplicateCaseIds) {
 TEST(BatchSimulation, BatchExecutorPreservesSuccessfulCasesAlongsideFailures) {
   const auto path = write_temp_file(
       "airow-unit-batch-failure-isolation.json",
-      make_valid_batch_config_json(
-          "unit-batch-failure-isolation",
-          R"([
+      make_valid_batch_config_json("unit-batch-failure-isolation",
+                                   R"([
             { "case_id": "valid" },
             { "case_id": "invalid", "overrides": {
                 "simulation": { "time_step_s": 0.0 }
@@ -291,7 +287,8 @@ TEST(BatchSimulation, BatchExecutorPreservesSuccessfulCasesAlongsideFailures) {
   ASSERT_EQ(result.status, project::RunStatus::runtime_error);
   ASSERT_EQ(result.case_results.size(), 2U);
   EXPECT_EQ(result.case_results[0].case_id, "valid");
-  EXPECT_EQ(result.case_results[0].run_result.status, project::RunStatus::success);
+  EXPECT_EQ(result.case_results[0].run_result.status,
+            project::RunStatus::success);
   EXPECT_EQ(result.case_results[1].case_id, "invalid");
   EXPECT_EQ(result.case_results[1].run_result.status,
             project::RunStatus::configuration_error);
@@ -339,8 +336,9 @@ TEST(BatchSimulation, BatchExecutorWritesDeterministicBatchSummaryArtifact) {
   EXPECT_EQ(summary.at("cases").at(0).at("case_id"), "baseline");
   EXPECT_EQ(summary.at("cases").at(1).at("case_id"), "longer");
   EXPECT_EQ(summary.at("cases").at(0).at("status"), "success");
-  EXPECT_EQ(summary.at("cases").at(1).at("summary").at("final_simulated_time_s"),
-            2.0);
+  EXPECT_EQ(
+      summary.at("cases").at(1).at("summary").at("final_simulated_time_s"),
+      2.0);
 
   for (const auto &case_result : result.case_results) {
     remove_run_artifacts(case_result.run_result);
@@ -359,8 +357,7 @@ TEST(BatchSimulation, FileBackedBatchRejectsInvalidJson) {
   const auto path = write_temp_file("airow-unit-batch-invalid-json.json",
                                     R"({ "config_id": "broken", )");
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -380,14 +377,12 @@ TEST(BatchSimulation, FileBackedBatchRejectsInvalidJson) {
 TEST(BatchSimulation, FileBackedBatchRejectsNonObjectOverrides) {
   const auto path = write_temp_file(
       "airow-unit-batch-invalid-overrides.json",
-      make_valid_batch_config_json(
-          "unit-batch-invalid-overrides",
-          R"([
+      make_valid_batch_config_json("unit-batch-invalid-overrides",
+                                   R"([
             { "case_id": "broken", "overrides": [] }
           ])"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -462,8 +457,8 @@ TEST(BatchSimulation, BatchSummaryWriteFailureBecomesRuntimeError) {
       .cases =
           {
               {.case_id = "baseline",
-               .config = make_config("unit-batch-summary-failure__baseline",
-                                     1.0)},
+               .config =
+                   make_config("unit-batch-summary-failure__baseline", 1.0)},
           },
   };
 
@@ -490,8 +485,7 @@ TEST(BatchSimulation, FileBackedBatchRejectsMissingConfigFile) {
       std::filesystem::temp_directory_path() / "airow-unit-batch-missing.json";
   remove_file_if_present(path);
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -506,15 +500,13 @@ TEST(BatchSimulation, FileBackedBatchRejectsMissingConfigFile) {
  * `$.batch`.
  */
 TEST(BatchSimulation, FileBackedBatchRejectsNonObjectBatchField) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-non-object.json",
-      R"({
+  const auto path = write_temp_file("airow-unit-batch-non-object.json",
+                                    R"({
         "config_id": "unit-batch-non-object",
         "batch": []
       })");
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -536,8 +528,7 @@ TEST(BatchSimulation, FileBackedBatchRejectsEmptyCaseList) {
       "airow-unit-batch-empty-cases.json",
       make_valid_batch_config_json("unit-batch-empty-cases", "[]"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -554,16 +545,14 @@ TEST(BatchSimulation, FileBackedBatchRejectsEmptyCaseList) {
  * is validated, then it rejects that case with a stable `case_id` diagnostic.
  */
 TEST(BatchSimulation, FileBackedBatchRejectsEmptyCaseId) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-empty-case-id.json",
-      make_valid_batch_config_json(
-          "unit-batch-empty-case-id",
-          R"([
+  const auto path =
+      write_temp_file("airow-unit-batch-empty-case-id.json",
+                      make_valid_batch_config_json("unit-batch-empty-case-id",
+                                                   R"([
             { "case_id": "" }
           ])"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -580,9 +569,9 @@ TEST(BatchSimulation, FileBackedBatchRejectsEmptyCaseId) {
  * validated, then it rejects that field before any case is resolved.
  */
 TEST(BatchSimulation, FileBackedBatchRejectsNonStringSummaryPath) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-non-string-summary-path.json",
-      R"({
+  const auto path =
+      write_temp_file("airow-unit-batch-non-string-summary-path.json",
+                      R"({
         "config_id": "unit-batch-non-string-summary-path",
         "simulation": {
           "duration_s": 1.0,
@@ -629,8 +618,7 @@ TEST(BatchSimulation, FileBackedBatchRejectsNonStringSummaryPath) {
         }
       })");
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -654,14 +642,15 @@ TEST(BatchSimulation, BatchExecutorSuffixesBareExplicitOutputFilenames) {
   config.output.hdf5_path = "shared-output.h5";
   config.output.emit_hdf5 = true;
 
-  const auto result = project::run_batch_simulation(project::BatchSimulationConfig{
-      .batch_id = "unit-batch-bare-output",
-      .summary_path = {},
-      .cases =
-          {
-              {.case_id = "case with space", .config = config},
-          },
-  });
+  const auto result =
+      project::run_batch_simulation(project::BatchSimulationConfig{
+          .batch_id = "unit-batch-bare-output",
+          .summary_path = {},
+          .cases =
+              {
+                  {.case_id = "case with space", .config = config},
+              },
+      });
 
   ASSERT_EQ(result.status, project::RunStatus::success);
   ASSERT_EQ(result.case_results.size(), 1U);

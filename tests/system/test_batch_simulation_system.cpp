@@ -98,7 +98,7 @@ std::string make_batch_config_json(std::string_view batch_id,
         },
         "batch": {
           "summary_path": ")"
-           << summary_path << R"(",
+         << summary_path << R"(",
           "cases": [
             { "case_id": "baseline" },
             { "case_id": "invalid", "overrides": {
@@ -129,11 +129,10 @@ const std::filesystem::path kProjectAppPath = PROJECT_APP_PATH;
  */
 TEST(BatchSimulationSystem, ExecutableRunsHeadlessBatchJobWithPerCaseResults) {
   const auto summary_path =
-      std::filesystem::temp_directory_path() /
-      "airow-qt-batch-summary.json";
-  const auto config_path =
-      write_temp_file("airow-qt-batch-config.json",
-                      make_batch_config_json("qt-batch", summary_path.string()));
+      std::filesystem::temp_directory_path() / "airow-qt-batch-summary.json";
+  const auto config_path = write_temp_file(
+      "airow-qt-batch-config.json",
+      make_batch_config_json("qt-batch", summary_path.string()));
   const auto stdout_path =
       std::filesystem::temp_directory_path() / "airow-qt-batch.stdout";
   const auto stderr_path =
@@ -146,7 +145,8 @@ TEST(BatchSimulationSystem, ExecutableRunsHeadlessBatchJobWithPerCaseResults) {
   const auto status = std::system(command.c_str());
 
   EXPECT_EQ(decode_exit_code(status), 3);
-  EXPECT_NE(read_file(stderr_path).find("batch_id=qt-batch"), std::string::npos);
+  EXPECT_NE(read_file(stderr_path).find("batch_id=qt-batch"),
+            std::string::npos);
 
   const auto summary = nlohmann::json::parse(read_file(summary_path));
   ASSERT_EQ(summary.at("cases").size(), 2U);
@@ -155,12 +155,10 @@ TEST(BatchSimulationSystem, ExecutableRunsHeadlessBatchJobWithPerCaseResults) {
   EXPECT_EQ(summary.at("cases").at(0).at("status"), "success");
   EXPECT_EQ(summary.at("cases").at(1).at("status"), "configuration_error");
 
-  remove_file_if_present(
-      std::filesystem::temp_directory_path() /
-      "airow-qt-batch__baseline-summary.json");
-  remove_file_if_present(
-      std::filesystem::temp_directory_path() /
-      "airow-qt-batch__baseline-timeseries.json");
+  remove_file_if_present(std::filesystem::temp_directory_path() /
+                         "airow-qt-batch__baseline-summary.json");
+  remove_file_if_present(std::filesystem::temp_directory_path() /
+                         "airow-qt-batch__baseline-timeseries.json");
   remove_file_if_present(summary_path);
   remove_file_if_present(config_path);
   remove_file_if_present(stdout_path);

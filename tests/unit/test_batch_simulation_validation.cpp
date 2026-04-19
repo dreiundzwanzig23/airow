@@ -100,9 +100,11 @@ project::BatchSimulationConfig make_runtime_error_batch_config() {
                        .hull =
                            {
                                .mass_kg = 14.0,
-                               .center_of_mass_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+                               .center_of_mass_m =
+                                   {.x = 0.0, .y = 0.0, .z = 0.0},
                                .inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2},
-                               .initial_position_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+                               .initial_position_m =
+                                   {.x = 0.0, .y = 0.0, .z = 0.0},
                                .initial_orientation_xyzw =
                                    {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
                                .initial_linear_velocity_mps =
@@ -163,8 +165,7 @@ TEST(BatchSimulationValidation, RejectsMissingConfigId) {
   const auto path = write_temp_file("airow-unit-batch-missing-config-id.json",
                                     R"({ "batch": { "cases": [] } })");
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -182,12 +183,11 @@ TEST(BatchSimulationValidation, RejectsMissingConfigId) {
  * extraction.
  */
 TEST(BatchSimulationValidation, RejectsNonStringConfigId) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-non-string-config-id.json",
-      R"({ "config_id": 1, "batch": { "cases": [] } })");
+  const auto path =
+      write_temp_file("airow-unit-batch-non-string-config-id.json",
+                      R"({ "config_id": 1, "batch": { "cases": [] } })");
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -208,8 +208,7 @@ TEST(BatchSimulationValidation, RejectsNonObjectJsonRoot) {
   const auto path =
       write_temp_file("airow-unit-batch-root-array.json", R"([])");
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -230,8 +229,7 @@ TEST(BatchSimulationValidation, RejectsMissingCaseList) {
       "airow-unit-batch-missing-cases.json",
       make_valid_batch_root("unit-batch-missing-cases", R"({})"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -249,12 +247,12 @@ TEST(BatchSimulationValidation, RejectsMissingCaseList) {
  * `$.batch.cases`.
  */
 TEST(BatchSimulationValidation, RejectsNonArrayCaseList) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-non-array-cases.json",
-      make_valid_batch_root("unit-batch-non-array-cases", R"({ "cases": {} })"));
+  const auto path =
+      write_temp_file("airow-unit-batch-non-array-cases.json",
+                      make_valid_batch_root("unit-batch-non-array-cases",
+                                            R"({ "cases": {} })"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -272,13 +270,12 @@ TEST(BatchSimulationValidation, RejectsNonArrayCaseList) {
  * the indexed case path.
  */
 TEST(BatchSimulationValidation, RejectsNonObjectCaseEntry) {
-  const auto path = write_temp_file(
-      "airow-unit-batch-non-object-case.json",
-      make_valid_batch_root("unit-batch-non-object-case",
-                            R"({ "cases": [1] })"));
+  const auto path =
+      write_temp_file("airow-unit-batch-non-object-case.json",
+                      make_valid_batch_root("unit-batch-non-object-case",
+                                            R"({ "cases": [1] })"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -300,8 +297,7 @@ TEST(BatchSimulationValidation, RejectsNonStringCaseId) {
       make_valid_batch_root("unit-batch-non-string-case-id",
                             R"({ "cases": [ { "case_id": 1 } ] })"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -324,8 +320,7 @@ TEST(BatchSimulationValidation, RejectsMissingCaseId) {
       make_valid_batch_root("unit-batch-missing-case-id",
                             R"({ "cases": [ { "overrides": {} } ] })"));
 
-  const auto result =
-      project::run_batch_simulation_from_config_file(path);
+  const auto result = project::run_batch_simulation_from_config_file(path);
 
   ASSERT_EQ(result.status, project::RunStatus::configuration_error);
   ASSERT_EQ(result.diagnostics.size(), 1U);
@@ -354,7 +349,8 @@ TEST(BatchSimulationValidation, CountsRuntimeErrorCases) {
   EXPECT_EQ(result.case_results.front().run_result.status,
             project::RunStatus::runtime_error);
 
-  remove_file_if_present(result.case_results.front().run_result.outputs.summary_path);
+  remove_file_if_present(
+      result.case_results.front().run_result.outputs.summary_path);
   remove_file_if_present(
       result.case_results.front().run_result.outputs.time_series_path);
   remove_file_if_present(result.outputs.summary_path);

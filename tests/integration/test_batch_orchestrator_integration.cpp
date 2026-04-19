@@ -85,7 +85,7 @@ std::string make_batch_config_json(std::string_view batch_id,
         },
         "batch": {
           "summary_path": ")"
-           << summary_path << R"(",
+         << summary_path << R"(",
           "cases": [
             { "case_id": "baseline" },
             { "case_id": "invalid", "overrides": {
@@ -129,11 +129,10 @@ private:
 TEST(BatchOrchestratorIntegration,
      FileBackedBatchExecutionPreservesOrderedPerCaseResults) {
   const auto summary_path =
-      std::filesystem::temp_directory_path() /
-      "airow-it-batch-summary.json";
-  const auto path =
-      write_temp_file("airow-it-batch-config.json",
-                      make_batch_config_json("it-batch", summary_path.string()));
+      std::filesystem::temp_directory_path() / "airow-it-batch-summary.json";
+  const auto path = write_temp_file(
+      "airow-it-batch-config.json",
+      make_batch_config_json("it-batch", summary_path.string()));
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 12h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 12h + 1s,
@@ -147,7 +146,8 @@ TEST(BatchOrchestratorIntegration,
   ASSERT_EQ(result.case_results.size(), 2U);
   EXPECT_EQ(result.case_results[0].case_id, "baseline");
   EXPECT_EQ(result.case_results[1].case_id, "invalid");
-  EXPECT_EQ(result.case_results[0].run_result.status, project::RunStatus::success);
+  EXPECT_EQ(result.case_results[0].run_result.status,
+            project::RunStatus::success);
   EXPECT_EQ(result.case_results[1].run_result.status,
             project::RunStatus::configuration_error);
   EXPECT_TRUE(result.outputs.summary_written);

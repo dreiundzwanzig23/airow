@@ -74,6 +74,11 @@ def main() -> int:
         'validation_run_logged "test-aux" ./scripts/test_aux.sh',
         "repo-wide aux lane hook in full test gate",
     )
+    require_contains(
+        test_script,
+        'validation_run_logged "test-performance" ./scripts/test_performance.sh',
+        "repo-wide performance lane hook in full test gate",
+    )
 
     test_tdd_script = (ROOT / "scripts" / "test_tdd.sh").read_text(encoding="utf-8")
     require_contains(
@@ -81,12 +86,19 @@ def main() -> int:
         "./scripts/check_rgr_evidence.sh",
         "RGR evidence hook in test_tdd lane",
     )
+    if "./scripts/test_performance.sh" in test_tdd_script:
+        raise AssertionError("test_tdd lane must not run the performance lane")
 
     verify_script = (ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
     require_contains(
         verify_script,
         "./scripts/check_rgr_evidence.sh",
         "RGR evidence hook in verify lane",
+    )
+    require_contains(
+        verify_script,
+        "./scripts/test_performance.sh",
+        "performance gate in verify lane",
     )
     require_contains(verify_script, "./scripts/test_tdd.sh", "test_tdd gate in verify lane")
     if verify_script.find("./scripts/test_tdd.sh") > verify_script.find("./scripts/test.sh"):

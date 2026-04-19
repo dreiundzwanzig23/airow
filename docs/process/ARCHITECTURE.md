@@ -205,7 +205,12 @@ Still planned or incomplete:
   `simulation.mechanics_backend` and `simulation.integration_backend`
   selection for built-in backend ids, defaulting to the preferred supported
   runtime for the current build and rejecting unknown, unavailable, or
-  unsupported backend pairs deterministically.
+  unsupported backend pairs deterministically. The current `R-024` guardrail
+  packet extends the same boundary with one optional
+  `output.truth_model_export_path` field that is disabled by default, echoed
+  through normalized metadata when present, and used only to request a
+  deterministic offline truth-model handoff artifact without changing the
+  normal runtime path.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -230,8 +235,12 @@ Still planned or incomplete:
   wind, or authored wind profiles into the per-step world-frame ambient vector
   passed to the aero seam, one ordered batch executor that reuses the same
   shared single-run path for each resolved case while preserving deterministic
-  case ordering and isolated per-case results, and optional human-readable
-  report rendering modes for successful single-run inspection.
+  case ordering and isolated per-case results, optional human-readable report
+  rendering modes for successful single-run inspection, and one optional
+  truth-model handoff export mode that emits a deterministic JSON input bundle
+  when `output.truth_model_export_path` is configured while leaving the
+  ordinary runtime lifecycle unchanged and free of mandatory external
+  truth-model tooling.
 
 ## A-003 — Mechanics Subsystem
 - **Title**: 3D mechanics core for hull, oars, and seat motion
@@ -357,7 +366,10 @@ Still planned or incomplete:
   headline metrics, diagnostics, and emitted per-case artifact locations.
   Hydro fidelity work must preserve the existing structured provider metadata
   and emitted artifact schema while updating only the numeric contents implied
-  by the richer runtime providers.
+  by the richer runtime providers. The current `R-024` packet adds one optional
+  JSON truth-model handoff artifact with its own explicit schema id and emitted
+  path metadata, but keeps it disabled by default and separate from imported
+  external-artifact provenance reporting.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
@@ -381,7 +393,11 @@ Still planned or incomplete:
   `scripts/` also belong to this subsystem: they must propagate nested step
   failures without rewriting the exit status, and any emitted validation
   summary JSON must report step status and exit codes truthfully enough to be
-  used as machine-readable local-gate evidence.
+  used as machine-readable local-gate evidence. The current `R-026` guardrail
+  packet extends the same public surface with a checked-in
+  `scenarios/performance_budgets.json` manifest for the protected core
+  reference scenarios plus a deterministic budget-evaluation contract used by a
+  dedicated performance-validation lane.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem
@@ -404,7 +420,10 @@ Still planned or incomplete:
   provider-facing coefficient lookup path for one explicit calibrated aero
   provider without changing the existing default built-in provider ids. Future
   `A-009` work remains responsible for richer schemas, additional runtime
-  consumers, and offline import or export evolution beyond this first path.
+  consumers, and offline import or export evolution beyond this first path. The
+  current `R-024` packet keeps re-import on the existing validated calibration
+  artifact path while formalizing the first exported offline handoff artifact
+  schema for truth-model studies.
 
 ## A-010 — Numerical Integration and State Advancement
 - **Title**: Numerical integration and consistent state-advancement subsystem

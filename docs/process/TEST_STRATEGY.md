@@ -75,18 +75,28 @@ Current checked-in scenario artifacts and acceptance envelopes are listed in
 ## Required Gates
 - `./scripts/test.sh` is required before completion.
 - `./scripts/test_tdd.sh` is for fast local iteration only.
+- `./scripts/test_performance.sh` is the dedicated protected-scenario
+  performance-budget lane and reports its status separately from ordinary
+  functional failures.
 - `./scripts/check_rgr_evidence.sh` runs as a strict check in
   `./scripts/test_tdd.sh` and `./scripts/verify.sh`; `warn` or `off` are
   explicit local overrides only.
 - `./scripts/test.sh` includes the repo-wide auxiliary tooling-contract lane,
-  repo-wide test-quality linting with the default structural limits, a
+  the protected-scenario performance lane, repo-wide test-quality linting with
+  the default structural limits, a
   dedicated sanitized build or run lane, a dedicated GCC portability lane,
   and coverage gates on `src/lib/**` at 90% region coverage and 80% branch
   coverage plus changed-file coverage regression ratchets.
+- `./scripts/test_tdd.sh` intentionally excludes the protected-scenario
+  performance-budget checks so the quick loop stays fast.
+- `./scripts/verify.sh` runs `./scripts/test_performance.sh` as its own logged
+  step before the broader `./scripts/test.sh` aggregate gate.
 
 ## Optional/Specialized Lanes
 - Auxiliary script/tool contracts and header self-containment:
   `./scripts/test_aux.sh`
+- Dedicated protected-scenario performance-budget lane:
+  `./scripts/test_performance.sh`
 - Dedicated test-quality lint lane: `./scripts/lint_tests.sh`
 - Dedicated sanitized runtime lane: `./scripts/test_sanitized.sh`
 - Dedicated GCC portability lane: `./scripts/test_gcc.sh`

@@ -479,12 +479,20 @@ Milestone framing:
   - A documented workflow exists to export inputs for offline high-fidelity studies and re-import derived artifacts.
   - Automated verification includes at least one run that proves the default runtime path works without optional tooling present.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-19
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement protects the core runtime from accidental coupling to research-only tooling.
+- **Notes**: The shared runtime now keeps optional truth-model handoff export
+  behind `output.truth_model_export_path`, which stays disabled by default and
+  emits one deterministic JSON input bundle only when requested. The default
+  runtime continues to execute without optional truth-model tooling installed,
+  and the documented re-import path remains the existing validated
+  `steady_wind_calibrated` plus `artifacts.calibration.path` contract rather
+  than a new runtime consumer. Requirement-level closure now rests on
+  `QT-041` for the export path and the existing calibrated-artifact runtime
+  evidence in `QT-038`.
 
 ## R-025 — Batch Parameter Sweep Execution
 - **Title**: Run multiple simulation cases in one headless batch job
@@ -510,12 +518,19 @@ Milestone framing:
   - A performance regression in a protected scenario is reported separately from functional test failures.
   - The quick lane remains usable without optional high-fidelity tooling.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-01
+- **Updated**: 2026-04-19
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: This requirement is about protecting workflow usability as the simulator grows.
+- **Notes**: The repository now carries a checked-in
+  `scenarios/performance_budgets.json` manifest for the five protected core
+  scenarios, a dedicated `./scripts/test_performance.sh` validation lane that
+  reports budget status separately from ordinary functional failures, and a
+  machine-readable budget report generated from the lane summary. The quick
+  `./scripts/test_tdd.sh` lane remains free of these protected-scenario budget
+  checks, while `test.sh` and `verify.sh` now run the dedicated performance
+  lane explicitly. Requirement-level closure rests on `QT-042`.
 
 ## R-027 — Low-Order Balance Control
 - **Title**: Support an optional low-order balance or stabilization controller for the rower model

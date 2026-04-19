@@ -188,8 +188,8 @@ TEST(SimulationRunCliBatch, HeadlessCliWrapperMapsBatchSuccess) {
   std::ostringstream stdout_stream;
   std::ostringstream stderr_stream;
 
-  const auto summary_path =
-      std::filesystem::temp_directory_path() / "airow-unit-cli-batch-summary.json";
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-unit-cli-batch-summary.json";
   const auto path = write_temp_file(
       "airow-unit-cli-batch.json",
       make_valid_batch_config_json("unit-cli-batch", summary_path.string()));
@@ -212,18 +212,14 @@ TEST(SimulationRunCliBatch, HeadlessCliWrapperMapsBatchSuccess) {
   EXPECT_NE(stdout_stream.str().find("cases=2"), std::string::npos);
   EXPECT_TRUE(stderr_stream.str().empty());
 
-  remove_file_if_present(
-      std::filesystem::temp_directory_path() /
-      "airow-unit-cli-batch__baseline-summary.json");
-  remove_file_if_present(
-      std::filesystem::temp_directory_path() /
-      "airow-unit-cli-batch__baseline-timeseries.json");
-  remove_file_if_present(
-      std::filesystem::temp_directory_path() /
-      "airow-unit-cli-batch__longer-summary.json");
-  remove_file_if_present(
-      std::filesystem::temp_directory_path() /
-      "airow-unit-cli-batch__longer-timeseries.json");
+  remove_file_if_present(std::filesystem::temp_directory_path() /
+                         "airow-unit-cli-batch__baseline-summary.json");
+  remove_file_if_present(std::filesystem::temp_directory_path() /
+                         "airow-unit-cli-batch__baseline-timeseries.json");
+  remove_file_if_present(std::filesystem::temp_directory_path() /
+                         "airow-unit-cli-batch__longer-summary.json");
+  remove_file_if_present(std::filesystem::temp_directory_path() /
+                         "airow-unit-cli-batch__longer-timeseries.json");
   remove_file_if_present(summary_path);
   remove_file_if_present(path);
 }
@@ -241,10 +237,10 @@ TEST(SimulationRunCliBatch, HeadlessCliWrapperMapsBatchFailure) {
 
   const auto summary_path = std::filesystem::temp_directory_path() /
                             "airow-unit-cli-batch-failure-summary.json";
-  const auto path = write_temp_file(
-      "airow-unit-cli-batch-failure.json",
-      make_batch_failure_config_json("unit-cli-batch-failure",
-                                     summary_path.string()));
+  const auto path =
+      write_temp_file("airow-unit-cli-batch-failure.json",
+                      make_batch_failure_config_json("unit-cli-batch-failure",
+                                                     summary_path.string()));
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h + 4min,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 9h + 5min,
@@ -264,9 +260,8 @@ TEST(SimulationRunCliBatch, HeadlessCliWrapperMapsBatchFailure) {
             std::string::npos);
   EXPECT_NE(stderr_stream.str().find("case_id=invalid"), std::string::npos);
 
-  remove_file_if_present(
-      std::filesystem::temp_directory_path() /
-      "airow-unit-cli-batch-failure__baseline-summary.json");
+  remove_file_if_present(std::filesystem::temp_directory_path() /
+                         "airow-unit-cli-batch-failure__baseline-summary.json");
   remove_file_if_present(
       std::filesystem::temp_directory_path() /
       "airow-unit-cli-batch-failure__baseline-timeseries.json");
@@ -285,12 +280,12 @@ TEST(SimulationRunCliBatch, HeadlessCliWrapperRejectsBatchReportMode) {
   std::ostringstream stdout_stream;
   std::ostringstream stderr_stream;
 
-  const auto summary_path =
-      std::filesystem::temp_directory_path() / "airow-unit-cli-batch-report.json";
-  const auto path = write_temp_file(
-      "airow-unit-cli-batch-report.json",
-      make_valid_batch_config_json("unit-cli-batch-report",
-                                   summary_path.string()));
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-unit-cli-batch-report.json";
+  const auto path =
+      write_temp_file("airow-unit-cli-batch-report.json",
+                      make_valid_batch_config_json("unit-cli-batch-report",
+                                                   summary_path.string()));
   const auto path_text = path.string();
   const std::vector<std::string_view> args = {"--config", path_text, "--report",
                                               "compact"};
@@ -309,13 +304,14 @@ TEST(SimulationRunCliBatch, HeadlessCliWrapperRejectsBatchReportMode) {
  * runs, then it reports the stable configuration-error exit code instead of
  * silently falling back to the single-run path.
  */
-TEST(SimulationRunCliBatch, HeadlessCliWrapperMapsTopLevelBatchConfigurationError) {
+TEST(SimulationRunCliBatch,
+     HeadlessCliWrapperMapsTopLevelBatchConfigurationError) {
   std::ostringstream stdout_stream;
   std::ostringstream stderr_stream;
 
-  const auto path = write_temp_file(
-      "airow-unit-cli-batch-invalid-container.json",
-      R"({
+  const auto path =
+      write_temp_file("airow-unit-cli-batch-invalid-container.json",
+                      R"({
         "config_id": "unit-cli-batch-invalid-container",
         "batch": []
       })");
@@ -324,10 +320,10 @@ TEST(SimulationRunCliBatch, HeadlessCliWrapperMapsTopLevelBatchConfigurationErro
 
   EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream), 2);
   EXPECT_TRUE(stdout_stream.str().empty());
-  EXPECT_NE(stderr_stream.str().find("configuration_error"),
-            std::string::npos);
-  EXPECT_NE(stderr_stream.str().find("batch_id=unit-cli-batch-invalid-container"),
-            std::string::npos);
+  EXPECT_NE(stderr_stream.str().find("configuration_error"), std::string::npos);
+  EXPECT_NE(
+      stderr_stream.str().find("batch_id=unit-cli-batch-invalid-container"),
+      std::string::npos);
 
   remove_file_if_present(path);
 }

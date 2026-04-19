@@ -88,7 +88,8 @@ std::string with_wind_profile(const Json &keyframes) {
  * parsing runs, then the series is accepted and normalized without also
  * emitting the legacy constant-wind entry.
  */
-TEST(SimulatorConfigWind, ParsesReplayWindTimeSeriesAndNormalizesOnlySeriesFields) {
+TEST(SimulatorConfigWind,
+     ParsesReplayWindTimeSeriesAndNormalizesOnlySeriesFields) {
   const auto result =
       project::parse_simulator_config_text(with_wind_time_series(Json::array({
           Json{{"time_s", 0.0}, {"ambient_wind_world_mps", {-1.0, 0.0, 0.0}}},
@@ -188,8 +189,8 @@ TEST(SimulatorConfigWind, RejectsNonArrayWindTimeSeriesField) {
  * parsing runs, then validation rejects the empty sequence deterministically.
  */
 TEST(SimulatorConfigWind, RejectsEmptyWindTimeSeries) {
-  const auto result =
-      project::parse_simulator_config_text(with_wind_time_series(Json::array()));
+  const auto result = project::parse_simulator_config_text(
+      with_wind_time_series(Json::array()));
 
   ASSERT_FALSE(result.ok());
   ASSERT_FALSE(result.diagnostics.empty());

@@ -214,6 +214,13 @@ void isolate_case_outputs(std::string_view case_id, SimulatorConfig &config) {
                              case_id)
             .string();
   }
+  if (!config.output.truth_model_export_path.empty()) {
+    config.output.truth_model_export_path =
+        suffixed_output_path(
+            std::filesystem::path(config.output.truth_model_export_path),
+            case_id)
+            .string();
+  }
 }
 
 class CompositeHydroProvider final : public HydroProvider {

@@ -124,9 +124,11 @@ struct OutputArtifacts {
   std::string summary_path;
   std::string time_series_path;
   std::string hdf5_path;
+  std::string truth_model_export_path;
   bool summary_written{};
   bool time_series_written{};
   bool hdf5_written{};
+  bool truth_model_export_written{};
   bool high_frequency_time_series{};
   bool emit_json{true};
   bool emit_hdf5{};

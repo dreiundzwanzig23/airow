@@ -246,6 +246,7 @@ if(BUILD_TESTING)
         tests/unit/test_state_advancement_sundials.cpp
         tests/unit/test_simulator_config.cpp
         tests/unit/test_simulator_config_runtime.cpp
+        tests/unit/test_simulator_config_truth_model.cpp
         tests/unit/test_simulator_config_wind.cpp
         tests/unit/test_simulator_config_mechanics.cpp
         tests/unit/test_simulation_run.cpp
@@ -258,6 +259,7 @@ if(BUILD_TESTING)
         tests/unit/test_simulation_run_state_validation.cpp
         tests/unit/test_simulation_run_state_validation_additional.cpp
         tests/unit/test_run_outputs.cpp
+        tests/unit/test_run_outputs_truth_model.cpp
         tests/unit/test_run_outputs_wind.cpp
         tests/unit/test_run_outputs_hdf5.cpp
         tests/unit/test_run_outputs_config.cpp
@@ -266,6 +268,7 @@ if(BUILD_TESTING)
         tests/unit/test_scenario_harness_headwind.cpp
         tests/unit/test_scenario_harness_crosswind.cpp
         tests/unit/test_scenario_harness_additional.cpp
+        tests/unit/test_scenario_performance_budgets.cpp
     )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     if(HDF5_FOUND)
@@ -291,6 +294,7 @@ if(BUILD_TESTING)
         tests/integration/test_simulator_config_integration.cpp
         tests/integration/test_orchestrator_integration.cpp
         tests/integration/test_run_outputs_integration.cpp
+        tests/integration/test_scenario_performance_integration.cpp
     )
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
     set_project_warnings(project_tests_integration)
@@ -306,6 +310,7 @@ if(BUILD_TESTING)
         tests/system/test_run_analysis_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
+        tests/system/test_performance_lane_system.cpp
         tests/system/test_scenario_harness_system.cpp
         tests/system/test_wind_scenario_system.cpp
         tests/system/test_v0_1_closure_system.cpp
