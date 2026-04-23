@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 ### Changed
+- Closed `R-041` on the existing actuation, coupling, and output seams:
+  run analysis plus JSON plus HDF5 outputs now report deterministic
+  propulsion-metric support metadata, slip, work, and efficiency channels,
+  and the scenario harness now carries one checked-in shared-baseline
+  actuation-mode comparison artifact that compares prescribed, force-driven,
+  and power-driven stroke variants without closing the broader `R-045`
+  technique-scenario packet.
+- Closed `R-038` as the remaining Milestone 2 proof packet: the shared
+  measurement-bundle overlay path now has explicit parameter-sensitivity
+  evidence showing that changing hull, rigging, and athlete mass-distribution
+  inputs changes reported trim or performance metrics without introducing a
+  new runtime schema, with requirement-level coverage in `IT-029` and
+  `QT-045`.
+- Landed the first Milestone 2 plus Milestone 3 foundation packet: configs
+  now accept separate file-backed `measurement_bundle` and `measured_trial`
+  artifacts, the shared run path overlays boat or rigging or athlete study
+  identifiers from imported bundles, reduced stroke control now supports
+  `prescribed_kinematic`, `force_driven`, and `power_driven` actuation with
+  deterministic validation, low-order rower center-of-mass coupling now feeds
+  bounded inertial contributions into runtime state and outputs, and JSON
+  summary or time-series or truth-model handoff artifacts now record the new
+  lineage, actuation, and coupling metadata with evidence
+  (`D-054..D-056`, `UT-301..UT-308`, `IT-027..IT-028`, `QT-044`).
 - Added a milestone-based fidelity gap map for the next major single-scull
   phase in `docs/process/FIDELITY_GAP_MAP.md`, updated the roadmap and
   architecture allocation around eight staged milestones for hull-performance

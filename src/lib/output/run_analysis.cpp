@@ -9,15 +9,18 @@
 #include <cstddef>
 #include <iomanip>
 #include <ios>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace project {
 
 namespace {
 
 constexpr int K_REPORT_PRECISION = 3;
+constexpr double K_TRAPEZOID_WEIGHT = 0.5;
 
 /**
  * @design D-030 — Derived run analysis summaries
@@ -121,7 +124,354 @@ double stroke_power_for_load(const SimulationRunResult &result,
          boat_speed_mps;
 }
 
+bool provider_supports_propulsion_metrics(std::string_view provider_id) {
+  return provider_id == "stroke_propulsion_placeholder";
+}
+
+bool sample_within_window(double time_s,
+                          const std::optional<PropulsionMetricWindow> &window) {
+  if (!window.has_value()) {
+    return true;
+  }
+  return time_s >= window->start_time_s && time_s <= window->end_time_s;
+}
+
+struct InstantaneousPropulsionMetrics {
+  double port_blade_slip_speed_mps{};
+  double starboard_blade_slip_speed_mps{};
+  double effective_propulsive_power_w{};
+  double slip_loss_power_w{};
+  double propulsion_efficiency{};
+};
+
+bool selected_propulsion_sample_is_finite(const SimulationRunResult &result,
+                                          std::size_t load_index,
+                                          const LoadSample &load) {
+  if (result.state_history.empty()) {
+    return false;
+  }
+  const auto state_index =
+      std::min(load_index, result.state_history.size() - 1U);
+  const auto &state = result.state_history.at(state_index);
+  return std::isfinite(state.hull.linear_velocity_world_mps.x) &&
+         std::isfinite(state.port_oar.blade_tip_velocity_world_mps.x) &&
+         std::isfinite(state.starboard_oar.blade_tip_velocity_world_mps.x) &&
+         std::isfinite(load.resolved_port_blade_force_world_n().x) &&
+         std::isfinite(load.resolved_starboard_blade_force_world_n().x) &&
+         std::isfinite(load.time_s);
+}
+
+InstantaneousPropulsionMetrics
+instantaneous_propulsion_metrics(const SimulationRunResult &result,
+                                 std::size_t load_index,
+                                 const LoadSample &load) {
+  const auto state_index =
+      std::min(load_index, result.state_history.size() - 1U);
+  const auto &state = result.state_history.at(state_index);
+  const double port_blade_slip_speed_mps =
+      std::max(0.0, -state.port_oar.blade_tip_velocity_world_mps.x);
+  const double starboard_blade_slip_speed_mps =
+      std::max(0.0, -state.starboard_oar.blade_tip_velocity_world_mps.x);
+  const double forward_boat_speed_mps =
+      std::max(0.0, state.hull.linear_velocity_world_mps.x);
+  const double port_force_x_n = load.resolved_port_blade_force_world_n().x;
+  const double starboard_force_x_n =
+      load.resolved_starboard_blade_force_world_n().x;
+  const double effective_propulsive_power_w = std::max(
+      0.0, (port_force_x_n + starboard_force_x_n) * forward_boat_speed_mps);
+  const double slip_loss_power_w =
+      std::abs(port_force_x_n) * port_blade_slip_speed_mps +
+      std::abs(starboard_force_x_n) * starboard_blade_slip_speed_mps;
+  const double denominator = effective_propulsive_power_w + slip_loss_power_w;
+
+  return {
+      .port_blade_slip_speed_mps = port_blade_slip_speed_mps,
+      .starboard_blade_slip_speed_mps = starboard_blade_slip_speed_mps,
+      .effective_propulsive_power_w = effective_propulsive_power_w,
+      .slip_loss_power_w = slip_loss_power_w,
+      .propulsion_efficiency =
+          denominator > 0.0 ? effective_propulsive_power_w / denominator : 0.0,
+  };
+}
+
+void integrate_propulsion_work(double dt_s,
+                               const InstantaneousPropulsionMetrics &previous,
+                               const InstantaneousPropulsionMetrics &current,
+                               double &effective_work_j,
+                               double &slip_loss_work_j) {
+  effective_work_j += K_TRAPEZOID_WEIGHT *
+                      (previous.effective_propulsive_power_w +
+                       current.effective_propulsive_power_w) *
+                      dt_s;
+  slip_loss_work_j += K_TRAPEZOID_WEIGHT *
+                      (previous.slip_loss_power_w + current.slip_loss_power_w) *
+                      dt_s;
+}
+
+bool collect_selected_propulsion_indices(
+    const SimulationRunResult &result,
+    const std::optional<PropulsionMetricWindow> &window,
+    std::vector<std::size_t> &selected_indices, std::string &reason) {
+  if (result.state_history.empty() || result.load_history.empty()) {
+    reason = "propulsion metrics require finite state and load samples";
+    return false;
+  }
+
+  selected_indices.clear();
+  selected_indices.reserve(result.load_history.size());
+  for (std::size_t index = 0; index < result.load_history.size(); ++index) {
+    const auto &load = result.load_history.at(index);
+    if (!sample_within_window(load.time_s, window)) {
+      continue;
+    }
+    if (!selected_propulsion_sample_is_finite(result, index, load)) {
+      reason = "propulsion metrics require finite state and load samples";
+      return false;
+    }
+    selected_indices.push_back(index);
+  }
+  if (selected_indices.empty()) {
+    reason = "propulsion metrics require finite state and load samples";
+    return false;
+  }
+
+  reason.clear();
+  return true;
+}
+
+void append_report_header(std::ostringstream &report,
+                          const SimulationRunResult &result) {
+  report << "Run Analysis\n";
+  report << "config_id=" << result.metadata.config_id
+         << " status=" << (result.ok() ? "success" : "failed")
+         << " startup=" << result.metadata.startup_status << "\n\n";
+}
+
+void append_report_coverage(std::ostringstream &report,
+                            const RunAnalysis &analysis) {
+  report << "Coverage\n";
+  report << "  state_samples=" << analysis.state_sample_count
+         << " load_samples=" << analysis.load_sample_count
+         << " emitted_time_series_records="
+         << analysis.emitted_time_series_record_count
+         << " high_frequency_time_series="
+         << (analysis.emitted_high_frequency_time_series ? "true" : "false")
+         << "\n";
+  report << "  drive_samples=" << analysis.drive_sample_count
+         << " recovery_samples=" << analysis.recovery_sample_count
+         << " recovery_to_drive_transitions="
+         << analysis.recovery_to_drive_transition_count << "\n\n";
+}
+
+void append_report_final_state(std::ostringstream &report,
+                               const SimulationRunResult &result,
+                               const RunAnalysis &analysis) {
+  report << "Final State\n";
+  report << "  time_s=" << format_double(analysis.final_time_s)
+         << " boat_speed_mps=" << format_double(analysis.final_boat_speed_mps)
+         << " hull_position_z_m="
+         << format_double(analysis.final_hull_position_z_m)
+         << " seat_position_m=" << format_double(analysis.final_seat_position_m)
+         << " apparent_wind_speed_mps="
+         << format_double(analysis.final_apparent_wind_speed_mps)
+         << " stroke_power_w=" << format_double(analysis.final_stroke_power_w);
+  if (!result.state_history.empty()) {
+    const auto &stroke = result.state_history.back().stroke;
+    report << " phase=" << stroke_phase_text(stroke.phase)
+           << " phase_time_s=" << format_double(stroke.phase_time_s);
+  }
+  report << "\n\n";
+}
+
+void append_report_envelopes(std::ostringstream &report,
+                             const RunAnalysis &analysis) {
+  report << "Motion Envelope\n";
+  report << "  "
+         << format_envelope("boat_speed_mps", analysis.boat_speed_mps, "m/s")
+         << "\n";
+  report << "  "
+         << format_envelope("hull_position_z_m", analysis.hull_position_z_m,
+                            "m")
+         << "\n\n";
+
+  report << "Stroke Envelope\n";
+  report << "  "
+         << format_envelope("seat_position_m", analysis.seat_position_m, "m")
+         << "\n";
+  report << "  "
+         << format_envelope("port_handle_angle_rad",
+                            analysis.port_handle_angle_rad, "rad")
+         << "\n";
+  report << "  "
+         << format_envelope("starboard_handle_angle_rad",
+                            analysis.starboard_handle_angle_rad, "rad")
+         << "\n";
+  report << "  "
+         << format_envelope("port_blade_immersion_depth_m",
+                            analysis.port_blade_immersion_depth_m, "m")
+         << "\n";
+  report << "  "
+         << format_envelope("starboard_blade_immersion_depth_m",
+                            analysis.starboard_blade_immersion_depth_m, "m")
+         << "\n\n";
+
+  report << "Wind Envelope\n";
+  report << "  "
+         << format_envelope("apparent_wind_speed_mps",
+                            analysis.apparent_wind_speed_mps, "m/s")
+         << "\n\n";
+}
+
+void append_report_load_section(std::ostringstream &report,
+                                const RunAnalysis &analysis,
+                                RunAnalysisReportMode mode) {
+  if (mode == RunAnalysisReportMode::full) {
+    report << "Load Peaks\n";
+    report << "  "
+           << format_peak("peak_total_hydro_force_n",
+                          analysis.peak_total_hydro_force_n, "N")
+           << "\n";
+    report << "  "
+           << format_peak("peak_aero_force_n", analysis.peak_aero_force_n, "N")
+           << "\n";
+    report << "  "
+           << format_peak("peak_port_blade_force_n",
+                          analysis.peak_port_blade_force_n, "N")
+           << "\n";
+    report << "  "
+           << format_peak("peak_starboard_blade_force_n",
+                          analysis.peak_starboard_blade_force_n, "N")
+           << "\n";
+  } else {
+    report << "Load Envelope\n";
+  }
+  report << "  "
+         << format_peak("peak_stroke_power_w", analysis.peak_stroke_power_w,
+                        "W")
+         << "\n";
+}
+
+void append_report_propulsion_metrics(std::ostringstream &report,
+                                      const RunAnalysis &analysis) {
+  report << "\nPropulsion Metrics\n";
+  report << "  supported="
+         << (analysis.propulsion_metrics.availability.supported ? "true"
+                                                                : "false")
+         << " provider_id="
+         << analysis.propulsion_metrics.availability.provider_id
+         << " provider_validity_id="
+         << analysis.propulsion_metrics.availability.provider_validity_id;
+  if (!analysis.propulsion_metrics.availability.reason.empty()) {
+    report << " reason=" << analysis.propulsion_metrics.availability.reason;
+  }
+  report << "\n";
+  if (!analysis.propulsion_metrics.availability.supported) {
+    return;
+  }
+
+  report << "  mean_port_blade_slip_speed_mps="
+         << format_double(analysis.propulsion_metrics.run_metrics
+                              .mean_port_blade_slip_speed_mps)
+         << " peak_port_blade_slip_speed_mps="
+         << format_double(analysis.propulsion_metrics.run_metrics
+                              .peak_port_blade_slip_speed_mps)
+         << "\n";
+  report << "  mean_starboard_blade_slip_speed_mps="
+         << format_double(analysis.propulsion_metrics.run_metrics
+                              .mean_starboard_blade_slip_speed_mps)
+         << " peak_starboard_blade_slip_speed_mps="
+         << format_double(analysis.propulsion_metrics.run_metrics
+                              .peak_starboard_blade_slip_speed_mps)
+         << "\n";
+  report << "  effective_propulsive_work_j="
+         << format_double(analysis.propulsion_metrics.run_metrics
+                              .effective_propulsive_work_j)
+         << " slip_loss_work_j="
+         << format_double(
+                analysis.propulsion_metrics.run_metrics.slip_loss_work_j)
+         << " propulsion_efficiency="
+         << format_double(
+                analysis.propulsion_metrics.run_metrics.propulsion_efficiency)
+         << "\n";
+}
+
 } // namespace
+
+PropulsionMetrics
+analyze_propulsion_metrics(const SimulationRunResult &result,
+                           std::optional<PropulsionMetricWindow> window) {
+  PropulsionMetrics metrics;
+  metrics.availability.provider_id = result.metadata.providers.blade_force.id;
+  metrics.availability.provider_validity_id =
+      result.metadata.providers.blade_force.validity_id;
+
+  if (window.has_value() && window->end_time_s <= window->start_time_s) {
+    metrics.availability.reason =
+        "comparison window must have end_time_s greater than start_time_s";
+    return metrics;
+  }
+
+  if (!provider_supports_propulsion_metrics(
+          result.metadata.providers.blade_force.id)) {
+    metrics.availability.reason =
+        "blade-force provider does not support propulsion metrics";
+    return metrics;
+  }
+
+  std::vector<std::size_t> selected_indices;
+  if (!collect_selected_propulsion_indices(result, window, selected_indices,
+                                           metrics.availability.reason)) {
+    return metrics;
+  }
+
+  metrics.availability.supported = true;
+  metrics.availability.reason.clear();
+  double port_slip_sum = 0.0;
+  double starboard_slip_sum = 0.0;
+  double port_peak = 0.0;
+  double starboard_peak = 0.0;
+  double effective_work_j = 0.0;
+  double slip_loss_work_j = 0.0;
+  InstantaneousPropulsionMetrics previous_metrics{};
+  double previous_time_s = 0.0;
+  bool have_previous_sample = false;
+
+  for (const auto index : selected_indices) {
+    const auto &load = result.load_history.at(index);
+    const auto instant = instantaneous_propulsion_metrics(result, index, load);
+    port_slip_sum += instant.port_blade_slip_speed_mps;
+    starboard_slip_sum += instant.starboard_blade_slip_speed_mps;
+    port_peak = std::max(port_peak, instant.port_blade_slip_speed_mps);
+    starboard_peak =
+        std::max(starboard_peak, instant.starboard_blade_slip_speed_mps);
+
+    if (have_previous_sample) {
+      const double dt_s = load.time_s - previous_time_s;
+      if (dt_s > 0.0) {
+        integrate_propulsion_work(dt_s, previous_metrics, instant,
+                                  effective_work_j, slip_loss_work_j);
+      }
+    }
+
+    previous_metrics = instant;
+    previous_time_s = load.time_s;
+    have_previous_sample = true;
+  }
+
+  const double sample_count = static_cast<double>(selected_indices.size());
+  metrics.run_metrics.mean_port_blade_slip_speed_mps =
+      port_slip_sum / sample_count;
+  metrics.run_metrics.peak_port_blade_slip_speed_mps = port_peak;
+  metrics.run_metrics.mean_starboard_blade_slip_speed_mps =
+      starboard_slip_sum / sample_count;
+  metrics.run_metrics.peak_starboard_blade_slip_speed_mps = starboard_peak;
+  metrics.run_metrics.effective_propulsive_work_j = effective_work_j;
+  metrics.run_metrics.slip_loss_work_j = slip_loss_work_j;
+  const double work_denominator = effective_work_j + slip_loss_work_j;
+  metrics.run_metrics.propulsion_efficiency =
+      work_denominator > 0.0 ? effective_work_j / work_denominator : 0.0;
+  return metrics;
+}
 
 RunAnalysis analyze_run_result(const SimulationRunResult &result) {
   RunAnalysis analysis;
@@ -209,6 +559,7 @@ RunAnalysis analyze_run_result(const SimulationRunResult &result) {
     analysis.final_stroke_power_w =
         stroke_power_for_load(result, result.load_history.size() - 1U, load);
   }
+  analysis.propulsion_metrics = analyze_propulsion_metrics(result);
 
   return analysis;
 }
@@ -217,104 +568,12 @@ std::string format_run_analysis_report(const SimulationRunResult &result,
                                        RunAnalysisReportMode mode) {
   const auto analysis = analyze_run_result(result);
   std::ostringstream report;
-  report << "Run Analysis\n";
-  report << "config_id=" << result.metadata.config_id
-         << " status=" << (result.ok() ? "success" : "failed")
-         << " startup=" << result.metadata.startup_status << "\n\n";
-
-  report << "Coverage\n";
-  report << "  state_samples=" << analysis.state_sample_count
-         << " load_samples=" << analysis.load_sample_count
-         << " emitted_time_series_records="
-         << analysis.emitted_time_series_record_count
-         << " high_frequency_time_series="
-         << (analysis.emitted_high_frequency_time_series ? "true" : "false")
-         << "\n";
-  report << "  drive_samples=" << analysis.drive_sample_count
-         << " recovery_samples=" << analysis.recovery_sample_count
-         << " recovery_to_drive_transitions="
-         << analysis.recovery_to_drive_transition_count << "\n\n";
-
-  report << "Final State\n";
-  report << "  time_s=" << format_double(analysis.final_time_s)
-         << " boat_speed_mps=" << format_double(analysis.final_boat_speed_mps)
-         << " hull_position_z_m="
-         << format_double(analysis.final_hull_position_z_m)
-         << " seat_position_m=" << format_double(analysis.final_seat_position_m)
-         << " apparent_wind_speed_mps="
-         << format_double(analysis.final_apparent_wind_speed_mps)
-         << " stroke_power_w=" << format_double(analysis.final_stroke_power_w);
-  if (!result.state_history.empty()) {
-    const auto &stroke = result.state_history.back().stroke;
-    report << " phase=" << stroke_phase_text(stroke.phase)
-           << " phase_time_s=" << format_double(stroke.phase_time_s);
-  }
-  report << "\n\n";
-
-  report << "Motion Envelope\n";
-  report << "  "
-         << format_envelope("boat_speed_mps", analysis.boat_speed_mps, "m/s")
-         << "\n";
-  report << "  "
-         << format_envelope("hull_position_z_m", analysis.hull_position_z_m,
-                            "m")
-         << "\n\n";
-
-  report << "Stroke Envelope\n";
-  report << "  "
-         << format_envelope("seat_position_m", analysis.seat_position_m, "m")
-         << "\n";
-  report << "  "
-         << format_envelope("port_handle_angle_rad",
-                            analysis.port_handle_angle_rad, "rad")
-         << "\n";
-  report << "  "
-         << format_envelope("starboard_handle_angle_rad",
-                            analysis.starboard_handle_angle_rad, "rad")
-         << "\n";
-  report << "  "
-         << format_envelope("port_blade_immersion_depth_m",
-                            analysis.port_blade_immersion_depth_m, "m")
-         << "\n";
-  report << "  "
-         << format_envelope("starboard_blade_immersion_depth_m",
-                            analysis.starboard_blade_immersion_depth_m, "m")
-         << "\n\n";
-
-  report << "Wind Envelope\n";
-  report << "  "
-         << format_envelope("apparent_wind_speed_mps",
-                            analysis.apparent_wind_speed_mps, "m/s")
-         << "\n\n";
-
-  if (mode == RunAnalysisReportMode::full) {
-    report << "Load Peaks\n";
-    report << "  "
-           << format_peak("peak_total_hydro_force_n",
-                          analysis.peak_total_hydro_force_n, "N")
-           << "\n";
-    report << "  "
-           << format_peak("peak_aero_force_n", analysis.peak_aero_force_n, "N")
-           << "\n";
-    report << "  "
-           << format_peak("peak_port_blade_force_n",
-                          analysis.peak_port_blade_force_n, "N")
-           << "\n";
-    report << "  "
-           << format_peak("peak_starboard_blade_force_n",
-                          analysis.peak_starboard_blade_force_n, "N")
-           << "\n";
-    report << "  "
-           << format_peak("peak_stroke_power_w", analysis.peak_stroke_power_w,
-                          "W")
-           << "\n";
-  } else {
-    report << "Load Envelope\n";
-    report << "  "
-           << format_peak("peak_stroke_power_w", analysis.peak_stroke_power_w,
-                          "W")
-           << "\n";
-  }
+  append_report_header(report, result);
+  append_report_coverage(report, analysis);
+  append_report_final_state(report, result, analysis);
+  append_report_envelopes(report, analysis);
+  append_report_load_section(report, analysis, mode);
+  append_report_propulsion_metrics(report, analysis);
 
   return report.str();
 }

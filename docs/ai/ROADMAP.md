@@ -9,6 +9,11 @@
   and explicit single-scull scope control.
 - The next major phase is a milestone-based fidelity program for
   single-scull hull-performance and stroke-dynamics studies.
+- The remaining Milestone 2 proof is now closed: the shared
+  `measurement_bundle` path has requirement-level evidence that parameter-set
+  changes propagate into reported trim and/or performance metrics.
+- `R-041` is now closed on the shared reduced-runtime path with propulsion
+  metrics in outputs and one checked-in actuation-mode comparison artifact.
 - The detailed gap map and milestone packet live in
   `docs/process/FIDELITY_GAP_MAP.md`.
 ## Next Fidelity Program
@@ -36,30 +41,26 @@
 - Requirement packet: `R-038`, `R-044`, `R-046`.
 - Outcome: calibrated reduced hull resistance, trim, and rigging or loading
   sensitivity path for hull-performance studies.
-
 ### Milestone 6 — Coupled Validation Scenarios for Real Rowing Questions
 - Owners: `A-008`, `A-007` with `A-004`, `A-006`, `A-009` support.
 - Requirement packet: `R-045`, `R-046`, `R-047`.
 - Outcome: technique, hull or rigging, and measured-vs-sim comparison
   scenarios with deterministic delta metrics.
-
 ### Milestone 7 — Real Offline Truth-Model Loop
 - Owners: `A-009` with `A-001`, `A-007`, `A-004` support.
 - Requirement packet: `R-043`, `R-044`, `R-048`.
 - Outcome: stable export, offline-study, fit, and re-import lineage for
   hydro-side reduced artifacts.
-
 ### Milestone 8 — Uncertainty and Trust Reporting
 - Owners: `A-007`, `A-009` with `A-008`, `A-001` support.
 - Requirement packet: `R-035`, `R-049`.
 - Outcome: fit quality, validity-range, confidence, and out-of-envelope
   reporting in machine-readable and human-readable outputs.
-
 ## Recommended Near-Term Packet
-- Land Milestone 2 plus the first slice of Milestone 3 before reopening blade
-  or hull provider fidelity.
-- Keep the current reduced built-in providers as the fallback baseline path
-  while those new data and actuation seams settle.
+- Start the `R-042` / `R-043` blade-behavior packet on top of the now-stable
+  propulsion-metric and actuation seams.
+- Extend `R-045` from the new shared-baseline comparison surface rather than
+  creating a second technique-study harness.
 
 ## Explicit Deferrals
 - `R-027`, `R-028`, and `R-029` remain deferred until the fidelity-foundation

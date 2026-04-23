@@ -45,6 +45,13 @@ constexpr NumericFieldSpec NUMERIC_FIELDS[] = {
     {"release_angle_rad", "$.stroke.release_angle_rad"},
     {"drive_blade_depth_m", "$.stroke.drive_blade_depth_m"},
     {"recovery_blade_depth_m", "$.stroke.recovery_blade_depth_m"},
+    {"peak_drive_force_n", "$.stroke.actuation.peak_drive_force_n"},
+    {"peak_drive_power_w", "$.stroke.actuation.peak_drive_power_w"},
+    {"power_mode_speed_floor_mps",
+     "$.stroke.actuation.power_mode_speed_floor_mps"},
+    {"rower_mass_kg", "$.stroke.rower_coupling.rower_mass_kg"},
+    {"seat_position_to_com_scale",
+     "$.stroke.rower_coupling.seat_position_to_com_scale"},
 };
 constexpr int NORMALIZED_DOUBLE_PRECISION = 15;
 constexpr std::size_t VECTOR_COMPONENT_COUNT = 3U;
@@ -429,6 +436,22 @@ bool parse_optional_non_negative_field(const Json &root, std::string_view key,
   return true;
 }
 
+bool parse_optional_bool_field(const Json &root, std::string_view key,
+                               std::string_view path, bool &target,
+                               LoadSimulatorConfigResult &result) {
+  if (!root.contains(key)) {
+    return true;
+  }
+  const auto &value = root.at(key);
+  if (!value.is_boolean()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(path), "expected boolean"));
+    return false;
+  }
+  target = value.get<bool>();
+  return true;
+}
+
 bool require_non_negative_field(const Json &root, std::string_view key,
                                 std::string_view path, std::string_view label,
                                 double &target,
@@ -776,44 +799,230 @@ bool parse_seat_settings(const Json &root, SimulatorConfig &config,
   return true;
 }
 
-bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
-                           LoadSimulatorConfigResult &result) {
-  const Json *stroke = require_object(root, "stroke", "$.stroke", result);
-  config.stroke.drive_blade_depth_m = DEFAULT_DRIVE_BLADE_DEPTH_M;
-  config.stroke.recovery_blade_depth_m = 0.0;
-  if (stroke == nullptr ||
-      !require_positive_field(*stroke, "cycle_duration_s",
-                              "$.stroke.cycle_duration_s", "cycle_duration_s",
-                              config.stroke.cycle_duration_s, result) ||
-      !require_positive_field(*stroke, "drive_duration_s",
-                              "$.stroke.drive_duration_s", "drive_duration_s",
-                              config.stroke.drive_duration_s, result) ||
-      !require_number_field(*stroke, "catch_angle_rad",
-                            "$.stroke.catch_angle_rad", "catch_angle_rad",
-                            config.stroke.catch_angle_rad, result) ||
-      !require_number_field(*stroke, "release_angle_rad",
-                            "$.stroke.release_angle_rad", "release_angle_rad",
-                            config.stroke.release_angle_rad, result) ||
-      !parse_optional_non_negative_field(
-          *stroke, "drive_blade_depth_m", "$.stroke.drive_blade_depth_m",
-          "drive_blade_depth_m", config.stroke.drive_blade_depth_m, result) ||
-      !parse_optional_non_negative_field(
-          *stroke, "recovery_blade_depth_m", "$.stroke.recovery_blade_depth_m",
-          "recovery_blade_depth_m", config.stroke.recovery_blade_depth_m,
-          result)) {
-    return false;
-  }
-  if (config.stroke.drive_duration_s >= config.stroke.cycle_duration_s) {
+bool parse_stroke_base_fields(const Json &stroke, StrokeSettings &settings,
+                              LoadSimulatorConfigResult &result) {
+  return require_positive_field(stroke, "cycle_duration_s",
+                                "$.stroke.cycle_duration_s", "cycle_duration_s",
+                                settings.cycle_duration_s, result) &&
+         require_positive_field(stroke, "drive_duration_s",
+                                "$.stroke.drive_duration_s", "drive_duration_s",
+                                settings.drive_duration_s, result) &&
+         require_number_field(stroke, "catch_angle_rad",
+                              "$.stroke.catch_angle_rad", "catch_angle_rad",
+                              settings.catch_angle_rad, result) &&
+         require_number_field(stroke, "release_angle_rad",
+                              "$.stroke.release_angle_rad", "release_angle_rad",
+                              settings.release_angle_rad, result) &&
+         parse_optional_non_negative_field(
+             stroke, "drive_blade_depth_m", "$.stroke.drive_blade_depth_m",
+             "drive_blade_depth_m", settings.drive_blade_depth_m, result) &&
+         parse_optional_non_negative_field(
+             stroke, "recovery_blade_depth_m",
+             "$.stroke.recovery_blade_depth_m", "recovery_blade_depth_m",
+             settings.recovery_blade_depth_m, result);
+}
+
+bool validate_stroke_base_fields(const StrokeSettings &stroke,
+                                 LoadSimulatorConfigResult &result) {
+  if (stroke.drive_duration_s >= stroke.cycle_duration_s) {
     result.diagnostics.push_back(
         make_error("invalid_numeric_value", "$.stroke.drive_duration_s",
                    "drive_duration_s must be less than cycle_duration_s"));
     return false;
   }
-  if (config.stroke.drive_blade_depth_m <=
-      config.stroke.recovery_blade_depth_m) {
+  if (stroke.drive_blade_depth_m <= stroke.recovery_blade_depth_m) {
     result.diagnostics.push_back(make_error(
         "invalid_numeric_value", "$.stroke.recovery_blade_depth_m",
         "recovery_blade_depth_m must be less than drive_blade_depth_m"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_stroke_actuation_settings(
+    const Json &stroke, StrokeSettings::ActuationSettings &actuation,
+    LoadSimulatorConfigResult &result) {
+  if (!stroke.contains("actuation")) {
+    return true;
+  }
+  const Json *actuation_json =
+      require_object(stroke, "actuation", "$.stroke.actuation", result);
+  if (actuation_json == nullptr ||
+      !require_string_field(*actuation_json, "mode", "$.stroke.actuation.mode",
+                            actuation.mode, result)) {
+    return false;
+  }
+  return parse_optional_non_negative_field(
+             *actuation_json, "peak_drive_force_n",
+             "$.stroke.actuation.peak_drive_force_n", "peak_drive_force_n",
+             actuation.peak_drive_force_n, result) &&
+         parse_optional_non_negative_field(
+             *actuation_json, "peak_drive_power_w",
+             "$.stroke.actuation.peak_drive_power_w", "peak_drive_power_w",
+             actuation.peak_drive_power_w, result) &&
+         parse_optional_non_negative_field(
+             *actuation_json, "power_mode_speed_floor_mps",
+             "$.stroke.actuation.power_mode_speed_floor_mps",
+             "power_mode_speed_floor_mps", actuation.power_mode_speed_floor_mps,
+             result);
+}
+
+bool validate_prescribed_kinematic_actuation(
+    const StrokeSettings::ActuationSettings &actuation,
+    LoadSimulatorConfigResult &result) {
+  if (actuation.peak_drive_force_n > 0.0 ||
+      actuation.peak_drive_power_w > 0.0 ||
+      actuation.power_mode_speed_floor_mps > 0.0) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.stroke.actuation",
+        "prescribed_kinematic mode must not define non-kinematic command "
+        "inputs"));
+    return false;
+  }
+  return true;
+}
+
+bool validate_force_driven_actuation(
+    const StrokeSettings::ActuationSettings &actuation,
+    LoadSimulatorConfigResult &result) {
+  if (actuation.peak_drive_force_n <= 0.0) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", "$.stroke.actuation.peak_drive_force_n",
+        "force_driven mode requires peak_drive_force_n"));
+    return false;
+  }
+  if (actuation.peak_drive_power_w > 0.0 ||
+      actuation.power_mode_speed_floor_mps > 0.0) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.stroke.actuation",
+        "force_driven mode must not define power-driven command inputs"));
+    return false;
+  }
+  return true;
+}
+
+bool validate_power_driven_actuation(
+    const StrokeSettings::ActuationSettings &actuation,
+    LoadSimulatorConfigResult &result) {
+  if (actuation.peak_drive_power_w <= 0.0) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", "$.stroke.actuation.peak_drive_power_w",
+        "power_driven mode requires peak_drive_power_w"));
+    return false;
+  }
+  if (actuation.power_mode_speed_floor_mps <= 0.0) {
+    result.diagnostics.push_back(
+        make_error("missing_required_field",
+                   "$.stroke.actuation.power_mode_speed_floor_mps",
+                   "power_driven mode requires power_mode_speed_floor_mps"));
+    return false;
+  }
+  if (actuation.peak_drive_force_n > 0.0) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.stroke.actuation",
+        "power_driven mode must not define force-driven command inputs"));
+    return false;
+  }
+  return true;
+}
+
+bool validate_stroke_actuation_settings(
+    const StrokeSettings::ActuationSettings &actuation,
+    LoadSimulatorConfigResult &result) {
+  if (actuation.mode == "prescribed_kinematic") {
+    return validate_prescribed_kinematic_actuation(actuation, result);
+  }
+  if (actuation.mode == "force_driven") {
+    return validate_force_driven_actuation(actuation, result);
+  }
+  if (actuation.mode == "power_driven") {
+    return validate_power_driven_actuation(actuation, result);
+  }
+  result.diagnostics.push_back(
+      make_error("invalid_value", "$.stroke.actuation.mode",
+                 "unsupported stroke actuation mode '" + actuation.mode + "'"));
+  return false;
+}
+
+bool parse_rower_coupling_settings(
+    const Json &stroke, StrokeSettings::RowerCouplingSettings &rower_coupling,
+    LoadSimulatorConfigResult &result) {
+  if (!stroke.contains("rower_coupling")) {
+    return true;
+  }
+  const Json *rower_coupling_json = require_object(
+      stroke, "rower_coupling", "$.stroke.rower_coupling", result);
+  if (rower_coupling_json == nullptr ||
+      !parse_optional_bool_field(*rower_coupling_json, "enabled",
+                                 "$.stroke.rower_coupling.enabled",
+                                 rower_coupling.enabled, result)) {
+    return false;
+  }
+  if (!parse_optional_non_negative_field(
+          *rower_coupling_json, "rower_mass_kg",
+          "$.stroke.rower_coupling.rower_mass_kg", "rower_mass_kg",
+          rower_coupling.rower_mass_kg, result)) {
+    return false;
+  }
+  if (rower_coupling_json->contains("body_center_of_mass_m") &&
+      !require_vector3_field(*rower_coupling_json, "body_center_of_mass_m",
+                             "$.stroke.rower_coupling.body_center_of_mass_m",
+                             "body_center_of_mass_m",
+                             rower_coupling.body_center_of_mass_m, result)) {
+    return false;
+  }
+  return parse_optional_non_negative_field(
+      *rower_coupling_json, "seat_position_to_com_scale",
+      "$.stroke.rower_coupling.seat_position_to_com_scale",
+      "seat_position_to_com_scale", rower_coupling.seat_position_to_com_scale,
+      result);
+}
+
+bool validate_rower_coupling_settings(
+    const StrokeSettings::RowerCouplingSettings &rower_coupling,
+    LoadSimulatorConfigResult &result) {
+  if (!rower_coupling.enabled) {
+    return true;
+  }
+  if (rower_coupling.rower_mass_kg <= 0.0) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", "$.stroke.rower_coupling.rower_mass_kg",
+        "enabled rower coupling requires rower_mass_kg"));
+    return false;
+  }
+  if (rower_coupling.seat_position_to_com_scale < 0.0) {
+    result.diagnostics.push_back(
+        make_error("invalid_numeric_value",
+                   "$.stroke.rower_coupling.seat_position_to_com_scale",
+                   "seat_position_to_com_scale must be non-negative"));
+    return false;
+  }
+  return true;
+}
+
+/**
+ * @design D-056 — Fidelity packet configuration schema
+ * @title Deterministic configuration validation for separate measurement or
+ * trial artifact references, bounded stroke-actuation modes, and low-order
+ * rower-coupling inputs
+ * @satisfies [A-001]
+ */
+bool parse_stroke_settings(const Json &root, SimulatorConfig &config,
+                           LoadSimulatorConfigResult &result) {
+  const Json *stroke = require_object(root, "stroke", "$.stroke", result);
+  config.stroke.drive_blade_depth_m = DEFAULT_DRIVE_BLADE_DEPTH_M;
+  config.stroke.recovery_blade_depth_m = 0.0;
+  config.stroke.actuation = {};
+  config.stroke.rower_coupling = {};
+  if (stroke == nullptr ||
+      !parse_stroke_base_fields(*stroke, config.stroke, result) ||
+      !validate_stroke_base_fields(config.stroke, result) ||
+      !parse_stroke_actuation_settings(*stroke, config.stroke.actuation,
+                                       result) ||
+      !validate_stroke_actuation_settings(config.stroke.actuation, result) ||
+      !parse_rower_coupling_settings(*stroke, config.stroke.rower_coupling,
+                                     result) ||
+      !validate_rower_coupling_settings(config.stroke.rower_coupling, result)) {
     return false;
   }
   return true;
@@ -1074,7 +1283,13 @@ bool parse_artifact_settings(std::string_view source_name, const Json &root,
   return artifacts != nullptr &&
          parse_artifact_reference(*artifacts, "calibration",
                                   "$.artifacts.calibration", source_name,
-                                  config.artifacts.calibration.path, result);
+                                  config.artifacts.calibration.path, result) &&
+         parse_artifact_reference(
+             *artifacts, "measurement_bundle", "$.artifacts.measurement_bundle",
+             source_name, config.artifacts.measurement_bundle.path, result) &&
+         parse_artifact_reference(*artifacts, "measured_trial",
+                                  "$.artifacts.measured_trial", source_name,
+                                  config.artifacts.measured_trial.path, result);
 }
 
 bool validate_artifact_requirements(const SimulatorConfig &config,
@@ -1314,10 +1529,36 @@ normalize_simulator_config(const SimulatorConfig &config) {
        format_normalized_double(config.stroke.drive_blade_depth_m), "m"},
       {"$.stroke.recovery_blade_depth_m",
        format_normalized_double(config.stroke.recovery_blade_depth_m), "m"},
+      {"$.stroke.actuation.mode", config.stroke.actuation.mode, ""},
+      {"$.stroke.actuation.peak_drive_force_n",
+       format_normalized_double(config.stroke.actuation.peak_drive_force_n),
+       "N"},
+      {"$.stroke.actuation.peak_drive_power_w",
+       format_normalized_double(config.stroke.actuation.peak_drive_power_w),
+       "W"},
+      {"$.stroke.actuation.power_mode_speed_floor_mps",
+       format_normalized_double(
+           config.stroke.actuation.power_mode_speed_floor_mps),
+       "m/s"},
+      {"$.stroke.rower_coupling.enabled",
+       format_bool(config.stroke.rower_coupling.enabled), "bool"},
+      {"$.stroke.rower_coupling.rower_mass_kg",
+       format_normalized_double(config.stroke.rower_coupling.rower_mass_kg),
+       "kg"},
+      {"$.stroke.rower_coupling.body_center_of_mass_m",
+       format_vector3(config.stroke.rower_coupling.body_center_of_mass_m), "m"},
+      {"$.stroke.rower_coupling.seat_position_to_com_scale",
+       format_normalized_double(
+           config.stroke.rower_coupling.seat_position_to_com_scale),
+       ""},
       {"$.providers.hull_resistance", config.providers.hull_resistance, ""},
       {"$.providers.blade_force", config.providers.blade_force, ""},
       {"$.providers.aero_load", config.providers.aero_load, ""},
       {"$.artifacts.calibration.path", config.artifacts.calibration.path, ""},
+      {"$.artifacts.measurement_bundle.path",
+       config.artifacts.measurement_bundle.path, ""},
+      {"$.artifacts.measured_trial.path", config.artifacts.measured_trial.path,
+       ""},
       {"$.output.summary_path", config.output.summary_path, ""},
       {"$.output.time_series_path", config.output.time_series_path, ""},
       {"$.output.hdf5_path", config.output.hdf5_path, ""},

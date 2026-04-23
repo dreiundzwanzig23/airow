@@ -2,8 +2,13 @@
 #include "project/aero/baseline_providers.hpp"
 #include "project/aero/calibration_loader.hpp"
 #include "project/aero/provider.hpp"
+#include "project/calibration/artifact.hpp"
+#include "project/calibration/common.hpp"
+#include "project/calibration/measured_trial.hpp"
+#include "project/calibration/measurement_bundle.hpp"
 #include "project/configuration/provider_catalog.hpp"
 #include "project/configuration/simulator_config.hpp"
+#include "project/control/stroke_command.hpp"
 #include "project/core/geometry.hpp"
 #include "project/hydro/baseline_providers.hpp"
 #include "project/hydro/provider.hpp"
@@ -249,12 +254,19 @@ public:
       const auto blade_load = blade_force_provider_->sample_load(context);
       load.port_blade_force_x_n += blade_load.port_blade_force_x_n;
       load.starboard_blade_force_x_n += blade_load.starboard_blade_force_x_n;
+      load.commanded_force_n += blade_load.commanded_force_n;
+      load.commanded_power_w += blade_load.commanded_power_w;
+      load.realized_blade_force_total_n +=
+          blade_load.realized_blade_force_total_n;
       load.port_blade_force_world_n =
           sum_vectors(load.port_blade_force_world_n,
                       blade_load.resolved_port_blade_force_world_n());
       load.starboard_blade_force_world_n =
           sum_vectors(load.starboard_blade_force_world_n,
                       blade_load.resolved_starboard_blade_force_world_n());
+      load.rower_inertial_force_world_n =
+          sum_vectors(load.rower_inertial_force_world_n,
+                      blade_load.rower_inertial_force_world_n);
       load.port_blade_immersion_depth_m =
           blade_load.port_blade_immersion_depth_m;
       load.starboard_blade_immersion_depth_m =
@@ -303,6 +315,157 @@ struct RuntimeProviderBuildResult {
   [[nodiscard]] bool ok() const noexcept { return diagnostics.empty(); }
 };
 
+struct PreparedRunInputs {
+  SimulatorConfig config;
+  std::vector<ExternalArtifactMetadata> external_artifacts;
+  std::optional<ArtifactReferenceContract> reference_contract;
+  std::string boat_id;
+  std::string rigging_id;
+  std::string athlete_id;
+  std::string trial_id;
+  double trial_alignment_start_s{};
+  double trial_alignment_end_s{};
+  std::vector<RunDiagnostic> diagnostics;
+
+  [[nodiscard]] bool ok() const noexcept { return diagnostics.empty(); }
+};
+
+std::string current_timestamp(const SimulationDependencies &dependencies);
+
+void append_runtime_failure(SimulationRunResult &result, std::string subsystem,
+                            std::string path, std::string code,
+                            std::string message);
+
+void stamp_run_metadata(SimulationRunResult &result,
+                        const SimulatorConfig &config,
+                        std::string start_timestamp_utc,
+                        std::string_view runtime_mechanics_backend_id,
+                        std::string_view runtime_integration_backend_id,
+                        bool using_injected_advancer);
+
+void populate_prepared_metadata(
+    RunMetadata &metadata, const PreparedRunInputs &prepared,
+    const std::vector<ExternalArtifactMetadata> &provider_artifacts = {}) {
+  metadata.boat_id = prepared.boat_id;
+  metadata.rigging_id = prepared.rigging_id;
+  metadata.athlete_id = prepared.athlete_id;
+  metadata.trial_id = prepared.trial_id;
+  metadata.trial_alignment_start_s = prepared.trial_alignment_start_s;
+  metadata.trial_alignment_end_s = prepared.trial_alignment_end_s;
+  metadata.external_artifacts = prepared.external_artifacts;
+  metadata.external_artifacts.insert(metadata.external_artifacts.end(),
+                                     provider_artifacts.begin(),
+                                     provider_artifacts.end());
+}
+
+SimulationRunResult
+make_preparation_failure_result(const SimulatorConfig &config,
+                                const PreparedRunInputs &prepared,
+                                const SimulationDependencies &dependencies) {
+  SimulationRunResult result;
+  result.status = RunStatus::configuration_error;
+  result.metadata.simulator_version = PROJECT_VERSION_STRING;
+  result.metadata.config_id = config.config_id;
+  result.metadata.start_timestamp_utc = current_timestamp(dependencies);
+  result.metadata.end_timestamp_utc = current_timestamp(dependencies);
+  result.metadata.normalized_config = normalize_simulator_config(config);
+  populate_prepared_metadata(result.metadata, prepared);
+  result.diagnostics = prepared.diagnostics;
+  return result;
+}
+
+SimulationRunResult
+make_provider_failure_result(const PreparedRunInputs &prepared,
+                             const RuntimeProviderBuildResult &owned_providers,
+                             const SimulationDependencies &dependencies) {
+  SimulationRunResult result;
+  result.status = RunStatus::configuration_error;
+  result.metadata.simulator_version = PROJECT_VERSION_STRING;
+  result.metadata.config_id = prepared.config.config_id;
+  result.metadata.start_timestamp_utc = current_timestamp(dependencies);
+  result.metadata.end_timestamp_utc = current_timestamp(dependencies);
+  result.metadata.providers = selected_provider_metadata(prepared.config);
+  result.metadata.normalized_config =
+      normalize_simulator_config(prepared.config);
+  populate_prepared_metadata(result.metadata, prepared,
+                             owned_providers.external_artifacts);
+  result.diagnostics = owned_providers.diagnostics;
+  return result;
+}
+
+void stamp_selected_runtime_metadata(SimulationRunResult &result,
+                                     const SimulatorConfig &config,
+                                     const SimulationDependencies &dependencies,
+                                     StateAdvancer &advancer) {
+  const bool using_injected_advancer = dependencies.state_advancer != nullptr;
+  stamp_run_metadata(
+      result, config, current_timestamp(dependencies),
+      using_injected_advancer ? advancer.identifier()
+                              : config.simulation.mechanics_backend,
+      using_injected_advancer ? advancer.identifier()
+                              : config.simulation.integration_backend,
+      using_injected_advancer);
+}
+
+SimulationRunResult make_unsupported_advancer_result(
+    const PreparedRunInputs &prepared,
+    const RuntimeProviderBuildResult &owned_providers,
+    const SimulationDependencies &dependencies) {
+  SimulationRunResult result;
+  const auto &config = prepared.config;
+  stamp_run_metadata(result, config, current_timestamp(dependencies),
+                     config.simulation.mechanics_backend,
+                     config.simulation.integration_backend, false);
+  append_runtime_failure(
+      result, "state_advancement", "$.simulation.integration_backend",
+      "unsupported_state_advancer",
+      "configured backend pair mechanics_backend='" +
+          config.simulation.mechanics_backend + "' and integration_backend='" +
+          config.simulation.integration_backend +
+          "' is unavailable in this build");
+  populate_prepared_metadata(result.metadata, prepared,
+                             owned_providers.external_artifacts);
+  result.metadata.end_timestamp_utc = current_timestamp(dependencies);
+  emit_run_outputs(config, result);
+  return result;
+}
+
+bool reference_contract_matches(const ArtifactReferenceContract &expected,
+                                const ArtifactReferenceContract &candidate,
+                                std::string_view base_path,
+                                std::vector<RunDiagnostic> &diagnostics) {
+  if (candidate.boat_id != expected.boat_id) {
+    diagnostics.push_back(RunDiagnostic{
+        .code = "invalid_value",
+        .subsystem = "configuration",
+        .path = std::string(base_path) + ".boat_id",
+        .message = "reference-contract boat_id does not match the active run",
+    });
+    return false;
+  }
+  if (candidate.rigging_id != expected.rigging_id) {
+    diagnostics.push_back(RunDiagnostic{
+        .code = "invalid_value",
+        .subsystem = "configuration",
+        .path = std::string(base_path) + ".rigging_id",
+        .message =
+            "reference-contract rigging_id does not match the active run",
+    });
+    return false;
+  }
+  if (candidate.athlete_id != expected.athlete_id) {
+    diagnostics.push_back(RunDiagnostic{
+        .code = "invalid_value",
+        .subsystem = "configuration",
+        .path = std::string(base_path) + ".athlete_id",
+        .message =
+            "reference-contract athlete_id does not match the active run",
+    });
+    return false;
+  }
+  return true;
+}
+
 std::unique_ptr<AeroProvider> make_aero_provider(
     std::string_view id,
     const ImportedSteadyWindAeroCoefficients *calibration_coefficients) {
@@ -322,8 +485,119 @@ std::unique_ptr<AeroProvider> make_aero_provider(
   return nullptr;
 }
 
+PreparedRunInputs prepare_run_inputs(const SimulatorConfig &config) {
+  PreparedRunInputs prepared;
+  prepared.config = config;
+
+  if (!config.artifacts.measurement_bundle.path.empty()) {
+    const auto loaded =
+        load_measurement_bundle_file(config.artifacts.measurement_bundle.path);
+    if (!loaded.ok()) {
+      for (const auto &diagnostic : loaded.diagnostics) {
+        prepared.diagnostics.push_back(RunDiagnostic{
+            .code = diagnostic.code,
+            .subsystem = "configuration",
+            .path = diagnostic.path,
+            .message = diagnostic.message,
+        });
+      }
+      return prepared;
+    }
+    const auto &bundle =
+        loaded.bundle.value(); // NOLINT(bugprone-unchecked-optional-access)
+    prepared.reference_contract = bundle.reference_contract;
+    prepared.boat_id = bundle.reference_contract.boat_id;
+    prepared.rigging_id = bundle.reference_contract.rigging_id;
+    prepared.athlete_id = bundle.reference_contract.athlete_id;
+    prepared.config.hull.mass_kg = bundle.boat.mass_kg;
+    prepared.config.hull.center_of_mass_m = bundle.boat.center_of_mass_m;
+    prepared.config.hull.inertia_kg_m2 = bundle.boat.inertia_kg_m2;
+    prepared.config.oars.port.inboard_length_m =
+        bundle.rigging.port.inboard_length_m;
+    prepared.config.oars.port.outboard_length_m =
+        bundle.rigging.port.outboard_length_m;
+    prepared.config.oars.port.oarlock_position_m =
+        bundle.rigging.port.oarlock_position_m;
+    prepared.config.oars.starboard.inboard_length_m =
+        bundle.rigging.starboard.inboard_length_m;
+    prepared.config.oars.starboard.outboard_length_m =
+        bundle.rigging.starboard.outboard_length_m;
+    prepared.config.oars.starboard.oarlock_position_m =
+        bundle.rigging.starboard.oarlock_position_m;
+    prepared.config.stroke.rower_coupling.rower_mass_kg =
+        bundle.athlete.rower_mass_kg;
+    prepared.config.stroke.rower_coupling.body_center_of_mass_m =
+        bundle.athlete.body_center_of_mass_m;
+    prepared.config.stroke.rower_coupling.seat_position_to_com_scale =
+        bundle.athlete.seat_position_to_com_scale;
+    prepared.external_artifacts.push_back(ExternalArtifactMetadata{
+        .kind = "measurement_bundle",
+        .usage = "runtime_overlay",
+        .path = config.artifacts.measurement_bundle.path,
+        .source_id = bundle.provenance.source_id,
+        .artifact_version = bundle.provenance.artifact_version,
+        .content_hash = bundle.provenance.content_hash,
+        .schema_id = bundle.provenance.schema_id,
+        .boat_id = bundle.reference_contract.boat_id,
+        .rigging_id = bundle.reference_contract.rigging_id,
+        .athlete_id = bundle.reference_contract.athlete_id,
+        .trial_id = "",
+    });
+  }
+
+  if (!config.artifacts.measured_trial.path.empty()) {
+    const auto loaded =
+        load_measured_trial_file(config.artifacts.measured_trial.path);
+    if (!loaded.ok()) {
+      for (const auto &diagnostic : loaded.diagnostics) {
+        prepared.diagnostics.push_back(RunDiagnostic{
+            .code = diagnostic.code,
+            .subsystem = "configuration",
+            .path = diagnostic.path,
+            .message = diagnostic.message,
+        });
+      }
+      return prepared;
+    }
+    const auto &trial =
+        loaded.trial.value(); // NOLINT(bugprone-unchecked-optional-access)
+    if (prepared.reference_contract.has_value() &&
+        !reference_contract_matches(
+            *prepared.reference_contract, trial.reference_contract,
+            "$.artifacts.measured_trial.reference_contract",
+            prepared.diagnostics)) {
+      return prepared;
+    }
+    if (!prepared.reference_contract.has_value()) {
+      prepared.reference_contract = trial.reference_contract;
+      prepared.boat_id = trial.reference_contract.boat_id;
+      prepared.rigging_id = trial.reference_contract.rigging_id;
+      prepared.athlete_id = trial.reference_contract.athlete_id;
+    }
+    prepared.trial_id = trial.trial_id;
+    prepared.trial_alignment_start_s = 0.0;
+    prepared.trial_alignment_end_s =
+        std::min(prepared.config.simulation.duration_s, trial.time_s.back());
+    prepared.external_artifacts.push_back(ExternalArtifactMetadata{
+        .kind = "measured_trial",
+        .usage = "comparison_reference",
+        .path = config.artifacts.measured_trial.path,
+        .source_id = trial.provenance.source_id,
+        .artifact_version = trial.provenance.artifact_version,
+        .content_hash = trial.provenance.content_hash,
+        .schema_id = trial.provenance.schema_id,
+        .boat_id = trial.reference_contract.boat_id,
+        .rigging_id = trial.reference_contract.rigging_id,
+        .athlete_id = trial.reference_contract.athlete_id,
+        .trial_id = trial.trial_id,
+    });
+  }
+
+  return prepared;
+}
+
 RuntimeProviderBuildResult
-build_runtime_providers(const SimulatorConfig &config,
+build_runtime_providers(const PreparedRunInputs &prepared,
                         const SimulationDependencies &dependencies) {
   /**
    * @design D-044 — Imported calibration artifact runtime binding
@@ -332,6 +606,7 @@ build_runtime_providers(const SimulatorConfig &config,
    * @satisfies [A-002, A-005, A-009]
    */
   RuntimeProviderBuildResult result;
+  const auto &config = prepared.config;
   if (dependencies.hydro_provider == nullptr) {
     result.providers.hydro_provider = std::make_unique<CompositeHydroProvider>(
         make_hull_resistance_provider(config.providers.hull_resistance),
@@ -344,10 +619,10 @@ build_runtime_providers(const SimulatorConfig &config,
   if (dependencies.aero_provider == nullptr &&
       builtin_provider_requires_calibration_artifact(
           ProviderRole::aero_load, config.providers.aero_load)) {
-    const auto loaded =
-        load_steady_wind_aero_calibration(config.artifacts.calibration.path);
-    if (!loaded.ok()) {
-      for (const auto &diagnostic : loaded.diagnostics) {
+    const auto loaded_artifact =
+        load_calibration_artifact_file(config.artifacts.calibration.path);
+    if (!loaded_artifact.ok()) {
+      for (const auto &diagnostic : loaded_artifact.diagnostics) {
         result.diagnostics.push_back(RunDiagnostic{
             .code = diagnostic.code,
             .subsystem = "configuration",
@@ -357,22 +632,60 @@ build_runtime_providers(const SimulatorConfig &config,
       }
       return result;
     }
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-    loaded_calibration_coefficients = loaded.coefficients.value();
+    if (!loaded_artifact.artifact.has_value()) {
+      result.diagnostics.push_back(RunDiagnostic{
+          .code = "missing_required_field",
+          .subsystem = "configuration",
+          .path = "$.artifacts.calibration",
+          .message = "calibration artifact payload is required",
+      });
+      return result;
+    }
+    const auto &artifact = *loaded_artifact.artifact;
+    if (prepared.reference_contract.has_value() &&
+        artifact.reference_contract.has_value() &&
+        !reference_contract_matches(
+            *prepared.reference_contract, *artifact.reference_contract,
+            "$.artifacts.calibration.reference_contract", result.diagnostics)) {
+      return result;
+    }
+    if (!artifact.steady_wind_aero.has_value()) {
+      result.diagnostics.push_back(RunDiagnostic{
+          .code = "missing_required_field",
+          .subsystem = "configuration",
+          .path = "$.aero.steady_wind",
+          .message = "steady-wind aero calibration section is required",
+      });
+      return result;
+    }
+    loaded_calibration_coefficients = ImportedSteadyWindAeroCoefficients{
+        .drag_coefficient_n_s2_per_m2 =
+            artifact.steady_wind_aero->drag_coefficient_n_s2_per_m2,
+        .yaw_moment_coefficient_n_m_s2_per_m2 =
+            artifact.steady_wind_aero->yaw_moment_coefficient_n_m_s2_per_m2,
+    };
     const auto &loaded_coefficients =
         loaded_calibration_coefficients
             .value(); // NOLINT(bugprone-unchecked-optional-access)
     calibration_coefficients = &loaded_coefficients;
-    const auto &metadata =
-        loaded.metadata.value(); // NOLINT(bugprone-unchecked-optional-access)
     result.external_artifacts.push_back(ExternalArtifactMetadata{
         .kind = "calibration",
         .usage = "aero_load",
-        .path = metadata.path,
-        .source_id = metadata.source_id,
-        .artifact_version = metadata.artifact_version,
-        .content_hash = metadata.content_hash,
-        .schema_id = metadata.schema_id,
+        .path = config.artifacts.calibration.path,
+        .source_id = artifact.provenance.source_id,
+        .artifact_version = artifact.provenance.artifact_version,
+        .content_hash = artifact.provenance.content_hash,
+        .schema_id = artifact.provenance.schema_id,
+        .boat_id = artifact.reference_contract.has_value()
+                       ? artifact.reference_contract->boat_id
+                       : "",
+        .rigging_id = artifact.reference_contract.has_value()
+                          ? artifact.reference_contract->rigging_id
+                          : "",
+        .athlete_id = artifact.reference_contract.has_value()
+                          ? artifact.reference_contract->athlete_id
+                          : "",
+        .trial_id = "",
     });
   }
 
@@ -447,6 +760,9 @@ bool state_is_finite(const MechanicalStateSnapshot &state) {
          oar_state_is_finite(state.starboard_oar) &&
          seat_state_is_finite(state.seat) &&
          stroke_state_is_finite(state.stroke) &&
+         vector_is_finite(state.rower_center_of_mass_world_m) &&
+         vector_is_finite(state.rower_center_of_mass_velocity_world_mps) &&
+         vector_is_finite(state.rower_inertial_force_world_n) &&
          std::isfinite(state.constraint_residual_max);
 }
 
@@ -485,6 +801,8 @@ void stamp_run_metadata(SimulationRunResult &result,
       std::string(integration_backend_runtime_id);
   result.metadata.state_advancement_solver_status = "not_started";
   result.metadata.normalized_config = normalize_simulator_config(config);
+  result.metadata.actuation_mode = config.stroke.actuation.mode;
+  result.metadata.rower_coupling_enabled = config.stroke.rower_coupling.enabled;
 }
 
 void apply_startup_metadata(SimulationRunResult &result,
@@ -531,10 +849,14 @@ bool hydro_load_is_finite(const HydroLoadSample &load) {
   return std::isfinite(load.hull_force_x_n) &&
          std::isfinite(load.port_blade_force_x_n) &&
          std::isfinite(load.starboard_blade_force_x_n) &&
+         std::isfinite(load.commanded_force_n) &&
+         std::isfinite(load.commanded_power_w) &&
+         std::isfinite(load.realized_blade_force_total_n) &&
          vector_is_finite(hull_force_world_n) &&
          vector_is_finite(load.hull_moment_world_n_m) &&
          vector_is_finite(port_blade_force_world_n) &&
          vector_is_finite(starboard_blade_force_world_n) &&
+         vector_is_finite(load.rower_inertial_force_world_n) &&
          std::isfinite(load.port_blade_immersion_depth_m) &&
          std::isfinite(load.starboard_blade_immersion_depth_m);
 }
@@ -678,7 +1000,10 @@ bool advance_one_step(const SimulatorConfig &config,
                       AeroProvider *aero_provider, StateAdvancer &advancer,
                       SimulationRunResult &result,
                       MechanicalStateSnapshot &state) {
-  const StepContext context{.time_s = state.time_s, .state = state};
+  const StepContext context{.time_s = state.time_s,
+                            .stroke_command =
+                                make_stroke_actuation_command(config),
+                            .state = state};
   const Vector3 ambient_wind_world_mps =
       sampled_ambient_wind_world_mps(config.environment, state.time_s);
   HydroLoadSample hydro_load;
@@ -697,6 +1022,9 @@ bool advance_one_step(const SimulatorConfig &config,
       .port_blade_force_x_n = hydro_load.resolved_port_blade_force_world_n().x,
       .starboard_blade_force_x_n =
           hydro_load.resolved_starboard_blade_force_world_n().x,
+      .commanded_force_n = hydro_load.commanded_force_n,
+      .commanded_power_w = hydro_load.commanded_power_w,
+      .realized_blade_force_total_n = hydro_load.realized_blade_force_total_n,
       .aero_force_x_n = aero_load.force_world_n.x,
       .hull_force_world_n = hydro_load.resolved_hull_force_world_n(),
       .hull_moment_world_n_m = hydro_load.hull_moment_world_n_m,
@@ -704,6 +1032,7 @@ bool advance_one_step(const SimulatorConfig &config,
           hydro_load.resolved_port_blade_force_world_n(),
       .starboard_blade_force_world_n =
           hydro_load.resolved_starboard_blade_force_world_n(),
+      .rower_inertial_force_world_n = hydro_load.rower_inertial_force_world_n,
       .port_blade_immersion_depth_m = hydro_load.port_blade_immersion_depth_m,
       .starboard_blade_immersion_depth_m =
           hydro_load.starboard_blade_immersion_depth_m,
@@ -1119,7 +1448,17 @@ BatchCaseResult execute_batch_case(const std::string &batch_id,
  */
 SimulationRunResult run_simulation(const SimulatorConfig &config,
                                    const SimulationDependencies &dependencies) {
-  auto owned_providers = build_runtime_providers(config, dependencies);
+  auto prepared = prepare_run_inputs(config);
+  if (!prepared.ok()) {
+    return make_preparation_failure_result(config, prepared, dependencies);
+  }
+
+  auto owned_providers = build_runtime_providers(prepared, dependencies);
+  if (!owned_providers.ok()) {
+    return make_provider_failure_result(prepared, owned_providers,
+                                        dependencies);
+  }
+  auto effective_config = prepared.config;
   HydroProvider *hydro_provider =
       dependencies.hydro_provider != nullptr
           ? dependencies.hydro_provider
@@ -1131,59 +1470,27 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
   StateAdvancer *selected_advancer =
       dependencies.state_advancer != nullptr
           ? dependencies.state_advancer
-          : builtin_state_advancer(config.simulation.mechanics_backend,
-                                   config.simulation.integration_backend);
-
+          : builtin_state_advancer(
+                effective_config.simulation.mechanics_backend,
+                effective_config.simulation.integration_backend);
   SimulationRunResult result;
-  if (!owned_providers.ok()) {
-    result.status = RunStatus::configuration_error;
-    result.metadata.simulator_version = PROJECT_VERSION_STRING;
-    result.metadata.config_id = config.config_id;
-    result.metadata.start_timestamp_utc = current_timestamp(dependencies);
-    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
-    result.metadata.providers = selected_provider_metadata(config);
-    result.metadata.normalized_config = normalize_simulator_config(config);
-    result.metadata.external_artifacts =
-        std::move(owned_providers.external_artifacts);
-    result.diagnostics = std::move(owned_providers.diagnostics);
-    return result;
-  }
   /**
    * @design D-013 — Run metadata stamping
    * @title Stable version, timestamp, provider, and normalized-config metadata
    * @satisfies [A-002]
    */
   if (selected_advancer == nullptr) {
-    stamp_run_metadata(result, config, current_timestamp(dependencies),
-                       config.simulation.mechanics_backend,
-                       config.simulation.integration_backend, false);
-    append_runtime_failure(result, "state_advancement",
-                           "$.simulation.integration_backend",
-                           "unsupported_state_advancer",
-                           "configured backend pair mechanics_backend='" +
-                               config.simulation.mechanics_backend +
-                               "' and integration_backend='" +
-                               config.simulation.integration_backend +
-                               "' is unavailable in this build");
-    result.metadata.end_timestamp_utc = current_timestamp(dependencies);
-    emit_run_outputs(config, result);
-    return result;
+    return make_unsupported_advancer_result(prepared, owned_providers,
+                                            dependencies);
   }
 
   auto &advancer = *selected_advancer;
+  stamp_selected_runtime_metadata(result, effective_config, dependencies,
+                                  advancer);
+  populate_prepared_metadata(result.metadata, prepared,
+                             owned_providers.external_artifacts);
 
-  stamp_run_metadata(result, config, current_timestamp(dependencies),
-                     dependencies.state_advancer != nullptr
-                         ? advancer.identifier()
-                         : config.simulation.mechanics_backend,
-                     dependencies.state_advancer != nullptr
-                         ? advancer.identifier()
-                         : config.simulation.integration_backend,
-                     dependencies.state_advancer != nullptr);
-  result.metadata.external_artifacts =
-      std::move(owned_providers.external_artifacts);
-
-  const auto startup = advancer.initialize(config);
+  const auto startup = advancer.initialize(effective_config);
   apply_startup_metadata(result, startup);
 
   /**
@@ -1194,14 +1501,14 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    */
   if (!accept_startup_result(result, startup)) {
     result.metadata.end_timestamp_utc = current_timestamp(dependencies);
-    emit_run_outputs(config, result);
+    emit_run_outputs(effective_config, result);
     return result;
   }
   if (!startup.state.has_value()) {
     append_runtime_failure(result, "startup", "$.startup", "startup_failed",
                            "startup reported success without a state");
     result.metadata.end_timestamp_utc = current_timestamp(dependencies);
-    emit_run_outputs(config, result);
+    emit_run_outputs(effective_config, result);
     return result;
   }
 
@@ -1215,9 +1522,9 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
    * @title Deterministic hydro and aero provider invocation with stable faults
    * @satisfies [A-002]
    */
-  while (state.time_s < config.simulation.duration_s && result.ok()) {
-    if (!advance_one_step(config, hydro_provider, aero_provider, advancer,
-                          result, state)) {
+  while (state.time_s < effective_config.simulation.duration_s && result.ok()) {
+    if (!advance_one_step(effective_config, hydro_provider, aero_provider,
+                          advancer, result, state)) {
       break;
     }
     ++executed_step_count;
@@ -1225,7 +1532,7 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
 
   finalize_summary(result, state, executed_step_count, initial_x_m);
   result.metadata.end_timestamp_utc = current_timestamp(dependencies);
-  emit_run_outputs(config, result);
+  emit_run_outputs(effective_config, result);
   return result;
 }
 

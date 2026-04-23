@@ -124,6 +124,50 @@ re-import stays on the existing calibrated-artifact path through
 `providers.aero_load = "steady_wind_calibrated"` plus
 `artifacts.calibration.path`.
 
+Import study-facing parameter or trial artifacts on the shared run path:
+```json
+{
+  "artifacts": {
+    "measurement_bundle": {
+      "path": "/path/to/measurement-bundle.json"
+    },
+    "measured_trial": {
+      "path": "/path/to/measured-trial.json"
+    }
+  }
+}
+```
+
+The same `measurement_bundle` path now also has checked-in proof coverage for
+parameter-sensitive studies: swapping valid hull, rigging, and athlete
+mass-distribution bundles changes reported trim and/or performance metrics
+through the existing summary contract instead of a separate hull-study schema.
+
+Select the low-order stroke-actuation mode explicitly when a study needs more
+than prescribed kinematics:
+```json
+{
+  "stroke": {
+    "actuation": {
+      "mode": "power_driven",
+      "peak_drive_power_w": 650.0,
+      "power_mode_speed_floor_mps": 0.35
+    },
+    "rower_coupling": {
+      "enabled": true,
+      "rower_mass_kg": 82.0,
+      "body_center_of_mass_m": [0.05, 0.0, 0.32],
+      "seat_position_to_com_scale": 0.78
+    }
+  }
+}
+```
+
+`measurement_bundle` is the current authoritative overlay for overlapping
+hull, rigging, and athlete mass-distribution inputs. Summary, time-series, and
+truth-model handoff JSON now propagate the imported study identifiers plus the
+selected actuation and coupling metadata.
+
 Run one case with the human-readable compact report:
 ```bash
 ./build/project_app --config /path/to/config.json --report compact
@@ -157,6 +201,8 @@ manifest separately from ordinary functional test failures. The quick
 Current implemented library surface:
 - `include/project/aero/baseline_providers.hpp`
 - `include/project/calibration/artifact.hpp`
+- `include/project/calibration/measurement_bundle.hpp`
+- `include/project/calibration/measured_trial.hpp`
 - `include/project/configuration/provider_catalog.hpp`
 - `include/project/configuration/simulator_config.hpp`
 - `include/project/hydro/baseline_providers.hpp`
@@ -180,6 +226,12 @@ Current implemented library surface:
   `hull_resistance`, `blade_force`, and `aero_load`
 - optional file-backed external calibration artifact loading with
   deterministic schema or provenance validation on the shared runtime path
+- optional file-backed `measurement_bundle.v1` and `measured_trial.v1`
+  imports with deterministic provenance, frame, and identifier validation on
+  the shared runtime path
+- bounded `prescribed_kinematic`, `force_driven`, and `power_driven` stroke
+  actuation settings plus optional low-order rower center-of-mass coupling
+  inputs in the public config contract
 - optional `output.truth_model_export_path` for one deterministic JSON offline
   handoff bundle, disabled by default and kept separate from runtime import
   consumers
@@ -194,6 +246,9 @@ Current implemented library surface:
   runtime solver-status fields
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
+- imported study identifiers, trial-alignment metadata, actuation-command
+  channels, realized blade-force totals, and rower center-of-mass or inertial
+  contribution channels in JSON runtime outputs
 - structured hydro force or moment vectors, final passive-float equilibrium
   diagnostics, and explicit blade-immersion or blade-tip-velocity channels in
   runtime outputs
@@ -290,15 +345,17 @@ Current implementation status:
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
   metadata propagation, optional HDF5 parity behind the same output contract,
-  and deterministic batch-summary artifact emission for ordered multi-case
-  jobs,
+  deterministic batch-summary artifact emission for ordered multi-case jobs,
+  and closed `R-041` propulsion-metric reporting across summary, time-series,
+  HDF5, and human-readable analysis outputs,
 - `A-005 Aero Runtime Models` is now in progress with the first steady-wind
   apparent-wind and aerodynamic-load slice, runtime-selectable built-in
   provider wiring, and an in-place steady-wind fidelity refinement on the
   existing built-in aero id,
 - `A-008 Scenario Harness and Validation` is now in progress with a public
   scenario-harness API and runtime-backed passive-float/tow/calm-water/
-  headwind/crosswind/gust-headwind `QT-*` evidence,
+  headwind/crosswind/gust-headwind `QT-*` evidence plus one reusable
+  shared-baseline technique-comparison surface for actuation-mode studies,
 - bootstrap-only placeholder code has been removed from the compiled targets,
 - richer runtime provider fidelity is now in progress on the existing
   `A-004` and `A-005` seams through in-place hydro and steady-wind aero

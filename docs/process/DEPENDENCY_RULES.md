@@ -25,9 +25,9 @@ as `include/project/mechanics/**` or `src/lib/mechanics/**`.
 - `mechanics -> core, mechanics`
 - `hydro -> core, mechanics, hydro`
 - `aero -> core, mechanics, aero, calibration`
-- `control -> core, mechanics, control`
+- `control -> core, configuration, mechanics, control`
 - `output -> core, configuration, mechanics, hydro, aero, control, orchestrator, output`
-- `orchestrator -> core, configuration, mechanics, hydro, aero, control, output, orchestrator`
+- `orchestrator -> core, configuration, mechanics, hydro, aero, control, output, orchestrator, calibration`
 - `calibration -> core, mechanics, hydro, aero, output, calibration`
 
 ## Forbidden component examples

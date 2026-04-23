@@ -172,6 +172,9 @@ bool state_is_finite(const MechanicalStateSnapshot &state) {
          oar_state_is_finite(state.starboard_oar) &&
          seat_state_is_finite(state.seat) &&
          stroke_state_is_finite(state.stroke) &&
+         vector_is_finite(state.rower_center_of_mass_world_m) &&
+         vector_is_finite(state.rower_center_of_mass_velocity_world_mps) &&
+         vector_is_finite(state.rower_inertial_force_world_n) &&
          std::isfinite(state.constraint_residual_max);
 }
 
@@ -280,6 +283,75 @@ double blade_depth_for_phase(const SimulatorConfig &config, StrokePhase phase) {
 double oar_rate_for_phase(const SimulatorConfig &config, StrokePhase phase) {
   return phase == StrokePhase::drive ? drive_oar_rate(config)
                                      : recovery_oar_rate(config);
+}
+
+Vector3 rower_body_center_of_mass(const SimulatorConfig &config,
+                                  const MechanicalStateSnapshot &state) {
+  return {
+      .x = config.stroke.rower_coupling.body_center_of_mass_m.x +
+           state.seat.rail_axis_body.x * state.seat.position_along_rail_m *
+               config.stroke.rower_coupling.seat_position_to_com_scale,
+      .y = config.stroke.rower_coupling.body_center_of_mass_m.y +
+           state.seat.rail_axis_body.y * state.seat.position_along_rail_m *
+               config.stroke.rower_coupling.seat_position_to_com_scale,
+      .z = config.stroke.rower_coupling.body_center_of_mass_m.z +
+           state.seat.rail_axis_body.z * state.seat.position_along_rail_m *
+               config.stroke.rower_coupling.seat_position_to_com_scale,
+  };
+}
+
+Vector3 rower_world_center_of_mass(const SimulatorConfig &config,
+                                   const MechanicalStateSnapshot &state) {
+  const auto body_center = rower_body_center_of_mass(config, state);
+  const auto rotated =
+      rotate_vector(state.hull.orientation_world_from_body, body_center);
+  return {
+      .x = state.hull.position_world_m.x + rotated.x,
+      .y = state.hull.position_world_m.y + rotated.y,
+      .z = state.hull.position_world_m.z + rotated.z,
+  };
+}
+
+void refresh_rower_coupling_state(const SimulatorConfig &config,
+                                  double segment_s,
+                                  MechanicalStateSnapshot &next) {
+  if (!config.stroke.rower_coupling.enabled) {
+    next.rower_center_of_mass_world_m = next.hull.position_world_m;
+    next.rower_center_of_mass_velocity_world_mps = {
+        .x = 0.0, .y = 0.0, .z = 0.0};
+    next.rower_inertial_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0};
+    return;
+  }
+
+  const auto rail_axis_world = rotate_vector(
+      next.hull.orientation_world_from_body, next.seat.rail_axis_body);
+  const double scaled_seat_velocity_mps =
+      next.seat.velocity_along_rail_mps *
+      config.stroke.rower_coupling.seat_position_to_com_scale;
+  next.rower_center_of_mass_world_m = rower_world_center_of_mass(config, next);
+  next.rower_center_of_mass_velocity_world_mps = {
+      .x = next.hull.linear_velocity_world_mps.x +
+           rail_axis_world.x * scaled_seat_velocity_mps,
+      .y = next.hull.linear_velocity_world_mps.y +
+           rail_axis_world.y * scaled_seat_velocity_mps,
+      .z = next.hull.linear_velocity_world_mps.z +
+           rail_axis_world.z * scaled_seat_velocity_mps,
+  };
+
+  const double safe_segment_s = std::max(segment_s, SEGMENT_TIME_EPSILON_S);
+  next.rower_inertial_force_world_n = {
+      .x = -(config.stroke.rower_coupling.rower_mass_kg *
+             scaled_seat_velocity_mps) /
+           safe_segment_s,
+      .y = 0.0,
+      .z = 0.0,
+  };
+  const double rower_acceleration_x_mps2 =
+      next.rower_inertial_force_world_n.x / config.hull.mass_kg;
+  next.hull.position_world_m.x +=
+      HALF * rower_acceleration_x_mps2 * safe_segment_s * safe_segment_s;
+  next.hull.linear_velocity_world_mps.x +=
+      rower_acceleration_x_mps2 * safe_segment_s;
 }
 
 struct ResolvedLoadDynamics {
@@ -617,6 +689,7 @@ StartupResult initialize_baseline_startup(const SimulatorConfig &config,
   state.starboard_oar.blade_tip_velocity_world_mps = blade_tip_world_velocity(
       state, config.oars.starboard, 1.0, state.starboard_oar.handle_angle_rad,
       drive_oar_rate(config));
+  refresh_rower_coupling_state(config, config.simulation.time_step_s, state);
 
   if (!state_is_finite(state)) {
     return {
@@ -677,6 +750,7 @@ AdvanceResult advance_segmented_state(const SimulatorConfig &config,
     }
 
     advance_prescribed_segment(config, active_phase, segment_s, next);
+    refresh_rower_coupling_state(config, segment_s, next);
 
     next.time_s += segment_s;
     next.stroke.cycle_time_s = wrap_cycle_time(

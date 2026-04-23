@@ -82,7 +82,8 @@ std::string with_boat_class(const Json &boat_class_value) {
  * parsing runs, then the single-scull default is accepted and normalized
  * deterministically.
  */
-TEST(SimulatorConfigScope, DefaultsBoatClassToSingleScullWhenSelectorIsOmitted) {
+TEST(SimulatorConfigScope,
+     DefaultsBoatClassToSingleScullWhenSelectorIsOmitted) {
   const auto result =
       project::parse_simulator_config_text(make_valid_config_json());
 
@@ -135,8 +136,8 @@ TEST(SimulatorConfigScope, RejectsMalformedOrUnsupportedBoatClassSelection) {
   }
 
   for (const auto *boat_class : {"double_scull", "pair"}) {
-    const auto result = project::parse_simulator_config_text(
-        with_boat_class(Json(boat_class)));
+    const auto result =
+        project::parse_simulator_config_text(with_boat_class(Json(boat_class)));
 
     ASSERT_FALSE(result.ok());
     ASSERT_FALSE(result.diagnostics.empty());

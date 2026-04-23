@@ -136,8 +136,11 @@ add_library(project_lib
     src/lib/aero/baseline_providers.cpp
     src/lib/aero/calibration_loader.cpp
     src/lib/calibration/artifact.cpp
+    src/lib/calibration/measured_trial.cpp
+    src/lib/calibration/measurement_bundle.cpp
     src/lib/configuration/provider_catalog.cpp
     src/lib/configuration/simulator_config.cpp
+    src/lib/control/stroke_command.cpp
     src/lib/hydro/baseline_providers.cpp
     src/lib/numerics/backend_catalog.cpp
     src/lib/numerics/state_advancement.cpp
@@ -237,15 +240,24 @@ if(BUILD_TESTING)
 
     add_executable(project_tests_unit
         tests/unit/test_calibration_artifact.cpp
+        tests/unit/test_calibration_artifact_v2.cpp
+        tests/unit/test_measurement_artifacts.cpp
+        tests/unit/test_measurement_bundle_branches.cpp
+        tests/unit/test_measured_trial_branches.cpp
         tests/unit/test_aero_runtime_models.cpp
         tests/unit/test_hydro_runtime_models.cpp
+        tests/unit/test_hydro_runtime_actuation.cpp
+        tests/unit/test_stroke_command.cpp
         tests/unit/test_run_analysis.cpp
+        tests/unit/test_propulsion_metrics.cpp
         tests/unit/test_state_advancement.cpp
         tests/unit/test_state_advancement_startup_validation.cpp
         tests/unit/test_state_advancement_validation.cpp
         tests/unit/test_state_advancement_sundials.cpp
         tests/unit/test_simulator_config.cpp
         tests/unit/test_simulator_config_scope.cpp
+        tests/unit/test_simulator_config_fidelity.cpp
+        tests/unit/test_simulator_config_fidelity_branches.cpp
         tests/unit/test_simulator_config_runtime.cpp
         tests/unit/test_simulator_config_truth_model.cpp
         tests/unit/test_simulator_config_wind.cpp
@@ -269,6 +281,7 @@ if(BUILD_TESTING)
         tests/unit/test_scenario_harness_headwind.cpp
         tests/unit/test_scenario_harness_crosswind.cpp
         tests/unit/test_scenario_harness_additional.cpp
+        tests/unit/test_scenario_technique_comparison.cpp
         tests/unit/test_scenario_performance_budgets.cpp
     )
     target_link_libraries(project_tests_unit PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
@@ -289,12 +302,14 @@ if(BUILD_TESTING)
 
     add_executable(project_tests_integration
         tests/integration/test_calibration_integration.cpp
+        tests/integration/test_fidelity_runtime_integration.cpp
         tests/integration/test_hydro_runtime_integration.cpp
         tests/integration/test_aero_runtime_integration.cpp
         tests/integration/test_batch_orchestrator_integration.cpp
         tests/integration/test_simulator_config_integration.cpp
         tests/integration/test_orchestrator_integration.cpp
         tests/integration/test_run_outputs_integration.cpp
+        tests/integration/test_propulsion_metrics_integration.cpp
         tests/integration/test_scenario_performance_integration.cpp
     )
     target_link_libraries(project_tests_integration PRIVATE project_lib GTest::gtest GTest::gtest_main Threads::Threads)
@@ -307,12 +322,14 @@ if(BUILD_TESTING)
         tests/system/test_batch_simulation_system.cpp
         tests/system/test_calm_water_scenario_system.cpp
         tests/system/test_examples_system.cpp
+        tests/system/test_fidelity_packet_system.cpp
         tests/system/test_simulator_config_system.cpp
         tests/system/test_run_analysis_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
         tests/system/test_performance_lane_system.cpp
         tests/system/test_scenario_harness_system.cpp
+        tests/system/test_technique_comparison_scenario_system.cpp
         tests/system/test_wind_scenario_system.cpp
         tests/system/test_v0_1_closure_system.cpp
     )

@@ -720,9 +720,9 @@ Milestone framing:
   - Machine-readable outputs record the active hull, rigging, and mass-distribution identifiers used for the run.
   - At least one validation artifact demonstrates that changing a parameter set changes reported trim, resistance, or performance metrics.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-19
-- **Updated**: 2026-04-19
+- **Updated**: 2026-04-21
 - **Change-Type**: none
 - **Needs-Review**: no
 - **Notes**: This requirement supports both hull-performance studies and later low-order rower coupling work.
@@ -765,12 +765,15 @@ Milestone framing:
   - Outputs mark the metric unavailable or out-of-validity when the active provider or data path cannot support it.
   - At least one analysis artifact compares these metrics across two stroke variants or provider modes.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-19
-- **Updated**: 2026-04-19
+- **Updated**: 2026-04-23
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: These metrics are needed before technique comparisons can be framed as more than speed-only questions.
+- **Notes**: Closed on 2026-04-23 with deterministic propulsion-metric
+  support metadata across JSON, HDF5, and human-readable analysis plus one
+  checked-in actuation-mode comparison artifact; fuller technique-comparison
+  delta coverage remains open under `R-045`.
 
 ## R-042 — Blade Entry and Extraction Behavior
 - **Title**: Represent catch, immersed drive, extraction, and dry-transition behavior in the reduced blade model

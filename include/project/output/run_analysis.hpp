@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "project/output/run_result.hpp"
@@ -22,6 +23,41 @@ struct TimedValue {
   bool has_sample{};
 
   bool operator==(const TimedValue &) const = default;
+};
+
+struct PropulsionMetricWindow {
+  double start_time_s{};
+  double end_time_s{};
+
+  bool operator==(const PropulsionMetricWindow &) const = default;
+};
+
+struct PropulsionMetricsAvailability {
+  bool supported{};
+  std::string reason;
+  std::string provider_id;
+  std::string provider_validity_id;
+
+  bool operator==(const PropulsionMetricsAvailability &) const = default;
+};
+
+struct PropulsionRunMetrics {
+  double mean_port_blade_slip_speed_mps{};
+  double peak_port_blade_slip_speed_mps{};
+  double mean_starboard_blade_slip_speed_mps{};
+  double peak_starboard_blade_slip_speed_mps{};
+  double effective_propulsive_work_j{};
+  double slip_loss_work_j{};
+  double propulsion_efficiency{};
+
+  bool operator==(const PropulsionRunMetrics &) const = default;
+};
+
+struct PropulsionMetrics {
+  PropulsionMetricsAvailability availability;
+  PropulsionRunMetrics run_metrics;
+
+  bool operator==(const PropulsionMetrics &) const = default;
 };
 
 struct RunAnalysis {
@@ -52,11 +88,16 @@ struct RunAnalysis {
   TimedValue peak_port_blade_force_n;
   TimedValue peak_starboard_blade_force_n;
   TimedValue peak_stroke_power_w;
+  PropulsionMetrics propulsion_metrics;
 
   bool operator==(const RunAnalysis &) const = default;
 };
 
 enum class RunAnalysisReportMode { compact, full };
+
+PropulsionMetrics analyze_propulsion_metrics(
+    const SimulationRunResult &result,
+    std::optional<PropulsionMetricWindow> window = std::nullopt);
 
 RunAnalysis analyze_run_result(const SimulationRunResult &result);
 

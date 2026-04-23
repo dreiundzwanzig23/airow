@@ -15,7 +15,8 @@ enum class ScenarioType {
   tow_test,
   calm_water_stroke,
   headwind_stroke,
-  crosswind_stroke
+  crosswind_stroke,
+  technique_comparison
 };
 
 enum class ScenarioProviderType {
@@ -67,6 +68,21 @@ struct ScenarioAcceptanceEnvelope {
   bool operator==(const ScenarioAcceptanceEnvelope &) const = default;
 };
 
+struct ScenarioComparisonWindow {
+  double start_time_s{};
+  double end_time_s{};
+
+  bool operator==(const ScenarioComparisonWindow &) const = default;
+};
+
+struct ScenarioComparisonVariant {
+  std::string variant_id;
+  SimulatorConfig config;
+  std::vector<std::string> varied_parameters;
+
+  bool operator==(const ScenarioComparisonVariant &) const = default;
+};
+
 struct ScenarioDefinition {
   std::string scenario_id;
   ScenarioType type{ScenarioType::passive_float};
@@ -74,6 +90,8 @@ struct ScenarioDefinition {
   ScenarioProviderConfig provider;
   ScenarioAeroProviderConfig aero_provider;
   ScenarioAcceptanceEnvelope acceptance;
+  ScenarioComparisonWindow comparison_window;
+  std::vector<ScenarioComparisonVariant> variants;
 
   bool operator==(const ScenarioDefinition &) const = default;
 };
@@ -97,6 +115,42 @@ struct ScenarioEvaluationIssue {
 
 struct ScenarioEvaluationResult {
   std::vector<ScenarioEvaluationIssue> issues;
+
+  [[nodiscard]] bool ok() const noexcept { return issues.empty(); }
+};
+
+struct ScenarioComparisonMetricDelta {
+  bool supported{};
+  std::string reason;
+  double baseline_value{};
+  double compared_value{};
+  double delta{};
+
+  bool operator==(const ScenarioComparisonMetricDelta &) const = default;
+};
+
+struct ScenarioComparisonDelta {
+  std::string baseline_variant_id;
+  std::string compared_variant_id;
+  std::vector<std::string> varied_parameters;
+  ScenarioComparisonMetricDelta mean_speed_mps;
+  ScenarioComparisonMetricDelta effective_propulsive_work_j;
+  ScenarioComparisonMetricDelta slip_loss_work_j;
+  ScenarioComparisonMetricDelta propulsion_efficiency;
+  ScenarioComparisonMetricDelta peak_port_blade_slip_speed_mps;
+  ScenarioComparisonMetricDelta peak_starboard_blade_slip_speed_mps;
+
+  bool operator==(const ScenarioComparisonDelta &) const = default;
+};
+
+struct ScenarioComparisonRunResult {
+  std::string variant_id;
+  SimulationRunResult run_result;
+};
+
+struct ScenarioComparisonEvaluationResult {
+  std::vector<ScenarioEvaluationIssue> issues;
+  std::vector<ScenarioComparisonDelta> deltas;
 
   [[nodiscard]] bool ok() const noexcept { return issues.empty(); }
 };
@@ -156,6 +210,10 @@ load_scenario_definition_file(const std::filesystem::path &path);
 ScenarioEvaluationResult
 evaluate_scenario_result(const ScenarioDefinition &scenario,
                          const SimulationRunResult &result);
+
+ScenarioComparisonEvaluationResult evaluate_scenario_comparison_results(
+    const ScenarioDefinition &scenario,
+    const std::vector<ScenarioComparisonRunResult> &results);
 
 LoadScenarioPerformanceBudgetResult
 load_scenario_performance_budget_file(const std::filesystem::path &path);
