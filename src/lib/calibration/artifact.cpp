@@ -12,13 +12,22 @@
 
 #include <nlohmann/json.hpp>
 
+#include "project/calibration/common.hpp"
+
 namespace project {
 
 namespace {
 
 using Json = nlohmann::basic_json<>;
-constexpr std::string_view STEADY_WIND_AERO_SCHEMA_ID =
+constexpr std::string_view STEADY_WIND_AERO_SCHEMA_ID_V1 =
     "steady_wind_aero_calibration.v1";
+constexpr std::string_view STEADY_WIND_AERO_SCHEMA_ID_V2 =
+    "steady_wind_aero_calibration.v2";
+constexpr std::string_view EXPECTED_UNIT_SYSTEM = "SI";
+constexpr std::string_view EXPECTED_WORLD_FRAME = "x_forward_y_starboard_z_up";
+constexpr std::string_view EXPECTED_BODY_FRAME = "x_forward_y_starboard_z_up";
+constexpr std::string_view EXPECTED_ORIENTATION =
+    "world_from_body_quaternion_xyzw";
 
 /**
  * @design D-042 — External calibration artifact loading and validation
@@ -133,6 +142,94 @@ bool parse_steady_wind_schema(const Json &root, CalibrationArtifact &artifact,
   return true;
 }
 
+bool validate_units(const Json &root, LoadCalibrationArtifactResult &result) {
+  if (!root.contains("units")) {
+    return true;
+  }
+  const Json *units = require_object(root, "units", "$.units", result);
+  if (units == nullptr) {
+    return false;
+  }
+  std::string system;
+  if (!require_string_field(*units, "system", "$.units.system", system,
+                            result)) {
+    return false;
+  }
+  if (system != EXPECTED_UNIT_SYSTEM) {
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.units.system",
+                        "unsupported unit system '" + system + "'"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_state_conventions(const Json &root, CalibrationArtifact &artifact,
+                             LoadCalibrationArtifactResult &result) {
+  if (!root.contains("state_conventions")) {
+    return true;
+  }
+  ArtifactStateConventions conventions;
+  const Json *state_conventions =
+      require_object(root, "state_conventions", "$.state_conventions", result);
+  if (state_conventions == nullptr ||
+      !require_string_field(*state_conventions, "world_frame",
+                            "$.state_conventions.world_frame",
+                            conventions.world_frame, result) ||
+      !require_string_field(*state_conventions, "body_frame",
+                            "$.state_conventions.body_frame",
+                            conventions.body_frame, result) ||
+      !require_string_field(*state_conventions, "orientation",
+                            "$.state_conventions.orientation",
+                            conventions.orientation, result)) {
+    return false;
+  }
+  if (conventions.world_frame != EXPECTED_WORLD_FRAME) {
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.world_frame",
+                        "unsupported world frame"));
+    return false;
+  }
+  if (conventions.body_frame != EXPECTED_BODY_FRAME) {
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.body_frame",
+                        "unsupported body frame"));
+    return false;
+  }
+  if (conventions.orientation != EXPECTED_ORIENTATION) {
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.orientation",
+                        "unsupported orientation convention"));
+    return false;
+  }
+  artifact.state_conventions = std::move(conventions);
+  return true;
+}
+
+bool parse_reference_contract(const Json &root, CalibrationArtifact &artifact,
+                              LoadCalibrationArtifactResult &result) {
+  if (!root.contains("reference_contract")) {
+    return true;
+  }
+  ArtifactReferenceContract reference_contract;
+  const Json *reference = require_object(root, "reference_contract",
+                                         "$.reference_contract", result);
+  if (reference == nullptr ||
+      !require_string_field(*reference, "boat_id",
+                            "$.reference_contract.boat_id",
+                            reference_contract.boat_id, result) ||
+      !require_string_field(*reference, "rigging_id",
+                            "$.reference_contract.rigging_id",
+                            reference_contract.rigging_id, result) ||
+      !require_string_field(*reference, "athlete_id",
+                            "$.reference_contract.athlete_id",
+                            reference_contract.athlete_id, result)) {
+    return false;
+  }
+  artifact.reference_contract = std::move(reference_contract);
+  return true;
+}
+
 } // namespace
 
 LoadCalibrationArtifactResult
@@ -166,7 +263,11 @@ parse_calibration_artifact_text(std::string_view json_text,
     return result;
   }
 
-  if (artifact.provenance.schema_id != STEADY_WIND_AERO_SCHEMA_ID) {
+  const bool schema_v1 =
+      artifact.provenance.schema_id == STEADY_WIND_AERO_SCHEMA_ID_V1;
+  const bool schema_v2 =
+      artifact.provenance.schema_id == STEADY_WIND_AERO_SCHEMA_ID_V2;
+  if (!schema_v1 && !schema_v2) {
     result.diagnostics.push_back(
         make_diagnostic("invalid_value", "$.schema_id",
                         "unsupported calibration schema '" +
@@ -174,7 +275,10 @@ parse_calibration_artifact_text(std::string_view json_text,
     return result;
   }
 
-  if (!parse_steady_wind_schema(root, artifact, result)) {
+  if ((schema_v2 && (!validate_units(root, result) ||
+                     !parse_state_conventions(root, artifact, result) ||
+                     !parse_reference_contract(root, artifact, result))) ||
+      !parse_steady_wind_schema(root, artifact, result)) {
     return result;
   }
 

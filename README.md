@@ -25,7 +25,12 @@ backend wiring separate before deferred calibration or time-varying
 environment workflows. The current post-`v0.1` guardrail packet now also adds
 an optional offline truth-model handoff export path and a dedicated protected-
 scenario performance-budget lane without changing the default runtime
-dependencies.
+dependencies. The next planned phase is now defined as a milestone-based
+fidelity program for single-scull hull-performance and stroke-dynamics studies,
+with measurement and calibration foundations, low-order actuation, calibrated
+reduced runtime models, coupled validation scenarios, and explicit trust or
+uncertainty reporting staged separately from the current validated reduced
+baseline.
 
 ## Quick Start
 
@@ -93,6 +98,17 @@ Run one headless baseline case:
 ./build/project_app --config /path/to/config.json
 ```
 
+Make the supported scope explicit in a config when helpful:
+```json
+{
+  "boat_class": "single_scull"
+}
+```
+
+Omitting `boat_class` still defaults to `single_scull`. Any other explicit
+value is rejected before runtime startup; crew and sweep support remain future
+expansion only in the current repository state.
+
 Request an offline truth-model handoff export without changing the runtime
 path:
 ```json
@@ -107,6 +123,50 @@ The exported JSON bundle is optional and disabled by default. Runtime
 re-import stays on the existing calibrated-artifact path through
 `providers.aero_load = "steady_wind_calibrated"` plus
 `artifacts.calibration.path`.
+
+Import study-facing parameter or trial artifacts on the shared run path:
+```json
+{
+  "artifacts": {
+    "measurement_bundle": {
+      "path": "/path/to/measurement-bundle.json"
+    },
+    "measured_trial": {
+      "path": "/path/to/measured-trial.json"
+    }
+  }
+}
+```
+
+The same `measurement_bundle` path now also has checked-in proof coverage for
+parameter-sensitive studies: swapping valid hull, rigging, and athlete
+mass-distribution bundles changes reported trim and/or performance metrics
+through the existing summary contract instead of a separate hull-study schema.
+
+Select the low-order stroke-actuation mode explicitly when a study needs more
+than prescribed kinematics:
+```json
+{
+  "stroke": {
+    "actuation": {
+      "mode": "power_driven",
+      "peak_drive_power_w": 650.0,
+      "power_mode_speed_floor_mps": 0.35
+    },
+    "rower_coupling": {
+      "enabled": true,
+      "rower_mass_kg": 82.0,
+      "body_center_of_mass_m": [0.05, 0.0, 0.32],
+      "seat_position_to_com_scale": 0.78
+    }
+  }
+}
+```
+
+`measurement_bundle` is the current authoritative overlay for overlapping
+hull, rigging, and athlete mass-distribution inputs. Summary, time-series, and
+truth-model handoff JSON now propagate the imported study identifiers plus the
+selected actuation and coupling metadata.
 
 Run one case with the human-readable compact report:
 ```bash
@@ -141,6 +201,8 @@ manifest separately from ordinary functional test failures. The quick
 Current implemented library surface:
 - `include/project/aero/baseline_providers.hpp`
 - `include/project/calibration/artifact.hpp`
+- `include/project/calibration/measurement_bundle.hpp`
+- `include/project/calibration/measured_trial.hpp`
 - `include/project/configuration/provider_catalog.hpp`
 - `include/project/configuration/simulator_config.hpp`
 - `include/project/hydro/baseline_providers.hpp`
@@ -158,10 +220,18 @@ Current implemented library surface:
   `A-003` and `A-010` slice
 - reusable in-memory single-run API with injected hydro, aero, and
   state-advancer seams plus structured state/load history
+- optional top-level `boat_class` scope selector, defaulting to
+  `single_scull` and rejecting unsupported crew or sweep scope explicitly
 - top-level config-driven built-in provider selection for
   `hull_resistance`, `blade_force`, and `aero_load`
 - optional file-backed external calibration artifact loading with
   deterministic schema or provenance validation on the shared runtime path
+- optional file-backed `measurement_bundle.v1` and `measured_trial.v1`
+  imports with deterministic provenance, frame, and identifier validation on
+  the shared runtime path
+- bounded `prescribed_kinematic`, `force_driven`, and `power_driven` stroke
+  actuation settings plus optional low-order rower center-of-mass coupling
+  inputs in the public config contract
 - optional `output.truth_model_export_path` for one deterministic JSON offline
   handoff bundle, disabled by default and kept separate from runtime import
   consumers
@@ -176,6 +246,9 @@ Current implemented library surface:
   runtime solver-status fields
 - deterministic machine-readable summary and time-series artifacts with
   explicit unit or frame annotations for boundary-visible channels
+- imported study identifiers, trial-alignment metadata, actuation-command
+  channels, realized blade-force totals, and rower center-of-mass or inertial
+  contribution channels in JSON runtime outputs
 - structured hydro force or moment vectors, final passive-float equilibrium
   diagnostics, and explicit blade-immersion or blade-tip-velocity channels in
   runtime outputs
@@ -225,6 +298,7 @@ Current implemented library surface:
 Primary planning and process sources:
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
+- `docs/process/FIDELITY_GAP_MAP.md`
 - `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/TECHNOLOGY_STACK.md`
 - `docs/ai/DECISIONS.md`
@@ -236,6 +310,7 @@ ownership catalog.
 
 Current intent:
 - single-scull simulator first,
+- crew and sweep remain future expansion rather than current capability,
 - headless executable plus reusable library API,
 - 3D mechanics core with reduced hydro and aero runtime models,
 - explicit world-frame, sign, and orientation conventions at simulator
@@ -243,6 +318,9 @@ Current intent:
 - explicit numerical integration and startup-validity ownership separate from
   mechanics ownership,
 - optional high-fidelity calibration workflows kept outside the default runtime,
+- next-phase fidelity work focused on hull-performance and stroke-dynamics
+  studies through calibrated reduced runtime models rather than online
+  truth-model execution,
 - real simulator code should now land inside the hardened architecture-first
   workflow rather than extending the bootstrap sample.
 
@@ -267,15 +345,17 @@ Current implementation status:
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
   metadata propagation, optional HDF5 parity behind the same output contract,
-  and deterministic batch-summary artifact emission for ordered multi-case
-  jobs,
+  deterministic batch-summary artifact emission for ordered multi-case jobs,
+  and closed `R-041` propulsion-metric reporting across summary, time-series,
+  HDF5, and human-readable analysis outputs,
 - `A-005 Aero Runtime Models` is now in progress with the first steady-wind
   apparent-wind and aerodynamic-load slice, runtime-selectable built-in
   provider wiring, and an in-place steady-wind fidelity refinement on the
   existing built-in aero id,
 - `A-008 Scenario Harness and Validation` is now in progress with a public
   scenario-harness API and runtime-backed passive-float/tow/calm-water/
-  headwind/crosswind/gust-headwind `QT-*` evidence,
+  headwind/crosswind/gust-headwind `QT-*` evidence plus one reusable
+  shared-baseline technique-comparison surface for actuation-mode studies,
 - bootstrap-only placeholder code has been removed from the compiled targets,
 - richer runtime provider fidelity is now in progress on the existing
   `A-004` and `A-005` seams through in-place hydro and steady-wind aero
@@ -283,7 +363,12 @@ Current implementation status:
   while the closed `A-010` composed-backend slice now remains separate from
   provider work through split mechanics and integration backend selection,
   a preferred Chrono plus SUNDIALS standard runtime, and explicit fallback
-  pairs rather than mixing backend adoption into provider-selection work.
+  pairs rather than mixing backend adoption into provider-selection work,
+- the next major planning packet now keeps that reduced baseline intact while
+  staging the future fidelity gap through
+  `docs/process/FIDELITY_GAP_MAP.md`, starting with measurement or calibration
+  foundations and the first low-order actuation slice before calibrated blade
+  or hull providers are reopened.
 
 Time-varying wind config uses an exclusive one-of contract under
 `environment`:

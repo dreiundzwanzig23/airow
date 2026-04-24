@@ -48,6 +48,9 @@ struct MechanicalStateSnapshot {
   OarState starboard_oar;
   SeatState seat;
   StrokeState stroke;
+  Vector3 rower_center_of_mass_world_m{};
+  Vector3 rower_center_of_mass_velocity_world_mps{};
+  Vector3 rower_inertial_force_world_n{};
   double constraint_residual_max{};
 
   bool operator==(const MechanicalStateSnapshot &) const = default;

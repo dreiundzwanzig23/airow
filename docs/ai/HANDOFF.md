@@ -1,37 +1,44 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-19
+- 2026-04-23
 
 ## What Changed In This Session
-- Closed the combined `R-024` / `R-026` guardrail packet.
-- Public config now accepts optional `output.truth_model_export_path`, and the
-  shared run path emits one deterministic JSON truth-model handoff bundle only
-  when that path is configured.
-- The default runtime still executes without optional truth-model tooling, and
-  runtime re-import remains the existing calibrated-artifact path through
-  `steady_wind_calibrated` plus `artifacts.calibration.path`.
-- Added `scenarios/performance_budgets.json` for the five protected core
-  scenarios plus public budget-loading and evaluation contracts in the
-  scenario-harness API.
-- Added `./scripts/test_performance.sh` and
-  `tools/check_scenario_budgets.py` so protected-scenario runtime budgets are
-  reported separately from ordinary functional failures with a machine-readable
-  budget report.
-- `test.sh` and `verify.sh` now run the dedicated performance lane; the quick
-  `test_tdd.sh` lane remains unchanged.
+- Closed `R-041` by extending the existing `A-007` output contracts with
+  propulsion-metric availability, definitions, run-level slip/work/efficiency
+  metrics, per-record support flags, HDF5 parity, and a human-readable
+  analysis section.
+- Added the first `D-058` shared-baseline technique-comparison surface under
+  `A-008`, including `comparison_window`, named variants, batch-style config
+  overrides, explicit `varied_parameters`, deterministic baseline-versus-
+  variant delta reporting, and the checked-in
+  `scenarios/technique_comparison_actuation_modes.json` artifact.
+- Added new evidence coverage for the packet with `UT-348..UT-355`,
+  `IT-030..IT-031`, and `QT-046`.
+- Recorded the `R-041` close-out status and the early `R-045` groundwork in
+  requirements, architecture, README, changelog, and AI context docs.
 
 ## Current Technical Posture
-- The truth-model handoff path is one-way JSON export only in the current
-  packet.
-- The protected performance-budget lane should remain separate from the quick
-  TDD loop.
-- Future calibration growth should stay under explicit `A-009` packets.
+- The current runtime remains the validated reduced single-scull baseline with
+  reduced hydro and aero providers, preferred `chrono_rigidbody + sundials_ida`,
+  scenario evidence, and optional offline truth-model export.
+- The first fidelity-foundation slice is now live: file-backed measurement or
+  trial artifacts, low-order actuation, rower coupling, and lineage-bearing
+  outputs are all routed through the shared deterministic runtime path.
+- Milestone 2 is closed and Milestone 3 now has its `R-041` metrics packet
+  closed on the shared runtime path.
+- `R-045` is still open: the new comparison surface is limited to one
+  actuation-mode study and does not yet cover acceleration deltas or a fuller
+  technique-scenario catalog.
+- Full biomechanics, flexible oars, broad disturbance modeling, non-single-
+  scull support, and GUI-first work remain deferred.
 
 ## Immediate Next Steps
-1. Keep the closed truth-model handoff export and performance-budget lane
-   stable while later backlog items settle.
-2. Keep future calibration growth under explicit `A-009` packets so schema or
-   consumer expansion does not erode the closed Slice 4A contract.
-3. Treat the deferred `R-027..R-030` cluster as later backlog unless a
-   smaller stop-the-line defect preempts it.
+1. Start the `R-042` / `R-043` blade-behavior packet on top of the new stable
+   propulsion-metric names and availability contract.
+2. Extend `R-045` only when the shared-baseline comparison surface can absorb
+   acceleration deltas and broader technique metadata without fragmenting the
+   existing scenario API.
+3. Keep calibrated reduced blade and hull providers deferred until the
+   propulsion-metric and comparison-scenario seams remain stable under routine
+   gate runs.

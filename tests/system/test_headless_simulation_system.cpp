@@ -258,6 +258,80 @@ TEST(HeadlessSimulationSystem, ExecutableReportsConfigurationFailure) {
 }
 
 /**
+ * @test QT-043
+ * @verifies [R-030]
+ * @notes Given an unsupported `boat_class` on disk, when the headless
+ * executable runs with `--config`, then it fails as a configuration error and
+ * does not silently execute the single-scull runtime path.
+ */
+TEST(HeadlessSimulationSystem,
+     ExecutableRejectsUnsupportedBoatClassWithoutSingleScullFallback) {
+  const auto config_path = write_temp_file("airow-qt-unsupported-boat.json",
+                                           R"({
+        "config_id": "qt-cli-unsupported-boat",
+        "boat_class": "double_scull",
+        "simulation": {
+          "duration_s": 1.0,
+          "time_step_s": 0.5
+        },
+        "hull": {
+          "mass_kg": 14.0,
+          "center_of_mass_m": [0.0, 0.0, 0.0],
+          "inertia_kg_m2": [1.1, 7.8, 8.2],
+          "initial_position_m": [0.0, 0.0, 0.0],
+          "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+          "initial_linear_velocity_mps": [0.0, 0.0, 0.0],
+          "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+        },
+        "oars": {
+          "port": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, -0.82, 0.18]
+          },
+          "starboard": {
+            "inboard_length_m": 0.88,
+            "outboard_length_m": 1.98,
+            "oarlock_position_m": [0.25, 0.82, 0.18]
+          }
+        },
+        "seat": {
+          "rail_axis": [1.0, 0.0, 0.0],
+          "min_position_m": -0.4,
+          "max_position_m": 0.4,
+          "initial_position_m": 0.0
+        },
+        "stroke": {
+          "cycle_duration_s": 1.2,
+          "drive_duration_s": 0.48,
+          "catch_angle_rad": -0.9,
+          "release_angle_rad": 0.6
+        }
+      })");
+  const auto stdout_path = std::filesystem::temp_directory_path() /
+                           "airow-qt-unsupported-boat.stdout";
+  const auto stderr_path = std::filesystem::temp_directory_path() /
+                           "airow-qt-unsupported-boat.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 2);
+  EXPECT_TRUE(read_file(stdout_path).empty());
+  const auto stderr_text = read_file(stderr_path);
+  EXPECT_NE(stderr_text.find("configuration_error"), std::string::npos);
+  EXPECT_NE(stderr_text.find("$.boat_class"), std::string::npos);
+  EXPECT_EQ(stderr_text.find("status=success"), std::string::npos);
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+}
+
+/**
  * @test QT-005
  * @verifies [R-002, R-003]
  * @notes Given a validated config and injected hydro and aero stubs, when the

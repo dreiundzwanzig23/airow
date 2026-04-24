@@ -32,9 +32,8 @@ void remove_file_if_present(const std::filesystem::path &path) {
  * duration budgets are preserved deterministically.
  */
 TEST(ScenarioPerformanceBudgets, LoadsValidManifestDeterministically) {
-  const auto path = write_temp_file(
-      "airow-ut-performance-budgets-valid.json",
-      R"({
+  const auto path = write_temp_file("airow-ut-performance-budgets-valid.json",
+                                    R"({
         "schema_id": "scenario_performance_budgets.v1",
         "development_environment_class": "repo-default-build",
         "scenario_budgets": [
@@ -65,8 +64,9 @@ TEST(ScenarioPerformanceBudgets, LoadsValidManifestDeterministically) {
             "passive-float");
   EXPECT_EQ(loaded.manifest->scenario_budgets.at(0).step_name,
             "test-performance-passive-float");
-  EXPECT_EQ(loaded.manifest->scenario_budgets.at(0).ctest_regex,
-            "^ScenarioHarnessSystem\\.PassiveFloatScenarioPassesAcceptanceEnvelope$");
+  EXPECT_EQ(
+      loaded.manifest->scenario_budgets.at(0).ctest_regex,
+      "^ScenarioHarnessSystem\\.PassiveFloatScenarioPassesAcceptanceEnvelope$");
   EXPECT_EQ(loaded.manifest->scenario_budgets.at(0).max_duration_seconds, 12);
 
   remove_file_if_present(path);
@@ -79,9 +79,9 @@ TEST(ScenarioPerformanceBudgets, LoadsValidManifestDeterministically) {
  * the loader parses it, then it rejects the missing field deterministically.
  */
 TEST(ScenarioPerformanceBudgets, RejectsMissingScenarioBudgetsArray) {
-  const auto path = write_temp_file(
-      "airow-ut-performance-budgets-missing-array.json",
-      R"({
+  const auto path =
+      write_temp_file("airow-ut-performance-budgets-missing-array.json",
+                      R"({
         "schema_id": "scenario_performance_budgets.v1",
         "development_environment_class": "repo-default-build"
       })");
@@ -113,7 +113,8 @@ TEST(ScenarioPerformanceBudgets, ReportsBudgetExceedanceDeterministically) {
                   .scenario_id = "passive-float",
                   .step_name = "test-performance-passive-float",
                   .ctest_regex =
-                      "^ScenarioHarnessSystem\\.PassiveFloatScenarioPassesAcceptanceEnvelope$",
+                      "^ScenarioHarnessSystem\\."
+                      "PassiveFloatScenarioPassesAcceptanceEnvelope$",
                   .max_duration_seconds = 12,
               },
           },
@@ -154,7 +155,8 @@ TEST(ScenarioPerformanceBudgets, ReportsMissingProtectedScenarioStep) {
                   .scenario_id = "tow-test",
                   .step_name = "test-performance-tow-test",
                   .ctest_regex =
-                      "^ScenarioHarnessSystem\\.TowScenarioPassesAcceptanceAndDragCurveChecks$",
+                      "^ScenarioHarnessSystem\\."
+                      "TowScenarioPassesAcceptanceAndDragCurveChecks$",
                   .max_duration_seconds = 12,
               },
           },

@@ -80,12 +80,32 @@ struct SeatSettings {
 };
 
 struct StrokeSettings {
+  struct ActuationSettings {
+    std::string mode{"prescribed_kinematic"};
+    double peak_drive_force_n{};
+    double peak_drive_power_w{};
+    double power_mode_speed_floor_mps{};
+
+    bool operator==(const ActuationSettings &) const = default;
+  };
+
+  struct RowerCouplingSettings {
+    bool enabled{};
+    double rower_mass_kg{};
+    Vector3 body_center_of_mass_m;
+    double seat_position_to_com_scale{};
+
+    bool operator==(const RowerCouplingSettings &) const = default;
+  };
+
   double cycle_duration_s{};
   double drive_duration_s{};
   double catch_angle_rad{};
   double release_angle_rad{};
   double drive_blade_depth_m{0.12};
   double recovery_blade_depth_m{};
+  ActuationSettings actuation{};
+  RowerCouplingSettings rower_coupling{};
 
   bool operator==(const StrokeSettings &) const = default;
 };
@@ -119,8 +139,22 @@ struct CalibrationArtifactReferenceSettings {
   bool operator==(const CalibrationArtifactReferenceSettings &) const = default;
 };
 
+struct MeasurementBundleReferenceSettings {
+  std::string path;
+
+  bool operator==(const MeasurementBundleReferenceSettings &) const = default;
+};
+
+struct MeasuredTrialReferenceSettings {
+  std::string path;
+
+  bool operator==(const MeasuredTrialReferenceSettings &) const = default;
+};
+
 struct ArtifactSettings {
   CalibrationArtifactReferenceSettings calibration{};
+  MeasurementBundleReferenceSettings measurement_bundle{};
+  MeasuredTrialReferenceSettings measured_trial{};
 
   bool operator==(const ArtifactSettings &) const = default;
 };
@@ -148,6 +182,7 @@ struct SimulatorConfig {
   ProviderSelectionSettings providers{};
   ArtifactSettings artifacts{};
   OutputSettings output{};
+  std::string boat_class{"single_scull"};
 
   bool operator==(const SimulatorConfig &) const = default;
 };

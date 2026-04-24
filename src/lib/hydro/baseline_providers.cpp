@@ -27,6 +27,7 @@ constexpr double DRIVE_PHASE_BOUNDARY_TOLERANCE_S = 1.0e-12;
 constexpr double BLADE_PROPULSION_SCALE = 4.0;
 constexpr double SMOOTHSTEP_LINEAR_COEFFICIENT = 2.0;
 constexpr double SMOOTHSTEP_OFFSET = 3.0;
+constexpr double MIN_SPEED_FLOOR_MPS = 1.0e-6;
 
 double clamp_unit(double value) { return std::max(0.0, std::min(1.0, value)); }
 
@@ -54,7 +55,7 @@ double smoothstep_unit(double value) {
  * @title Deterministic built-in blade-force shaping across drive phase with
  * immersion-aware scaling, backward-slip gating, and boundary-zero tapering
  * for the runtime `stroke_propulsion_placeholder` provider
- * @satisfies [A-004]
+ * @satisfies [A-004, A-006]
  */
 double phase_shaped_blade_force_x_n(double blade_force_coefficient_n_s_per_m,
                                     double full_blade_immersion_depth_m,
@@ -78,6 +79,47 @@ double phase_shaped_blade_force_x_n(double blade_force_coefficient_n_s_per_m,
   return BLADE_PROPULSION_SCALE * blade_force_coefficient_n_s_per_m *
          immersion_shape * alignment * drive_phase_shape *
          backward_slip_speed_mps;
+}
+
+double drive_phase_shape(double phase_time_s) {
+  if (phase_time_s <= DRIVE_PHASE_BOUNDARY_TOLERANCE_S ||
+      phase_time_s >=
+          BASELINE_DRIVE_DURATION_S - DRIVE_PHASE_BOUNDARY_TOLERANCE_S) {
+    return 0.0;
+  }
+  const double normalized_drive_phase =
+      clamp_unit(phase_time_s / BASELINE_DRIVE_DURATION_S);
+  return std::sin(PI * normalized_drive_phase);
+}
+
+double actuation_gate(double full_blade_immersion_depth_m, double phase_time_s,
+                      const OarState &oar) {
+  const double immersion_ratio = full_blade_immersion_depth_m > 0.0
+                                     ? clamp_unit(oar.blade_immersion_depth_m /
+                                                  full_blade_immersion_depth_m)
+                                     : 0.0;
+  const double immersion_shape = smoothstep_unit(immersion_ratio);
+  const double alignment = std::max(0.0, std::cos(oar.handle_angle_rad));
+  const double backward_slip_gate =
+      std::max(0.0, -oar.blade_tip_velocity_world_mps.x) > 0.0 ? 1.0 : 0.0;
+  return immersion_shape * alignment * drive_phase_shape(phase_time_s) *
+         backward_slip_gate;
+}
+
+double commanded_force_for_oar(const StepContext &context,
+                               const OarState &oar) {
+  const auto &actuation = context.stroke_command;
+  if (actuation.mode == "force_driven") {
+    return actuation.peak_drive_force_n;
+  }
+  if (actuation.mode == "power_driven") {
+    const double speed_floor_mps =
+        std::max(actuation.power_mode_speed_floor_mps, MIN_SPEED_FLOOR_MPS);
+    return actuation.peak_drive_power_w /
+           std::max(std::abs(oar.blade_tip_velocity_world_mps.x),
+                    speed_floor_mps);
+  }
+  return 0.0;
 }
 
 /**
@@ -262,6 +304,11 @@ StrokePropulsionPlaceholderBladeForceProvider::identifier() const noexcept {
 
 double StrokePropulsionPlaceholderBladeForceProvider::blade_force_x_n(
     const StepContext &context, const OarState &oar) const {
+  if (context.stroke_command.mode != "prescribed_kinematic") {
+    return commanded_force_for_oar(context, oar) *
+           actuation_gate(full_blade_immersion_depth_m_,
+                          context.state.stroke.phase_time_s, oar);
+  }
   return phase_shaped_blade_force_x_n(blade_force_coefficient_n_s_per_m_,
                                       full_blade_immersion_depth_m_,
                                       context.state.stroke.phase_time_s, oar);
@@ -274,10 +321,15 @@ HydroLoadSample StrokePropulsionPlaceholderBladeForceProvider::sample_load(
         .hull_force_x_n = 0.0,
         .port_blade_force_x_n = 0.0,
         .starboard_blade_force_x_n = 0.0,
+        .commanded_force_n = 0.0,
+        .commanded_power_w = 0.0,
+        .realized_blade_force_total_n = 0.0,
         .hull_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
         .hull_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
         .port_blade_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
         .starboard_blade_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
+        .rower_inertial_force_world_n =
+            context.state.rower_inertial_force_world_n,
         .port_blade_immersion_depth_m = 0.0,
         .starboard_blade_immersion_depth_m = 0.0,
     };
@@ -286,16 +338,30 @@ HydroLoadSample StrokePropulsionPlaceholderBladeForceProvider::sample_load(
   const auto port_force_x_n = blade_force_x_n(context, context.state.port_oar);
   const auto starboard_force_x_n =
       blade_force_x_n(context, context.state.starboard_oar);
+  const double commanded_force_n =
+      context.state.stroke.phase == StrokePhase::drive
+          ? commanded_force_for_oar(context, context.state.port_oar)
+          : 0.0;
+  const double commanded_power_w =
+      context.stroke_command.mode == "power_driven" &&
+              context.state.stroke.phase == StrokePhase::drive
+          ? context.stroke_command.peak_drive_power_w
+          : 0.0;
   return {
       .hull_force_x_n = 0.0,
       .port_blade_force_x_n = port_force_x_n,
       .starboard_blade_force_x_n = starboard_force_x_n,
+      .commanded_force_n = commanded_force_n,
+      .commanded_power_w = commanded_power_w,
+      .realized_blade_force_total_n = port_force_x_n + starboard_force_x_n,
       .hull_force_world_n = {.x = 0.0, .y = 0.0, .z = 0.0},
       .hull_moment_world_n_m = {.x = 0.0, .y = 0.0, .z = 0.0},
       .port_blade_force_world_n = {.x = port_force_x_n, .y = 0.0, .z = 0.0},
       .starboard_blade_force_world_n = {.x = starboard_force_x_n,
                                         .y = 0.0,
                                         .z = 0.0},
+      .rower_inertial_force_world_n =
+          context.state.rower_inertial_force_world_n,
       .port_blade_immersion_depth_m =
           context.state.port_oar.blade_immersion_depth_m,
       .starboard_blade_immersion_depth_m =
@@ -335,6 +401,12 @@ HydroLoadSample StrokePropulsionPlaceholderHydroProvider::sample_load(
   load.port_blade_force_world_n = blade_force_load.port_blade_force_world_n;
   load.starboard_blade_force_world_n =
       blade_force_load.starboard_blade_force_world_n;
+  load.commanded_force_n = blade_force_load.commanded_force_n;
+  load.commanded_power_w = blade_force_load.commanded_power_w;
+  load.realized_blade_force_total_n =
+      blade_force_load.realized_blade_force_total_n;
+  load.rower_inertial_force_world_n =
+      blade_force_load.rower_inertial_force_world_n;
   load.port_blade_immersion_depth_m =
       blade_force_load.port_blade_immersion_depth_m;
   load.starboard_blade_immersion_depth_m =

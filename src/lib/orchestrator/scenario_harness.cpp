@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "project/configuration/simulator_config.hpp"
+#include "project/output/run_analysis.hpp"
 #include "project/output/run_result.hpp"
 
 #include <nlohmann/json.hpp>
@@ -145,6 +146,9 @@ std::optional<ScenarioType> parse_scenario_type(std::string_view value) {
   }
   if (value == "crosswind_stroke") {
     return ScenarioType::crosswind_stroke;
+  }
+  if (value == "technique_comparison") {
+    return ScenarioType::technique_comparison;
   }
   return std::nullopt;
 }
@@ -557,8 +561,21 @@ bool parse_scenario_config(const Json &root,
                             result)) {
     return false;
   }
-  const auto loaded =
-      parse_simulator_config_text(config_object->dump(), "<scenario>");
+  Json resolved = *config_object;
+  const bool outputs_disabled =
+      resolved.contains("output") && resolved.at("output").is_object() &&
+      resolved.at("output").contains("formats") &&
+      resolved.at("output").at("formats").is_array() &&
+      resolved.at("output").at("formats").empty();
+  if (outputs_disabled) {
+    resolved["output"]["formats"] = Json::array({"json"});
+  }
+
+  auto loaded = parse_simulator_config_text(resolved.dump(), "<scenario>");
+  if (outputs_disabled && loaded.config.has_value()) {
+    loaded.config->output.emit_json = false;
+    loaded.config->output.emit_hdf5 = false;
+  }
   if (!loaded.ok()) {
     for (const auto &diagnostic : loaded.diagnostics) {
       result.diagnostics.push_back(make_error(
@@ -573,6 +590,239 @@ bool parse_scenario_config(const Json &root,
     return false;
   }
   scenario.config = *loaded.config;
+  return true;
+}
+
+bool scenario_config_disables_outputs(const Json &config_object) {
+  return config_object.contains("output") &&
+         config_object.at("output").is_object() &&
+         config_object.at("output").contains("formats") &&
+         config_object.at("output").at("formats").is_array() &&
+         config_object.at("output").at("formats").empty();
+}
+
+LoadSimulatorConfigResult load_scenario_simulator_config(Json config_object) {
+  if (scenario_config_disables_outputs(config_object)) {
+    config_object["output"]["formats"] = Json::array({"json"});
+    auto loaded =
+        parse_simulator_config_text(config_object.dump(), "<scenario>");
+    if (loaded.config.has_value()) {
+      loaded.config->output.emit_json = false;
+      loaded.config->output.emit_hdf5 = false;
+    }
+    return loaded;
+  }
+  return parse_simulator_config_text(config_object.dump(), "<scenario>");
+}
+
+bool parse_varied_parameters(const Json &variant_object,
+                             std::string_view base_path,
+                             ScenarioComparisonVariant &variant,
+                             LoadScenarioDefinitionResult &result);
+
+bool parse_variant_identity(const Json &variant_object,
+                            std::string_view base_path,
+                            std::vector<std::string> &seen_variant_ids,
+                            ScenarioComparisonVariant &variant,
+                            LoadScenarioDefinitionResult &result) {
+  if (!require_string_field(variant_object, "variant_id",
+                            std::string(base_path) + ".variant_id",
+                            variant.variant_id, result)) {
+    return false;
+  }
+  if (variant.variant_id.empty()) {
+    result.diagnostics.push_back(
+        make_error("invalid_value", std::string(base_path) + ".variant_id",
+                   "variant_id must not be empty"));
+    return false;
+  }
+  if (std::find(seen_variant_ids.begin(), seen_variant_ids.end(),
+                variant.variant_id) != seen_variant_ids.end()) {
+    result.diagnostics.push_back(
+        make_error("duplicate_value", std::string(base_path) + ".variant_id",
+                   "duplicate variant_id '" + variant.variant_id + "'"));
+    return false;
+  }
+  seen_variant_ids.push_back(variant.variant_id);
+  return true;
+}
+
+const Json *
+require_variant_overrides_object(const Json &variant_object,
+                                 std::string_view base_path,
+                                 LoadScenarioDefinitionResult &result) {
+  if (!variant_object.contains("overrides")) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", std::string(base_path) + ".overrides",
+        "missing required field"));
+    return nullptr;
+  }
+  const auto &overrides = variant_object.at("overrides");
+  if (!overrides.is_object()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", std::string(base_path) + ".overrides",
+                   "expected object"));
+    return nullptr;
+  }
+  return &overrides;
+}
+
+bool parse_comparison_variant(const Json &baseline_config,
+                              const Json &variant_object,
+                              std::string_view scenario_id,
+                              std::string_view base_path,
+                              std::vector<std::string> &seen_variant_ids,
+                              LoadScenarioDefinitionResult &result,
+                              ScenarioComparisonVariant &variant) {
+  if (!parse_variant_identity(variant_object, base_path, seen_variant_ids,
+                              variant, result)) {
+    return false;
+  }
+  const auto *overrides =
+      require_variant_overrides_object(variant_object, base_path, result);
+  if (overrides == nullptr ||
+      !parse_varied_parameters(variant_object, base_path, variant, result)) {
+    return false;
+  }
+
+  Json resolved = baseline_config;
+  resolved.merge_patch(*overrides);
+  resolved["config_id"] = std::string(scenario_id) + "__" + variant.variant_id;
+
+  auto loaded = load_scenario_simulator_config(std::move(resolved));
+  if (!loaded.ok() || !loaded.config.has_value()) {
+    for (const auto &diagnostic : loaded.diagnostics) {
+      result.diagnostics.push_back(make_error(
+          diagnostic.code,
+          prefixed_path(std::string(base_path) + ".overrides", diagnostic.path),
+          diagnostic.message));
+    }
+    return false;
+  }
+  variant.config = *loaded.config;
+  return true;
+}
+
+/**
+ * @design D-058 — Shared-baseline technique-comparison scenarios
+ * @title Deterministic loading of reusable technique-comparison scenarios with
+ * shared baseline config, variant overrides, and comparison-window metadata
+ * @satisfies [A-008]
+ */
+bool parse_comparison_window(const Json &root,
+                             LoadScenarioDefinitionResult &result,
+                             ScenarioDefinition &scenario) {
+  const Json *comparison_window = nullptr;
+  if (!require_object_field(root, "comparison_window", "$.comparison_window",
+                            comparison_window, result)) {
+    return false;
+  }
+  if (!require_non_negative_number(*comparison_window, "start_time_s",
+                                   "$.comparison_window.start_time_s",
+                                   scenario.comparison_window.start_time_s,
+                                   "start_time_s", result) ||
+      !require_non_negative_number(
+          *comparison_window, "end_time_s", "$.comparison_window.end_time_s",
+          scenario.comparison_window.end_time_s, "end_time_s", result)) {
+    return false;
+  }
+  if (scenario.comparison_window.end_time_s <=
+      scenario.comparison_window.start_time_s) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.comparison_window.end_time_s",
+        "comparison_window.end_time_s must be greater than start_time_s"));
+    return false;
+  }
+  return true;
+}
+
+bool parse_varied_parameters(const Json &variant_object,
+                             std::string_view base_path,
+                             ScenarioComparisonVariant &variant,
+                             LoadScenarioDefinitionResult &result) {
+  if (!variant_object.contains("varied_parameters")) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", std::string(base_path) + ".varied_parameters",
+        "missing required field"));
+    return false;
+  }
+  const auto &field = variant_object.at("varied_parameters");
+  if (!field.is_array()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_type", std::string(base_path) + ".varied_parameters",
+        "expected array"));
+    return false;
+  }
+  if (field.empty()) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", std::string(base_path) + ".varied_parameters",
+        "at least one varied parameter path is required"));
+    return false;
+  }
+
+  variant.varied_parameters.clear();
+  variant.varied_parameters.reserve(field.size());
+  for (std::size_t index = 0; index < field.size(); ++index) {
+    const auto &entry = field.at(index);
+    const auto path = std::string(base_path) + ".varied_parameters[" +
+                      std::to_string(index) + "]";
+    if (!entry.is_string()) {
+      result.diagnostics.push_back(
+          make_error("invalid_type", path, "expected string"));
+      return false;
+    }
+    const auto value = entry.get<std::string>();
+    if (value.empty()) {
+      result.diagnostics.push_back(make_error(
+          "invalid_value", path, "varied parameter path must not be empty"));
+      return false;
+    }
+    variant.varied_parameters.push_back(value);
+  }
+  return true;
+}
+
+bool parse_comparison_variants(const Json &root, const Json &baseline_config,
+                               LoadScenarioDefinitionResult &result,
+                               ScenarioDefinition &scenario) {
+  if (!root.contains("variants")) {
+    result.diagnostics.push_back(make_error(
+        "missing_required_field", "$.variants", "missing required field"));
+    return false;
+  }
+  const auto &variants = root.at("variants");
+  if (!variants.is_array()) {
+    result.diagnostics.push_back(
+        make_error("invalid_type", "$.variants", "expected array"));
+    return false;
+  }
+  if (variants.size() < 2U) {
+    result.diagnostics.push_back(make_error(
+        "invalid_value", "$.variants",
+        "technique_comparison scenarios require at least two variants"));
+    return false;
+  }
+
+  scenario.variants.clear();
+  std::vector<std::string> seen_variant_ids;
+  for (std::size_t index = 0; index < variants.size(); ++index) {
+    const auto &variant_object = variants.at(index);
+    const auto base_path = "$.variants[" + std::to_string(index) + "]";
+    if (!variant_object.is_object()) {
+      result.diagnostics.push_back(
+          make_error("invalid_type", base_path, "expected object"));
+      return false;
+    }
+
+    ScenarioComparisonVariant variant;
+    if (!parse_comparison_variant(baseline_config, variant_object,
+                                  scenario.scenario_id, base_path,
+                                  seen_variant_ids, result, variant)) {
+      return false;
+    }
+    scenario.variants.push_back(std::move(variant));
+  }
+
   return true;
 }
 
@@ -603,10 +853,16 @@ bool parse_scenario_acceptance(const Json &root,
 bool parse_scenario_definition(const Json &root,
                                LoadScenarioDefinitionResult &result,
                                ScenarioDefinition &scenario) {
-  return parse_scenario_identity(root, result, scenario) &&
-         parse_scenario_provider(root, result, scenario) &&
+  if (!parse_scenario_identity(root, result, scenario) ||
+      !parse_scenario_config(root, result, scenario)) {
+    return false;
+  }
+  if (scenario.type == ScenarioType::technique_comparison) {
+    return parse_comparison_window(root, result, scenario) &&
+           parse_comparison_variants(root, root.at("config"), result, scenario);
+  }
+  return parse_scenario_provider(root, result, scenario) &&
          parse_scenario_aero_provider(root, result, scenario) &&
-         parse_scenario_config(root, result, scenario) &&
          parse_scenario_acceptance(root, result, scenario);
 }
 
@@ -1043,6 +1299,179 @@ void evaluate_crosswind_stroke(const ScenarioDefinition &scenario,
   }
 }
 
+double mean_speed_in_window(const SimulationRunResult &result,
+                            const ScenarioComparisonWindow &window,
+                            std::string &reason) {
+  double speed_sum = 0.0;
+  std::size_t sample_count = 0U;
+  for (const auto &state : result.state_history) {
+    if (state.time_s < window.start_time_s ||
+        state.time_s > window.end_time_s) {
+      continue;
+    }
+    if (!std::isfinite(state.hull.linear_velocity_world_mps.x)) {
+      reason = "comparison window requires finite state samples";
+      return 0.0;
+    }
+    speed_sum += state.hull.linear_velocity_world_mps.x;
+    ++sample_count;
+  }
+  if (sample_count == 0U) {
+    reason = "comparison window requires finite state samples";
+    return 0.0;
+  }
+  reason.clear();
+  return speed_sum / static_cast<double>(sample_count);
+}
+
+ScenarioComparisonMetricDelta supported_metric_delta(double baseline_value,
+                                                     double compared_value) {
+  return {
+      .supported = true,
+      .reason = "",
+      .baseline_value = baseline_value,
+      .compared_value = compared_value,
+      .delta = compared_value - baseline_value,
+  };
+}
+
+ScenarioComparisonMetricDelta unsupported_metric_delta(std::string reason) {
+  return {
+      .supported = false,
+      .reason = std::move(reason),
+  };
+}
+
+std::string combine_propulsion_reason(const PropulsionMetrics &baseline,
+                                      const PropulsionMetrics &compared) {
+  if (!baseline.availability.supported && !compared.availability.supported) {
+    return "baseline variant: " + baseline.availability.reason +
+           "; compared variant: " + compared.availability.reason;
+  }
+  if (!baseline.availability.supported) {
+    return "baseline variant: " + baseline.availability.reason;
+  }
+  return "compared variant: " + compared.availability.reason;
+}
+
+void append_comparison_issue(ScenarioComparisonEvaluationResult &evaluation,
+                             std::string code, std::string path,
+                             std::string message) {
+  evaluation.issues.push_back(ScenarioEvaluationIssue{
+      .code = std::move(code),
+      .path = std::move(path),
+      .message = std::move(message),
+  });
+}
+
+const ScenarioComparisonRunResult *find_comparison_run_result(
+    const std::vector<ScenarioComparisonRunResult> &results,
+    std::string_view variant_id) {
+  const auto run_it = std::find_if(results.begin(), results.end(),
+                                   [&](const ScenarioComparisonRunResult &run) {
+                                     return run.variant_id == variant_id;
+                                   });
+  return run_it == results.end() ? nullptr : &(*run_it);
+}
+
+bool comparison_run_is_successful(const ScenarioComparisonRunResult &run) {
+  return run.run_result.status == RunStatus::success &&
+         run.run_result.diagnostics.empty();
+}
+
+bool append_variant_lookup_issue(ScenarioComparisonEvaluationResult &evaluation,
+                                 const ScenarioComparisonRunResult *run_result,
+                                 std::string_view missing_path,
+                                 std::string missing_message,
+                                 std::string failing_path,
+                                 std::string failing_message) {
+  if (run_result == nullptr) {
+    append_comparison_issue(evaluation, "scenario_variant_missing",
+                            std::string(missing_path),
+                            std::move(missing_message));
+    return false;
+  }
+  if (!comparison_run_is_successful(*run_result)) {
+    append_comparison_issue(evaluation, "scenario_run_failed",
+                            std::move(failing_path),
+                            std::move(failing_message));
+    return false;
+  }
+  return true;
+}
+
+bool append_mean_speed_issue(ScenarioComparisonEvaluationResult &evaluation,
+                             std::string_view reason) {
+  if (reason.empty()) {
+    return true;
+  }
+  append_comparison_issue(evaluation, "scenario_missing_state",
+                          "$.comparison_window", std::string(reason));
+  return false;
+}
+
+PropulsionMetricWindow
+propulsion_window(const ScenarioComparisonWindow &window) {
+  return {
+      .start_time_s = window.start_time_s,
+      .end_time_s = window.end_time_s,
+  };
+}
+
+void assign_supported_propulsion_deltas(ScenarioComparisonDelta &delta,
+                                        const PropulsionMetrics &baseline,
+                                        const PropulsionMetrics &compared) {
+  delta.effective_propulsive_work_j =
+      supported_metric_delta(baseline.run_metrics.effective_propulsive_work_j,
+                             compared.run_metrics.effective_propulsive_work_j);
+  delta.slip_loss_work_j =
+      supported_metric_delta(baseline.run_metrics.slip_loss_work_j,
+                             compared.run_metrics.slip_loss_work_j);
+  delta.propulsion_efficiency =
+      supported_metric_delta(baseline.run_metrics.propulsion_efficiency,
+                             compared.run_metrics.propulsion_efficiency);
+  delta.peak_port_blade_slip_speed_mps = supported_metric_delta(
+      baseline.run_metrics.peak_port_blade_slip_speed_mps,
+      compared.run_metrics.peak_port_blade_slip_speed_mps);
+  delta.peak_starboard_blade_slip_speed_mps = supported_metric_delta(
+      baseline.run_metrics.peak_starboard_blade_slip_speed_mps,
+      compared.run_metrics.peak_starboard_blade_slip_speed_mps);
+}
+
+void assign_unsupported_propulsion_deltas(ScenarioComparisonDelta &delta,
+                                          const std::string &reason) {
+  delta.effective_propulsive_work_j = unsupported_metric_delta(reason);
+  delta.slip_loss_work_j = unsupported_metric_delta(reason);
+  delta.propulsion_efficiency = unsupported_metric_delta(reason);
+  delta.peak_port_blade_slip_speed_mps = unsupported_metric_delta(reason);
+  delta.peak_starboard_blade_slip_speed_mps = unsupported_metric_delta(reason);
+}
+
+ScenarioComparisonDelta
+build_comparison_delta(const ScenarioComparisonVariant &baseline_variant,
+                       const ScenarioComparisonVariant &compared_variant,
+                       double baseline_mean_speed, double compared_mean_speed,
+                       const PropulsionMetrics &baseline_propulsion,
+                       const PropulsionMetrics &compared_propulsion) {
+  ScenarioComparisonDelta delta;
+  delta.baseline_variant_id = baseline_variant.variant_id;
+  delta.compared_variant_id = compared_variant.variant_id;
+  delta.varied_parameters = compared_variant.varied_parameters;
+  delta.mean_speed_mps =
+      supported_metric_delta(baseline_mean_speed, compared_mean_speed);
+
+  if (baseline_propulsion.availability.supported &&
+      compared_propulsion.availability.supported) {
+    assign_supported_propulsion_deltas(delta, baseline_propulsion,
+                                       compared_propulsion);
+  } else {
+    assign_unsupported_propulsion_deltas(
+        delta,
+        combine_propulsion_reason(baseline_propulsion, compared_propulsion));
+  }
+  return delta;
+}
+
 } // namespace
 
 LoadScenarioDefinitionResult
@@ -1070,6 +1499,13 @@ evaluate_scenario_result(const ScenarioDefinition &scenario,
                  "scenario result has no state history");
     return evaluation;
   }
+  if (scenario.type == ScenarioType::technique_comparison) {
+    append_issue(
+        evaluation, "scenario_type_unsupported", "$.scenario_type",
+        "technique_comparison scenarios must be evaluated with the comparison "
+        "result surface");
+    return evaluation;
+  }
 
   if (scenario.type == ScenarioType::passive_float) {
     evaluate_passive_float(scenario, result, evaluation);
@@ -1094,6 +1530,78 @@ evaluate_scenario_result(const ScenarioDefinition &scenario,
   evaluate_tow_summary(scenario, result, evaluation);
   evaluate_tow_runtime_drag_direction(result, evaluation);
   evaluate_tow_drag_curve(scenario, evaluation);
+  return evaluation;
+}
+
+ScenarioComparisonEvaluationResult evaluate_scenario_comparison_results(
+    const ScenarioDefinition &scenario,
+    const std::vector<ScenarioComparisonRunResult> &results) {
+  ScenarioComparisonEvaluationResult evaluation;
+
+  if (scenario.type != ScenarioType::technique_comparison) {
+    append_comparison_issue(
+        evaluation, "scenario_type_unsupported", "$.scenario_type",
+        "comparison evaluation requires a technique_comparison scenario");
+    return evaluation;
+  }
+  if (scenario.variants.size() < 2U) {
+    append_comparison_issue(
+        evaluation, "scenario_variants_invalid", "$.variants",
+        "comparison evaluation requires at least two variants");
+    return evaluation;
+  }
+
+  const auto &baseline_variant = scenario.variants.front();
+  const auto *baseline_run =
+      find_comparison_run_result(results, baseline_variant.variant_id);
+  if (!append_variant_lookup_issue(
+          evaluation, baseline_run, "$.variants[0].variant_id",
+          "missing run result for baseline variant '" +
+              baseline_variant.variant_id + "'",
+          "$.results[" + baseline_variant.variant_id + "]",
+          "baseline variant did not complete successfully")) {
+    return evaluation;
+  }
+
+  std::string baseline_speed_reason;
+  const double baseline_mean_speed =
+      mean_speed_in_window(baseline_run->run_result, scenario.comparison_window,
+                           baseline_speed_reason);
+  if (!append_mean_speed_issue(evaluation, baseline_speed_reason)) {
+    return evaluation;
+  }
+
+  const auto baseline_propulsion = analyze_propulsion_metrics(
+      baseline_run->run_result, propulsion_window(scenario.comparison_window));
+
+  for (std::size_t index = 1; index < scenario.variants.size(); ++index) {
+    const auto &variant = scenario.variants.at(index);
+    const auto *run_result =
+        find_comparison_run_result(results, variant.variant_id);
+    if (!append_variant_lookup_issue(
+            evaluation, run_result,
+            "$.variants[" + std::to_string(index) + "].variant_id",
+            "missing run result for variant '" + variant.variant_id + "'",
+            "$.results[" + variant.variant_id + "]",
+            "compared variant did not complete successfully")) {
+      return evaluation;
+    }
+
+    std::string compared_speed_reason;
+    const double compared_mean_speed =
+        mean_speed_in_window(run_result->run_result, scenario.comparison_window,
+                             compared_speed_reason);
+    if (!append_mean_speed_issue(evaluation, compared_speed_reason)) {
+      return evaluation;
+    }
+
+    const auto compared_propulsion = analyze_propulsion_metrics(
+        run_result->run_result, propulsion_window(scenario.comparison_window));
+    evaluation.deltas.push_back(build_comparison_delta(
+        baseline_variant, variant, baseline_mean_speed, compared_mean_speed,
+        baseline_propulsion, compared_propulsion));
+  }
+
   return evaluation;
 }
 

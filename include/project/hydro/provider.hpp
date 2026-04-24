@@ -12,10 +12,14 @@ struct HydroLoadSample {
   double hull_force_x_n{};
   double port_blade_force_x_n{};
   double starboard_blade_force_x_n{};
+  double commanded_force_n{};
+  double commanded_power_w{};
+  double realized_blade_force_total_n{};
   Vector3 hull_force_world_n{};
   Vector3 hull_moment_world_n_m{};
   Vector3 port_blade_force_world_n{};
   Vector3 starboard_blade_force_world_n{};
+  Vector3 rower_inertial_force_world_n{};
   double port_blade_immersion_depth_m{};
   double starboard_blade_immersion_depth_m{};
 

@@ -14,8 +14,8 @@ namespace {
 
 using Json = nlohmann::json;
 
-std::string make_valid_config_json(
-    std::string_view config_id = "baseline-single-scull") {
+std::string
+make_valid_config_json(std::string_view config_id = "baseline-single-scull") {
   std::ostringstream stream;
   stream << R"({
   "config_id": ")"

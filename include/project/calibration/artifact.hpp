@@ -6,6 +6,8 @@
 #include <string_view>
 #include <vector>
 
+#include "project/calibration/common.hpp"
+
 namespace project {
 
 struct CalibrationArtifactDiagnostic {
@@ -35,6 +37,8 @@ struct SteadyWindAeroCalibrationCoefficients {
 
 struct CalibrationArtifact {
   CalibrationArtifactProvenance provenance;
+  std::optional<ArtifactStateConventions> state_conventions;
+  std::optional<ArtifactReferenceContract> reference_contract;
   std::optional<SteadyWindAeroCalibrationCoefficients> steady_wind_aero;
 
   bool operator==(const CalibrationArtifact &) const = default;

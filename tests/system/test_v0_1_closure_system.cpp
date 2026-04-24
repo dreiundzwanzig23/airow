@@ -599,8 +599,8 @@ TEST(V0_1ClosureSystem, RuntimeDiagnosticsCloseR016) {
  */
 TEST(V0_1ClosureSystem, UnitsAndNumericSafetyCloseR017) {
   const std::set<std::string> allowed_config_units = {
-      "",    "bool", "body-axis", "kg", "kg*m^2",          "m",
-      "m/s", "rad",  "rad/s",     "s",  "unit-quaternion",
+      "",  "bool", "body-axis", "kg", "kg*m^2",          "m", "m/s", "N",
+      "W", "rad",  "rad/s",     "s",  "unit-quaternion",
   };
 
   for (const auto &file_name :

@@ -1,0 +1,103 @@
+{
+  "scenario_id": "actuation-mode-technique-comparison",
+  "scenario_type": "technique_comparison",
+  "config": {
+    "config_id": "actuation-mode-technique-comparison",
+    "simulation": {
+      "duration_s": 1.2,
+      "time_step_s": 0.12
+    },
+    "hull": {
+      "mass_kg": 14.0,
+      "center_of_mass_m": [0.0, 0.0, 0.0],
+      "inertia_kg_m2": [1.1, 7.8, 8.2],
+      "initial_position_m": [0.0, 0.0, 0.0],
+      "initial_orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+      "initial_linear_velocity_mps": [0.8, 0.0, 0.0],
+      "initial_angular_velocity_radps": [0.0, 0.0, 0.0]
+    },
+    "oars": {
+      "port": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, -0.82, 0.18]
+      },
+      "starboard": {
+        "inboard_length_m": 0.88,
+        "outboard_length_m": 1.98,
+        "oarlock_position_m": [0.25, 0.82, 0.18]
+      }
+    },
+    "seat": {
+      "rail_axis": [1.0, 0.0, 0.0],
+      "min_position_m": -0.4,
+      "max_position_m": 0.4,
+      "initial_position_m": 0.0
+    },
+    "stroke": {
+      "cycle_duration_s": 1.2,
+      "drive_duration_s": 0.48,
+      "catch_angle_rad": -0.9,
+      "release_angle_rad": 0.6,
+      "drive_blade_depth_m": 0.12,
+      "recovery_blade_depth_m": 0.0,
+      "actuation": {
+        "mode": "prescribed_kinematic"
+      }
+    },
+    "providers": {
+      "hull_resistance": "quadratic_drag_placeholder",
+      "blade_force": "stroke_propulsion_placeholder",
+      "aero_load": "none"
+    },
+    "output": {
+      "formats": [],
+      "high_frequency_time_series": true
+    }
+  },
+  "comparison_window": {
+    "start_time_s": 0.0,
+    "end_time_s": 1.2
+  },
+  "variants": [
+    {
+      "variant_id": "prescribed_kinematic",
+      "overrides": {},
+      "varied_parameters": [
+        "$.stroke.actuation.mode"
+      ]
+    },
+    {
+      "variant_id": "force_driven",
+      "overrides": {
+        "stroke": {
+          "actuation": {
+            "mode": "force_driven",
+            "peak_drive_force_n": 420.0
+          }
+        }
+      },
+      "varied_parameters": [
+        "$.stroke.actuation.mode",
+        "$.stroke.actuation.peak_drive_force_n"
+      ]
+    },
+    {
+      "variant_id": "power_driven",
+      "overrides": {
+        "stroke": {
+          "actuation": {
+            "mode": "power_driven",
+            "peak_drive_power_w": 650.0,
+            "power_mode_speed_floor_mps": 0.35
+          }
+        }
+      },
+      "varied_parameters": [
+        "$.stroke.actuation.mode",
+        "$.stroke.actuation.peak_drive_power_w",
+        "$.stroke.actuation.power_mode_speed_floor_mps"
+      ]
+    }
+  ]
+}

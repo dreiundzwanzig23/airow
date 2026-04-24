@@ -8,10 +8,13 @@
 #include "project/output/run_analysis.hpp"
 #include "project/output/run_result.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -251,6 +254,188 @@ Json analysis_peak_json(const TimedValue &peak, std::string_view unit) {
               {"has_sample", peak.has_sample}};
 }
 
+Json propulsion_metric_definitions_json() {
+  return Json{
+      {"port_blade_slip_speed_mps",
+       Json{
+           {"description", "max(0, -port blade tip velocity in world-frame x)"},
+           {"unit", "m/s"}}},
+      {"starboard_blade_slip_speed_mps",
+       Json{{"description",
+             "max(0, -starboard blade tip velocity in world-frame x)"},
+            {"unit", "m/s"}}},
+      {"effective_propulsive_power_w",
+       Json{{"description",
+             "max(0, total blade force world x * max(0, boat speed world x))"},
+            {"unit", "W"}}},
+      {"slip_loss_power_w",
+       Json{{"description",
+             "abs(port blade force world x) * port slip + abs(starboard blade "
+             "force world x) * starboard slip"},
+            {"unit", "W"}}},
+      {"propulsion_efficiency",
+       Json{{"description",
+             "effective_propulsive_power_w / (effective_propulsive_power_w + "
+             "slip_loss_power_w) when denominator is positive"},
+            {"unit", "ratio"}}},
+      {"effective_propulsive_work_j",
+       Json{{"description",
+             "trapezoidal integration of effective_propulsive_power_w over "
+             "load-sample time"},
+            {"unit", "J"}}},
+      {"slip_loss_work_j",
+       Json{{"description",
+             "trapezoidal integration of slip_loss_power_w over load-sample "
+             "time"},
+            {"unit", "J"}}},
+  };
+}
+
+Json propulsion_availability_json(
+    const PropulsionMetricsAvailability &availability) {
+  return Json{{"supported", availability.supported},
+              {"reason", availability.reason},
+              {"provider_id", availability.provider_id},
+              {"provider_validity_id", availability.provider_validity_id}};
+}
+
+Json propulsion_run_metrics_json(const PropulsionRunMetrics &metrics) {
+  return Json{
+      {"mean_port_blade_slip_speed_mps",
+       metrics.mean_port_blade_slip_speed_mps},
+      {"peak_port_blade_slip_speed_mps",
+       metrics.peak_port_blade_slip_speed_mps},
+      {"mean_starboard_blade_slip_speed_mps",
+       metrics.mean_starboard_blade_slip_speed_mps},
+      {"peak_starboard_blade_slip_speed_mps",
+       metrics.peak_starboard_blade_slip_speed_mps},
+      {"effective_propulsive_work_j", metrics.effective_propulsive_work_j},
+      {"slip_loss_work_j", metrics.slip_loss_work_j},
+      {"propulsion_efficiency", metrics.propulsion_efficiency}};
+}
+
+Json propulsion_metrics_analysis_json(const PropulsionMetrics &metrics) {
+  return Json{
+      {"definitions", propulsion_metric_definitions_json()},
+      {"availability", propulsion_availability_json(metrics.availability)},
+      {"run_metrics", propulsion_run_metrics_json(metrics.run_metrics)}};
+}
+
+bool provider_supports_propulsion_metrics(std::string_view provider_id) {
+  return provider_id == "stroke_propulsion_placeholder";
+}
+
+bool propulsion_sample_is_finite(const MechanicalStateSnapshot &state,
+                                 const LoadSample &loads) {
+  return std::isfinite(state.hull.linear_velocity_world_mps.x) &&
+         std::isfinite(state.port_oar.blade_tip_velocity_world_mps.x) &&
+         std::isfinite(state.starboard_oar.blade_tip_velocity_world_mps.x) &&
+         std::isfinite(loads.resolved_port_blade_force_world_n().x) &&
+         std::isfinite(loads.resolved_starboard_blade_force_world_n().x) &&
+         std::isfinite(loads.time_s);
+}
+
+struct InstantaneousPropulsionMetrics {
+  double port_blade_slip_speed_mps{};
+  double starboard_blade_slip_speed_mps{};
+  double effective_propulsive_power_w{};
+  double slip_loss_power_w{};
+  double propulsion_efficiency{};
+};
+
+InstantaneousPropulsionMetrics
+instantaneous_propulsion_metrics(const MechanicalStateSnapshot &state,
+                                 const LoadSample &loads) {
+  const double port_blade_slip_speed_mps =
+      std::max(0.0, -state.port_oar.blade_tip_velocity_world_mps.x);
+  const double starboard_blade_slip_speed_mps =
+      std::max(0.0, -state.starboard_oar.blade_tip_velocity_world_mps.x);
+  const double forward_boat_speed_mps =
+      std::max(0.0, state.hull.linear_velocity_world_mps.x);
+  const double port_force_x_n = loads.resolved_port_blade_force_world_n().x;
+  const double starboard_force_x_n =
+      loads.resolved_starboard_blade_force_world_n().x;
+  const double effective_propulsive_power_w = std::max(
+      0.0, (port_force_x_n + starboard_force_x_n) * forward_boat_speed_mps);
+  const double slip_loss_power_w =
+      std::abs(port_force_x_n) * port_blade_slip_speed_mps +
+      std::abs(starboard_force_x_n) * starboard_blade_slip_speed_mps;
+  const double denominator = effective_propulsive_power_w + slip_loss_power_w;
+
+  return {.port_blade_slip_speed_mps = port_blade_slip_speed_mps,
+          .starboard_blade_slip_speed_mps = starboard_blade_slip_speed_mps,
+          .effective_propulsive_power_w = effective_propulsive_power_w,
+          .slip_loss_power_w = slip_loss_power_w,
+          .propulsion_efficiency =
+              denominator > 0.0 ? effective_propulsive_power_w / denominator
+                                : 0.0};
+}
+
+struct TimeSeriesPropulsionMetrics {
+  bool supported{};
+  std::string reason;
+  std::optional<double> port_blade_slip_speed_mps;
+  std::optional<double> starboard_blade_slip_speed_mps;
+  std::optional<double> effective_propulsive_power_w;
+  std::optional<double> slip_loss_power_w;
+  std::optional<double> propulsion_efficiency;
+};
+
+TimeSeriesPropulsionMetrics
+propulsion_time_series_metrics(const SimulationRunResult &result,
+                               const MechanicalStateSnapshot &state,
+                               const LoadSample &loads) {
+  TimeSeriesPropulsionMetrics metrics;
+  if (!provider_supports_propulsion_metrics(
+          result.metadata.providers.blade_force.id)) {
+    metrics.reason = "blade-force provider does not support propulsion metrics";
+    return metrics;
+  }
+  if (!propulsion_sample_is_finite(state, loads)) {
+    metrics.reason = "propulsion metrics require finite state and load samples";
+    return metrics;
+  }
+
+  const auto instantaneous = instantaneous_propulsion_metrics(state, loads);
+  metrics.supported = true;
+  metrics.port_blade_slip_speed_mps = instantaneous.port_blade_slip_speed_mps;
+  metrics.starboard_blade_slip_speed_mps =
+      instantaneous.starboard_blade_slip_speed_mps;
+  metrics.effective_propulsive_power_w =
+      instantaneous.effective_propulsive_power_w;
+  metrics.slip_loss_power_w = instantaneous.slip_loss_power_w;
+  metrics.propulsion_efficiency = instantaneous.propulsion_efficiency;
+  return metrics;
+}
+
+Json nullable_double_json(const std::optional<double> &value) {
+  if (!value.has_value()) {
+    return nullptr;
+  }
+  return *value;
+}
+
+Json propulsion_time_series_json(const SimulationRunResult &result,
+                                 const MechanicalStateSnapshot &state,
+                                 const LoadSample &loads) {
+  const auto metrics = propulsion_time_series_metrics(result, state, loads);
+  Json propulsion{
+      {"supported", metrics.supported},
+      {"port_blade_slip_speed_mps",
+       nullable_double_json(metrics.port_blade_slip_speed_mps)},
+      {"starboard_blade_slip_speed_mps",
+       nullable_double_json(metrics.starboard_blade_slip_speed_mps)},
+      {"effective_propulsive_power_w",
+       nullable_double_json(metrics.effective_propulsive_power_w)},
+      {"slip_loss_power_w", nullable_double_json(metrics.slip_loss_power_w)},
+      {"propulsion_efficiency",
+       nullable_double_json(metrics.propulsion_efficiency)}};
+  if (!metrics.supported) {
+    propulsion["reason"] = metrics.reason;
+  }
+  return propulsion;
+}
+
 Json analysis_json(const SimulationRunResult &result) {
   const auto analysis = analyze_run_result(result);
   Json final_state{
@@ -313,7 +498,9 @@ Json analysis_json(const SimulationRunResult &result) {
             {"peak_starboard_blade_force_n",
              analysis_peak_json(analysis.peak_starboard_blade_force_n, "N")},
             {"peak_stroke_power_w",
-             analysis_peak_json(analysis.peak_stroke_power_w, "W")}}}};
+             analysis_peak_json(analysis.peak_stroke_power_w, "W")}}},
+      {"propulsion_metrics",
+       propulsion_metrics_analysis_json(analysis.propulsion_metrics)}};
 }
 
 Json output_formats_json(const OutputArtifacts &outputs) {
@@ -395,7 +582,11 @@ Json external_artifact_json(const ExternalArtifactMetadata &artifact) {
               {"source_id", artifact.source_id},
               {"artifact_version", artifact.artifact_version},
               {"content_hash", artifact.content_hash},
-              {"schema_id", artifact.schema_id}};
+              {"schema_id", artifact.schema_id},
+              {"boat_id", artifact.boat_id},
+              {"rigging_id", artifact.rigging_id},
+              {"athlete_id", artifact.athlete_id},
+              {"trial_id", artifact.trial_id}};
 }
 
 Json wind_sample_json(const WindSample &sample) {
@@ -406,107 +597,132 @@ Json wind_sample_json(const WindSample &sample) {
                             sample.ambient_wind_world_mps.z})}};
 }
 
-Json truth_model_inputs_json(const SimulatorConfig &config) {
-  Json environment{
+Json vector3_json(const Vector3 &value) {
+  return Json::array({value.x, value.y, value.z});
+}
+
+Json quaternion_json(const Quaternion &value) {
+  return Json::array({value.x, value.y, value.z, value.w});
+}
+
+Json truth_model_environment_json(const EnvironmentSettings &environment) {
+  Json environment_json{
       {"ambient_wind_world_mps",
-       Json::array({config.environment.ambient_wind_world_mps.x,
-                    config.environment.ambient_wind_world_mps.y,
-                    config.environment.ambient_wind_world_mps.z})},
+       vector3_json(environment.ambient_wind_world_mps)},
   };
-  if (!config.environment.wind_time_series.empty()) {
+  if (!environment.wind_time_series.empty()) {
     Json wind_time_series = Json::array();
-    for (const auto &sample : config.environment.wind_time_series) {
+    for (const auto &sample : environment.wind_time_series) {
       wind_time_series.push_back(wind_sample_json(sample));
     }
-    environment["wind_time_series"] = std::move(wind_time_series);
+    environment_json["wind_time_series"] = std::move(wind_time_series);
   }
-  if (!config.environment.wind_profile.empty()) {
+  if (!environment.wind_profile.empty()) {
     Json wind_profile = Json::array();
-    for (const auto &sample : config.environment.wind_profile) {
+    for (const auto &sample : environment.wind_profile) {
       wind_profile.push_back(wind_sample_json(sample));
     }
-    environment["wind_profile"] = std::move(wind_profile);
+    environment_json["wind_profile"] = std::move(wind_profile);
   }
+  return environment_json;
+}
 
-  Json artifacts = Json::object();
-  if (!config.artifacts.calibration.path.empty()) {
-    artifacts["calibration"] =
-        Json{{"path", config.artifacts.calibration.path}};
+Json truth_model_artifacts_json(const ArtifactSettings &artifacts) {
+  Json artifacts_json = Json::object();
+  if (!artifacts.calibration.path.empty()) {
+    artifacts_json["calibration"] = Json{{"path", artifacts.calibration.path}};
   }
+  if (!artifacts.measurement_bundle.path.empty()) {
+    artifacts_json["measurement_bundle"] =
+        Json{{"path", artifacts.measurement_bundle.path}};
+  }
+  if (!artifacts.measured_trial.path.empty()) {
+    artifacts_json["measured_trial"] =
+        Json{{"path", artifacts.measured_trial.path}};
+  }
+  return artifacts_json;
+}
 
+Json truth_model_hull_json(const HullSettings &hull) {
+  return Json{{"mass_kg", hull.mass_kg},
+              {"center_of_mass_m", vector3_json(hull.center_of_mass_m)},
+              {"inertia_kg_m2", vector3_json(hull.inertia_kg_m2)},
+              {"initial_position_m", vector3_json(hull.initial_position_m)},
+              {"initial_orientation_xyzw",
+               quaternion_json(hull.initial_orientation_xyzw)},
+              {"initial_linear_velocity_mps",
+               vector3_json(hull.initial_linear_velocity_mps)},
+              {"initial_angular_velocity_radps",
+               vector3_json(hull.initial_angular_velocity_radps)}};
+}
+
+Json truth_model_oar_side_json(const OarSettings &oar) {
+  return Json{{"inboard_length_m", oar.inboard_length_m},
+              {"outboard_length_m", oar.outboard_length_m},
+              {"oarlock_position_m", vector3_json(oar.oarlock_position_m)}};
+}
+
+Json truth_model_oars_json(const OarPairSettings &oars) {
+  return Json{{"port", truth_model_oar_side_json(oars.port)},
+              {"starboard", truth_model_oar_side_json(oars.starboard)}};
+}
+
+Json truth_model_seat_json(const SeatSettings &seat) {
+  return Json{{"rail_axis", vector3_json(seat.rail_axis)},
+              {"min_position_m", seat.min_position_m},
+              {"max_position_m", seat.max_position_m},
+              {"initial_position_m", seat.initial_position_m}};
+}
+
+Json truth_model_stroke_json(const StrokeSettings &stroke) {
+  return Json{{"cycle_duration_s", stroke.cycle_duration_s},
+              {"drive_duration_s", stroke.drive_duration_s},
+              {"catch_angle_rad", stroke.catch_angle_rad},
+              {"release_angle_rad", stroke.release_angle_rad},
+              {"drive_blade_depth_m", stroke.drive_blade_depth_m},
+              {"recovery_blade_depth_m", stroke.recovery_blade_depth_m},
+              {"actuation",
+               Json{{"mode", stroke.actuation.mode},
+                    {"peak_drive_force_n", stroke.actuation.peak_drive_force_n},
+                    {"peak_drive_power_w", stroke.actuation.peak_drive_power_w},
+                    {"power_mode_speed_floor_mps",
+                     stroke.actuation.power_mode_speed_floor_mps}}},
+              {"rower_coupling",
+               Json{{"enabled", stroke.rower_coupling.enabled},
+                    {"rower_mass_kg", stroke.rower_coupling.rower_mass_kg},
+                    {"body_center_of_mass_m",
+                     vector3_json(stroke.rower_coupling.body_center_of_mass_m)},
+                    {"seat_position_to_com_scale",
+                     stroke.rower_coupling.seat_position_to_com_scale}}}};
+}
+
+Json truth_model_output_json(const OutputSettings &output) {
+  return Json{
+      {"summary_path", output.summary_path},
+      {"time_series_path", output.time_series_path},
+      {"hdf5_path", output.hdf5_path},
+      {"truth_model_export_path", output.truth_model_export_path},
+      {"formats", configured_output_formats_json(output)},
+      {"high_frequency_time_series", output.high_frequency_time_series}};
+}
+
+Json truth_model_inputs_json(const SimulatorConfig &config) {
+  Json artifacts = truth_model_artifacts_json(config.artifacts);
   Json inputs{
       {"simulation",
        Json{{"duration_s", config.simulation.duration_s},
             {"time_step_s", config.simulation.time_step_s},
             {"mechanics_backend", config.simulation.mechanics_backend},
             {"integration_backend", config.simulation.integration_backend}}},
-      {"hull",
-       Json{{"mass_kg", config.hull.mass_kg},
-            {"center_of_mass_m", Json::array({config.hull.center_of_mass_m.x,
-                                              config.hull.center_of_mass_m.y,
-                                              config.hull.center_of_mass_m.z})},
-            {"inertia_kg_m2", Json::array({config.hull.inertia_kg_m2.x,
-                                           config.hull.inertia_kg_m2.y,
-                                           config.hull.inertia_kg_m2.z})},
-            {"initial_position_m",
-             Json::array({config.hull.initial_position_m.x,
-                          config.hull.initial_position_m.y,
-                          config.hull.initial_position_m.z})},
-            {"initial_orientation_xyzw",
-             Json::array({config.hull.initial_orientation_xyzw.x,
-                          config.hull.initial_orientation_xyzw.y,
-                          config.hull.initial_orientation_xyzw.z,
-                          config.hull.initial_orientation_xyzw.w})},
-            {"initial_linear_velocity_mps",
-             Json::array({config.hull.initial_linear_velocity_mps.x,
-                          config.hull.initial_linear_velocity_mps.y,
-                          config.hull.initial_linear_velocity_mps.z})},
-            {"initial_angular_velocity_radps",
-             Json::array({config.hull.initial_angular_velocity_radps.x,
-                          config.hull.initial_angular_velocity_radps.y,
-                          config.hull.initial_angular_velocity_radps.z})}}},
-      {"oars",
-       Json{
-           {"port",
-            Json{{"inboard_length_m", config.oars.port.inboard_length_m},
-                 {"outboard_length_m", config.oars.port.outboard_length_m},
-                 {"oarlock_position_m",
-                  Json::array({config.oars.port.oarlock_position_m.x,
-                               config.oars.port.oarlock_position_m.y,
-                               config.oars.port.oarlock_position_m.z})}}},
-           {"starboard",
-            Json{
-                {"inboard_length_m", config.oars.starboard.inboard_length_m},
-                {"outboard_length_m", config.oars.starboard.outboard_length_m},
-                {"oarlock_position_m",
-                 Json::array({config.oars.starboard.oarlock_position_m.x,
-                              config.oars.starboard.oarlock_position_m.y,
-                              config.oars.starboard.oarlock_position_m.z})}}}}},
-      {"seat", Json{{"rail_axis", Json::array({config.seat.rail_axis.x,
-                                               config.seat.rail_axis.y,
-                                               config.seat.rail_axis.z})},
-                    {"min_position_m", config.seat.min_position_m},
-                    {"max_position_m", config.seat.max_position_m},
-                    {"initial_position_m", config.seat.initial_position_m}}},
-      {"stroke",
-       Json{{"cycle_duration_s", config.stroke.cycle_duration_s},
-            {"drive_duration_s", config.stroke.drive_duration_s},
-            {"catch_angle_rad", config.stroke.catch_angle_rad},
-            {"release_angle_rad", config.stroke.release_angle_rad},
-            {"drive_blade_depth_m", config.stroke.drive_blade_depth_m},
-            {"recovery_blade_depth_m", config.stroke.recovery_blade_depth_m}}},
-      {"environment", std::move(environment)},
+      {"hull", truth_model_hull_json(config.hull)},
+      {"oars", truth_model_oars_json(config.oars)},
+      {"seat", truth_model_seat_json(config.seat)},
+      {"stroke", truth_model_stroke_json(config.stroke)},
+      {"environment", truth_model_environment_json(config.environment)},
       {"providers", Json{{"hull_resistance", config.providers.hull_resistance},
                          {"blade_force", config.providers.blade_force},
                          {"aero_load", config.providers.aero_load}}},
-      {"output",
-       Json{{"summary_path", config.output.summary_path},
-            {"time_series_path", config.output.time_series_path},
-            {"hdf5_path", config.output.hdf5_path},
-            {"truth_model_export_path", config.output.truth_model_export_path},
-            {"formats", configured_output_formats_json(config.output)},
-            {"high_frequency_time_series",
-             config.output.high_frequency_time_series}}}};
+      {"output", truth_model_output_json(config.output)}};
   if (!artifacts.empty()) {
     inputs["artifacts"] = std::move(artifacts);
   }
@@ -546,6 +762,10 @@ Json truth_model_handoff_document(const SimulatorConfig &config,
                          {"blade_force", config.providers.blade_force},
                          {"aero_load", config.providers.aero_load}}},
       {"inputs", truth_model_inputs_json(config)},
+      {"reference_contract", Json{{"boat_id", result.metadata.boat_id},
+                                  {"rigging_id", result.metadata.rigging_id},
+                                  {"athlete_id", result.metadata.athlete_id},
+                                  {"trial_id", result.metadata.trial_id}}},
       {"normalized_config", std::move(normalized_config)},
       {"external_artifacts", std::move(external_artifacts)}};
 }
@@ -574,7 +794,15 @@ Json make_summary_document(const SimulationRunResult &result) {
       {"state_advancement_solver_status",
        result.metadata.state_advancement_solver_status},
       {"startup_constraint_residual_max",
-       result.metadata.startup_constraint_residual_max}};
+       result.metadata.startup_constraint_residual_max},
+      {"boat_id", result.metadata.boat_id},
+      {"rigging_id", result.metadata.rigging_id},
+      {"athlete_id", result.metadata.athlete_id},
+      {"trial_id", result.metadata.trial_id},
+      {"trial_alignment_start_s", result.metadata.trial_alignment_start_s},
+      {"trial_alignment_end_s", result.metadata.trial_alignment_end_s},
+      {"actuation_mode", result.metadata.actuation_mode},
+      {"rower_coupling_enabled", result.metadata.rower_coupling_enabled}};
 
   Json external_artifacts = Json::array();
   for (const auto &artifact : result.metadata.external_artifacts) {
@@ -647,7 +875,8 @@ Json oar_state_json(const OarState &state) {
        scalar_channel(state.blade_immersion_depth_m, "m")}};
 }
 
-Json time_series_record_json(const MechanicalStateSnapshot &state,
+Json time_series_record_json(const SimulationRunResult &result,
+                             const MechanicalStateSnapshot &state,
                              const LoadSample &loads) {
   const double boat_speed_mps = state.hull.linear_velocity_world_mps.x;
   const auto hydro_load = loads.resolved_hull_force_world_n();
@@ -722,7 +951,24 @@ Json time_series_record_json(const MechanicalStateSnapshot &state,
        Json{{"phase", stroke_phase_text(state.stroke.phase)},
             {"phase_time_s", scalar_channel(state.stroke.phase_time_s, "s")},
             {"cycle_time_s", scalar_channel(state.stroke.cycle_time_s, "s")}}},
+      {"actuation",
+       Json{{"commanded_force_n", scalar_channel(loads.commanded_force_n, "N")},
+            {"commanded_power_w", scalar_channel(loads.commanded_power_w, "W")},
+            {"realized_blade_force_total_n",
+             scalar_channel(loads.realized_blade_force_total_n, "N")}}},
+      {"rower_state",
+       Json{{"center_of_mass_world_m",
+             Json{{"vector", vector_channel(state.rower_center_of_mass_world_m,
+                                            "m", "world")}}},
+            {"center_of_mass_velocity_world_mps",
+             Json{{"vector",
+                   vector_channel(state.rower_center_of_mass_velocity_world_mps,
+                                  "m/s", "world")}}},
+            {"inertial_force_world_n",
+             Json{{"vector", vector_channel(loads.rower_inertial_force_world_n,
+                                            "N", "world")}}}}},
       {"stroke_power_w", scalar_channel(stroke_power_w, "W")},
+      {"propulsion_metrics", propulsion_time_series_json(result, state, loads)},
   };
 }
 
@@ -738,7 +984,7 @@ Json make_time_series_document(const SimulationRunResult &result,
   for (const auto index : sample_indices(result, high_frequency_time_series)) {
     const auto &state = result.state_history.at(index);
     const auto &loads = load_for_state_index(result, index);
-    records.push_back(time_series_record_json(state, loads));
+    records.push_back(time_series_record_json(result, state, loads));
   }
 
   return Json{{"schema_version", OUTPUT_SCHEMA_VERSION_V2},
@@ -1054,6 +1300,98 @@ bool write_double_vector_dataset(hid_t group, const char *name,
   return true;
 }
 
+bool write_int_vector_dataset(hid_t group, const char *name,
+                              const std::vector<int> &values,
+                              RunDiagnostic &diagnostic) {
+  const hsize_t dims[1] = {
+      static_cast<hsize_t>(std::max<std::size_t>(values.size(), 1U))};
+  const H5ScopedHandle space(H5Screate_simple(1, dims, nullptr), H5Sclose);
+  if (!space.valid()) {
+    diagnostic = make_output_diagnostic("$.output.hdf5_path",
+                                        "failed to create HDF5 vector space");
+    return false;
+  }
+  const H5ScopedHandle dataset(H5Dcreate2(group, name, H5T_NATIVE_INT, space.id,
+                                          H5P_DEFAULT, H5P_DEFAULT,
+                                          H5P_DEFAULT),
+                               H5Dclose);
+  if (!dataset.valid()) {
+    diagnostic = make_output_diagnostic("$.output.hdf5_path",
+                                        "failed to create HDF5 dataset");
+    return false;
+  }
+  const int zero = 0;
+  const void *write_ptr = values.empty()
+                              ? static_cast<const void *>(&zero)
+                              : static_cast<const void *>(values.data());
+  if (H5Dwrite(dataset.id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+               write_ptr) < 0) {
+    diagnostic = make_output_diagnostic("$.output.hdf5_path",
+                                        "failed to write HDF5 dataset");
+    return false;
+  }
+  return true;
+}
+
+bool write_hdf5_propulsion_metrics_summary_group(
+    hid_t summary_group, const SimulationRunResult &result,
+    RunDiagnostic &diagnostic) {
+  const auto metrics = analyze_propulsion_metrics(result);
+  const H5ScopedHandle propulsion_group(
+      H5Gcreate2(summary_group, "propulsion_metrics", H5P_DEFAULT, H5P_DEFAULT,
+                 H5P_DEFAULT),
+      H5Gclose);
+  if (!propulsion_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path",
+        "failed to create HDF5 propulsion_metrics summary group");
+    return false;
+  }
+
+  return write_int_attribute(propulsion_group.id, "supported",
+                             metrics.availability.supported ? 1 : 0,
+                             diagnostic) &&
+         write_string_attribute(propulsion_group.id, "reason",
+                                metrics.availability.reason, diagnostic) &&
+         write_string_attribute(propulsion_group.id, "provider_id",
+                                metrics.availability.provider_id, diagnostic) &&
+         write_string_attribute(propulsion_group.id, "provider_validity_id",
+                                metrics.availability.provider_validity_id,
+                                diagnostic) &&
+         write_string_attribute(
+             propulsion_group.id, "port_blade_slip_speed_mps_definition",
+             "max(0, -blade tip velocity world x)", diagnostic) &&
+         write_string_attribute(
+             propulsion_group.id, "effective_propulsive_power_w_definition",
+             "max(0, total blade force world x * max(0, boat speed world x))",
+             diagnostic) &&
+         write_double_vector_dataset(
+             propulsion_group.id, "mean_port_blade_slip_speed_mps",
+             {metrics.run_metrics.mean_port_blade_slip_speed_mps},
+             diagnostic) &&
+         write_double_vector_dataset(
+             propulsion_group.id, "peak_port_blade_slip_speed_mps",
+             {metrics.run_metrics.peak_port_blade_slip_speed_mps},
+             diagnostic) &&
+         write_double_vector_dataset(
+             propulsion_group.id, "mean_starboard_blade_slip_speed_mps",
+             {metrics.run_metrics.mean_starboard_blade_slip_speed_mps},
+             diagnostic) &&
+         write_double_vector_dataset(
+             propulsion_group.id, "peak_starboard_blade_slip_speed_mps",
+             {metrics.run_metrics.peak_starboard_blade_slip_speed_mps},
+             diagnostic) &&
+         write_double_vector_dataset(
+             propulsion_group.id, "effective_propulsive_work_j",
+             {metrics.run_metrics.effective_propulsive_work_j}, diagnostic) &&
+         write_double_vector_dataset(propulsion_group.id, "slip_loss_work_j",
+                                     {metrics.run_metrics.slip_loss_work_j},
+                                     diagnostic) &&
+         write_double_vector_dataset(
+             propulsion_group.id, "propulsion_efficiency",
+             {metrics.run_metrics.propulsion_efficiency}, diagnostic);
+}
+
 bool write_provider_metadata_group(hid_t parent, const char *name,
                                    const ProviderMetadata &provider,
                                    RunDiagnostic &diagnostic) {
@@ -1213,7 +1551,9 @@ bool write_hdf5_summary_group(hid_t file, const SimulationRunResult &result,
              result.summary.final_hydro_moment_world_n_m.y, diagnostic) &&
          write_double_scalar_dataset(
              summary_group.id, "final_hydro_moment_world_n_m_z",
-             result.summary.final_hydro_moment_world_n_m.z, diagnostic);
+             result.summary.final_hydro_moment_world_n_m.z, diagnostic) &&
+         write_hdf5_propulsion_metrics_summary_group(summary_group.id, result,
+                                                     diagnostic);
 }
 
 bool write_hdf5_metadata_attributes(hid_t metadata_group,
@@ -1341,6 +1681,12 @@ struct Hdf5TimeSeriesChannels {
   std::vector<double> aero_moment_world_n_m_y;
   std::vector<double> aero_moment_world_n_m_z;
   std::vector<double> stroke_power_w;
+  std::vector<int> propulsion_metrics_supported;
+  std::vector<double> port_blade_slip_speed_mps;
+  std::vector<double> starboard_blade_slip_speed_mps;
+  std::vector<double> effective_propulsive_power_w;
+  std::vector<double> slip_loss_power_w;
+  std::vector<double> propulsion_efficiency;
   std::vector<std::string> stroke_phase;
 };
 
@@ -1385,10 +1731,17 @@ void reserve_hdf5_time_series_channels(Hdf5TimeSeriesChannels &channels,
   channels.aero_moment_world_n_m_y.reserve(sample_count);
   channels.aero_moment_world_n_m_z.reserve(sample_count);
   channels.stroke_power_w.reserve(sample_count);
+  channels.propulsion_metrics_supported.reserve(sample_count);
+  channels.port_blade_slip_speed_mps.reserve(sample_count);
+  channels.starboard_blade_slip_speed_mps.reserve(sample_count);
+  channels.effective_propulsive_power_w.reserve(sample_count);
+  channels.slip_loss_power_w.reserve(sample_count);
+  channels.propulsion_efficiency.reserve(sample_count);
   channels.stroke_phase.reserve(sample_count);
 }
 
 void append_hdf5_time_series_sample(Hdf5TimeSeriesChannels &channels,
+                                    const SimulationRunResult &result,
                                     const MechanicalStateSnapshot &state,
                                     const LoadSample &loads) {
   const auto speed = state.hull.linear_velocity_world_mps.x;
@@ -1425,6 +1778,22 @@ void append_hdf5_time_series_sample(Hdf5TimeSeriesChannels &channels,
   channels.aero_moment_world_n_m_z.push_back(loads.aero_moment_world_n_m.z);
   channels.stroke_power_w.push_back(
       (loads.total_hydro_force_x_n() + loads.aero_force_x_n) * speed);
+  const auto propulsion = propulsion_time_series_metrics(result, state, loads);
+  channels.propulsion_metrics_supported.push_back(propulsion.supported ? 1 : 0);
+  channels.port_blade_slip_speed_mps.push_back(
+      propulsion.port_blade_slip_speed_mps.value_or(
+          std::numeric_limits<double>::quiet_NaN()));
+  channels.starboard_blade_slip_speed_mps.push_back(
+      propulsion.starboard_blade_slip_speed_mps.value_or(
+          std::numeric_limits<double>::quiet_NaN()));
+  channels.effective_propulsive_power_w.push_back(
+      propulsion.effective_propulsive_power_w.value_or(
+          std::numeric_limits<double>::quiet_NaN()));
+  channels.slip_loss_power_w.push_back(propulsion.slip_loss_power_w.value_or(
+      std::numeric_limits<double>::quiet_NaN()));
+  channels.propulsion_efficiency.push_back(
+      propulsion.propulsion_efficiency.value_or(
+          std::numeric_limits<double>::quiet_NaN()));
   channels.stroke_phase.push_back(stroke_phase_text(state.stroke.phase));
 }
 
@@ -1436,7 +1805,8 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
   reserve_hdf5_time_series_channels(channels, indices.size());
 
   for (const auto index : indices) {
-    append_hdf5_time_series_sample(channels, result.state_history.at(index),
+    append_hdf5_time_series_sample(channels, result,
+                                   result.state_history.at(index),
                                    load_for_state_index(result, index));
   }
 
@@ -1446,7 +1816,7 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
 bool write_hdf5_scalar_time_series(hid_t group,
                                    const Hdf5TimeSeriesChannels &channels,
                                    RunDiagnostic &diagnostic) {
-  const std::array<DoubleDatasetSpec, 9> scalar_specs{{
+  const std::array<DoubleDatasetSpec, 14> scalar_specs{{
       {"time_s", &channels.time_s},
       {"boat_speed_mps", &channels.boat_speed_mps},
       {"hydro_force_x_n", &channels.hydro_force_x_n},
@@ -1457,6 +1827,12 @@ bool write_hdf5_scalar_time_series(hid_t group,
        &channels.starboard_blade_immersion_depth_m},
       {"aero_force_x_n", &channels.aero_force_x_n},
       {"stroke_power_w", &channels.stroke_power_w},
+      {"port_blade_slip_speed_mps", &channels.port_blade_slip_speed_mps},
+      {"starboard_blade_slip_speed_mps",
+       &channels.starboard_blade_slip_speed_mps},
+      {"effective_propulsive_power_w", &channels.effective_propulsive_power_w},
+      {"slip_loss_power_w", &channels.slip_loss_power_w},
+      {"propulsion_efficiency", &channels.propulsion_efficiency},
   }};
 
   for (const auto &spec : scalar_specs) {
@@ -1465,7 +1841,10 @@ bool write_hdf5_scalar_time_series(hid_t group,
       return false;
     }
   }
-  return write_string_vector_dataset(group, "stroke_phase",
+  return write_int_vector_dataset(group, "propulsion_metrics_supported",
+                                  channels.propulsion_metrics_supported,
+                                  diagnostic) &&
+         write_string_vector_dataset(group, "stroke_phase",
                                      channels.stroke_phase, diagnostic);
 }
 

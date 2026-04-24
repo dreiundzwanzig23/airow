@@ -30,6 +30,10 @@ struct ExternalArtifactMetadata {
   std::string artifact_version;
   std::string content_hash;
   std::string schema_id;
+  std::string boat_id;
+  std::string rigging_id;
+  std::string athlete_id;
+  std::string trial_id;
 
   bool operator==(const ExternalArtifactMetadata &) const = default;
 };
@@ -48,6 +52,14 @@ struct RunMetadata {
   std::string startup_solver_status{};
   std::string state_advancement_solver_status{};
   double startup_constraint_residual_max{};
+  std::string boat_id{};
+  std::string rigging_id{};
+  std::string athlete_id{};
+  std::string trial_id{};
+  double trial_alignment_start_s{};
+  double trial_alignment_end_s{};
+  std::string actuation_mode{};
+  bool rower_coupling_enabled{};
   std::vector<ExternalArtifactMetadata> external_artifacts;
   std::vector<NormalizedConfigEntry> normalized_config;
 
@@ -71,11 +83,15 @@ struct LoadSample {
   double hydro_force_x_n{};
   double port_blade_force_x_n{};
   double starboard_blade_force_x_n{};
+  double commanded_force_n{};
+  double commanded_power_w{};
+  double realized_blade_force_total_n{};
   double aero_force_x_n{};
   Vector3 hull_force_world_n{};
   Vector3 hull_moment_world_n_m{};
   Vector3 port_blade_force_world_n{};
   Vector3 starboard_blade_force_world_n{};
+  Vector3 rower_inertial_force_world_n{};
   double port_blade_immersion_depth_m{};
   double starboard_blade_immersion_depth_m{};
   Vector3 ambient_wind_world_mps{};
