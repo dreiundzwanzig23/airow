@@ -119,8 +119,7 @@ void remove_file_if_present(const std::filesystem::path &path) {
   std::filesystem::remove(path, error);
 }
 
-void remove_files(
-    std::initializer_list<std::filesystem::path> paths) {
+void remove_files(std::initializer_list<std::filesystem::path> paths) {
   for (const auto &path : paths) {
     remove_file_if_present(path);
   }
@@ -158,29 +157,28 @@ Json make_base_runtime_config(std::string_view config_id, double duration_s,
                  {"outboard_length_m", 1.98},
                  {"oarlock_position_m", Json::array({0.25, 0.82, 0.18})}}},
        }},
-      {"seat",
-       Json{{"rail_axis", Json::array({1.0, 0.0, 0.0})},
-            {"min_position_m", -0.4},
-            {"max_position_m", 0.4},
-            {"initial_position_m", 0.35}}},
-      {"stroke",
-       Json{{"cycle_duration_s", 1.2},
-            {"drive_duration_s", 0.48},
-            {"catch_angle_rad", -0.9},
-            {"release_angle_rad", 0.6}}},
+      {"seat", Json{{"rail_axis", Json::array({1.0, 0.0, 0.0})},
+                    {"min_position_m", -0.4},
+                    {"max_position_m", 0.4},
+                    {"initial_position_m", 0.35}}},
+      {"stroke", Json{{"cycle_duration_s", 1.2},
+                      {"drive_duration_s", 0.48},
+                      {"catch_angle_rad", -0.9},
+                      {"release_angle_rad", 0.6}}},
   };
 }
 
-std::string make_runtime_config_json(
-    std::string_view config_id, const std::filesystem::path &measurement_path,
-    const std::filesystem::path &trial_path,
-    const std::filesystem::path &summary_path,
-    const std::filesystem::path &time_series_path,
-    const std::filesystem::path &truth_model_export_path) {
+std::string
+make_runtime_config_json(std::string_view config_id,
+                         const std::filesystem::path &measurement_path,
+                         const std::filesystem::path &trial_path,
+                         const std::filesystem::path &summary_path,
+                         const std::filesystem::path &time_series_path,
+                         const std::filesystem::path &truth_model_export_path) {
   auto root = make_base_runtime_config(config_id, 0.48, 0.8);
   root["stroke"]["actuation"] = Json{{"mode", "power_driven"},
-                                      {"peak_drive_power_w", 650.0},
-                                      {"power_mode_speed_floor_mps", 0.35}};
+                                     {"peak_drive_power_w", 650.0},
+                                     {"power_mode_speed_floor_mps", 0.35}};
   root["stroke"]["rower_coupling"] = Json{
       {"enabled", true},
       {"rower_mass_kg", 82.0},
@@ -188,28 +186,28 @@ std::string make_runtime_config_json(
       {"seat_position_to_com_scale", 0.78},
   };
   root["providers"] = Json{{"hull_resistance", "quadratic_drag_placeholder"},
-                            {"blade_force", "stroke_propulsion_placeholder"},
-                            {"aero_load", "none"}};
+                           {"blade_force", "stroke_propulsion_placeholder"},
+                           {"aero_load", "none"}};
   root["artifacts"] = Json{
       {"measurement_bundle", Json{{"path", measurement_path.string()}}},
       {"measured_trial", Json{{"path", trial_path.string()}}},
   };
-  root["output"] = Json{{"summary_path", summary_path.string()},
-                         {"time_series_path", time_series_path.string()},
-                         {"truth_model_export_path",
-                          truth_model_export_path.string()},
-                         {"formats", Json::array({"json"})},
-                         {"high_frequency_time_series", true}};
+  root["output"] =
+      Json{{"summary_path", summary_path.string()},
+           {"time_series_path", time_series_path.string()},
+           {"truth_model_export_path", truth_model_export_path.string()},
+           {"formats", Json::array({"json"})},
+           {"high_frequency_time_series", true}};
   return root.dump(2);
 }
 
-std::string make_mismatch_config_json(
-    const std::filesystem::path &measurement_path,
-    const std::filesystem::path &calibration_path) {
+std::string
+make_mismatch_config_json(const std::filesystem::path &measurement_path,
+                          const std::filesystem::path &calibration_path) {
   auto root = make_base_runtime_config("it-r48-mismatch", 0.24, 0.0);
   root["providers"] = Json{{"hull_resistance", "quadratic_drag_placeholder"},
-                            {"blade_force", "stroke_propulsion_placeholder"},
-                            {"aero_load", "steady_wind_calibrated"}};
+                           {"blade_force", "stroke_propulsion_placeholder"},
+                           {"aero_load", "steady_wind_calibrated"}};
   root["artifacts"] = Json{
       {"measurement_bundle", Json{{"path", measurement_path.string()}}},
       {"calibration", Json{{"path", calibration_path.string()}}},
@@ -244,20 +242,21 @@ void expect_runtime_metadata(const project::SimulationRunResult &result) {
   EXPECT_DOUBLE_EQ(result.metadata.trial_alignment_start_s, 0.0);
   EXPECT_DOUBLE_EQ(result.metadata.trial_alignment_end_s, 0.4);
   ASSERT_EQ(result.metadata.external_artifacts.size(), 2U);
-  EXPECT_EQ(result.metadata.external_artifacts.at(0).kind, "measurement_bundle");
+  EXPECT_EQ(result.metadata.external_artifacts.at(0).kind,
+            "measurement_bundle");
   EXPECT_EQ(result.metadata.external_artifacts.at(1).kind, "measured_trial");
 }
 
 void expect_runtime_channels(const project::SimulationRunResult &result) {
   ASSERT_FALSE(result.load_history.empty());
-  EXPECT_TRUE(std::ranges::any_of(
-      result.load_history, [](const project::LoadSample &sample) {
-        return sample.commanded_power_w > 0.0;
-      }));
-  EXPECT_TRUE(std::ranges::any_of(
-      result.load_history, [](const project::LoadSample &sample) {
-        return sample.commanded_force_n > 0.0;
-      }));
+  EXPECT_TRUE(std::ranges::any_of(result.load_history,
+                                  [](const project::LoadSample &sample) {
+                                    return sample.commanded_power_w > 0.0;
+                                  }));
+  EXPECT_TRUE(std::ranges::any_of(result.load_history,
+                                  [](const project::LoadSample &sample) {
+                                    return sample.commanded_force_n > 0.0;
+                                  }));
   EXPECT_TRUE(std::ranges::all_of(
       result.load_history, [](const project::LoadSample &sample) {
         return std::isfinite(sample.rower_inertial_force_world_n.x);
@@ -280,10 +279,12 @@ void expect_exported_outputs(const std::filesystem::path &summary_path,
             "power_driven");
   EXPECT_EQ(handoff.at("reference_contract").at("boat_id").get<std::string>(),
             "boat-alpha");
-  EXPECT_EQ(handoff.at("reference_contract").at("rigging_id").get<std::string>(),
-            "rig-alpha");
-  EXPECT_EQ(handoff.at("reference_contract").at("athlete_id").get<std::string>(),
-            "athlete-alpha");
+  EXPECT_EQ(
+      handoff.at("reference_contract").at("rigging_id").get<std::string>(),
+      "rig-alpha");
+  EXPECT_EQ(
+      handoff.at("reference_contract").at("athlete_id").get<std::string>(),
+      "athlete-alpha");
 }
 
 struct MeasurementBundleSpec {
@@ -318,31 +319,27 @@ std::string make_measurement_bundle_json(const MeasurementBundleSpec &spec) {
        Json{{"world_frame", "x_forward_y_starboard_z_up"},
             {"body_frame", "x_forward_y_starboard_z_up"},
             {"orientation", "world_from_body_quaternion_xyzw"}}},
-      {"reference_contract",
-       Json{{"boat_id", spec.boat_id},
-            {"rigging_id", spec.rigging_id},
-            {"athlete_id", spec.athlete_id}}},
+      {"reference_contract", Json{{"boat_id", spec.boat_id},
+                                  {"rigging_id", spec.rigging_id},
+                                  {"athlete_id", spec.athlete_id}}},
       {"boat",
        Json{{"mass_kg", spec.hull_mass_kg},
-            {"center_of_mass_m",
-             Json::array({spec.hull_center_of_mass_x_m, 0.0,
-                          spec.hull_center_of_mass_z_m})},
+            {"center_of_mass_m", Json::array({spec.hull_center_of_mass_x_m, 0.0,
+                                              spec.hull_center_of_mass_z_m})},
             {"inertia_kg_m2",
              Json::array({spec.hull_inertia_x_kg_m2, spec.hull_inertia_y_kg_m2,
                           spec.hull_inertia_z_kg_m2})}}},
       {"rigging",
-       Json{{"port",
-             Json{{"inboard_length_m", spec.inboard_length_m},
-                  {"outboard_length_m", spec.outboard_length_m},
-                  {"oarlock_position_m",
-                   Json::array({spec.oarlock_x_m, -spec.oarlock_y_m,
-                                spec.oarlock_z_m})}}},
-            {"starboard",
-             Json{{"inboard_length_m", spec.inboard_length_m},
-                  {"outboard_length_m", spec.outboard_length_m},
-                  {"oarlock_position_m",
-                   Json::array({spec.oarlock_x_m, spec.oarlock_y_m,
-                                spec.oarlock_z_m})}}}}},
+       Json{{"port", Json{{"inboard_length_m", spec.inboard_length_m},
+                          {"outboard_length_m", spec.outboard_length_m},
+                          {"oarlock_position_m",
+                           Json::array({spec.oarlock_x_m, -spec.oarlock_y_m,
+                                        spec.oarlock_z_m})}}},
+            {"starboard", Json{{"inboard_length_m", spec.inboard_length_m},
+                               {"outboard_length_m", spec.outboard_length_m},
+                               {"oarlock_position_m",
+                                Json::array({spec.oarlock_x_m, spec.oarlock_y_m,
+                                             spec.oarlock_z_m})}}}}},
       {"athlete",
        Json{{"rower_mass_kg", spec.rower_mass_kg},
             {"body_center_of_mass_m",
@@ -353,14 +350,15 @@ std::string make_measurement_bundle_json(const MeasurementBundleSpec &spec) {
   return root.dump(2);
 }
 
-std::string make_sensitivity_config_json(
-    std::string_view config_id, const std::filesystem::path &measurement_path,
-    const std::filesystem::path &summary_path,
-    const std::filesystem::path &time_series_path) {
+std::string
+make_sensitivity_config_json(std::string_view config_id,
+                             const std::filesystem::path &measurement_path,
+                             const std::filesystem::path &summary_path,
+                             const std::filesystem::path &time_series_path) {
   auto root = make_base_runtime_config(config_id, 0.72, 0.8);
   root["stroke"]["actuation"] = Json{{"mode", "power_driven"},
-                                      {"peak_drive_power_w", 650.0},
-                                      {"power_mode_speed_floor_mps", 0.35}};
+                                     {"peak_drive_power_w", 650.0},
+                                     {"power_mode_speed_floor_mps", 0.35}};
   root["stroke"]["rower_coupling"] = Json{
       {"enabled", true},
       {"rower_mass_kg", 82.0},
@@ -368,15 +366,15 @@ std::string make_sensitivity_config_json(
       {"seat_position_to_com_scale", 0.78},
   };
   root["providers"] = Json{{"hull_resistance", "quadratic_drag_placeholder"},
-                            {"blade_force", "stroke_propulsion_placeholder"},
-                            {"aero_load", "none"}};
+                           {"blade_force", "stroke_propulsion_placeholder"},
+                           {"aero_load", "none"}};
   root["artifacts"] = Json{
       {"measurement_bundle", Json{{"path", measurement_path.string()}}},
   };
   root["output"] = Json{{"summary_path", summary_path.string()},
-                         {"time_series_path", time_series_path.string()},
-                         {"formats", Json::array({"json"})},
-                         {"high_frequency_time_series", true}};
+                        {"time_series_path", time_series_path.string()},
+                        {"formats", Json::array({"json"})},
+                        {"high_frequency_time_series", true}};
   return root.dump(2);
 }
 
@@ -390,12 +388,11 @@ SensitivityRunResult run_parameterized_measurement_variant(
     const std::filesystem::path &summary_path,
     const std::filesystem::path &time_series_path,
     const std::chrono::system_clock::time_point &start_time) {
-  const auto config_path =
-      std::filesystem::temp_directory_path() /
-      (std::string(config_id) + "-config.json");
-  write_file(config_path, make_sensitivity_config_json(
-                              config_id, measurement_path, summary_path,
-                              time_series_path));
+  const auto config_path = std::filesystem::temp_directory_path() /
+                           (std::string(config_id) + "-config.json");
+  write_file(config_path,
+             make_sensitivity_config_json(config_id, measurement_path,
+                                          summary_path, time_series_path));
   remove_files({summary_path, time_series_path});
   FixedClock clock({start_time, start_time + 1s});
   auto result = project::run_simulation_from_config_file(
@@ -433,9 +430,9 @@ TEST(FidelityRuntimeIntegration,
   write_file(trial_path, kMeasuredTrialJson);
   remove_files({summary_path, time_series_path, truth_model_export_path});
   write_file(config_path,
-             make_runtime_config_json("it-fidelity", measurement_path,
-                                      trial_path, summary_path, time_series_path,
-                                      truth_model_export_path));
+             make_runtime_config_json(
+                 "it-fidelity", measurement_path, trial_path, summary_path,
+                 time_series_path, truth_model_export_path));
 
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 10h,
@@ -540,7 +537,8 @@ TEST(FidelityRuntimeIntegration,
       temp / "airow-it-r38-measurement-baseline.json";
   const auto sensitivity_measurement_path =
       temp / "airow-it-r38-measurement-sensitivity.json";
-  const auto baseline_summary_path = temp / "airow-it-r38-baseline-summary.json";
+  const auto baseline_summary_path =
+      temp / "airow-it-r38-baseline-summary.json";
   const auto baseline_time_series_path =
       temp / "airow-it-r38-baseline-timeseries.json";
   const auto sensitivity_summary_path =
@@ -579,24 +577,21 @@ TEST(FidelityRuntimeIntegration,
       sensitivity.summary.at("metadata").at("athlete_id").get<std::string>(),
       "athlete-beta");
 
-  const double baseline_trim =
-      baseline.summary.at("summary")
-          .at("final_hull_position_z_m")
-          .at("value")
-          .get<double>();
-  const double sensitivity_trim =
-      sensitivity.summary.at("summary")
-          .at("final_hull_position_z_m")
-          .at("value")
-          .get<double>();
+  const double baseline_trim = baseline.summary.at("summary")
+                                   .at("final_hull_position_z_m")
+                                   .at("value")
+                                   .get<double>();
+  const double sensitivity_trim = sensitivity.summary.at("summary")
+                                      .at("final_hull_position_z_m")
+                                      .at("value")
+                                      .get<double>();
   const double baseline_mean_speed =
       baseline.summary.at("summary").at("mean_speed_mps").get<double>();
   const double sensitivity_mean_speed =
       sensitivity.summary.at("summary").at("mean_speed_mps").get<double>();
 
   EXPECT_TRUE(std::abs(baseline_trim - sensitivity_trim) > 1.0e-9 ||
-              std::abs(baseline_mean_speed - sensitivity_mean_speed) >
-                  1.0e-9);
+              std::abs(baseline_mean_speed - sensitivity_mean_speed) > 1.0e-9);
 
   remove_files({baseline_measurement_path, sensitivity_measurement_path});
 }

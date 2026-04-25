@@ -12,25 +12,14 @@ runtime-backed passive-float, tow, calm-water, headwind, and crosswind
 evidence.
 
 The broader rowing simulator direction remains defined in the requirements,
-architecture, technology stack, and decision records, including explicit
-state-convention and numerical-integration ownership. Post-`v0.1` work has now
-landed the observability slice, the runtime provider-selection slice, multiple
-hydro and steady-wind aero fidelity refinements on the existing built-in
-provider ids, and the composed backend slice for runtime mechanics and
-integration selection, now closed with the preferred
-`chrono_rigidbody + sundials_ida` standard runtime, explicit fallback modes,
-and structured backend-policy plus solver-status metadata in
-machine-readable outputs; the roadmap now keeps reduced-model fidelity and
-backend wiring separate before deferred calibration or time-varying
-environment workflows. The current post-`v0.1` guardrail packet now also adds
-an optional offline truth-model handoff export path and a dedicated protected-
-scenario performance-budget lane without changing the default runtime
-dependencies. The next planned phase is now defined as a milestone-based
-fidelity program for single-scull hull-performance and stroke-dynamics studies,
-with measurement and calibration foundations, low-order actuation, calibrated
-reduced runtime models, coupled validation scenarios, and explicit trust or
-uncertainty reporting staged separately from the current validated reduced
-baseline.
+architecture, technology stack, decision records, and full-simulation roadmap.
+Post-`v0.1` work has landed the observability, provider-selection, calibration,
+actuation, rower-coupling, comparison, and propulsion-metric foundations while
+preserving the current reduced baseline. The active next phase is the
+full-simulation extension in `R-050..R-071`, starting with capability/trust
+visibility and visualization-ready artifacts before deeper geometry,
+6-DOF, blade-water, environment, validation, optimization, or optional
+truth-model workflows.
 
 ## Quick Start
 
@@ -298,7 +287,7 @@ Current implemented library surface:
 Primary planning and process sources:
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
-- `docs/process/FIDELITY_GAP_MAP.md`
+- `docs/process/ROADMAP_FULL_SIMULATION.md`
 - `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/TECHNOLOGY_STACK.md`
 - `docs/ai/DECISIONS.md`
@@ -317,10 +306,11 @@ Current intent:
   boundaries,
 - explicit numerical integration and startup-validity ownership separate from
   mechanics ownership,
-- optional high-fidelity calibration workflows kept outside the default runtime,
-- next-phase fidelity work focused on hull-performance and stroke-dynamics
-  studies through calibrated reduced runtime models rather than online
-  truth-model execution,
+- optional high-fidelity calibration and truth-model workflows kept outside the
+  default runtime,
+- next-phase full-simulation work focused on observability, capability
+  reporting, visualization artifacts, staged geometry and physics expansion,
+  validation scorecards, and optimization-safe outputs,
 - real simulator code should now land inside the hardened architecture-first
   workflow rather than extending the bootstrap sample.
 
@@ -365,10 +355,10 @@ Current implementation status:
   a preferred Chrono plus SUNDIALS standard runtime, and explicit fallback
   pairs rather than mixing backend adoption into provider-selection work,
 - the next major planning packet now keeps that reduced baseline intact while
-  staging the future fidelity gap through
-  `docs/process/FIDELITY_GAP_MAP.md`, starting with measurement or calibration
-  foundations and the first low-order actuation slice before calibrated blade
-  or hull providers are reopened.
+  staging the full-simulation backlog through
+  `docs/process/ROADMAP_FULL_SIMULATION.md` and `R-050..R-071`, starting with
+  trust/capability visibility and visualization artifact foundations before
+  deeper physics is reopened.
 
 Time-varying wind config uses an exclusive one-of contract under
 `environment`:
@@ -499,6 +489,7 @@ Core artifacts:
 - `AGENTS.md`
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
+- `docs/process/ROADMAP_FULL_SIMULATION.md`
 - `docs/process/TECHNOLOGY_STACK.md`
 - `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/WORKFLOW.md`
@@ -558,8 +549,9 @@ Useful environment variables:
 
 ## AI Context and Archive
 
-Active AI docs are intentionally compact. Historical ADRs are archived under
-`docs/ai/archive/`.
+Active AI docs are intentionally compact. Historical ADRs and AI snapshots are
+archived under `docs/ai/archive/`; superseded planning docs are archived under
+`docs/archive/`.
 
 Maintenance commands:
 ```bash

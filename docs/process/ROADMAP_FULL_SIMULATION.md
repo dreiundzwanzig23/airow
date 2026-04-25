@@ -449,11 +449,10 @@ Avoid these traps:
 
 ## 17. Apply guidance
 
-For the current merged `main`, apply the rebased combined patch that adds:
+For the current merged `main`, use this roadmap with the canonical
+requirements in `docs/process/REQUIREMENTS.md`.
 
-```text
-docs/process/REQUIREMENTS_FULL_SIMULATION_EXTENSION.md
-docs/process/ROADMAP_FULL_SIMULATION.md
-```
-
-Then review whether you want the extension requirements copied into `docs/process/REQUIREMENTS.md`. If you do copy them into `REQUIREMENTS.md`, keep them after current `R-049` so the requirement numbering remains continuous.
+The rebased extension requirements have been copied after `R-049` as
+`R-050` through `R-071`. Keep future full-simulation requirement additions
+numbered after `R-071` unless a later cleanup explicitly reserves another
+range.

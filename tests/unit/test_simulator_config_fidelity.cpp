@@ -98,15 +98,16 @@ TEST(SimulatorConfigFidelity,
   ASSERT_TRUE(result.config.has_value());
   EXPECT_EQ(result.config->artifacts.measurement_bundle.path,
             "fixtures/measurement.json");
-  EXPECT_EQ(result.config->artifacts.measured_trial.path, "fixtures/trial.json");
+  EXPECT_EQ(result.config->artifacts.measured_trial.path,
+            "fixtures/trial.json");
   EXPECT_EQ(result.config->stroke.actuation.mode, "force_driven");
   EXPECT_DOUBLE_EQ(result.config->stroke.actuation.peak_drive_force_n, 420.0);
   EXPECT_TRUE(result.config->stroke.rower_coupling.enabled);
   EXPECT_DOUBLE_EQ(result.config->stroke.rower_coupling.rower_mass_kg, 82.0);
   EXPECT_NE(std::find(result.normalized_config.begin(),
                       result.normalized_config.end(),
-                      project::NormalizedConfigEntry{
-                          "$.stroke.actuation.mode", "force_driven", ""}),
+                      project::NormalizedConfigEntry{"$.stroke.actuation.mode",
+                                                     "force_driven", ""}),
             result.normalized_config.end());
 }
 
@@ -192,12 +193,12 @@ TEST(SimulatorConfigFidelity,
   EXPECT_DOUBLE_EQ(result.config->stroke.actuation.peak_drive_power_w, 650.0);
   EXPECT_DOUBLE_EQ(result.config->stroke.actuation.power_mode_speed_floor_mps,
                    0.35);
-  EXPECT_NE(
-      std::find(result.normalized_config.begin(), result.normalized_config.end(),
-                project::NormalizedConfigEntry{
-                    "$.stroke.actuation.power_mode_speed_floor_mps", "0.35",
-                    "m/s"}),
-      result.normalized_config.end());
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{
+                          "$.stroke.actuation.power_mode_speed_floor_mps",
+                          "0.35", "m/s"}),
+            result.normalized_config.end());
 }
 
 /**
@@ -306,7 +307,8 @@ TEST(SimulatorConfigFidelity, RejectsNonObjectActuationSchema) {
  * @test UT-338
  * @verifies [D-056]
  * @notes Given enabled rower coupling without the required mass input, when
- * config parsing runs, then it rejects the missing mass field deterministically.
+ * config parsing runs, then it rejects the missing mass field
+ * deterministically.
  */
 TEST(SimulatorConfigFidelity, RejectsEnabledRowerCouplingMissingMass) {
   auto root = parse_valid_config_json();

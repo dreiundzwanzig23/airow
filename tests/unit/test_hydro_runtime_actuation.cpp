@@ -10,21 +10,23 @@ project::SimulatorConfig make_config() {
   return {
       .config_id = "ut-hydro-actuation",
       .simulation = {.duration_s = 2.4, .time_step_s = 0.12},
-      .hull = {.mass_kg = 14.0,
-               .center_of_mass_m = {.x = 0.0, .y = 0.0, .z = 0.0},
-               .inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2},
-               .initial_position_m = {.x = 0.0, .y = 0.0, .z = 0.0},
-               .initial_orientation_xyzw =
-                   {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
-               .initial_linear_velocity_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
-               .initial_angular_velocity_radps = {.x = 0.0, .y = 0.0, .z = 0.0}},
-      .oars = {.port = {.inboard_length_m = 0.88,
-                        .outboard_length_m = 1.98,
-                        .oarlock_position_m = {.x = 0.25, .y = -0.82, .z = 0.18}},
-               .starboard = {.inboard_length_m = 0.88,
-                             .outboard_length_m = 1.98,
-                             .oarlock_position_m =
-                                 {.x = 0.25, .y = 0.82, .z = 0.18}}},
+      .hull =
+          {.mass_kg = 14.0,
+           .center_of_mass_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+           .inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2},
+           .initial_position_m = {.x = 0.0, .y = 0.0, .z = 0.0},
+           .initial_orientation_xyzw = {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
+           .initial_linear_velocity_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
+           .initial_angular_velocity_radps = {.x = 0.0, .y = 0.0, .z = 0.0}},
+      .oars =
+          {.port = {.inboard_length_m = 0.88,
+                    .outboard_length_m = 1.98,
+                    .oarlock_position_m = {.x = 0.25, .y = -0.82, .z = 0.18}},
+           .starboard = {.inboard_length_m = 0.88,
+                         .outboard_length_m = 1.98,
+                         .oarlock_position_m = {.x = 0.25,
+                                                .y = 0.82,
+                                                .z = 0.18}}},
       .seat = {.rail_axis = {.x = 1.0, .y = 0.0, .z = 0.0},
                .min_position_m = -0.4,
                .max_position_m = 0.4,
@@ -47,16 +49,18 @@ project::MechanicalStateSnapshot make_drive_state() {
                    {.x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0},
                .linear_velocity_world_mps = {.x = 1.2, .y = 0.0, .z = 0.0},
                .angular_velocity_body_radps = {.x = 0.0, .y = 0.0, .z = 0.0}},
-      .port_oar = {.handle_angle_rad = 0.1,
-                   .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
-                   .blade_tip_position_world_m = {.x = 2.0, .y = -0.82, .z = 0.18},
-                   .blade_tip_velocity_world_mps = {.x = -0.8, .y = 0.0, .z = 0.0},
-                   .blade_immersion_depth_m = 0.12},
-      .starboard_oar = {.handle_angle_rad = 0.1,
-                        .oarlock_position_body_m = {.x = 0.25, .y = 0.82, .z = 0.18},
-                        .blade_tip_position_world_m = {.x = 2.0, .y = 0.82, .z = 0.18},
-                        .blade_tip_velocity_world_mps = {.x = -0.8, .y = 0.0, .z = 0.0},
-                        .blade_immersion_depth_m = 0.12},
+      .port_oar =
+          {.handle_angle_rad = 0.1,
+           .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
+           .blade_tip_position_world_m = {.x = 2.0, .y = -0.82, .z = 0.18},
+           .blade_tip_velocity_world_mps = {.x = -0.8, .y = 0.0, .z = 0.0},
+           .blade_immersion_depth_m = 0.12},
+      .starboard_oar =
+          {.handle_angle_rad = 0.1,
+           .oarlock_position_body_m = {.x = 0.25, .y = 0.82, .z = 0.18},
+           .blade_tip_position_world_m = {.x = 2.0, .y = 0.82, .z = 0.18},
+           .blade_tip_velocity_world_mps = {.x = -0.8, .y = 0.0, .z = 0.0},
+           .blade_immersion_depth_m = 0.12},
       .seat = {.rail_axis_body = {.x = 1.0, .y = 0.0, .z = 0.0},
                .position_along_rail_m = -0.3,
                .velocity_along_rail_mps = 0.0},
@@ -84,11 +88,10 @@ TEST(HydroRuntimeActuation, UsesConfiguredForceDrivenCommand) {
   config.stroke.actuation.mode = "force_driven";
   config.stroke.actuation.peak_drive_force_n = 420.0;
 
-  const auto load = provider.sample_load(
-      project::StepContext{.time_s = 0.24,
-                           .stroke_command =
-                               project::make_stroke_actuation_command(config),
-                           .state = state});
+  const auto load = provider.sample_load(project::StepContext{
+      .time_s = 0.24,
+      .stroke_command = project::make_stroke_actuation_command(config),
+      .state = state});
 
   EXPECT_DOUBLE_EQ(load.commanded_force_n, 420.0);
   EXPECT_DOUBLE_EQ(load.commanded_power_w, 0.0);
@@ -113,11 +116,10 @@ TEST(HydroRuntimeActuation, UsesPowerDrivenSpeedFloor) {
   state.port_oar.blade_tip_velocity_world_mps.x = -0.1;
   state.starboard_oar.blade_tip_velocity_world_mps.x = -0.1;
 
-  const auto load = provider.sample_load(
-      project::StepContext{.time_s = 0.24,
-                           .stroke_command =
-                               project::make_stroke_actuation_command(config),
-                           .state = state});
+  const auto load = provider.sample_load(project::StepContext{
+      .time_s = 0.24,
+      .stroke_command = project::make_stroke_actuation_command(config),
+      .state = state});
 
   EXPECT_NEAR(load.commanded_force_n, 650.0 / 0.35, 1.0e-9);
   EXPECT_DOUBLE_EQ(load.commanded_power_w, 650.0);

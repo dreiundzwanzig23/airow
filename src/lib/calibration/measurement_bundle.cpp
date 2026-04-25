@@ -1,7 +1,7 @@
 #include "project/calibration/measurement_bundle.hpp"
 
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -37,8 +37,8 @@ constexpr std::size_t VECTOR3_COMPONENT_COUNT = 3U;
  * validation
  * @satisfies [A-001, A-009]
  */
-MeasurementBundleDiagnostic
-make_diagnostic(std::string code, std::string path, std::string message) {
+MeasurementBundleDiagnostic make_diagnostic(std::string code, std::string path,
+                                            std::string message) {
   return {
       .code = std::move(code),
       .path = std::move(path),
@@ -96,9 +96,9 @@ bool validate_numeric_value(double value, std::string_view path,
                             std::string_view label,
                             LoadMeasurementBundleResult &result) {
   if (!std::isfinite(value)) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_numeric_value", std::string(path),
-        std::string(label) + " must be finite"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_numeric_value", std::string(path),
+                        std::string(label) + " must be finite"));
     return false;
   }
   return true;
@@ -130,9 +130,9 @@ bool require_positive_number_field(const Json &root, std::string_view key,
     return false;
   }
   if (target <= 0.0) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_numeric_value", std::string(path),
-        std::string(label) + " must be positive"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_numeric_value", std::string(path),
+                        std::string(label) + " must be positive"));
     return false;
   }
   return true;
@@ -146,9 +146,9 @@ bool require_non_negative_number_field(const Json &root, std::string_view key,
     return false;
   }
   if (target < 0.0) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_numeric_value", std::string(path),
-        std::string(label) + " must be non-negative"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_numeric_value", std::string(path),
+                        std::string(label) + " must be non-negative"));
     return false;
   }
   return true;
@@ -204,21 +204,21 @@ bool parse_state_conventions(const Json &root,
     return false;
   }
   if (conventions.world_frame != EXPECTED_WORLD_FRAME) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.state_conventions.world_frame",
-        "unsupported world frame"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.world_frame",
+                        "unsupported world frame"));
     return false;
   }
   if (conventions.body_frame != EXPECTED_BODY_FRAME) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.state_conventions.body_frame",
-        "unsupported body frame"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.body_frame",
+                        "unsupported body frame"));
     return false;
   }
   if (conventions.orientation != EXPECTED_ORIENTATION) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.state_conventions.orientation",
-        "unsupported orientation convention"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.orientation",
+                        "unsupported orientation convention"));
     return false;
   }
   return true;
@@ -227,9 +227,8 @@ bool parse_state_conventions(const Json &root,
 bool parse_reference_contract(const Json &root,
                               ArtifactReferenceContract &reference_contract,
                               LoadMeasurementBundleResult &result) {
-  const Json *reference =
-      require_object(root, "reference_contract", "$.reference_contract",
-                     result);
+  const Json *reference = require_object(root, "reference_contract",
+                                         "$.reference_contract", result);
   return reference != nullptr &&
          require_string_field(*reference, "boat_id",
                               "$.reference_contract.boat_id",
@@ -253,9 +252,9 @@ bool validate_units(const Json &root, LoadMeasurementBundleResult &result) {
     return false;
   }
   if (system != EXPECTED_UNIT_SYSTEM) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.units.system",
-        "unsupported unit system '" + system + "'"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.units.system",
+                        "unsupported unit system '" + system + "'"));
     return false;
   }
   return true;
@@ -277,9 +276,9 @@ bool parse_boat(const Json &root, MeasurementBundleBoatParameters &boat,
   }
   if (boat.inertia_kg_m2.x <= 0.0 || boat.inertia_kg_m2.y <= 0.0 ||
       boat.inertia_kg_m2.z <= 0.0) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_numeric_value", "$.boat.inertia_kg_m2",
-        "inertia_kg_m2 components must be positive"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_numeric_value", "$.boat.inertia_kg_m2",
+                        "inertia_kg_m2 components must be positive"));
     return false;
   }
   return true;
@@ -295,10 +294,10 @@ bool parse_rigging_side(const Json &root, std::string_view key,
                                        std::string(path) + ".inboard_length_m",
                                        "inboard_length_m",
                                        side.inboard_length_m, result) &&
-         require_positive_number_field(
-             *side_object, "outboard_length_m",
-             std::string(path) + ".outboard_length_m", "outboard_length_m",
-             side.outboard_length_m, result) &&
+         require_positive_number_field(*side_object, "outboard_length_m",
+                                       std::string(path) + ".outboard_length_m",
+                                       "outboard_length_m",
+                                       side.outboard_length_m, result) &&
          require_vector3_field(*side_object, "oarlock_position_m",
                                std::string(path) + ".oarlock_position_m",
                                "oarlock_position_m", side.oarlock_position_m,
@@ -312,19 +311,19 @@ bool parse_rigging(const Json &root, MeasurementBundleRigging &rigging,
   return rigging_object != nullptr &&
          parse_rigging_side(*rigging_object, "port", "$.rigging.port",
                             rigging.port, result) &&
-         parse_rigging_side(*rigging_object, "starboard",
-                            "$.rigging.starboard", rigging.starboard, result);
+         parse_rigging_side(*rigging_object, "starboard", "$.rigging.starboard",
+                            rigging.starboard, result);
 }
 
-bool parse_athlete(const Json &root, MeasurementBundleAthleteParameters &athlete,
+bool parse_athlete(const Json &root,
+                   MeasurementBundleAthleteParameters &athlete,
                    LoadMeasurementBundleResult &result) {
   const Json *athlete_object =
       require_object(root, "athlete", "$.athlete", result);
   return athlete_object != nullptr &&
-         require_positive_number_field(*athlete_object, "rower_mass_kg",
-                                       "$.athlete.rower_mass_kg",
-                                       "rower_mass_kg", athlete.rower_mass_kg,
-                                       result) &&
+         require_positive_number_field(
+             *athlete_object, "rower_mass_kg", "$.athlete.rower_mass_kg",
+             "rower_mass_kg", athlete.rower_mass_kg, result) &&
          require_vector3_field(*athlete_object, "body_center_of_mass_m",
                                "$.athlete.body_center_of_mass_m",
                                "body_center_of_mass_m",
@@ -370,10 +369,10 @@ parse_measurement_bundle_text(std::string_view json_text,
   }
 
   if (bundle.provenance.schema_id != MEASUREMENT_BUNDLE_SCHEMA_ID) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.schema_id",
-        "unsupported measurement bundle schema '" +
-            bundle.provenance.schema_id + "'"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.schema_id",
+                        "unsupported measurement bundle schema '" +
+                            bundle.provenance.schema_id + "'"));
     return result;
   }
 

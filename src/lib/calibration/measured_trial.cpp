@@ -1,8 +1,8 @@
 #include "project/calibration/measured_trial.hpp"
 
 #include <algorithm>
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -36,8 +36,8 @@ constexpr std::string_view EXPECTED_ORIENTATION =
  * validation
  * @satisfies [A-001, A-009]
  */
-MeasuredTrialDiagnostic
-make_diagnostic(std::string code, std::string path, std::string message) {
+MeasuredTrialDiagnostic make_diagnostic(std::string code, std::string path,
+                                        std::string message) {
   return {
       .code = std::move(code),
       .path = std::move(path),
@@ -102,9 +102,9 @@ bool validate_units(const Json &root, LoadMeasuredTrialResult &result) {
     return false;
   }
   if (system != EXPECTED_UNIT_SYSTEM) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.units.system",
-        "unsupported unit system '" + system + "'"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.units.system",
+                        "unsupported unit system '" + system + "'"));
     return false;
   }
   return true;
@@ -130,21 +130,21 @@ bool parse_state_conventions(const Json &root,
     return false;
   }
   if (conventions.world_frame != EXPECTED_WORLD_FRAME) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.state_conventions.world_frame",
-        "unsupported world frame"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.world_frame",
+                        "unsupported world frame"));
     return false;
   }
   if (conventions.body_frame != EXPECTED_BODY_FRAME) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.state_conventions.body_frame",
-        "unsupported body frame"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.body_frame",
+                        "unsupported body frame"));
     return false;
   }
   if (conventions.orientation != EXPECTED_ORIENTATION) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.state_conventions.orientation",
-        "unsupported orientation convention"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.state_conventions.orientation",
+                        "unsupported orientation convention"));
     return false;
   }
   return true;
@@ -153,9 +153,8 @@ bool parse_state_conventions(const Json &root,
 bool parse_reference_contract(const Json &root,
                               ArtifactReferenceContract &reference_contract,
                               LoadMeasuredTrialResult &result) {
-  const Json *reference =
-      require_object(root, "reference_contract", "$.reference_contract",
-                     result);
+  const Json *reference = require_object(root, "reference_contract",
+                                         "$.reference_contract", result);
   return reference != nullptr &&
          require_string_field(*reference, "boat_id",
                               "$.reference_contract.boat_id",
@@ -204,9 +203,9 @@ bool read_number_array(const Json &root, std::string_view key,
 bool validate_time_s(const std::vector<double> &time_s,
                      LoadMeasuredTrialResult &result) {
   if (time_s.empty()) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.samples.time_s",
-        "at least one measured-trial sample is required"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.samples.time_s",
+                        "at least one measured-trial sample is required"));
     return false;
   }
   for (std::size_t index = 0U; index < time_s.size(); ++index) {
@@ -231,9 +230,9 @@ bool validate_channel_length(const std::vector<double> &time_s,
                              std::string_view path,
                              LoadMeasuredTrialResult &result) {
   if (!channel.empty() && channel.size() != time_s.size()) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", std::string(path),
-        "channel length must match $.samples.time_s"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", std::string(path),
+                        "channel length must match $.samples.time_s"));
     return false;
   }
   return true;
@@ -242,21 +241,20 @@ bool validate_channel_length(const std::vector<double> &time_s,
 bool validate_required_sample_channels(const Json &samples,
                                        LoadMeasuredTrialResult &result) {
   if (!samples.contains("boat_speed_mps")) {
-    result.diagnostics.push_back(
-        make_diagnostic("missing_required_field", "$.samples.boat_speed_mps",
-                        "missing required field"));
+    result.diagnostics.push_back(make_diagnostic("missing_required_field",
+                                                 "$.samples.boat_speed_mps",
+                                                 "missing required field"));
     return false;
   }
   const std::vector<std::string> supported_channels = {
       "time_s", "boat_speed_mps", "seat_position_m", "stroke_force_n",
       "stroke_power_w"};
-  for (auto iterator = samples.begin(); iterator != samples.end();
-       ++iterator) {
+  for (auto iterator = samples.begin(); iterator != samples.end(); ++iterator) {
     if (std::find(supported_channels.begin(), supported_channels.end(),
                   iterator.key()) == supported_channels.end()) {
-      result.diagnostics.push_back(make_diagnostic(
-          "unsupported_value", "$.samples." + iterator.key(),
-          "unsupported measured-trial channel"));
+      result.diagnostics.push_back(
+          make_diagnostic("unsupported_value", "$.samples." + iterator.key(),
+                          "unsupported measured-trial channel"));
       return false;
     }
   }
@@ -268,8 +266,9 @@ bool parse_optional_sample_channels(const Json &samples,
                                     std::vector<double> &stroke_force,
                                     std::vector<double> &stroke_power,
                                     LoadMeasuredTrialResult &result) {
-  return read_number_array(samples, "seat_position_m", "$.samples.seat_position_m",
-                           seat_position, result) &&
+  return read_number_array(samples, "seat_position_m",
+                           "$.samples.seat_position_m", seat_position,
+                           result) &&
          read_number_array(samples, "stroke_force_n",
                            "$.samples.stroke_force_n", stroke_force, result) &&
          read_number_array(samples, "stroke_power_w",
@@ -307,7 +306,8 @@ void store_optional_sample_channels(MeasuredTrial &trial,
 bool parse_samples(const Json &root, MeasuredTrial &trial,
                    LoadMeasuredTrialResult &result) {
   const Json *samples = require_object(root, "samples", "$.samples", result);
-  if (samples == nullptr || !validate_required_sample_channels(*samples, result) ||
+  if (samples == nullptr ||
+      !validate_required_sample_channels(*samples, result) ||
       !read_number_array(*samples, "time_s", "$.samples.time_s", trial.time_s,
                          result) ||
       !read_number_array(*samples, "boat_speed_mps", "$.samples.boat_speed_mps",
@@ -366,10 +366,10 @@ parse_measured_trial_text(std::string_view json_text,
   }
 
   if (trial.provenance.schema_id != MEASURED_TRIAL_SCHEMA_ID) {
-    result.diagnostics.push_back(make_diagnostic(
-        "invalid_value", "$.schema_id",
-        "unsupported measured-trial schema '" + trial.provenance.schema_id +
-            "'"));
+    result.diagnostics.push_back(
+        make_diagnostic("invalid_value", "$.schema_id",
+                        "unsupported measured-trial schema '" +
+                            trial.provenance.schema_id + "'"));
     return result;
   }
 
@@ -390,17 +390,17 @@ LoadMeasuredTrialResult
 load_measured_trial_file(const std::filesystem::path &path) {
   const std::ifstream input(path, std::ios::binary);
   if (!input) {
-    return fail_with(make_diagnostic(
-        "io_error", "$",
-        "failed to open measured trial file: " + path.string()));
+    return fail_with(make_diagnostic("io_error", "$",
+                                     "failed to open measured trial file: " +
+                                         path.string()));
   }
 
   std::ostringstream buffer;
   buffer << input.rdbuf();
   if (!input.good() && !input.eof()) {
-    return fail_with(make_diagnostic(
-        "io_error", "$",
-        "failed to read measured trial file: " + path.string()));
+    return fail_with(make_diagnostic("io_error", "$",
+                                     "failed to read measured trial file: " +
+                                         path.string()));
   }
 
   return parse_measured_trial_text(buffer.str(), path.string());

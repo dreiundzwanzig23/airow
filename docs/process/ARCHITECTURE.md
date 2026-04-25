@@ -178,58 +178,37 @@ Still planned or incomplete:
   steady-wind provider ids or the orchestrator-to-aero seam,
 - `A-009` remains in progress for broader artifact schemas and future hydro-
   side consumers beyond the first calibrated aero path,
-- the next fidelity phase is now staged in
-  `docs/process/FIDELITY_GAP_MAP.md` as a milestone plan for hull-performance
-  and stroke-dynamics studies that preserves the current reduced baseline as
-  the reference floor,
-- the highest-value near-term packet is measurement and calibration foundation
-  work plus the first low-order actuation slice, before calibrated blade or
-  hull providers are reopened,
-- the active next packet extends that near-term slice with separate
-  `measurement_bundle` and `measured_trial` artifact contracts, dual
-  `force_driven` or `power_driven` actuation modes, low-order rower inertial
-  coupling, and shared lineage propagation through runtime outputs and the
-  truth-model handoff boundary,
+- the next full-simulation phase is now staged in
+  `docs/process/ROADMAP_FULL_SIMULATION.md`, with `R-050..R-071` merged into
+  `docs/process/REQUIREMENTS.md` as the active extension backlog,
+- the highest-value near-term packet is capability and trust visibility plus
+  visualization-ready artifact contracts before deeper geometry or physics
+  providers are reopened,
+- the active next packet should preserve the current reduced runtime while
+  exposing what is active, reduced, validated, unavailable, or planned through
+  outputs, reports, and analysis workflows,
 - deeper backend diagnostics, richer stepping policy, or future composed-
   backend expansion behind the existing seams.
 
-## Next Fidelity-Phase Allocation
+## Next Full-Simulation Allocation
 
 The next major phase extends the existing subsystem map instead of creating new
 top-level owners.
 
-- Milestone 1 `Fidelity Target and Trust Envelope`
-  - Primary owners: `A-007`, `A-008`
-  - Supporting owners: `A-001`, `A-009`
-  - Requirement packet: `R-035`, `R-049`
-- Milestone 2 `Measurement and Calibration Foundation`
-  - Primary owners: `A-001`, `A-009`
-  - Supporting owners: `A-007`, `A-008`
-  - Requirement packet: `R-036`, `R-037`, `R-038`, `R-048`
-- Milestone 3 `Low-Order Actuation and Rower Coupling`
-  - Primary owners: `A-006`, `A-003`
-  - Supporting owners: `A-010`, `A-007`
-  - Requirement packet: `R-039`, `R-040`, `R-041`
-- Milestone 4 `Calibrated Reduced Blade-Water Model`
-  - Primary owners: `A-004`, `A-009`
-  - Supporting owners: `A-007`, `A-008`, `A-010`
-  - Requirement packet: `R-041`, `R-042`, `R-043`
-- Milestone 5 `Calibrated Reduced Hull-Performance Model`
-  - Primary owners: `A-004`
-  - Supporting owners: `A-003`, `A-009`, `A-007`, `A-008`
-  - Requirement packet: `R-038`, `R-044`, `R-046`
-- Milestone 6 `Coupled Validation Scenarios`
-  - Primary owners: `A-008`, `A-007`
-  - Supporting owners: `A-004`, `A-006`, `A-009`
-  - Requirement packet: `R-045`, `R-046`, `R-047`
-- Milestone 7 `Real Offline Truth-Model Loop`
-  - Primary owners: `A-009`
-  - Supporting owners: `A-001`, `A-007`, `A-004`
-  - Requirement packet: `R-043`, `R-044`, `R-048`
-- Milestone 8 `Uncertainty and Trust Reporting`
-  - Primary owners: `A-007`, `A-009`
-  - Supporting owners: `A-008`, `A-001`
-  - Requirement packet: `R-035`, `R-049`
+- Capability, trust, explanation, and analysis artifacts (`R-050`, `R-052`,
+  `R-062`, `R-070`, `R-071`) should start from `A-007`, with `A-001`,
+  `A-008`, and `A-009` support where configuration, scenarios, or provenance
+  are involved.
+- Interactive playback, linked plots, comparison views, debug replay, and
+  ParaView/VTK export (`R-051`, `R-053`, `R-054`, `R-055`, `R-056`) should
+  extend `A-007` and `A-008` before introducing any new viewer-facing owner.
+- Geometry, 6-DOF hull behavior, 3D blade loads, coupled rower/oar mechanics,
+  interface loads, environment effects, and flexible-oar readiness
+  (`R-057..R-064`) should be allocated across `A-003`, `A-004`, `A-006`,
+  `A-009`, and `A-010` according to existing ownership boundaries.
+- Truth-model studies, imports, validation scorecards, calibration lifecycle,
+  and optimization-safe outputs (`R-065..R-069`) should reuse `A-008` and
+  `A-009`, with `A-007` carrying report and output contracts.
 
 Allocation guardrails:
 - keep `A-004` focused on reduced runtime hydro behavior and `A-009` focused

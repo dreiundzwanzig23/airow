@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Changed
+- Merged the full-simulation extension requirements `R-050..R-071` into the
+  canonical requirements file, made `docs/process/ROADMAP_FULL_SIMULATION.md`
+  the active long-range roadmap, and archived superseded roadmap, handoff, and
+  historical implementation-plan documents under `docs/archive/` and
+  `docs/ai/archive/`.
 - Closed `R-041` on the existing actuation, coupling, and output seams:
   run analysis plus JSON plus HDF5 outputs now report deterministic
   propulsion-metric support metadata, slip, work, and efficiency channels,
