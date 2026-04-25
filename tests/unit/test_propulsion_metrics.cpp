@@ -30,7 +30,8 @@ namespace {
 using Json = nlohmann::json;
 using namespace std::chrono_literals;
 
-project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps,
+project::MechanicalStateSnapshot make_state(double time_s,
+                                            double boat_speed_mps,
                                             double port_slip_speed_mps,
                                             double starboard_slip_speed_mps) {
   return {
@@ -51,7 +52,9 @@ project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps
           {
               .handle_angle_rad = 0.1,
               .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
-              .blade_tip_position_world_m = {.x = time_s, .y = -0.82, .z = 0.18},
+              .blade_tip_position_world_m = {.x = time_s,
+                                             .y = -0.82,
+                                             .z = 0.18},
               .blade_tip_velocity_world_mps = {.x = -port_slip_speed_mps,
                                                .y = 0.0,
                                                .z = 0.0},
@@ -164,10 +167,9 @@ Json make_runtime_hull_json() {
 
 Json make_runtime_oars_json() {
   return Json{
-      {"port",
-       Json{{"inboard_length_m", 0.88},
-            {"outboard_length_m", 1.98},
-            {"oarlock_position_m", Json::array({0.25, -0.82, 0.18})}}},
+      {"port", Json{{"inboard_length_m", 0.88},
+                    {"outboard_length_m", 1.98},
+                    {"oarlock_position_m", Json::array({0.25, -0.82, 0.18})}}},
       {"starboard",
        Json{{"inboard_length_m", 0.88},
             {"outboard_length_m", 1.98},
@@ -192,7 +194,8 @@ Json make_runtime_stroke_json(std::string_view actuation_mode) {
               {"actuation", Json{{"mode", actuation_mode}}}};
 }
 
-void apply_actuation_mode_overrides(Json &root, std::string_view actuation_mode) {
+void apply_actuation_mode_overrides(Json &root,
+                                    std::string_view actuation_mode) {
   auto &actuation = root["stroke"]["actuation"];
   if (actuation_mode == "force_driven") {
     actuation["peak_drive_force_n"] = 420.0;
@@ -214,28 +217,26 @@ Json make_runtime_config_json(std::string_view config_id,
       {"oars", make_runtime_oars_json()},
       {"seat", make_runtime_seat_json()},
       {"stroke", make_runtime_stroke_json(actuation_mode)},
-      {"providers",
-       Json{{"hull_resistance", "quadratic_drag_placeholder"},
-            {"blade_force", blade_force_provider},
-            {"aero_load", "none"}}},
-      {"output",
-       Json{{"summary_path", paths.summary_path},
-            {"time_series_path", paths.time_series_path},
-            {"formats", Json::array({"json"})},
-            {"high_frequency_time_series", true}}},
+      {"providers", Json{{"hull_resistance", "quadratic_drag_placeholder"},
+                         {"blade_force", blade_force_provider},
+                         {"aero_load", "none"}}},
+      {"output", Json{{"summary_path", paths.summary_path},
+                      {"time_series_path", paths.time_series_path},
+                      {"formats", Json::array({"json"})},
+                      {"high_frequency_time_series", true}}},
   };
   apply_actuation_mode_overrides(root, actuation_mode);
   return root;
 }
 
-  Json make_hdf5_config_json(std::string_view config_id,
+Json make_hdf5_config_json(std::string_view config_id,
                            std::string_view hdf5_path) {
-  auto root = make_runtime_config_json(
-      config_id, RuntimeJsonPaths{"", ""}, "stroke_propulsion_placeholder",
-      "power_driven");
+  auto root =
+      make_runtime_config_json(config_id, RuntimeJsonPaths{"", ""},
+                               "stroke_propulsion_placeholder", "power_driven");
   root["output"] = Json{{"formats", Json::array({"hdf5"})},
-                         {"hdf5_path", hdf5_path},
-                         {"high_frequency_time_series", true}};
+                        {"hdf5_path", hdf5_path},
+                        {"high_frequency_time_series", true}};
   return root;
 }
 
@@ -335,8 +336,8 @@ std::vector<int> read_hdf5_int_dataset(hid_t group, const char *name) {
   EXPECT_GE(H5Sget_simple_extent_dims(space.id, dims, nullptr), 0);
   std::vector<int> values(static_cast<std::size_t>(dims[0]), 0);
   if (!values.empty()) {
-    EXPECT_GE(H5Dread(dataset.id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL,
-                      H5P_DEFAULT, values.data()),
+    EXPECT_GE(H5Dread(dataset.id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                      values.data()),
               0);
   }
   return values;
@@ -420,18 +421,18 @@ TEST(PropulsionMetrics, EmitsJsonSummaryAndTimeSeriesBlocks) {
                             "airow-ut-propulsion-summary.json";
   const auto time_series_path = std::filesystem::temp_directory_path() /
                                 "airow-ut-propulsion-timeseries.json";
-  const auto config_path =
-      std::filesystem::temp_directory_path() / "airow-ut-propulsion-config.json";
+  const auto config_path = std::filesystem::temp_directory_path() /
+                           "airow-ut-propulsion-config.json";
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
   remove_file_if_present(config_path);
 
   std::ofstream output(config_path, std::ios::binary | std::ios::trunc);
-  output << make_runtime_config_json("ut-propulsion-json",
-                                     RuntimeJsonPaths{summary_path.string(),
-                                                      time_series_path.string()},
-                                     "stroke_propulsion_placeholder",
-                                     "power_driven")
+  output << make_runtime_config_json(
+                "ut-propulsion-json",
+                RuntimeJsonPaths{summary_path.string(),
+                                 time_series_path.string()},
+                "stroke_propulsion_placeholder", "power_driven")
                 .dump(2);
   output.close();
 
@@ -490,8 +491,9 @@ TEST(PropulsionMetrics, EmitsJsonSummaryAndTimeSeriesBlocks) {
 TEST(PropulsionMetrics, EmitsUnsupportedJsonSupportFlagsForNonPropulsionPath) {
   const auto summary_path = std::filesystem::temp_directory_path() /
                             "airow-ut-propulsion-unsupported-summary.json";
-  const auto time_series_path = std::filesystem::temp_directory_path() /
-                                "airow-ut-propulsion-unsupported-timeseries.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() /
+      "airow-ut-propulsion-unsupported-timeseries.json";
   const auto config_path = std::filesystem::temp_directory_path() /
                            "airow-ut-propulsion-unsupported-config.json";
   remove_file_if_present(summary_path);
@@ -499,11 +501,11 @@ TEST(PropulsionMetrics, EmitsUnsupportedJsonSupportFlagsForNonPropulsionPath) {
   remove_file_if_present(config_path);
 
   std::ofstream output(config_path, std::ios::binary | std::ios::trunc);
-  output << make_runtime_config_json("ut-propulsion-unsupported",
-                                     RuntimeJsonPaths{summary_path.string(),
-                                                      time_series_path.string()},
-                                     "none",
-                                     "prescribed_kinematic")
+  output << make_runtime_config_json(
+                "ut-propulsion-unsupported",
+                RuntimeJsonPaths{summary_path.string(),
+                                 time_series_path.string()},
+                "none", "prescribed_kinematic")
                 .dump(2);
   output.close();
 
@@ -590,13 +592,14 @@ TEST(PropulsionMetrics, EmitsHdf5SummaryAndTimeSeriesDatasets) {
   EXPECT_EQ(read_hdf5_int_attribute(summary_group.id, "supported"), 1);
   EXPECT_EQ(read_hdf5_string_attribute(summary_group.id, "provider_id"),
             "stroke_propulsion_placeholder");
-  EXPECT_EQ(read_hdf5_string_attribute(summary_group.id, "provider_validity_id"),
-            "baseline-blade-force-v1");
+  EXPECT_EQ(
+      read_hdf5_string_attribute(summary_group.id, "provider_validity_id"),
+      "baseline-blade-force-v1");
   EXPECT_EQ(read_hdf5_string_attribute(summary_group.id, "reason"), "");
-  const auto effective_work = read_hdf5_double_dataset(
-      summary_group.id, "effective_propulsive_work_j");
-  const auto slip_loss_work = read_hdf5_double_dataset(
-      summary_group.id, "slip_loss_work_j");
+  const auto effective_work =
+      read_hdf5_double_dataset(summary_group.id, "effective_propulsive_work_j");
+  const auto slip_loss_work =
+      read_hdf5_double_dataset(summary_group.id, "slip_loss_work_j");
   ASSERT_EQ(effective_work.size(), 1U);
   ASSERT_EQ(slip_loss_work.size(), 1U);
   EXPECT_GT(effective_work.front(), 0.0);
@@ -605,12 +608,12 @@ TEST(PropulsionMetrics, EmitsHdf5SummaryAndTimeSeriesDatasets) {
   const H5ScopedHandle time_series_group(
       H5Gopen2(file.id, "/time_series", H5P_DEFAULT), H5Gclose);
   ASSERT_TRUE(time_series_group.valid());
-  const auto supported =
-      read_hdf5_int_dataset(time_series_group.id, "propulsion_metrics_supported");
-  const auto port_slip = read_hdf5_double_dataset(
-      time_series_group.id, "port_blade_slip_speed_mps");
-  const auto efficiency = read_hdf5_double_dataset(
-      time_series_group.id, "propulsion_efficiency");
+  const auto supported = read_hdf5_int_dataset(time_series_group.id,
+                                               "propulsion_metrics_supported");
+  const auto port_slip = read_hdf5_double_dataset(time_series_group.id,
+                                                  "port_blade_slip_speed_mps");
+  const auto efficiency =
+      read_hdf5_double_dataset(time_series_group.id, "propulsion_efficiency");
   ASSERT_EQ(supported.size(), result.state_history.size());
   ASSERT_EQ(port_slip.size(), result.state_history.size());
   ASSERT_EQ(efficiency.size(), result.state_history.size());
@@ -633,8 +636,8 @@ TEST(PropulsionMetrics, RejectsInvalidComparisonWindow) {
   const auto result = make_supported_propulsion_result();
 
   const auto metrics = project::analyze_propulsion_metrics(
-      result, project::PropulsionMetricWindow{.start_time_s = 0.7,
-                                              .end_time_s = 0.7});
+      result,
+      project::PropulsionMetricWindow{.start_time_s = 0.7, .end_time_s = 0.7});
 
   EXPECT_FALSE(metrics.availability.supported);
   EXPECT_EQ(metrics.availability.reason,
@@ -653,8 +656,8 @@ TEST(PropulsionMetrics, EmitsUnsupportedRecordWhenSampleIsNonFinite) {
   result.state_history.at(1).port_oar.blade_tip_velocity_world_mps.x =
       std::numeric_limits<double>::quiet_NaN();
 
-  const auto summary_path =
-      std::filesystem::temp_directory_path() / "airow-ut-propulsion-nan-summary.json";
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-ut-propulsion-nan-summary.json";
   const auto time_series_path = std::filesystem::temp_directory_path() /
                                 "airow-ut-propulsion-nan-timeseries.json";
   remove_file_if_present(summary_path);

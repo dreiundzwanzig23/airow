@@ -23,6 +23,7 @@ Autonomous work must be traceable, test-driven, and resumable.
   - then read only the needed file section with `sed -n` or equivalent.
 - Default search exclusions unless the task explicitly needs them:
   - `docs/ai/archive/**`
+  - `docs/archive/**`
   - `docs/process/TRACEABILITY.md`
   - `build/**`, `build-*/**`, `build/logs/**`, `**/*.log`
 - Keep active AI docs compact and non-duplicative:

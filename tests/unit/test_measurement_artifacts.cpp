@@ -268,8 +268,7 @@ TEST(MeasuredTrial, RejectsUnsupportedChannelName) {
   ASSERT_FALSE(loaded.ok());
   ASSERT_FALSE(loaded.diagnostics.empty());
   EXPECT_EQ(loaded.diagnostics.front().code, "unsupported_value");
-  EXPECT_EQ(loaded.diagnostics.front().path,
-            "$.samples.handle_impulse_n_s");
+  EXPECT_EQ(loaded.diagnostics.front().path, "$.samples.handle_impulse_n_s");
 }
 
 /**

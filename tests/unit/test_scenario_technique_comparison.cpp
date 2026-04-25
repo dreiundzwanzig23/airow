@@ -52,26 +52,22 @@ Json make_baseline_config() {
                  {"outboard_length_m", 1.98},
                  {"oarlock_position_m", Json::array({0.25, 0.82, 0.18})}}},
        }},
-      {"seat",
-       Json{{"rail_axis", Json::array({1.0, 0.0, 0.0})},
-            {"min_position_m", -0.4},
-            {"max_position_m", 0.4},
-            {"initial_position_m", 0.0}}},
-      {"stroke",
-       Json{{"cycle_duration_s", 1.2},
-            {"drive_duration_s", 0.48},
-            {"catch_angle_rad", -0.9},
-            {"release_angle_rad", 0.6},
-            {"drive_blade_depth_m", 0.12},
-            {"recovery_blade_depth_m", 0.0},
-            {"actuation", Json{{"mode", "prescribed_kinematic"}}}}},
-      {"providers",
-       Json{{"hull_resistance", "quadratic_drag_placeholder"},
-            {"blade_force", "stroke_propulsion_placeholder"},
-            {"aero_load", "none"}}},
+      {"seat", Json{{"rail_axis", Json::array({1.0, 0.0, 0.0})},
+                    {"min_position_m", -0.4},
+                    {"max_position_m", 0.4},
+                    {"initial_position_m", 0.0}}},
+      {"stroke", Json{{"cycle_duration_s", 1.2},
+                      {"drive_duration_s", 0.48},
+                      {"catch_angle_rad", -0.9},
+                      {"release_angle_rad", 0.6},
+                      {"drive_blade_depth_m", 0.12},
+                      {"recovery_blade_depth_m", 0.0},
+                      {"actuation", Json{{"mode", "prescribed_kinematic"}}}}},
+      {"providers", Json{{"hull_resistance", "quadratic_drag_placeholder"},
+                         {"blade_force", "stroke_propulsion_placeholder"},
+                         {"aero_load", "none"}}},
       {"output",
-       Json{{"formats", Json::array()},
-            {"high_frequency_time_series", true}}},
+       Json{{"formats", Json::array()}, {"high_frequency_time_series", true}}},
   };
 }
 
@@ -83,17 +79,17 @@ Json make_valid_technique_comparison_scenario() {
       {"comparison_window", Json{{"start_time_s", 0.0}, {"end_time_s", 1.2}}},
       {"variants",
        Json::array({
-           Json{{"variant_id", "prescribed_kinematic"},
-                {"overrides", Json::object()},
-                {"varied_parameters", Json::array({"$.stroke.actuation.mode"})}},
+           Json{
+               {"variant_id", "prescribed_kinematic"},
+               {"overrides", Json::object()},
+               {"varied_parameters", Json::array({"$.stroke.actuation.mode"})}},
            Json{{"variant_id", "force_driven"},
                 {"overrides",
                  Json{
                      {"stroke",
                       Json{
-                          {"actuation",
-                           Json{{"mode", "force_driven"},
-                                {"peak_drive_force_n", 420.0}}},
+                          {"actuation", Json{{"mode", "force_driven"},
+                                             {"peak_drive_force_n", 420.0}}},
                       }},
                  }},
                 {"varied_parameters",
@@ -111,14 +107,16 @@ Json make_valid_technique_comparison_scenario() {
                       }},
                  }},
                 {"varied_parameters",
-                 Json::array({"$.stroke.actuation.mode",
-                              "$.stroke.actuation.peak_drive_power_w",
-                              "$.stroke.actuation.power_mode_speed_floor_mps"})}},
+                 Json::array(
+                     {"$.stroke.actuation.mode",
+                      "$.stroke.actuation.peak_drive_power_w",
+                      "$.stroke.actuation.power_mode_speed_floor_mps"})}},
        })},
   };
 }
 
-project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps,
+project::MechanicalStateSnapshot make_state(double time_s,
+                                            double boat_speed_mps,
                                             double port_slip_speed_mps,
                                             double starboard_slip_speed_mps) {
   return {
@@ -139,7 +137,9 @@ project::MechanicalStateSnapshot make_state(double time_s, double boat_speed_mps
           {
               .handle_angle_rad = 0.1,
               .oarlock_position_body_m = {.x = 0.25, .y = -0.82, .z = 0.18},
-              .blade_tip_position_world_m = {.x = time_s, .y = -0.82, .z = 0.18},
+              .blade_tip_position_world_m = {.x = time_s,
+                                             .y = -0.82,
+                                             .z = 0.18},
               .blade_tip_velocity_world_mps = {.x = -port_slip_speed_mps,
                                                .y = 0.0,
                                                .z = 0.0},
@@ -181,17 +181,15 @@ project::SimulationRunResult make_variant_result(std::string_view variant_id,
   result.metadata.providers.blade_force = project::ProviderMetadata{
       .id = "stroke_propulsion_placeholder",
       .validity_id = "baseline-blade-force-v1",
-      .validity_description = "Supported immersion-aware reduced blade-force baseline.",
+      .validity_description =
+          "Supported immersion-aware reduced blade-force baseline.",
   };
-  result.state_history.push_back(
-      make_state(0.0, 1.0 + boat_speed_bias_mps, 0.60 * slip_scale,
-                 0.45 * slip_scale));
-  result.state_history.push_back(
-      make_state(0.6, 1.1 + boat_speed_bias_mps, 0.70 * slip_scale,
-                 0.50 * slip_scale));
-  result.state_history.push_back(
-      make_state(1.2, 1.2 + boat_speed_bias_mps, 0.40 * slip_scale,
-                 0.30 * slip_scale));
+  result.state_history.push_back(make_state(
+      0.0, 1.0 + boat_speed_bias_mps, 0.60 * slip_scale, 0.45 * slip_scale));
+  result.state_history.push_back(make_state(
+      0.6, 1.1 + boat_speed_bias_mps, 0.70 * slip_scale, 0.50 * slip_scale));
+  result.state_history.push_back(make_state(
+      1.2, 1.2 + boat_speed_bias_mps, 0.40 * slip_scale, 0.30 * slip_scale));
 
   result.load_history.push_back(project::LoadSample{
       .time_s = 0.0,
@@ -230,9 +228,9 @@ project::SimulationRunResult make_variant_result(std::string_view variant_id,
  * declared comparison window and varied-parameter metadata.
  */
 TEST(TechniqueComparisonScenario, LoadsSharedBaselineVariantsAndWindow) {
-  const auto path = write_temp_file("airow-ut-technique-comparison.json",
-                                    make_valid_technique_comparison_scenario()
-                                        .dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison.json",
+                      make_valid_technique_comparison_scenario().dump(2));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -264,8 +262,8 @@ TEST(TechniqueComparisonScenario, LoadsSharedBaselineVariantsAndWindow) {
 TEST(TechniqueComparisonScenario, RejectsScenarioWithFewerThanTwoVariants) {
   auto root = make_valid_technique_comparison_scenario();
   root["variants"] = Json::array({root["variants"].at(0)});
-  const auto path = write_temp_file("airow-ut-technique-comparison-short.json",
-                                    root.dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-short.json", root.dump(2));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -286,9 +284,9 @@ TEST(TechniqueComparisonScenario, RejectsScenarioWithFewerThanTwoVariants) {
  * compared variant.
  */
 TEST(TechniqueComparisonScenario, EvaluatesDeterministicActuationModeDeltas) {
-  const auto path = write_temp_file("airow-ut-technique-comparison-eval.json",
-                                    make_valid_technique_comparison_scenario()
-                                        .dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-eval.json",
+                      make_valid_technique_comparison_scenario().dump(2));
   const auto loaded = project::load_scenario_definition_file(path);
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
@@ -296,8 +294,7 @@ TEST(TechniqueComparisonScenario, EvaluatesDeterministicActuationModeDeltas) {
   std::vector<project::ScenarioComparisonRunResult> results;
   results.push_back(project::ScenarioComparisonRunResult{
       .variant_id = "prescribed_kinematic",
-      .run_result =
-          make_variant_result("prescribed_kinematic", 0.0, 1.0, 1.0),
+      .run_result = make_variant_result("prescribed_kinematic", 0.0, 1.0, 1.0),
   });
   results.push_back(project::ScenarioComparisonRunResult{
       .variant_id = "force_driven",
@@ -308,8 +305,8 @@ TEST(TechniqueComparisonScenario, EvaluatesDeterministicActuationModeDeltas) {
       .run_result = make_variant_result("power_driven", 0.22, 1.08, 0.82),
   });
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, results);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, results);
 
   ASSERT_TRUE(evaluation.ok());
   ASSERT_EQ(evaluation.deltas.size(), 2U);
@@ -318,13 +315,10 @@ TEST(TechniqueComparisonScenario, EvaluatesDeterministicActuationModeDeltas) {
   EXPECT_EQ(evaluation.deltas.at(0).compared_variant_id, "force_driven");
   EXPECT_EQ(evaluation.deltas.at(1).compared_variant_id, "power_driven");
   EXPECT_TRUE(evaluation.deltas.at(0).mean_speed_mps.supported);
-  EXPECT_TRUE(
-      evaluation.deltas.at(0).effective_propulsive_work_j.supported);
+  EXPECT_TRUE(evaluation.deltas.at(0).effective_propulsive_work_j.supported);
   EXPECT_TRUE(evaluation.deltas.at(0).slip_loss_work_j.supported);
-  EXPECT_TRUE(
-      evaluation.deltas.at(0).propulsion_efficiency.supported);
-  EXPECT_TRUE(
-      evaluation.deltas.at(0).peak_port_blade_slip_speed_mps.supported);
+  EXPECT_TRUE(evaluation.deltas.at(0).propulsion_efficiency.supported);
+  EXPECT_TRUE(evaluation.deltas.at(0).peak_port_blade_slip_speed_mps.supported);
   EXPECT_TRUE(
       evaluation.deltas.at(0).peak_starboard_blade_slip_speed_mps.supported);
   EXPECT_GT(std::abs(evaluation.deltas.at(0).mean_speed_mps.delta), 1.0e-9);
@@ -346,8 +340,8 @@ TEST(TechniqueComparisonScenario, EvaluatesDeterministicActuationModeDeltas) {
 TEST(TechniqueComparisonScenario, RejectsInvalidComparisonWindowOrdering) {
   auto root = make_valid_technique_comparison_scenario();
   root["comparison_window"]["end_time_s"] = 0.0;
-  const auto path = write_temp_file("airow-ut-technique-window-invalid.json",
-                                    root.dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-window-invalid.json", root.dump(2));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -368,8 +362,8 @@ TEST(TechniqueComparisonScenario, RejectsInvalidComparisonWindowOrdering) {
 TEST(TechniqueComparisonScenario, RejectsDuplicateVariantIdentifiers) {
   auto root = make_valid_technique_comparison_scenario();
   root["variants"][1]["variant_id"] = "prescribed_kinematic";
-  const auto path = write_temp_file("airow-ut-technique-duplicate-id.json",
-                                    root.dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-duplicate-id.json", root.dump(2));
 
   const auto loaded = project::load_scenario_definition_file(path);
 
@@ -390,14 +384,15 @@ TEST(TechniqueComparisonScenario, RejectsDuplicateVariantIdentifiers) {
  */
 TEST(TechniqueComparisonScenario,
      ReportsUnsupportedPropulsionDeltaWhenVariantCannotSupportIt) {
-  const auto path = write_temp_file("airow-ut-technique-comparison-unsupported.json",
-                                    make_valid_technique_comparison_scenario()
-                                        .dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-unsupported.json",
+                      make_valid_technique_comparison_scenario().dump(2));
   const auto loaded = project::load_scenario_definition_file(path);
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
 
-  auto unsupported_result = make_variant_result("force_driven", 0.15, 1.12, 0.90);
+  auto unsupported_result =
+      make_variant_result("force_driven", 0.15, 1.12, 0.90);
   unsupported_result.metadata.providers.blade_force = project::ProviderMetadata{
       .id = "none",
       .validity_id = "not_applicable",
@@ -420,8 +415,8 @@ TEST(TechniqueComparisonScenario,
       },
   };
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, results);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, results);
 
   ASSERT_TRUE(evaluation.ok());
   ASSERT_EQ(evaluation.deltas.size(), 2U);
@@ -441,7 +436,8 @@ TEST(TechniqueComparisonScenario,
  * called, then it rejects the request deterministically at the scenario type
  * boundary.
  */
-TEST(TechniqueComparisonScenario, RejectsNonComparisonScenarioAtEvaluationTime) {
+TEST(TechniqueComparisonScenario,
+     RejectsNonComparisonScenarioAtEvaluationTime) {
   project::ScenarioDefinition scenario;
   scenario.type = project::ScenarioType::calm_water_stroke;
 
@@ -461,9 +457,9 @@ TEST(TechniqueComparisonScenario, RejectsNonComparisonScenarioAtEvaluationTime) 
  * baseline variant deterministically.
  */
 TEST(TechniqueComparisonScenario, RejectsMissingBaselineRunResult) {
-  const auto path = write_temp_file("airow-ut-technique-comparison-missing-baseline.json",
-                                    make_valid_technique_comparison_scenario()
-                                        .dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-missing-baseline.json",
+                      make_valid_technique_comparison_scenario().dump(2));
   const auto loaded = project::load_scenario_definition_file(path);
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
@@ -479,8 +475,8 @@ TEST(TechniqueComparisonScenario, RejectsMissingBaselineRunResult) {
       },
   };
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, results);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, results);
 
   ASSERT_FALSE(evaluation.ok());
   ASSERT_EQ(evaluation.issues.size(), 1U);
@@ -498,9 +494,9 @@ TEST(TechniqueComparisonScenario, RejectsMissingBaselineRunResult) {
  * deterministically.
  */
 TEST(TechniqueComparisonScenario, RejectsFailedComparedVariantRun) {
-  const auto path = write_temp_file("airow-ut-technique-comparison-failed-run.json",
-                                    make_valid_technique_comparison_scenario()
-                                        .dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-failed-run.json",
+                      make_valid_technique_comparison_scenario().dump(2));
   const auto loaded = project::load_scenario_definition_file(path);
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
@@ -524,8 +520,8 @@ TEST(TechniqueComparisonScenario, RejectsFailedComparedVariantRun) {
       },
   };
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, results);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, results);
 
   ASSERT_FALSE(evaluation.ok());
   ASSERT_EQ(evaluation.issues.size(), 1U);
@@ -544,9 +540,9 @@ TEST(TechniqueComparisonScenario, RejectsFailedComparedVariantRun) {
  */
 TEST(TechniqueComparisonScenario,
      ReportsCombinedUnsupportedReasonWhenBothVariantsLackPropulsionMetrics) {
-  const auto path = write_temp_file("airow-ut-technique-comparison-both-unsupported.json",
-                                    make_valid_technique_comparison_scenario()
-                                        .dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-both-unsupported.json",
+                      make_valid_technique_comparison_scenario().dump(2));
   const auto loaded = project::load_scenario_definition_file(path);
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
@@ -580,8 +576,8 @@ TEST(TechniqueComparisonScenario,
       },
   };
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, results);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, results);
 
   ASSERT_TRUE(evaluation.ok());
   ASSERT_EQ(evaluation.deltas.size(), 2U);
@@ -626,9 +622,9 @@ TEST(TechniqueComparisonScenario, RejectsEvaluationWithFewerThanTwoVariants) {
  * state requirement at the comparison window surface.
  */
 TEST(TechniqueComparisonScenario, RejectsComparedVariantWithoutWindowState) {
-  const auto path = write_temp_file("airow-ut-technique-comparison-missing-state.json",
-                                    make_valid_technique_comparison_scenario()
-                                        .dump(2));
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-missing-state.json",
+                      make_valid_technique_comparison_scenario().dump(2));
   const auto loaded = project::load_scenario_definition_file(path);
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.scenario.has_value());
@@ -652,8 +648,8 @@ TEST(TechniqueComparisonScenario, RejectsComparedVariantWithoutWindowState) {
       },
   };
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, results);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, results);
 
   ASSERT_FALSE(evaluation.ok());
   ASSERT_EQ(evaluation.issues.size(), 1U);

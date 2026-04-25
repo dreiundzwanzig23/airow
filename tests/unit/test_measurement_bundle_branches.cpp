@@ -656,7 +656,8 @@ TEST(MeasurementBundleBranches, RejectsInvalidVectorShape) {
  * `measurement_bundle.v1`, when the parser reads each payload, then it
  * reports the expected deterministic diagnostic path for each case.
  */
-TEST(MeasurementBundleBranches, RejectsAdditionalInvalidShapesDeterministically) {
+TEST(MeasurementBundleBranches,
+     RejectsAdditionalInvalidShapesDeterministically) {
   for (const auto &test_case : kMeasurementBundleInvalidCases) {
     const auto loaded =
         project::parse_measurement_bundle_text(test_case.json_text);

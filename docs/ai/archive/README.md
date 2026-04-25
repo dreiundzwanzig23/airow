@@ -13,6 +13,8 @@ active handoff files.
 ## Naming
 - Decisions archive: `DECISIONS_pre_YYYY-MM-DD.md`
 - Decisions archive index: `DECISIONS_INDEX.md`
+- AI roadmap snapshot: `ROADMAP_<reason>_YYYY-MM-DD.md`
+- AI handoff snapshot: `HANDOFF_<reason>_YYYY-MM-DD.md`
 
 ## Automation
 - `./scripts/depcheck.sh` runs `python3 tools/archive_ai_decisions.py`.

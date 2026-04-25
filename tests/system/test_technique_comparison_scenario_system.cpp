@@ -60,16 +60,17 @@ TEST(TechniqueComparisonScenarioSystem,
   ASSERT_EQ(loaded.scenario->variants.size(), 3U);
 
   std::vector<project::ScenarioComparisonRunResult> runs;
-  for (std::size_t index = 0; index < loaded.scenario->variants.size(); ++index) {
+  for (std::size_t index = 0; index < loaded.scenario->variants.size();
+       ++index) {
     auto config = loaded.scenario->variants.at(index).config;
     config.output.emit_json = false;
     config.output.emit_hdf5 = false;
 
-    FixedClock clock(
-        {std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} + 16h +
-             std::chrono::minutes(static_cast<int>(index)),
-         std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} + 16h +
-             std::chrono::minutes(static_cast<int>(index)) + 1s});
+    FixedClock clock({std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} +
+                          16h + std::chrono::minutes(static_cast<int>(index)),
+                      std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} +
+                          16h + std::chrono::minutes(static_cast<int>(index)) +
+                          1s});
     auto run_result = project::run_simulation(
         config, project::SimulationDependencies{.clock = &clock});
     ASSERT_TRUE(run_result.ok());
@@ -79,8 +80,8 @@ TEST(TechniqueComparisonScenarioSystem,
     });
   }
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, runs);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, runs);
 
   ASSERT_TRUE(evaluation.ok());
   ASSERT_EQ(evaluation.deltas.size(), 2U);

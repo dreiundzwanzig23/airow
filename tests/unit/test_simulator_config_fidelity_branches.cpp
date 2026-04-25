@@ -12,8 +12,8 @@ namespace {
 
 using Json = nlohmann::json;
 
-std::string make_valid_config_json(
-    std::string_view config_id = "fidelity-branch-packet") {
+std::string
+make_valid_config_json(std::string_view config_id = "fidelity-branch-packet") {
   return std::string(R"({
     "config_id": ")") +
          std::string(config_id) + R"(",
@@ -97,7 +97,8 @@ TEST(SimulatorConfigFidelityBranches,
  * @notes Given a non-numeric actuation command magnitude, when config parsing
  * runs, then it rejects the offending field type deterministically.
  */
-TEST(SimulatorConfigFidelityBranches, RejectsNonNumericActuationMagnitudeField) {
+TEST(SimulatorConfigFidelityBranches,
+     RejectsNonNumericActuationMagnitudeField) {
   auto root = parse_valid_config_json();
   root["stroke"]["actuation"] = Json{
       {"mode", "force_driven"},
@@ -134,13 +135,13 @@ TEST(SimulatorConfigFidelityBranches,
   ASSERT_TRUE(result.ok());
   ASSERT_TRUE(result.config.has_value());
   EXPECT_FALSE(result.config->stroke.rower_coupling.enabled);
-  EXPECT_DOUBLE_EQ(result.config->stroke.rower_coupling.seat_position_to_com_scale,
-                   0.25);
-  EXPECT_NE(
-      std::find(result.normalized_config.begin(), result.normalized_config.end(),
-                project::NormalizedConfigEntry{
-                    "$.stroke.rower_coupling.enabled", "false", "bool"}),
-      result.normalized_config.end());
+  EXPECT_DOUBLE_EQ(
+      result.config->stroke.rower_coupling.seat_position_to_com_scale, 0.25);
+  EXPECT_NE(std::find(result.normalized_config.begin(),
+                      result.normalized_config.end(),
+                      project::NormalizedConfigEntry{
+                          "$.stroke.rower_coupling.enabled", "false", "bool"}),
+            result.normalized_config.end());
 }
 
 /**
@@ -149,7 +150,8 @@ TEST(SimulatorConfigFidelityBranches,
  * @notes Given a non-boolean rower-coupling enable flag, when config parsing
  * runs, then it rejects the field type deterministically.
  */
-TEST(SimulatorConfigFidelityBranches, RejectsNonBooleanRowerCouplingEnabledFlag) {
+TEST(SimulatorConfigFidelityBranches,
+     RejectsNonBooleanRowerCouplingEnabledFlag) {
   auto root = parse_valid_config_json();
   root["stroke"]["rower_coupling"] = Json{{"enabled", "yes"}};
 
@@ -158,8 +160,7 @@ TEST(SimulatorConfigFidelityBranches, RejectsNonBooleanRowerCouplingEnabledFlag)
   ASSERT_FALSE(result.ok());
   ASSERT_FALSE(result.diagnostics.empty());
   EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
-  EXPECT_EQ(result.diagnostics.front().path,
-            "$.stroke.rower_coupling.enabled");
+  EXPECT_EQ(result.diagnostics.front().path, "$.stroke.rower_coupling.enabled");
 }
 
 /**
@@ -168,7 +169,8 @@ TEST(SimulatorConfigFidelityBranches, RejectsNonBooleanRowerCouplingEnabledFlag)
  * @notes Given a rower-coupling COM vector with the wrong shape, when config
  * parsing runs, then it rejects the vector contract deterministically.
  */
-TEST(SimulatorConfigFidelityBranches, RejectsInvalidRowerCouplingBodyCenterVector) {
+TEST(SimulatorConfigFidelityBranches,
+     RejectsInvalidRowerCouplingBodyCenterVector) {
   auto root = parse_valid_config_json();
   root["stroke"]["rower_coupling"] = Json{
       {"enabled", false},

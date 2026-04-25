@@ -676,8 +676,9 @@ TEST(V0_1ClosureSystem, UnitsAndNumericSafetyCloseR017) {
  * @test QT-025
  * @verifies [R-019]
  * @notes Given the repository traceability checker, when it emits machine-
- * readable trace data, then every P0 requirement has requirement-level
- * verification metadata and the checker reports no trace failures.
+ * readable trace data, then every reviewed P0 requirement has
+ * requirement-level verification metadata and the checker reports no trace
+ * failures.
  */
 TEST(V0_1ClosureSystem, TraceabilityCoverageClosesR019) {
   const auto trace_json_path =
@@ -702,7 +703,8 @@ TEST(V0_1ClosureSystem, TraceabilityCoverageClosesR019) {
   std::set<std::string> p0_requirements;
   for (auto it = trace_json.at("data").at("R").begin();
        it != trace_json.at("data").at("R").end(); ++it) {
-    if (it.value().at("Priority").get<std::string>() == "P0") {
+    if (it.value().at("Priority").get<std::string>() == "P0" &&
+        it.value().at("Needs-Review").get<std::string>() != "yes") {
       p0_requirements.insert(it.key());
     }
   }

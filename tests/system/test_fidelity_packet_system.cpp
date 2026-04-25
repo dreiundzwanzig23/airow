@@ -240,11 +240,10 @@ Json make_base_config(std::string_view config_id) {
                  {"outboard_length_m", 1.98},
                  {"oarlock_position_m", Json::array({0.25, 0.82, 0.18})}}},
        }},
-      {"seat",
-       Json{{"rail_axis", Json::array({1.0, 0.0, 0.0})},
-            {"min_position_m", -0.4},
-            {"max_position_m", 0.4},
-            {"initial_position_m", 0.35}}},
+      {"seat", Json{{"rail_axis", Json::array({1.0, 0.0, 0.0})},
+                    {"min_position_m", -0.4},
+                    {"max_position_m", 0.4},
+                    {"initial_position_m", 0.35}}},
       {"stroke",
        Json{{"cycle_duration_s", 1.2},
             {"drive_duration_s", 0.48},
@@ -255,10 +254,9 @@ Json make_base_config(std::string_view config_id) {
                   {"rower_mass_kg", 82.0},
                   {"body_center_of_mass_m", Json::array({0.05, 0.0, 0.32})},
                   {"seat_position_to_com_scale", 0.78}}}}},
-      {"providers",
-       Json{{"hull_resistance", "quadratic_drag_placeholder"},
-            {"blade_force", "stroke_propulsion_placeholder"},
-            {"aero_load", "none"}}},
+      {"providers", Json{{"hull_resistance", "quadratic_drag_placeholder"},
+                         {"blade_force", "stroke_propulsion_placeholder"},
+                         {"aero_load", "none"}}},
   };
 }
 
@@ -273,31 +271,27 @@ std::string make_measurement_bundle_json(const MeasurementBundleSpec &spec) {
        Json{{"world_frame", "x_forward_y_starboard_z_up"},
             {"body_frame", "x_forward_y_starboard_z_up"},
             {"orientation", "world_from_body_quaternion_xyzw"}}},
-      {"reference_contract",
-       Json{{"boat_id", spec.boat_id},
-            {"rigging_id", spec.rigging_id},
-            {"athlete_id", spec.athlete_id}}},
+      {"reference_contract", Json{{"boat_id", spec.boat_id},
+                                  {"rigging_id", spec.rigging_id},
+                                  {"athlete_id", spec.athlete_id}}},
       {"boat",
        Json{{"mass_kg", spec.hull_mass_kg},
-            {"center_of_mass_m",
-             Json::array({spec.hull_center_of_mass_x_m, 0.0,
-                          spec.hull_center_of_mass_z_m})},
+            {"center_of_mass_m", Json::array({spec.hull_center_of_mass_x_m, 0.0,
+                                              spec.hull_center_of_mass_z_m})},
             {"inertia_kg_m2",
              Json::array({spec.hull_inertia_x_kg_m2, spec.hull_inertia_y_kg_m2,
                           spec.hull_inertia_z_kg_m2})}}},
       {"rigging",
-       Json{{"port",
-             Json{{"inboard_length_m", spec.inboard_length_m},
-                  {"outboard_length_m", spec.outboard_length_m},
-                  {"oarlock_position_m",
-                   Json::array({spec.oarlock_x_m, -spec.oarlock_y_m,
-                                spec.oarlock_z_m})}}},
-            {"starboard",
-             Json{{"inboard_length_m", spec.inboard_length_m},
-                  {"outboard_length_m", spec.outboard_length_m},
-                  {"oarlock_position_m",
-                   Json::array({spec.oarlock_x_m, spec.oarlock_y_m,
-                                spec.oarlock_z_m})}}}}},
+       Json{{"port", Json{{"inboard_length_m", spec.inboard_length_m},
+                          {"outboard_length_m", spec.outboard_length_m},
+                          {"oarlock_position_m",
+                           Json::array({spec.oarlock_x_m, -spec.oarlock_y_m,
+                                        spec.oarlock_z_m})}}},
+            {"starboard", Json{{"inboard_length_m", spec.inboard_length_m},
+                               {"outboard_length_m", spec.outboard_length_m},
+                               {"oarlock_position_m",
+                                Json::array({spec.oarlock_x_m, spec.oarlock_y_m,
+                                             spec.oarlock_z_m})}}}}},
       {"athlete",
        Json{{"rower_mass_kg", spec.rower_mass_kg},
             {"body_center_of_mass_m",
@@ -324,9 +318,9 @@ std::string make_config_json(const VariantSpec &variant,
       {"measured_trial", Json{{"path", paths.trial.string()}}},
   };
   root["output"] = Json{{"summary_path", paths.summary.string()},
-                         {"time_series_path", paths.time_series.string()},
-                         {"formats", Json::array({"json"})},
-                         {"high_frequency_time_series", true}};
+                        {"time_series_path", paths.time_series.string()},
+                        {"formats", Json::array({"json"})},
+                        {"high_frequency_time_series", true}};
   return root.dump(2);
 }
 
@@ -381,15 +375,15 @@ VariantResult run_measurement_sensitivity_variant(
   auto root = make_base_config(case_id);
   root["simulation"] = Json{{"duration_s", 0.72}, {"time_step_s", 0.12}};
   root["stroke"]["actuation"] = Json{{"mode", "power_driven"},
-                                      {"peak_drive_power_w", 650.0},
-                                      {"power_mode_speed_floor_mps", 0.35}};
+                                     {"peak_drive_power_w", 650.0},
+                                     {"power_mode_speed_floor_mps", 0.35}};
   root["artifacts"] = Json{
       {"measurement_bundle", Json{{"path", paths.measurement.string()}}},
   };
   root["output"] = Json{{"summary_path", paths.summary.string()},
-                         {"time_series_path", paths.time_series.string()},
-                         {"formats", Json::array({"json"})},
-                         {"high_frequency_time_series", true}};
+                        {"time_series_path", paths.time_series.string()},
+                        {"formats", Json::array({"json"})},
+                        {"high_frequency_time_series", true}};
   write_file(config_path, root.dump(2));
 
   const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
@@ -465,19 +459,20 @@ TEST(FidelityPacketSystem, CliComparesPrescribedForceAndPowerDrivenRuns) {
   const auto prescribed =
       run_variant({"qt-prescribed", "prescribed_kinematic", "", 0.0},
                   measurement_path, trial_path);
-  const auto force = run_variant({"qt-force", "force_driven",
-                                  "peak_drive_force_n", 420.0},
-                                 measurement_path, trial_path);
-  const auto power = run_variant({"qt-power", "power_driven",
-                                  "peak_drive_power_w", 650.0},
-                                 measurement_path, trial_path);
+  const auto force =
+      run_variant({"qt-force", "force_driven", "peak_drive_force_n", 420.0},
+                  measurement_path, trial_path);
+  const auto power =
+      run_variant({"qt-power", "power_driven", "peak_drive_power_w", 650.0},
+                  measurement_path, trial_path);
 
   EXPECT_EQ(prescribed.summary.at("metadata").at("boat_id").get<std::string>(),
             "boat-alpha");
   EXPECT_EQ(force.summary.at("metadata").at("trial_id").get<std::string>(),
             "trial-alpha");
-  EXPECT_EQ(power.summary.at("metadata").at("actuation_mode").get<std::string>(),
-            "power_driven");
+  EXPECT_EQ(
+      power.summary.at("metadata").at("actuation_mode").get<std::string>(),
+      "power_driven");
   EXPECT_TRUE(
       force.summary.at("metadata").at("rower_coupling_enabled").get<bool>());
 
@@ -512,12 +507,10 @@ TEST(FidelityPacketSystem,
   write_file(sensitivity_measurement_path,
              make_measurement_bundle_json(kSensitivityMeasurementBundleSpec));
 
-  const auto baseline =
-      run_measurement_sensitivity_variant("qt-r38-baseline",
-                                         baseline_measurement_path);
-  const auto sensitivity =
-      run_measurement_sensitivity_variant("qt-r38-sensitivity",
-                                         sensitivity_measurement_path);
+  const auto baseline = run_measurement_sensitivity_variant(
+      "qt-r38-baseline", baseline_measurement_path);
+  const auto sensitivity = run_measurement_sensitivity_variant(
+      "qt-r38-sensitivity", sensitivity_measurement_path);
 
   expect_measurement_bundle_metadata(baseline.summary, "boat-alpha",
                                      "rig-alpha", "athlete-alpha");

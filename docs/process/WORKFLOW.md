@@ -14,8 +14,9 @@ changes.
   libraries, solver direction, output formats, or external integrations.
 - For token-efficient agent work, prefer compact repo orientation
   (`./scripts/project_stats.py --format agent`), locate-then-slice retrieval,
-  and default exclusion of archive/generated/log paths unless the task
-  explicitly needs history, generated trace output, or raw logs.
+  and default exclusion of `docs/archive/**`, `docs/ai/archive/**`,
+  generated trace output, build outputs, and logs unless the task explicitly
+  needs historical context, generated trace output, or raw logs.
 
 ## Required Sequence
 1. Select actionable requirement work in this order:

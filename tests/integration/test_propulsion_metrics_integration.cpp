@@ -74,10 +74,9 @@ Json make_runtime_hull_json() {
 
 Json make_runtime_oars_json() {
   return Json{
-      {"port",
-       Json{{"inboard_length_m", 0.88},
-            {"outboard_length_m", 1.98},
-            {"oarlock_position_m", Json::array({0.25, -0.82, 0.18})}}},
+      {"port", Json{{"inboard_length_m", 0.88},
+                    {"outboard_length_m", 1.98},
+                    {"oarlock_position_m", Json::array({0.25, -0.82, 0.18})}}},
       {"starboard",
        Json{{"inboard_length_m", 0.88},
             {"outboard_length_m", 1.98},
@@ -102,7 +101,8 @@ Json make_runtime_stroke_json(std::string_view actuation_mode) {
               {"actuation", Json{{"mode", actuation_mode}}}};
 }
 
-void apply_actuation_mode_overrides(Json &root, std::string_view actuation_mode) {
+void apply_actuation_mode_overrides(Json &root,
+                                    std::string_view actuation_mode) {
   auto &actuation = root["stroke"]["actuation"];
   if (actuation_mode == "force_driven") {
     actuation["peak_drive_force_n"] = 420.0;
@@ -124,15 +124,13 @@ Json make_runtime_config(std::string_view config_id,
       {"oars", make_runtime_oars_json()},
       {"seat", make_runtime_seat_json()},
       {"stroke", make_runtime_stroke_json(actuation_mode)},
-      {"providers",
-       Json{{"hull_resistance", "quadratic_drag_placeholder"},
-            {"blade_force", blade_force_provider},
-            {"aero_load", "none"}}},
-      {"output",
-       Json{{"summary_path", paths.summary_path},
-            {"time_series_path", paths.time_series_path},
-            {"formats", Json::array({"json"})},
-            {"high_frequency_time_series", true}}},
+      {"providers", Json{{"hull_resistance", "quadratic_drag_placeholder"},
+                         {"blade_force", blade_force_provider},
+                         {"aero_load", "none"}}},
+      {"output", Json{{"summary_path", paths.summary_path},
+                      {"time_series_path", paths.time_series_path},
+                      {"formats", Json::array({"json"})},
+                      {"high_frequency_time_series", true}}},
   };
   apply_actuation_mode_overrides(root, actuation_mode);
   return root;
@@ -154,14 +152,12 @@ void expect_supported_propulsion_mode(const std::filesystem::path &temp,
       temp / ("airow-it-propulsion-" + std::string(mode) + ".json");
   remove_files({summary_path, time_series_path, config_path});
 
-  write_runtime_config_file(config_path,
-                            make_runtime_config("it-propulsion-" +
-                                                    std::string(mode),
-                                                RuntimeJsonPaths{
-                                                    summary_path.string(),
-                                                    time_series_path.string()},
-                                                "stroke_propulsion_placeholder",
-                                                mode));
+  write_runtime_config_file(
+      config_path,
+      make_runtime_config(
+          "it-propulsion-" + std::string(mode),
+          RuntimeJsonPaths{summary_path.string(), time_series_path.string()},
+          "stroke_propulsion_placeholder", mode));
 
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} + 13h,
@@ -185,19 +181,19 @@ void expect_supported_propulsion_mode(const std::filesystem::path &temp,
 }
 
 void expect_unsupported_propulsion_path(const std::filesystem::path &temp) {
-  const auto summary_path = temp / "airow-it-propulsion-unsupported-summary.json";
+  const auto summary_path =
+      temp / "airow-it-propulsion-unsupported-summary.json";
   const auto time_series_path =
       temp / "airow-it-propulsion-unsupported-timeseries.json";
   const auto config_path = temp / "airow-it-propulsion-unsupported.json";
   remove_files({summary_path, time_series_path, config_path});
 
-  write_runtime_config_file(config_path,
-                            make_runtime_config("it-propulsion-unsupported",
-                                                RuntimeJsonPaths{
-                                                    summary_path.string(),
-                                                    time_series_path.string()},
-                                                "none",
-                                                "prescribed_kinematic"));
+  write_runtime_config_file(
+      config_path,
+      make_runtime_config(
+          "it-propulsion-unsupported",
+          RuntimeJsonPaths{summary_path.string(), time_series_path.string()},
+          "none", "prescribed_kinematic"));
 
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} + 14h,
@@ -263,16 +259,17 @@ TEST(PropulsionMetricsIntegration,
   ASSERT_EQ(loaded.scenario->variants.size(), 3U);
 
   std::vector<project::ScenarioComparisonRunResult> runs;
-  for (std::size_t index = 0; index < loaded.scenario->variants.size(); ++index) {
+  for (std::size_t index = 0; index < loaded.scenario->variants.size();
+       ++index) {
     auto config = loaded.scenario->variants.at(index).config;
     config.output.emit_json = false;
     config.output.emit_hdf5 = false;
 
-    FixedClock clock(
-        {std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} + 15h +
-             std::chrono::minutes(static_cast<int>(index)),
-         std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} + 15h +
-             std::chrono::minutes(static_cast<int>(index)) + 1s});
+    FixedClock clock({std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} +
+                          15h + std::chrono::minutes(static_cast<int>(index)),
+                      std::chrono::sys_days{std::chrono::year{2026} / 4 / 23} +
+                          15h + std::chrono::minutes(static_cast<int>(index)) +
+                          1s});
     auto run_result = project::run_simulation(
         config, project::SimulationDependencies{.clock = &clock});
     ASSERT_TRUE(run_result.ok());
@@ -282,8 +279,8 @@ TEST(PropulsionMetricsIntegration,
     });
   }
 
-  const auto evaluation = project::evaluate_scenario_comparison_results(
-      *loaded.scenario, runs);
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, runs);
 
   ASSERT_TRUE(evaluation.ok());
   ASSERT_EQ(evaluation.deltas.size(), 2U);
@@ -294,6 +291,5 @@ TEST(PropulsionMetricsIntegration,
   EXPECT_TRUE(evaluation.deltas.at(0).effective_propulsive_work_j.supported);
   EXPECT_TRUE(evaluation.deltas.at(0).slip_loss_work_j.supported);
   EXPECT_TRUE(evaluation.deltas.at(0).propulsion_efficiency.supported);
-  EXPECT_TRUE(
-      std::abs(evaluation.deltas.at(0).mean_speed_mps.delta) > 1.0e-9);
+  EXPECT_TRUE(std::abs(evaluation.deltas.at(0).mean_speed_mps.delta) > 1.0e-9);
 }
