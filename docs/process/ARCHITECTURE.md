@@ -270,8 +270,10 @@ Allocation guardrails:
   performance outputs. The `R-071` provider-capability metadata slice extends
   the existing provider catalog through `D-059` with additive descriptive
   support, fidelity, validation, and plain-language capability declarations for
-  built-in provider ids; it does not introduce a new architecture owner or
-  change provider selection behavior.
+  built-in provider ids; the Phase 1 trust-envelope slice reuses that catalog
+  truth through `D-061` to derive run-level fidelity, validity, confidence,
+  limitation, and warning metadata without introducing a new architecture owner
+  or changing provider selection behavior.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -464,12 +466,15 @@ Allocation guardrails:
   studies. The `R-071` provider-capability metadata slice extends the same
   output contract through `D-060` by propagating catalog-backed provider
   capability declarations into JSON summaries and HDF5 provider metadata
-  groups as additive metadata only; report prose and the public capability
-  matrix remain follow-up Phase 1 slices.
+  groups as additive metadata only. The Phase 1 trust-envelope output slice
+  extends the same metadata contract through `D-061` and `D-062`: JSON and
+  HDF5 summaries expose the derived trust envelope, and compact or full
+  reports render the same trust tier, validity, provider capability summaries,
+  limitations, and warnings in a human-readable section.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
-- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049]
+- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
 - **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines; technique-comparison suites; hull or rigging sensitivity suites; measured-trial comparison suites.
@@ -503,7 +508,11 @@ Allocation guardrails:
   comparison window plus varied-parameter paths, and reports deterministic
   baseline-versus-variant delta metrics without moving metric computation or
   serialization ownership out of `A-007`; broader acceleration- and
-  technique-study coverage remains open under `R-045`.
+  technique-study coverage remains open under `R-045`. The Phase 1
+  trust/capability slice keeps scenario-level evidence here through a
+  checked-in compact-report fixture and CLI-level `QT-048` coverage that
+  demonstrates reduced-provider explanation text without changing scenario
+  pass/fail policy.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

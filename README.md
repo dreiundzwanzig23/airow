@@ -276,10 +276,14 @@ Current implemented library surface:
   validity identifiers and descriptions, plus additive capability metadata for
   support status, fidelity level, validation status, and plain-language
   capability summaries
+- run-level `metadata.trust_envelope` in JSON summaries and matching HDF5
+  metadata for fidelity tier, validity status, confidence status, supported
+  study questions, limitations, and warnings
 - structured external-artifact provenance metadata in JSON and HDF5 outputs
   when a run uses an imported calibration artifact
 - optional `--report compact|full` CLI output for human-readable run-state and
-  load-envelope inspection
+  load-envelope inspection, including a `Physics Capability and Trust` section
+  with active provider capability summaries
 - offline `python3 tools/run_analysis.py --summary <path> --time-series <path>
   --output-dir <dir>` report generation with static HTML and SVG plots from
   emitted JSON artifacts
@@ -290,6 +294,7 @@ Primary planning and process sources:
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ARCHITECTURE.md`
 - `docs/process/ROADMAP_FULL_SIMULATION.md`
+- `docs/process/CAPABILITY_MATRIX.md`
 - `docs/process/ARCHITECTURE_POLICY.md`
 - `docs/process/TECHNOLOGY_STACK.md`
 - `docs/ai/DECISIONS.md`
@@ -336,8 +341,8 @@ Current implementation status:
   shared run path,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
-  metadata propagation including the first `R-071` provider-capability
-  metadata slice, optional HDF5 parity behind the same output contract,
+  metadata propagation including the Phase 1 `R-071` provider-capability and
+  trust-envelope slices, optional HDF5 parity behind the same output contract,
   deterministic batch-summary artifact emission for ordered multi-case jobs,
   and closed `R-041` propulsion-metric reporting across summary, time-series,
   HDF5, and human-readable analysis outputs,

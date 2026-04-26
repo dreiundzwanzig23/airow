@@ -517,6 +517,72 @@ TEST(HeadlessOutputsSystem, CliEmitsProviderCapabilityMetadata) {
 }
 
 /**
+ * @test QT-048
+ * @verifies [R-035, R-049, R-071]
+ * @notes Given a CLI run using default reduced built-in providers and compact
+ * report output, when the run succeeds, then stdout carries the Physics
+ * Capability and Trust section and the summary JSON exposes the matching
+ * metadata.trust_envelope object.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsTrustEnvelopeInReportAndSummary) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust-summary.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto config_path = write_temp_file(
+      "airow-qt-trust-config.json",
+      make_provider_selection_config_json(
+          "qt-trust-envelope", summary_path.string(), time_series_path.string(),
+          R"({
+            "hull_resistance": "quadratic_drag_placeholder",
+            "blade_force": "stroke_propulsion_placeholder",
+            "aero_load": "steady_wind_placeholder"
+          })",
+          "[-2.0, 1.0, 0.0]", 1.0));
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) +
+                       " --report compact > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  EXPECT_TRUE(read_file(stderr_path).empty());
+  const auto stdout_text = read_file(stdout_path);
+  EXPECT_NE(stdout_text.find("Physics Capability and Trust"),
+            std::string::npos);
+  EXPECT_NE(stdout_text.find("fidelity_tier=validated_reduced_baseline"),
+            std::string::npos);
+  EXPECT_NE(stdout_text.find("hull_resistance id=quadratic_drag_placeholder"),
+            std::string::npos);
+
+  const Json summary = Json::parse(read_file(summary_path));
+  const auto &trust = summary.at("metadata").at("trust_envelope");
+  EXPECT_EQ(trust.at("fidelity_tier").get<std::string>(),
+            "validated_reduced_baseline");
+  EXPECT_EQ(trust.at("validity_status").get<std::string>(),
+            "inside_declared_envelope");
+  EXPECT_EQ(trust.at("confidence_status").get<std::string>(),
+            "scenario_backed");
+  ASSERT_EQ(trust.at("supported_study_questions").size(), 1U);
+  EXPECT_TRUE(trust.at("warnings").empty());
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
  * @test QT-041
  * @verifies [R-024]
  * @notes Given a default-runtime CLI config that requests the optional

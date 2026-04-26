@@ -1,0 +1,12 @@
+Physics Capability and Trust
+  fidelity_tier=validated_reduced_baseline validity_status=inside_declared_envelope confidence_status=scenario_backed
+  supported_study_questions:
+    - Default single-scull reduced-model smoke, tow, calm-water stroke, headwind, and crosswind studies.
+  limitations:
+    - Reduced runtime providers do not claim CFD, SPH, wave/current, crew, flexible-oar, or full biomechanics fidelity.
+    - Provider capability metadata describes declared runtime support, not broad physical validation.
+  provider_capabilities:
+    - hull_resistance id=quadratic_drag_placeholder support=active fidelity=reduced validation=scenario_backed summary=Reduced longitudinal hull drag is active for default tow and calm-water studies, but off-axis, wave, and calibrated resistance effects are not claimed.
+    - blade_force id=stroke_propulsion_placeholder support=active fidelity=reduced validation=scenario_backed summary=Reduced immersion-aware blade force is active for default single-scull stroke studies, but detailed blade-water flow and calibrated blade coefficients are not claimed.
+    - aero_load id=steady_wind_placeholder support=active fidelity=reduced validation=scenario_backed summary=Reduced steady apparent-wind aero load is active for default headwind and crosswind studies, but gust dynamics and calibrated coefficients are not claimed.
+  warnings: none

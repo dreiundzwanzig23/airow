@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 ### Changed
+- Extended the Phase 1 `R-035` / `R-049` / `R-071` trust/capability surface:
+  `RunMetadata` now carries a deterministic `trust_envelope`, JSON summaries
+  expose it under `metadata.trust_envelope`, HDF5 output carries matching trust
+  metadata, compact/full reports include a `Physics Capability and Trust`
+  section, and `docs/process/CAPABILITY_MATRIX.md` documents current,
+  implemented-but-unvalidated, planned, and explicitly unsupported physics
+  capabilities without changing simulation numerics or requirement statuses.
 - Started the `R-071` provider-capability metadata foundation: built-in
   provider catalog entries now declare support status, fidelity level,
   validation status, and a plain-language capability summary, and JSON/HDF5 run

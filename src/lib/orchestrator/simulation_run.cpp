@@ -20,6 +20,7 @@
 #include "project/output/run_result.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -116,6 +117,112 @@ selected_provider_metadata(const SimulatorConfig &config) {
       .aero_load = selected_provider_metadata(
           ProviderRole::aero_load, config.providers.aero_load, "aero-load"),
   };
+}
+
+/**
+ * @design D-061 — Run-level trust-envelope derivation
+ * @title Deterministic run metadata trust envelope derived from provider
+ * capability, validity, and imported artifact provenance metadata
+ * @satisfies [A-001, A-007]
+ */
+bool has_aero_calibration_artifact(
+    const std::vector<ExternalArtifactMetadata> &artifacts) {
+  return std::any_of(artifacts.begin(), artifacts.end(), [](const auto &item) {
+    return (static_cast<int>(item.kind == "calibration") &
+            static_cast<int>(item.usage == "aero_load") &
+            static_cast<int>(!item.schema_id.empty()) &
+            static_cast<int>(!item.content_hash.empty())) != 0;
+  });
+}
+
+TrustEnvelopeMetadata
+derive_trust_envelope(const ProviderSelectionMetadata &providers,
+                      const std::vector<ExternalArtifactMetadata> &artifacts) {
+  struct ProviderView {
+    std::string_view role;
+    const ProviderMetadata *metadata{};
+  };
+
+  const std::array provider_views{
+      ProviderView{.role = "hull_resistance",
+                   .metadata = &providers.hull_resistance},
+      ProviderView{.role = "blade_force", .metadata = &providers.blade_force},
+      ProviderView{.role = "aero_load", .metadata = &providers.aero_load},
+  };
+
+  TrustEnvelopeMetadata envelope;
+  envelope.limitations = {
+      "Reduced runtime providers do not claim CFD, SPH, wave/current, crew, "
+      "flexible-oar, or full biomechanics fidelity.",
+      "Provider capability metadata describes declared runtime support, not "
+      "broad physical validation."};
+
+  bool limited = false;
+  bool calibrated_reduced = false;
+  const bool has_calibrated_aero_artifact =
+      has_aero_calibration_artifact(artifacts);
+  for (const auto &view : provider_views) {
+    const auto &provider = *view.metadata;
+    const auto &capability = provider.capability;
+    if (capability.support_status == "disabled") {
+      limited = true;
+      envelope.warnings.push_back(std::string(view.role) + " provider '" +
+                                  provider.id + "' is disabled.");
+      continue;
+    }
+    const bool lacks_builtin_evidence =
+        (static_cast<int>(provider.validity_id == "external-selection") |
+         static_cast<int>(capability.fidelity_level == "none")) != 0;
+    if (lacks_builtin_evidence) {
+      limited = true;
+      envelope.warnings.push_back(
+          std::string(view.role) + " provider '" + provider.id +
+          "' does not have built-in capability evidence.");
+      continue;
+    }
+    if (capability.fidelity_level == "calibrated_reduced") {
+      calibrated_reduced = true;
+      const bool missing_required_artifact =
+          (static_cast<int>(view.role == "aero_load") &
+           static_cast<int>(!has_calibrated_aero_artifact)) != 0;
+      if (missing_required_artifact) {
+        limited = true;
+        envelope.warnings.emplace_back(
+            "aero_load provider 'steady_wind_calibrated' requires imported "
+            "calibration artifact provenance.");
+      }
+    }
+  }
+
+  if (limited) {
+    envelope.fidelity_tier = "limited_or_low_confidence";
+    envelope.validity_status = "insufficient_evidence";
+    envelope.confidence_status = "low_confidence";
+    return envelope;
+  }
+
+  envelope.supported_study_questions = {
+      "Default single-scull reduced-model smoke, tow, calm-water stroke, "
+      "headwind, and crosswind studies."};
+  if (calibrated_reduced) {
+    envelope.fidelity_tier = "calibrated_reduced_study";
+    envelope.validity_status = "artifact_declared";
+    envelope.confidence_status = "artifact_declared";
+    envelope.supported_study_questions.emplace_back(
+        "Calibrated reduced steady-wind aero studies within the imported "
+        "artifact contract.");
+    return envelope;
+  }
+
+  envelope.fidelity_tier = "validated_reduced_baseline";
+  envelope.validity_status = "inside_declared_envelope";
+  envelope.confidence_status = "scenario_backed";
+  return envelope;
+}
+
+void refresh_trust_envelope(RunMetadata &metadata) {
+  metadata.trust_envelope =
+      derive_trust_envelope(metadata.providers, metadata.external_artifacts);
 }
 
 BackendMetadata fallback_backend_metadata(std::string_view id,
@@ -397,6 +504,7 @@ make_provider_failure_result(const PreparedRunInputs &prepared,
       normalize_simulator_config(prepared.config);
   populate_prepared_metadata(result.metadata, prepared,
                              owned_providers.external_artifacts);
+  refresh_trust_envelope(result.metadata);
   result.diagnostics = owned_providers.diagnostics;
   return result;
 }
@@ -433,6 +541,7 @@ SimulationRunResult make_unsupported_advancer_result(
           "' is unavailable in this build");
   populate_prepared_metadata(result.metadata, prepared,
                              owned_providers.external_artifacts);
+  refresh_trust_envelope(result.metadata);
   result.metadata.end_timestamp_utc = current_timestamp(dependencies);
   emit_run_outputs(config, result);
   return result;
@@ -1497,6 +1606,7 @@ SimulationRunResult run_simulation(const SimulatorConfig &config,
                                   advancer);
   populate_prepared_metadata(result.metadata, prepared,
                              owned_providers.external_artifacts);
+  refresh_trust_envelope(result.metadata);
 
   const auto startup = advancer.initialize(effective_config);
   apply_startup_metadata(result, startup);

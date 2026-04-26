@@ -574,6 +574,15 @@ Json provider_metadata_json(const ProviderMetadata &provider) {
               {"capability", provider_capability_json(provider.capability)}};
 }
 
+Json trust_envelope_json(const TrustEnvelopeMetadata &trust) {
+  return Json{{"fidelity_tier", trust.fidelity_tier},
+              {"validity_status", trust.validity_status},
+              {"confidence_status", trust.confidence_status},
+              {"supported_study_questions", trust.supported_study_questions},
+              {"limitations", trust.limitations},
+              {"warnings", trust.warnings}};
+}
+
 Json backend_metadata_json(const BackendMetadata &metadata) {
   return Json{{"id", metadata.id},
               {"policy_id", metadata.policy_id},
@@ -810,7 +819,8 @@ Json make_summary_document(const SimulationRunResult &result) {
       {"trial_alignment_start_s", result.metadata.trial_alignment_start_s},
       {"trial_alignment_end_s", result.metadata.trial_alignment_end_s},
       {"actuation_mode", result.metadata.actuation_mode},
-      {"rower_coupling_enabled", result.metadata.rower_coupling_enabled}};
+      {"rower_coupling_enabled", result.metadata.rower_coupling_enabled},
+      {"trust_envelope", trust_envelope_json(result.metadata.trust_envelope)}};
 
   Json external_artifacts = Json::array();
   for (const auto &artifact : result.metadata.external_artifacts) {
@@ -1432,6 +1442,36 @@ bool write_provider_metadata_group(hid_t parent, const char *name,
                                 diagnostic);
 }
 
+bool write_trust_envelope_group(hid_t parent,
+                                const TrustEnvelopeMetadata &trust,
+                                RunDiagnostic &diagnostic) {
+  const H5ScopedHandle trust_group(H5Gcreate2(parent, "trust_envelope",
+                                              H5P_DEFAULT, H5P_DEFAULT,
+                                              H5P_DEFAULT),
+                                   H5Gclose);
+  if (!trust_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path", "failed to create HDF5 trust_envelope group");
+    return false;
+  }
+
+  bool wrote_all = true;
+  wrote_all &= write_string_attribute(trust_group.id, "fidelity_tier",
+                                      trust.fidelity_tier, diagnostic);
+  wrote_all &= write_string_attribute(trust_group.id, "validity_status",
+                                      trust.validity_status, diagnostic);
+  wrote_all &= write_string_attribute(trust_group.id, "confidence_status",
+                                      trust.confidence_status, diagnostic);
+  wrote_all &=
+      write_string_vector_dataset(trust_group.id, "supported_study_questions",
+                                  trust.supported_study_questions, diagnostic);
+  wrote_all &= write_string_vector_dataset(trust_group.id, "limitations",
+                                           trust.limitations, diagnostic);
+  wrote_all &= write_string_vector_dataset(trust_group.id, "warnings",
+                                           trust.warnings, diagnostic);
+  return wrote_all;
+}
+
 bool write_backend_metadata_group(hid_t parent, const char *name,
                                   const BackendMetadata &metadata,
                                   RunDiagnostic &diagnostic) {
@@ -1634,21 +1674,25 @@ bool write_hdf5_metadata_subgroups(hid_t metadata_group,
       return false;
     }
   }
-  return write_provider_metadata_group(
-             providers_group.id, "hull_resistance",
-             result.metadata.providers.hull_resistance, diagnostic) &&
-         write_provider_metadata_group(providers_group.id, "blade_force",
-                                       result.metadata.providers.blade_force,
-                                       diagnostic) &&
-         write_provider_metadata_group(providers_group.id, "aero_load",
-                                       result.metadata.providers.aero_load,
-                                       diagnostic) &&
-         write_backend_metadata_group(metadata_group, "mechanics_backend",
-                                      result.metadata.mechanics_backend,
-                                      diagnostic) &&
-         write_backend_metadata_group(metadata_group, "integration_backend",
-                                      result.metadata.integration_backend,
-                                      diagnostic);
+  bool wrote_all = true;
+  wrote_all &= write_provider_metadata_group(
+      providers_group.id, "hull_resistance",
+      result.metadata.providers.hull_resistance, diagnostic);
+  wrote_all &= write_provider_metadata_group(
+      providers_group.id, "blade_force", result.metadata.providers.blade_force,
+      diagnostic);
+  wrote_all &= write_provider_metadata_group(
+      providers_group.id, "aero_load", result.metadata.providers.aero_load,
+      diagnostic);
+  wrote_all &= write_backend_metadata_group(metadata_group, "mechanics_backend",
+                                            result.metadata.mechanics_backend,
+                                            diagnostic);
+  wrote_all &= write_backend_metadata_group(
+      metadata_group, "integration_backend",
+      result.metadata.integration_backend, diagnostic);
+  wrote_all &= write_trust_envelope_group(
+      metadata_group, result.metadata.trust_envelope, diagnostic);
+  return wrote_all;
 }
 
 bool write_hdf5_metadata_group(hid_t file, const SimulationRunResult &result,

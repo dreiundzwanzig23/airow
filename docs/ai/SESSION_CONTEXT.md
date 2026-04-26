@@ -21,6 +21,10 @@
   built-in provider catalog entries declare support status, fidelity level,
   validation status, and a plain-language capability summary, and JSON/HDF5 run
   outputs propagate those declarations additively under provider metadata.
+- The Phase 1 trust-envelope/report slice is also in place: `RunMetadata`,
+  JSON summaries, HDF5 metadata, and compact/full reports now expose a derived
+  trust envelope, and `docs/process/CAPABILITY_MATRIX.md` documents the public
+  capability matrix. `R-035`, `R-049`, and `R-071` remain open.
 - `R-019` is temporarily review-flagged because P0 trace closure now excludes
   `Needs-Review: yes` draft backlog items until they are reviewed and
   allocated.
@@ -44,9 +48,9 @@
 
 ## Next Actions
 1. Clear or carry forward the `R-019` and `R-023` reviews.
-2. Continue `R-071` Phase 1 with the public capability matrix and
-   human-readable report prose slices; keep `R-071` `Needs-Review: yes` until
-   those follow-ups are reviewed.
+2. Continue `R-071` Phase 1 with viewer entry pages and study-recommendation or
+   optimization links once those surfaces exist; keep `R-071`
+   `Needs-Review: yes`.
 3. Allocate each selected packet in `docs/process/ARCHITECTURE.md` before
    adding failing tests.
 4. Preserve current numerical behavior unless the selected requirement

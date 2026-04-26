@@ -38,6 +38,17 @@ struct ExternalArtifactMetadata {
   bool operator==(const ExternalArtifactMetadata &) const = default;
 };
 
+struct TrustEnvelopeMetadata {
+  std::string fidelity_tier;
+  std::string validity_status;
+  std::string confidence_status;
+  std::vector<std::string> supported_study_questions;
+  std::vector<std::string> limitations;
+  std::vector<std::string> warnings;
+
+  bool operator==(const TrustEnvelopeMetadata &) const = default;
+};
+
 struct RunMetadata {
   std::string simulator_version;
   std::string config_id;
@@ -61,6 +72,7 @@ struct RunMetadata {
   std::string actuation_mode{};
   bool rower_coupling_enabled{};
   std::vector<ExternalArtifactMetadata> external_artifacts;
+  TrustEnvelopeMetadata trust_envelope;
   std::vector<NormalizedConfigEntry> normalized_config;
 
   bool operator==(const RunMetadata &) const = default;

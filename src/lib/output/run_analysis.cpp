@@ -392,6 +392,55 @@ void append_report_propulsion_metrics(std::ostringstream &report,
          << "\n";
 }
 
+void append_string_list(std::ostringstream &report, std::string_view label,
+                        const std::vector<std::string> &values) {
+  report << "  " << label << ":";
+  if (values.empty()) {
+    report << " none\n";
+    return;
+  }
+  report << "\n";
+  for (const auto &value : values) {
+    report << "    - " << value << "\n";
+  }
+}
+
+void append_provider_capability(std::ostringstream &report,
+                                std::string_view role,
+                                const ProviderMetadata &provider) {
+  report << "    - " << role << " id=" << provider.id
+         << " support=" << provider.capability.support_status
+         << " fidelity=" << provider.capability.fidelity_level
+         << " validation=" << provider.capability.validation_status
+         << " summary=" << provider.capability.capability_summary << "\n";
+}
+
+/**
+ * @design D-062 — Human-readable physics capability and trust report section
+ * @title Shared report rendering for trust-envelope metadata and active
+ * provider capability summaries
+ * @satisfies [A-007]
+ */
+void append_report_physics_capability_and_trust(
+    std::ostringstream &report, const SimulationRunResult &result) {
+  const auto &trust = result.metadata.trust_envelope;
+  report << "\nPhysics Capability and Trust\n";
+  report << "  fidelity_tier=" << trust.fidelity_tier
+         << " validity_status=" << trust.validity_status
+         << " confidence_status=" << trust.confidence_status << "\n";
+  append_string_list(report, "supported_study_questions",
+                     trust.supported_study_questions);
+  append_string_list(report, "limitations", trust.limitations);
+  report << "  provider_capabilities:\n";
+  append_provider_capability(report, "hull_resistance",
+                             result.metadata.providers.hull_resistance);
+  append_provider_capability(report, "blade_force",
+                             result.metadata.providers.blade_force);
+  append_provider_capability(report, "aero_load",
+                             result.metadata.providers.aero_load);
+  append_string_list(report, "warnings", trust.warnings);
+}
+
 } // namespace
 
 PropulsionMetrics
@@ -572,6 +621,7 @@ std::string format_run_analysis_report(const SimulationRunResult &result,
   append_report_envelopes(report, analysis);
   append_report_load_section(report, analysis, mode);
   append_report_propulsion_metrics(report, analysis);
+  append_report_physics_capability_and_trust(report, result);
 
   return report.str();
 }
