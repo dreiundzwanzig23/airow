@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(agentic_tetris LANGUAGES C CXX VERSION 0.2.0)
+project(airow LANGUAGES C CXX VERSION 0.2.0)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     include(CheckCXXSourceCompiles)

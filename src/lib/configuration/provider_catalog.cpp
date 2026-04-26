@@ -90,4 +90,10 @@ bool builtin_provider_requires_calibration_artifact(
   return role == ProviderRole::aero_load && id == "steady_wind_calibrated";
 }
 
+bool builtin_provider_supports_propulsion_metrics(
+    ProviderRole role, std::string_view id) noexcept {
+  return role == ProviderRole::blade_force &&
+         id == "stroke_propulsion_placeholder";
+}
+
 } // namespace project

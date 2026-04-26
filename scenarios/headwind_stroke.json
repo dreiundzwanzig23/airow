@@ -54,7 +54,12 @@
       "recovery_blade_depth_m": 0.0
     },
     "environment": {
-      "ambient_wind_world_mps": [-2.5, 0.0, 0.0]
+      "wind_time_series": [
+        {
+          "time_s": 0.0,
+          "ambient_wind_world_mps": [-2.5, 0.0, 0.0]
+        }
+      ]
     }
   },
   "acceptance": {

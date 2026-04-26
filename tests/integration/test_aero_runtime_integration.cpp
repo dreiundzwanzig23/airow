@@ -80,7 +80,10 @@ make_valid_config_json_with_output(std::string_view config_id,
          "    \"release_angle_rad\": 0.6\n"
          "  },\n"
          "  \"environment\": {\n"
-         "    \"ambient_wind_world_mps\": [-2.0, 1.5, 0.0]\n"
+         "    \"wind_time_series\": [\n"
+         "      {\"time_s\": 0.0, \"ambient_wind_world_mps\": [-2.0, 1.5, "
+         "0.0]}\n"
+         "    ]\n"
          "  },\n"
          "  \"output\": {\n"
          "    \"summary_path\": \"" +

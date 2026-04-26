@@ -170,7 +170,9 @@ TEST(WindScenarioSystem, CrosswindScenarioMirrorsYawMomentSign) {
 
   auto starboard_scenario = *loaded.scenario;
   auto port_scenario = *loaded.scenario;
-  port_scenario.config.environment.ambient_wind_world_mps.y *= -1.0;
+  ASSERT_FALSE(port_scenario.config.environment.wind_time_series.empty());
+  port_scenario.config.environment.wind_time_series.front()
+      .ambient_wind_world_mps.y *= -1.0;
   port_scenario.acceptance.expected_yaw_moment_z_sign = "negative";
 
   auto starboard_hydro = make_hydro_provider(starboard_scenario);

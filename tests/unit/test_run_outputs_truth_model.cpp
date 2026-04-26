@@ -145,7 +145,9 @@ TEST(RunOutputsTruthModel, EmitsTruthModelHandoffArtifactWhenConfigured) {
   config.providers.hull_resistance = "quadratic_drag_placeholder";
   config.providers.blade_force = "stroke_propulsion_placeholder";
   config.providers.aero_load = "steady_wind_placeholder";
-  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0};
+  config.environment.wind_time_series = {
+      {.time_s = 0.0,
+       .ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0}}};
   config.output.summary_path = summary_path.string();
   config.output.time_series_path = time_series_path.string();
   config.output.truth_model_export_path = export_path.string();

@@ -179,12 +179,6 @@ std::string missing_calibration_artifact_message(std::string_view provider_id) {
          "' requires $.artifacts.calibration.path";
 }
 
-std::string legacy_state_advancer_message() {
-  return "simulation.state_advancer has been replaced by "
-         "simulation.mechanics_backend and "
-         "simulation.integration_backend";
-}
-
 std::string unsupported_mechanics_backend_message(std::string_view backend_id) {
   return "unknown mechanics backend '" + std::string(backend_id) + "'";
 }
@@ -326,6 +320,16 @@ find_invalid_numeric_literal(std::string_view text) {
         diagnostic.has_value()) {
       return diagnostic;
     }
+  }
+  if (text.find("\"wind_time_series\"") != std::string_view::npos) {
+    return find_invalid_array_literal(
+        text, "ambient_wind_world_mps",
+        "$.environment.wind_time_series[0].ambient_wind_world_mps");
+  }
+  if (text.find("\"wind_profile\"") != std::string_view::npos) {
+    return find_invalid_array_literal(
+        text, "ambient_wind_world_mps",
+        "$.environment.wind_profile[0].ambient_wind_world_mps");
   }
   return find_invalid_array_literal(text, "ambient_wind_world_mps",
                                     "$.environment.ambient_wind_world_mps");
@@ -618,9 +622,9 @@ bool parse_simulation_backend_selection(const Json &simulation,
   settings.integration_backend = SimulationSettings{}.integration_backend;
 
   if (simulation.contains("state_advancer")) {
-    result.diagnostics.push_back(make_error("invalid_value",
-                                            "$.simulation.state_advancer",
-                                            legacy_state_advancer_message()));
+    result.diagnostics.push_back(
+        make_error("unsupported_field", "$.simulation.state_advancer",
+                   "unsupported simulation field 'state_advancer'"));
     return false;
   }
   if (simulation.contains("mechanics_backend") &&
@@ -1150,7 +1154,6 @@ bool parse_wind_samples_field(const Json &environment, std::string_view key,
  */
 bool parse_environment_settings(const Json &root, SimulatorConfig &config,
                                 LoadSimulatorConfigResult &result) {
-  config.environment.ambient_wind_world_mps = {.x = 0.0, .y = 0.0, .z = 0.0};
   config.environment.wind_time_series.clear();
   config.environment.wind_profile.clear();
   if (!root.contains("environment")) {
@@ -1163,22 +1166,19 @@ bool parse_environment_settings(const Json &root, SimulatorConfig &config,
     return false;
   }
 
-  const bool has_constant = environment->contains("ambient_wind_world_mps");
+  if (environment->contains("ambient_wind_world_mps")) {
+    result.diagnostics.push_back(
+        make_error("unsupported_field", "$.environment.ambient_wind_world_mps",
+                   "unsupported environment field 'ambient_wind_world_mps'"));
+    return false;
+  }
   const bool has_time_series = environment->contains("wind_time_series");
   const bool has_profile = environment->contains("wind_profile");
-  const int selected_mode_count = static_cast<int>(has_constant) +
-                                  static_cast<int>(has_time_series) +
-                                  static_cast<int>(has_profile);
+  const int selected_mode_count =
+      static_cast<int>(has_time_series) + static_cast<int>(has_profile);
   if (!validate_environment_mode_selection("$.environment", selected_mode_count,
                                            result)) {
     return false;
-  }
-
-  if (has_constant) {
-    return require_vector3_field(
-        *environment, "ambient_wind_world_mps",
-        "$.environment.ambient_wind_world_mps", "ambient_wind_world_mps",
-        config.environment.ambient_wind_world_mps, result);
   }
 
   if (has_time_series) {
@@ -1577,10 +1577,6 @@ normalize_simulator_config(const SimulatorConfig &config) {
     auto wind_entries = normalize_wind_samples("$.environment.wind_profile",
                                                config.environment.wind_profile);
     entries.insert(entries.end(), wind_entries.begin(), wind_entries.end());
-  } else {
-    entries.push_back(
-        {"$.environment.ambient_wind_world_mps",
-         format_vector3(config.environment.ambient_wind_world_mps), "m/s"});
   }
   return entries;
 }

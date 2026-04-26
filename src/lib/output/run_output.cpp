@@ -321,10 +321,6 @@ Json propulsion_metrics_analysis_json(const PropulsionMetrics &metrics) {
       {"run_metrics", propulsion_run_metrics_json(metrics.run_metrics)}};
 }
 
-bool provider_supports_propulsion_metrics(std::string_view provider_id) {
-  return provider_id == "stroke_propulsion_placeholder";
-}
-
 bool propulsion_sample_is_finite(const MechanicalStateSnapshot &state,
                                  const LoadSample &loads) {
   return std::isfinite(state.hull.linear_velocity_world_mps.x) &&
@@ -386,7 +382,8 @@ propulsion_time_series_metrics(const SimulationRunResult &result,
                                const MechanicalStateSnapshot &state,
                                const LoadSample &loads) {
   TimeSeriesPropulsionMetrics metrics;
-  if (!provider_supports_propulsion_metrics(
+  if (!builtin_provider_supports_propulsion_metrics(
+          ProviderRole::blade_force,
           result.metadata.providers.blade_force.id)) {
     metrics.reason = "blade-force provider does not support propulsion metrics";
     return metrics;
@@ -606,10 +603,7 @@ Json quaternion_json(const Quaternion &value) {
 }
 
 Json truth_model_environment_json(const EnvironmentSettings &environment) {
-  Json environment_json{
-      {"ambient_wind_world_mps",
-       vector3_json(environment.ambient_wind_world_mps)},
-  };
+  Json environment_json = Json::object();
   if (!environment.wind_time_series.empty()) {
     Json wind_time_series = Json::array();
     for (const auto &sample : environment.wind_time_series) {

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 ### Changed
+- Removed stale wind and backend compatibility paths before starting the
+  full-simulation packets: config now rejects the old
+  `environment.ambient_wind_world_mps` field and the removed
+  `simulation.state_advancer` selector as unsupported fields, checked-in wind
+  scenarios use sampled wind inputs, the CMake project name no longer carries
+  the bootstrap placeholder, and provider capability checks for propulsion
+  metrics now live in the provider catalog.
 - Merged the full-simulation extension requirements `R-050..R-071` into the
   canonical requirements file, made `docs/process/ROADMAP_FULL_SIMULATION.md`
   the active long-range roadmap, and archived superseded roadmap, handoff, and
@@ -68,11 +75,10 @@
   direct evidence (`D-049`, `D-050`, `D-051`, `UT-261..UT-289`, `IT-025`,
   `QT-040`).
 - Closed Slice 4B as the deterministic time-varying ambient-wind packet: the
-  public config now accepts exactly one of legacy `ambient_wind_world_mps`,
-  replay-oriented `wind_time_series`, or authored `wind_profile`; sampled
-  series use zero-order hold, keyframe profiles use deterministic linear
-  interpolation, constant series or profile inputs preserve steady-wind load
-  parity, JSON and HDF5 outputs now record the effective
+  public config now accepts exactly one of replay-oriented `wind_time_series`
+  or authored `wind_profile`; sampled series use zero-order hold, keyframe
+  profiles use deterministic linear interpolation, constant series or profile
+  inputs preserve steady-wind load parity, JSON and HDF5 outputs now record the effective
   `ambient_wind_world_mps` channel, and the checked-in
   `gust_headwind_stroke` scenario adds the first non-constant requirement-level
   regression evidence (`D-047`, `D-048`, `UT-245..UT-254`, `IT-024`,

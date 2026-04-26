@@ -1,7 +1,7 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-24
+- **Date**: 2026-04-26
 - **Branch**: `new_roadmap`
 - **Current Objective**: Use the merged full-simulation roadmap and
   requirements as the active guide for upcoming work.
@@ -20,6 +20,8 @@
 - `R-019` is temporarily review-flagged because P0 trace closure now excludes
   `Needs-Review: yes` draft backlog items until they are reviewed and
   allocated.
+- `R-023` is review-flagged after removing the legacy constant-wind config
+  field; current configs must use `wind_time_series` or `wind_profile`.
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
 - Superseded planning files are archived under `docs/archive/` and
   `docs/ai/archive/`.
@@ -31,10 +33,13 @@
   claiming deeper physics realism.
 - Keep optional high-fidelity water workflows offline and separate from the
   default runtime.
+- Do not reintroduce the removed `environment.ambient_wind_world_mps` config
+  field or `simulation.state_advancer` selector; represent constant wind as a
+  single-sample series or equivalent constant profile.
 - Do not use archived roadmaps or handoffs as active implementation guidance.
 
 ## Next Actions
-1. Clear or carry forward the `R-019` review on traceability scope.
+1. Clear or carry forward the `R-019` and `R-023` reviews.
 2. Select the first `Needs-Review: yes` full-simulation packet from
    `R-050..R-071`, starting with trust/capability and visualization artifact
    foundations.

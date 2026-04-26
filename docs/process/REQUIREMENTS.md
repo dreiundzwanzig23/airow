@@ -470,14 +470,15 @@ Milestone framing:
 - **Priority**: P2
 - **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-19
-- **Change-Type**: none
-- **Needs-Review**: no
+- **Updated**: 2026-04-26
+- **Change-Type**: semantic
+- **Needs-Review**: yes
 - **Notes**: Delivered post-`v0.1` through an exclusive `environment`
-  wind-input contract: legacy constant `ambient_wind_world_mps`,
-  replay-oriented `wind_time_series` with zero-order hold, or authored
-  `wind_profile` with deterministic linear interpolation. Constant series or
-  profile inputs now preserve steady-wind parity, and
+  wind-input contract: replay-oriented `wind_time_series` with zero-order hold
+  or authored `wind_profile` with deterministic linear interpolation. Removed
+  legacy constant `ambient_wind_world_mps`; constant wind is represented by a
+  single-sample series or equivalent constant profile. Constant series or
+  profile inputs preserve steady-wind parity, and
   `scenarios/gust_headwind_stroke.json` provides the first checked-in
   non-constant regression artifact.
 

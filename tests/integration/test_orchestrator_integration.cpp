@@ -672,7 +672,9 @@ TEST(OrchestratorIntegration,
           "release_angle_rad": 0.6
         },
         "environment": {
-          "ambient_wind_world_mps": [-2.0, 1.0, 0.0]
+          "wind_time_series": [
+            {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.0, 0.0]}
+          ]
         },
         "providers": {
           "hull_resistance": "quadratic_drag_placeholder",
@@ -783,7 +785,9 @@ TEST(OrchestratorIntegration, BuiltInBladeAndAeroProvidersShareContracts) {
   for (const auto provider_id : {std::string_view{"none"},
                                  std::string_view{"steady_wind_placeholder"}}) {
     auto config = make_config("it-aero-contract", 0.8, 0.4);
-    config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0};
+    config.environment.wind_time_series = {
+        {.time_s = 0.0,
+         .ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0}}};
     config.providers.aero_load = std::string(provider_id);
 
     FixedClock clock(
