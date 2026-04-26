@@ -11,6 +11,10 @@ validation_run_logged "test-aux-tooling-contracts" \
   python3 tools/test_tooling_contracts.py
 validation_run_logged "test-aux-validation-output" \
   python3 tools/test_validation_output.py
+validation_run_logged "test-aux-skill-lint" \
+  python3 tools/skills_lint.py
+validation_run_logged "test-aux-skill-lint-contracts" \
+  python3 tools/test_skills_lint.py
 list_output="$(ctest --test-dir "${test_build_dir}" -N -L aux 2>&1 || true)"
 
 if grep -Eq 'Total Tests: 0' <<<"${list_output}"; then

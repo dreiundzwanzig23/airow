@@ -8,8 +8,8 @@ description: Design or tighten repository unit tests (`UT-*`) for design-level b
 ## Start
 - Use this skill when `UT-*` is the narrowest correct evidence lane.
 - Pair it with `.agents/skills/tdd-loop/SKILL.md` during red-phase test design.
-- Pair it with `.agents/skills/major-change-loop/SKILL.md` when preserved
-  local behavior needs characterization before refactor.
+- Pair it with `.agents/skills/major-change-loop/SKILL.md` when preserved local
+  behavior needs characterization before refactor.
 - Keep repo rules aligned with:
   - `docs/process/TEST_STRATEGY.md`
   - `tests/AGENTS.md`
@@ -23,14 +23,22 @@ description: Design or tighten repository unit tests (`UT-*`) for design-level b
    - deterministic diagnostics,
    - normalization rules,
    - contract-level error handling.
-3. Partition inputs into meaningful equivalence classes.
-4. Hit the boundaries that can change behavior:
+3. Identify the oracle before writing the assertion. Prefer one of:
+   - exact value,
+   - tolerance-bounded numeric expectation,
+   - invariant,
+   - monotonic relation,
+   - conservation or accounting relation,
+   - deterministic diagnostic,
+   - invalid-input rejection.
+4. Partition inputs into meaningful equivalence classes.
+5. Hit the boundaries that can change behavior:
    - minimum, maximum, empty, missing, zero, sign, ordering, duplicate, and
      just-inside or just-outside values,
    - finite versus non-finite numeric inputs where the contract exposes them.
-5. Add nominal coverage plus only the edge cases that can fail for distinct
+6. Add nominal coverage plus only the edge cases that can fail for distinct
    reasons.
-6. Prefer one behavior axis per test. Split cases instead of building one
+7. Prefer one behavior axis per test. Split cases instead of building one
    oversized assertion bundle.
 
 ## Write Tests
@@ -46,8 +54,33 @@ description: Design or tighten repository unit tests (`UT-*`) for design-level b
 - Write `@notes` in Given/When/Then form.
 - Make the Then clause concrete. State the expected output, diagnostic, or
   invariant instead of only saying that the call "succeeds" or "fails".
+- Avoid weak oracles. "Does not crash" is auxiliary smoke coverage unless the
+  design contract explicitly defines non-crashing as the observable behavior.
 - Keep fixtures local and minimal. Extract helpers only when they reduce
   repetition without hiding the test intent.
+
+## Required Output
+For non-trivial unit-test work, leave a compact design note:
+
+```markdown
+## Unit Test Design
+
+Target:
+- Design: D-###
+- Test: UT-###
+
+Cases:
+- nominal:
+- boundary:
+- invalid/error:
+
+Oracle:
+- exact | tolerance | invariant | monotonic | accounting | diagnostic | rejection
+- expected observable:
+
+Red expectation:
+- why this test should fail before implementation:
+```
 
 ## Review
 - Check that each case has a unique reason to exist.
@@ -55,8 +88,8 @@ description: Design or tighten repository unit tests (`UT-*`) for design-level b
   the design contract exposes them.
 - Check that assertions verify public behavior and stable diagnostics.
 - Check that the test still reads linearly from Given to Then.
-- Check that the test would stay valid after an internal refactor that
-  preserves behavior.
+- Check that the test would stay valid after an internal refactor that preserves
+  behavior.
 
 ## Finish
 - In red phase, make the targeted `UT-*` fail for the intended reason first.

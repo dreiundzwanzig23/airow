@@ -157,10 +157,12 @@ Always use the OpenAI developer documentation MCP server if you need to work wit
 - Skill index: `.agents/skills/README.md`
 - `.agents/skills/tdd-loop/SKILL.md`
 - `.agents/skills/unit-test-design/SKILL.md`
+- `.agents/skills/major-change-loop/SKILL.md`
 - `.agents/skills/trace-maintenance/SKILL.md`
 - `.agents/skills/test-lanes/SKILL.md`
 - `.agents/skills/release-doc-sync/SKILL.md`
-- `.agents/skills/major-change-loop/SKILL.md`
+- `.agents/skills/workflow-audit/SKILL.md`
+- `.agents/skills/simulation-evidence-design/SKILL.md`
 
 Policy stays here. Operational playbooks live in skills and should be loaded
 only when relevant to the task.

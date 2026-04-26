@@ -6,17 +6,30 @@ description: Execute the repository's failing-tests-first workflow for behavior-
 # TDD Loop
 
 ## Start
-- Select actionable requirement work from `docs/process/REQUIREMENTS.md`:
+- When the user gives a concrete task, map that task to the relevant `R-*`,
+  owning `A-*`, affected `D-*`, and evidence lane before selecting unrelated
+  backlog work.
+- When no concrete task is given, select actionable requirement work from
+  `docs/process/REQUIREMENTS.md`:
   - first any item with `Needs-Review: yes`,
   - then the highest-priority `OPEN` item.
+- Keep each red/green/refactor loop to one behavior claim whenever practical.
+  Split broad work into multiple micro-slices instead of hiding several
+  behaviors behind one failing test.
 - Identify the target requirement IDs (`R-*`), candidate owning architecture IDs
   (`A-*`), and affected design IDs (`D-*`) before changing tests.
 - Switch to `.agents/skills/major-change-loop/SKILL.md` when the change is
   cross-cutting, migratory, semantic across multiple requirements, or
   architectural enough that ordinary TDD is too narrow.
+- Pair with `.agents/skills/simulation-evidence-design/SKILL.md` before
+  implementing hydro, aero, mechanics, visualization, calibration, validation,
+  or optimizer behavior that makes a physical or interpretive claim.
 
 ## Execute
-1. Select the highest-priority actionable requirement from `docs/process/REQUIREMENTS.md`.
+1. Resolve the target behavior and evidence lane:
+   - `UT-*` for design-level behavior,
+   - `IT-*` for architecture/subsystem contracts,
+   - `QT-*` for requirement/scenario evidence.
 2. Perform architecture allocation in `docs/process/ARCHITECTURE.md`:
    - evaluate existing subsystem owners first,
    - reuse a stable subsystem when coherent,
@@ -28,9 +41,12 @@ description: Execute the repository's failing-tests-first workflow for behavior-
    - add or adjust targeted failing tests first (`UT-*`, `IT-*`, `QT-*` as
      needed),
    - confirm the intended failure is reproducible,
+   - explain why the failure proves the intended missing behavior instead of an
+     incidental setup problem,
    - record `rgr:red` evidence.
 4. Green:
    - implement the minimum code change required to pass the targeted failures,
+   - avoid broad cleanup or unrelated behavior during green,
    - record `rgr:green` evidence.
 5. Refactor (mandatory):
    - perform behavior-preserving cleanup immediately after green,
@@ -48,6 +64,43 @@ description: Execute the repository's failing-tests-first workflow for behavior-
    - `./scripts/test.sh`
    - `./scripts/depcheck.sh`
    - `python3 tools/tracecheck.py --write`
+
+## Required Evidence Output
+Leave an evidence note or commit-message section in this shape:
+
+```markdown
+## RGR Evidence
+
+Target:
+- Requirement: R-###
+- Architecture: A-###
+- Design: D-###
+- Test: UT/IT/QT-###
+
+rgr:red:
+- Command:
+- Expected failing test:
+- Observed failure:
+- Why this proves the intended missing behavior:
+
+rgr:green:
+- Command:
+- Minimal implementation change:
+- Observed pass:
+
+rgr:refactor:
+- Cleanup performed:
+- Or explicit no-op rationale:
+
+Gates:
+- test_tdd:
+- format:
+- lint:
+- build:
+- test:
+- depcheck:
+- tracecheck:
+```
 
 ## Finish
 - Leave all tests and gates passing.
