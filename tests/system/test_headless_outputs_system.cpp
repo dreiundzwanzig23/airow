@@ -182,8 +182,11 @@ std::string make_provider_selection_config_json(
           "release_angle_rad": 0.6
         },
         "environment": {
-          "ambient_wind_world_mps": )"
+          "wind_time_series": [
+            {"time_s": 0.0, "ambient_wind_world_mps": )"
          << ambient_wind_json << R"(
+            }
+          ]
         },
         "providers": )"
          << providers_json << R"(,

@@ -360,16 +360,10 @@ Current implementation status:
   trust/capability visibility and visualization artifact foundations before
   deeper physics is reopened.
 
-Time-varying wind config uses an exclusive one-of contract under
-`environment`:
-
-```json
-{
-  "environment": {
-    "ambient_wind_world_mps": [-2.0, 0.0, 0.0]
-  }
-}
-```
+Wind config uses an exclusive one-of contract under `environment`. Constant
+wind is represented as a single-sample series or an equivalent constant
+profile; the removed `ambient_wind_world_mps` config field is no longer
+accepted.
 
 ```json
 {

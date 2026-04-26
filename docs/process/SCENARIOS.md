@@ -58,7 +58,7 @@ acceptance-envelope intent.
   - `drag_coefficient_n_s2_per_m2 = 0.4` (aero)
   - `yaw_moment_coefficient_n_m_s2_per_m2 = 0.75`
 - Ambient wind:
-  - `ambient_wind_world_mps = [-2.5, 0.0, 0.0]`
+  - `wind_time_series[0] = { time_s = 0.0, ambient_wind_world_mps = [-2.5, 0.0, 0.0] }`
 - Acceptance envelope:
   - `min_distance_m = 1.0`
   - `max_mean_speed_mps = 0.5`
@@ -75,7 +75,7 @@ acceptance-envelope intent.
   - `drag_coefficient_n_s2_per_m2 = 1.5` (aero)
   - `yaw_moment_coefficient_n_m_s2_per_m2 = 0.75`
 - Ambient wind:
-  - `ambient_wind_world_mps = [0.0, 2.0, 0.0]`
+  - `wind_time_series[0] = { time_s = 0.0, ambient_wind_world_mps = [0.0, 2.0, 0.0] }`
 - Acceptance envelope:
   - `min_distance_m = 1.5`
   - `expected_yaw_moment_z_sign = positive`

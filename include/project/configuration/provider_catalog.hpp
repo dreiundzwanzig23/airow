@@ -31,4 +31,8 @@ lookup_builtin_provider_metadata(ProviderRole role, std::string_view id);
 builtin_provider_requires_calibration_artifact(ProviderRole role,
                                                std::string_view id) noexcept;
 
+[[nodiscard]] bool
+builtin_provider_supports_propulsion_metrics(ProviderRole role,
+                                             std::string_view id) noexcept;
+
 } // namespace project

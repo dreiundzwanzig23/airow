@@ -154,15 +154,15 @@ TEST(AeroRuntimeModels, ConfigDefaultsAmbientWindToZeroVector) {
 
   ASSERT_TRUE(loaded.ok());
   ASSERT_TRUE(loaded.config.has_value());
-  EXPECT_EQ(loaded.config->environment.ambient_wind_world_mps,
-            (project::Vector3{.x = 0.0, .y = 0.0, .z = 0.0}));
+  EXPECT_TRUE(loaded.config->environment.wind_time_series.empty());
+  EXPECT_TRUE(loaded.config->environment.wind_profile.empty());
 }
 
 /**
  * @test UT-076
  * @verifies [D-001]
- * @notes Given a simulator config with a non-finite ambient wind component,
- * when the loader parses it, then it rejects the environment vector with a
+ * @notes Given a simulator config with a non-finite sampled wind component,
+ * when the loader parses it, then it rejects the sample vector with a
  * deterministic path-specific diagnostic.
  */
 TEST(AeroRuntimeModels, ConfigRejectsNonFiniteAmbientWindComponent) {
@@ -206,14 +206,16 @@ TEST(AeroRuntimeModels, ConfigRejectsNonFiniteAmbientWindComponent) {
       "release_angle_rad": 0.6
     },
     "environment": {
-      "ambient_wind_world_mps": [0.0, NaN, 0.0]
+      "wind_time_series": [
+        {"time_s": 0.0, "ambient_wind_world_mps": [0.0, NaN, 0.0]}
+      ]
     }
   })");
 
   ASSERT_FALSE(loaded.ok());
   ASSERT_FALSE(loaded.diagnostics.empty());
   EXPECT_EQ(loaded.diagnostics.front().path,
-            "$.environment.ambient_wind_world_mps[1]");
+            "$.environment.wind_time_series[0].ambient_wind_world_mps[1]");
 }
 
 /**

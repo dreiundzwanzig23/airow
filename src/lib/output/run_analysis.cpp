@@ -1,5 +1,6 @@
 #include "project/output/run_analysis.hpp"
 
+#include "project/configuration/provider_catalog.hpp"
 #include "project/core/geometry.hpp"
 #include "project/mechanics/state.hpp"
 #include "project/output/run_result.hpp"
@@ -122,10 +123,6 @@ double stroke_power_for_load(const SimulationRunResult &result,
   const auto boat_speed_mps = boat_speed_for_load(result, load_index);
   return (sample.total_hydro_force_x_n() + sample.aero_force_world_n.x) *
          boat_speed_mps;
-}
-
-bool provider_supports_propulsion_metrics(std::string_view provider_id) {
-  return provider_id == "stroke_propulsion_placeholder";
 }
 
 bool sample_within_window(double time_s,
@@ -411,7 +408,8 @@ analyze_propulsion_metrics(const SimulationRunResult &result,
     return metrics;
   }
 
-  if (!provider_supports_propulsion_metrics(
+  if (!builtin_provider_supports_propulsion_metrics(
+          ProviderRole::blade_force,
           result.metadata.providers.blade_force.id)) {
     metrics.availability.reason =
         "blade-force provider does not support propulsion metrics";

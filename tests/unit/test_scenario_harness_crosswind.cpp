@@ -302,7 +302,9 @@ TEST(ScenarioHarnessCrosswind, LoadsValidCrosswindScenarioDefinition) {
             project::ScenarioAeroProviderType::steady_wind_placeholder);
   EXPECT_EQ(loaded.scenario->acceptance.expected_yaw_moment_z_sign, "positive");
   EXPECT_DOUBLE_EQ(loaded.scenario->acceptance.min_abs_yaw_moment_z_n_m, 0.8);
-  EXPECT_DOUBLE_EQ(loaded.scenario->config.environment.ambient_wind_world_mps.y,
+  ASSERT_FALSE(loaded.scenario->config.environment.wind_time_series.empty());
+  EXPECT_DOUBLE_EQ(loaded.scenario->config.environment.wind_time_series.front()
+                       .ambient_wind_world_mps.y,
                    2.0);
 
   remove_file_if_present(path);

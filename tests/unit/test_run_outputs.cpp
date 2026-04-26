@@ -189,7 +189,9 @@ std::string make_calibrated_config_json(std::string_view config_id,
           "release_angle_rad": 0.6
         },
         "environment": {
-          "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
+          "wind_time_series": [
+            {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]}
+          ]
         },
         "providers": {
           "hull_resistance": "quadratic_drag_placeholder",
@@ -747,7 +749,9 @@ TEST(RunOutputs, SummaryArtifactEmitsStructuredProviderMetadata) {
   config.providers.aero_load = "steady_wind_placeholder";
   config.output.summary_path = summary_path.string();
   config.output.time_series_path = time_series_path.string();
-  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0};
+  config.environment.wind_time_series = {
+      {.time_s = 0.0,
+       .ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0}}};
 
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 6} + 9h,

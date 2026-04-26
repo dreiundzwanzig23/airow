@@ -884,8 +884,8 @@ Vector3 interpolate_vector3(const Vector3 &start, const Vector3 &finish,
 
 /**
  * @design D-048 — Shared time-varying ambient wind sampling
- * @title Deterministic orchestration-time sampling for constant, replayed, and
- * keyframed ambient wind inputs on the shared run path
+ * @title Deterministic orchestration-time sampling for replayed and keyframed
+ * ambient wind inputs on the shared run path
  * @satisfies [A-002]
  */
 Vector3 sampled_ambient_wind_world_mps(const EnvironmentSettings &environment,
@@ -923,7 +923,7 @@ Vector3 sampled_ambient_wind_world_mps(const EnvironmentSettings &environment,
     return environment.wind_profile.back().ambient_wind_world_mps;
   }
 
-  return environment.ambient_wind_world_mps;
+  return {};
 }
 
 bool aero_load_is_finite(const AeroLoadSample &load) {

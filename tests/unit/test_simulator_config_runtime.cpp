@@ -178,7 +178,8 @@ TEST(SimulatorConfigRuntime,
  * @test UT-133
  * @verifies [D-001, D-040]
  * @notes Given the removed single-selector field, when config parsing runs,
- * then validation rejects the legacy contract deterministically.
+ * then validation rejects it as an unsupported field without preserving a
+ * legacy-specific compatibility branch.
  */
 TEST(SimulatorConfigRuntime, RejectsLegacyStateAdvancerSelection) {
   const auto result = project::parse_simulator_config_text(
@@ -186,7 +187,7 @@ TEST(SimulatorConfigRuntime, RejectsLegacyStateAdvancerSelection) {
 
   ASSERT_FALSE(result.ok());
   ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_field");
   EXPECT_EQ(result.diagnostics.front().path, "$.simulation.state_advancer");
 }
 

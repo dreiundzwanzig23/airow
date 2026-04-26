@@ -288,8 +288,8 @@ Allocation guardrails:
   headless baseline, config-driven built-in provider construction when injected
   provider seams are absent, config-driven built-in mechanics and integration
   backend composition when an injected advancer seam is absent, one shared
-  ambient-wind sampler that resolves legacy constant wind, replayed sampled
-  wind, or authored wind profiles into the per-step world-frame ambient vector
+  ambient-wind sampler that resolves replayed sampled wind or authored wind
+  profiles into the per-step world-frame ambient vector
   passed to the aero seam, one ordered batch executor that reuses the same
   shared single-run path for each resolved case while preserving deterministic
   case ordering and isolated per-case results, optional human-readable report

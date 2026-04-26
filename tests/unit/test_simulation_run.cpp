@@ -492,7 +492,9 @@ TEST(SimulationRun, ZeroDurationRunSkipsSamplingAndReportsZeroSummary) {
 TEST(SimulationRun, BuildsConfiguredBuiltInProvidersWithoutInjectedProviders) {
   auto config = make_config(0.8, 0.4);
   config.hull.initial_linear_velocity_mps = {.x = 1.0, .y = 0.0, .z = 0.0};
-  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0};
+  config.environment.wind_time_series = {
+      {.time_s = 0.0,
+       .ambient_wind_world_mps = {.x = -2.0, .y = 1.0, .z = 0.0}}};
   config.providers.hull_resistance = "quadratic_drag_placeholder";
   config.providers.blade_force = "stroke_propulsion_placeholder";
   config.providers.aero_load = "steady_wind_placeholder";
@@ -545,7 +547,9 @@ TEST(SimulationRun, BuildsConfiguredCalibratedAeroProviderFromArtifact) {
       })");
   auto config = make_config(0.25, 0.25);
   config.hull.initial_linear_velocity_mps = {.x = 1.0, .y = -0.5, .z = 0.0};
-  config.environment.ambient_wind_world_mps = {.x = -2.0, .y = 1.5, .z = 0.0};
+  config.environment.wind_time_series = {
+      {.time_s = 0.0,
+       .ambient_wind_world_mps = {.x = -2.0, .y = 1.5, .z = 0.0}}};
   config.providers.hull_resistance = "quadratic_drag_placeholder";
   config.providers.blade_force = "stroke_propulsion_placeholder";
   config.providers.aero_load = "steady_wind_calibrated";
@@ -641,7 +645,9 @@ TEST(SimulationRun, ReportsConfigurationErrorForMissingCalibrationArtifact) {
 TEST(SimulationRun, UnsupportedInMemoryAeroProviderFallsBackToNullProvider) {
   auto config = make_config(0.25, 0.25);
   config.providers.aero_load = "unsupported_runtime_provider";
-  config.environment.ambient_wind_world_mps = {.x = -1.0, .y = 0.5, .z = 0.0};
+  config.environment.wind_time_series = {
+      {.time_s = 0.0,
+       .ambient_wind_world_mps = {.x = -1.0, .y = 0.5, .z = 0.0}}};
 
   FixedClock clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 19} + 14h,

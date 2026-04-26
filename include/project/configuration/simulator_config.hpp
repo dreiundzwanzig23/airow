@@ -118,7 +118,6 @@ struct WindSample {
 };
 
 struct EnvironmentSettings {
-  Vector3 ambient_wind_world_mps;
   std::vector<WindSample> wind_time_series;
   std::vector<WindSample> wind_profile;
 

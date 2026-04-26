@@ -86,7 +86,7 @@ std::string with_wind_profile(const Json &keyframes) {
  * @verifies [D-001, D-008, D-047]
  * @notes Given a replay-oriented sampled wind series, when configuration
  * parsing runs, then the series is accepted and normalized without also
- * emitting the legacy constant-wind entry.
+ * emitting the removed constant-wind entry.
  */
 TEST(SimulatorConfigWind,
      ParsesReplayWindTimeSeriesAndNormalizesOnlySeriesFields) {
@@ -121,9 +121,9 @@ TEST(SimulatorConfigWind,
 /**
  * @test UT-246
  * @verifies [D-001, D-047]
- * @notes Given both the legacy constant wind vector and a replayed wind
- * series, when configuration parsing runs, then validation rejects the mixed
- * wind-input modes deterministically.
+ * @notes Given both the removed constant wind vector and a replayed wind
+ * series, when configuration parsing runs, then validation rejects the removed
+ * field before considering wind-input mode selection.
  */
 TEST(SimulatorConfigWind, RejectsMixedConstantAndSampledWindInputs) {
   auto root = parse_valid_config_json("mixed-wind-inputs");
@@ -140,8 +140,30 @@ TEST(SimulatorConfigWind, RejectsMixedConstantAndSampledWindInputs) {
 
   ASSERT_FALSE(result.ok());
   ASSERT_FALSE(result.diagnostics.empty());
-  EXPECT_EQ(result.diagnostics.front().code, "invalid_value");
-  EXPECT_EQ(result.diagnostics.front().path, "$.environment");
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_field");
+  EXPECT_EQ(result.diagnostics.front().path,
+            "$.environment.ambient_wind_world_mps");
+}
+
+/**
+ * @test UT-367
+ * @verifies [D-001, D-047]
+ * @notes Given the removed constant wind vector as the only environment wind
+ * field, when configuration parsing runs, then validation rejects it rather
+ * than accepting the legacy input path.
+ */
+TEST(SimulatorConfigWind, RejectsRemovedConstantWindInput) {
+  auto root = parse_valid_config_json("removed-constant-wind");
+  root["environment"] =
+      Json{{"ambient_wind_world_mps", Json::array({-2.0, 0.0, 0.0})}};
+
+  const auto result = project::parse_simulator_config_text(dump_json(root));
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "unsupported_field");
+  EXPECT_EQ(result.diagnostics.front().path,
+            "$.environment.ambient_wind_world_mps");
 }
 
 /**

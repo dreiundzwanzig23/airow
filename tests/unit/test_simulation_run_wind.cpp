@@ -263,49 +263,52 @@ TEST(SimulationRunWind, WindProfileInterpolatesLinearlyAtRunSteps) {
 /**
  * @test UT-251
  * @verifies [D-026, D-048]
- * @notes Given a constant replay wind series that matches the legacy constant
- * wind vector, when the built-in steady aero provider executes on both paths,
- * then the aerodynamic load history matches exactly.
+ * @notes Given equivalent single-sample and repeated-sample replay wind
+ * series, when the built-in steady aero provider executes on both paths, then
+ * the aerodynamic load history matches exactly.
  */
-TEST(SimulationRunWind, ConstantWindSeriesMatchesLegacySteadyWindLoads) {
-  const auto constant_config_path =
-      write_temp_file("airow-ut-wind-constant-vector.json",
+TEST(SimulationRunWind, EquivalentConstantWindSeriesLoadsMatch) {
+  const auto single_sample_config_path =
+      write_temp_file("airow-ut-wind-single-sample-series.json",
                       make_file_backed_config_json_with_builtin_aero(
-                          "wind-constant-vector", 0.5, 0.25, R"({
-    "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
-  })"));
-  const auto series_config_path =
-      write_temp_file("airow-ut-wind-constant-series.json",
-                      make_file_backed_config_json_with_builtin_aero(
-                          "wind-constant-series", 0.5, 0.25, R"({
+                          "wind-single-sample-series", 0.5, 0.25, R"({
     "wind_time_series": [
       {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]}
     ]
   })"));
+  const auto series_config_path =
+      write_temp_file("airow-ut-wind-repeated-sample-series.json",
+                      make_file_backed_config_json_with_builtin_aero(
+                          "wind-repeated-sample-series", 0.5, 0.25, R"({
+    "wind_time_series": [
+      {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]},
+      {"time_s": 0.25, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]}
+    ]
+  })"));
 
-  FixedClock constant_clock(
+  FixedClock single_sample_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 11h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 11h + 1s});
   FixedClock series_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 11h + 2min,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 11h + 2min +
            1s});
-  const auto constant_result = project::run_simulation_from_config_file(
-      constant_config_path,
-      project::SimulationDependencies{.clock = &constant_clock});
+  const auto single_sample_result = project::run_simulation_from_config_file(
+      single_sample_config_path,
+      project::SimulationDependencies{.clock = &single_sample_clock});
   const auto series_result = project::run_simulation_from_config_file(
       series_config_path,
       project::SimulationDependencies{.clock = &series_clock});
 
-  ASSERT_TRUE(constant_result.ok());
+  ASSERT_TRUE(single_sample_result.ok());
   ASSERT_TRUE(series_result.ok());
-  EXPECT_EQ(series_result.load_history, constant_result.load_history);
+  EXPECT_EQ(series_result.load_history, single_sample_result.load_history);
 
-  remove_file_if_present(constant_config_path);
+  remove_file_if_present(single_sample_config_path);
   remove_file_if_present(series_config_path);
-  remove_file_if_present(constant_result.outputs.summary_path);
-  remove_file_if_present(constant_result.outputs.time_series_path);
-  remove_file_if_present(constant_result.outputs.hdf5_path);
+  remove_file_if_present(single_sample_result.outputs.summary_path);
+  remove_file_if_present(single_sample_result.outputs.time_series_path);
+  remove_file_if_present(single_sample_result.outputs.hdf5_path);
   remove_file_if_present(series_result.outputs.summary_path);
   remove_file_if_present(series_result.outputs.time_series_path);
   remove_file_if_present(series_result.outputs.hdf5_path);
@@ -314,16 +317,19 @@ TEST(SimulationRunWind, ConstantWindSeriesMatchesLegacySteadyWindLoads) {
 /**
  * @test UT-252
  * @verifies [D-026, D-048]
- * @notes Given a constant authored wind profile that matches the legacy
- * constant wind vector, when the built-in steady aero provider executes on
- * both paths, then the aerodynamic load history matches exactly.
+ * @notes Given equivalent replayed and authored constant wind inputs, when the
+ * built-in steady aero provider executes on both paths, then the aerodynamic
+ * load history matches exactly.
  */
-TEST(SimulationRunWind, ConstantWindProfileMatchesLegacySteadyWindLoads) {
-  const auto constant_config_path =
-      write_temp_file("airow-ut-wind-constant-vector-profile.json",
+TEST(SimulationRunWind, EquivalentConstantWindProfileLoadsMatchSeries) {
+  const auto series_config_path =
+      write_temp_file("airow-ut-wind-series-profile-reference.json",
                       make_file_backed_config_json_with_builtin_aero(
-                          "wind-constant-vector-profile", 0.5, 0.25, R"({
-    "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
+                          "wind-series-profile-reference", 0.5, 0.25, R"({
+    "wind_time_series": [
+      {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]},
+      {"time_s": 0.5, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]}
+    ]
   })"));
   const auto profile_config_path =
       write_temp_file("airow-ut-wind-constant-profile.json",
@@ -335,29 +341,29 @@ TEST(SimulationRunWind, ConstantWindProfileMatchesLegacySteadyWindLoads) {
     ]
   })"));
 
-  FixedClock constant_clock(
+  FixedClock series_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 12h,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 12h + 1s});
   FixedClock profile_clock(
       {std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 12h + 2min,
        std::chrono::sys_days{std::chrono::year{2026} / 4 / 20} + 12h + 2min +
            1s});
-  const auto constant_result = project::run_simulation_from_config_file(
-      constant_config_path,
-      project::SimulationDependencies{.clock = &constant_clock});
+  const auto series_result = project::run_simulation_from_config_file(
+      series_config_path,
+      project::SimulationDependencies{.clock = &series_clock});
   const auto profile_result = project::run_simulation_from_config_file(
       profile_config_path,
       project::SimulationDependencies{.clock = &profile_clock});
 
-  ASSERT_TRUE(constant_result.ok());
+  ASSERT_TRUE(series_result.ok());
   ASSERT_TRUE(profile_result.ok());
-  EXPECT_EQ(profile_result.load_history, constant_result.load_history);
+  EXPECT_EQ(profile_result.load_history, series_result.load_history);
 
-  remove_file_if_present(constant_config_path);
+  remove_file_if_present(series_config_path);
   remove_file_if_present(profile_config_path);
-  remove_file_if_present(constant_result.outputs.summary_path);
-  remove_file_if_present(constant_result.outputs.time_series_path);
-  remove_file_if_present(constant_result.outputs.hdf5_path);
+  remove_file_if_present(series_result.outputs.summary_path);
+  remove_file_if_present(series_result.outputs.time_series_path);
+  remove_file_if_present(series_result.outputs.hdf5_path);
   remove_file_if_present(profile_result.outputs.summary_path);
   remove_file_if_present(profile_result.outputs.time_series_path);
   remove_file_if_present(profile_result.outputs.hdf5_path);

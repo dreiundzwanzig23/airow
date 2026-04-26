@@ -215,7 +215,9 @@ std::string make_calibrated_hdf5_config_json(std::string_view config_id,
           "release_angle_rad": 0.6
         },
         "environment": {
-          "ambient_wind_world_mps": [-2.0, 1.5, 0.0]
+          "wind_time_series": [
+            {"time_s": 0.0, "ambient_wind_world_mps": [-2.0, 1.5, 0.0]}
+          ]
         },
         "providers": {
           "hull_resistance": "quadratic_drag_placeholder",
