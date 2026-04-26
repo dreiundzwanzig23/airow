@@ -7,6 +7,7 @@ Use active sources first:
 - `docs/process/REQUIREMENTS.md`
 - `docs/process/ROADMAP_FULL_SIMULATION.md`
 - `docs/process/ARCHITECTURE.md`
+- `CHANGELOG.md`
 - `docs/ai/SESSION_CONTEXT.md`
 - `docs/ai/ROADMAP.md`
 - `docs/ai/HANDOFF.md`
@@ -14,3 +15,7 @@ Use active sources first:
 Archived files are retained for auditability and rationale. Exclude
 `docs/archive/**` from normal context retrieval unless a task explicitly needs
 historical planning detail.
+
+## Notable snapshots
+- `CHANGELOG_pre_context_cleanup_2026-04-26.md`: long-form pre-cleanup
+  unreleased changelog detail.

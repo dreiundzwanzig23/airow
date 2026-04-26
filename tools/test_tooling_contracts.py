@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -15,7 +16,44 @@ def require_contains(text: str, needle: str, label: str) -> None:
         raise AssertionError(f"missing {label}: expected to find {needle!r}")
 
 
+def load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"could not load module from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def check_compact_traceability_report() -> None:
+    tracecheck_path = ROOT / "tools" / "tracecheck.py"
+    tracecheck = load_module(tracecheck_path, "airow_tracecheck_contract")
+    traceability_path = ROOT / "docs" / "process" / "TRACEABILITY.md"
+    original = traceability_path.read_text(encoding="utf-8")
+    try:
+        data = tracecheck.collect_data()
+        warnings = tracecheck.numbering_warnings(data) + tracecheck.architecture_warnings(data)
+        tracecheck.write_traceability(data, warnings)
+        compact_report = traceability_path.read_text(encoding="utf-8")
+    finally:
+        traceability_path.write_text(original, encoding="utf-8")
+
+    for token in (
+        "## Summary",
+        "## Evidence Coverage",
+        "## Full Trace Data",
+        "`python3 tools/tracecheck.py --json`",
+    ):
+        require_contains(compact_report, token, "compact traceability report")
+    if "| Requirement | Req Status | Satisfied by A |" in compact_report:
+        raise AssertionError("TRACEABILITY.md must not contain the full trace matrix")
+    if "## Architecture Details" in compact_report:
+        raise AssertionError("TRACEABILITY.md must not duplicate ARCHITECTURE.md details")
+
+
 def main() -> int:
+    check_compact_traceability_report()
+
     compiler_warnings = (ROOT / "cmake" / "CompilerWarnings.cmake").read_text(
         encoding="utf-8"
     )

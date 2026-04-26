@@ -31,6 +31,10 @@
 - `R-023` is review-flagged after removing the legacy constant-wind config
   field; current configs must use `wind_time_series` or `wind_profile`.
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
+- Active documentation has been compacted for agent context: `README.md`,
+  `CHANGELOG.md`, the full-simulation roadmap, workflow/test/scenario docs,
+  and generated `TRACEABILITY.md` now link to canonical detail instead of
+  duplicating it. Use `python3 tools/tracecheck.py --json` for full trace data.
 - Superseded planning files are archived under `docs/archive/` and
   `docs/ai/archive/`.
 
@@ -45,6 +49,8 @@
   field or `simulation.state_advancer` selector; represent constant wind as a
   single-sample series or equivalent constant profile.
 - Do not use archived roadmaps or handoffs as active implementation guidance.
+- Do not hand-expand generated trace markdown; keep full trace inspection on
+  the JSON output path.
 
 ## Next Actions
 1. Clear or carry forward the `R-019` and `R-023` reviews.

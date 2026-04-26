@@ -18,6 +18,10 @@
   checked-in compact-report fixture, and `docs/process/CAPABILITY_MATRIX.md`.
 - Allocated the new slice to existing owners `A-001`, `A-007`, and `A-008`
   through `D-061` / `D-062`, with evidence in `UT-371..UT-378` and `QT-048`.
+- Compacted active documentation for agent context: `TRACEABILITY.md` is now a
+  generated summary with full data in `tools/tracecheck.py --json`, long
+  changelog detail is archived, and roadmap/workflow/test/scenario docs are
+  shorter indexes.
 
 ## Current Technical Posture
 - The reduced runtime remains numerically unchanged; the slice is descriptive
@@ -28,6 +32,7 @@
   semantically narrowed.
 - `R-019` remains review-flagged after the traceability-scope clarification.
 - `R-050..R-071` remain the full-simulation extension backlog.
+- The reduced runtime remains unchanged by the documentation cleanup.
 
 ## Immediate Next Steps
 1. Clear or explicitly carry forward the `R-019` and `R-023` reviews.
@@ -35,3 +40,5 @@
    optimization links once those surfaces exist.
 3. Preserve current reduced-runtime behavior unless a scoped physics
    requirement changes it.
+4. Use `python3 tools/tracecheck.py --json` when full trace mappings are
+   needed.

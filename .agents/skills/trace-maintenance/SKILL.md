@@ -26,10 +26,12 @@ description: Maintain repository traceability metadata and evidence links for re
 1. Edit metadata near the behavior under test or specification being changed.
 2. Regenerate trace artifacts and validate:
    - `python3 tools/tracecheck.py --write`
-3. Review the generated trace diff:
+3. Review the compact generated trace diff:
    - `git diff -- docs/process/TRACEABILITY.md`
-4. Resolve all trace errors before concluding work.
-5. Keep `docs/process/TRACEABILITY.md` generated only; do not hand-edit it.
+4. Use `python3 tools/tracecheck.py --json` for complete trace graph details
+   when the compact report is not enough.
+5. Resolve all trace errors before concluding work.
+6. Keep `docs/process/TRACEABILITY.md` generated only; do not hand-edit it.
 
 ## Required Output
 Leave a compact trace note when links changed:
