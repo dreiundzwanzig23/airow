@@ -554,10 +554,24 @@ Json batch_case_json(const BatchCaseResult &case_result) {
  * for machine-readable run outputs
  * @satisfies [A-007]
  */
+/**
+ * @design D-060 — Provider capability metadata output propagation
+ * @title Additive JSON and HDF5 propagation of catalog-backed provider
+ * capability metadata into run output artifacts
+ * @satisfies [A-007]
+ */
+Json provider_capability_json(const ProviderCapabilityMetadata &capability) {
+  return Json{{"support_status", capability.support_status},
+              {"fidelity_level", capability.fidelity_level},
+              {"validation_status", capability.validation_status},
+              {"capability_summary", capability.capability_summary}};
+}
+
 Json provider_metadata_json(const ProviderMetadata &provider) {
   return Json{{"id", provider.id},
               {"validity_id", provider.validity_id},
-              {"validity_description", provider.validity_description}};
+              {"validity_description", provider.validity_description},
+              {"capability", provider_capability_json(provider.capability)}};
 }
 
 Json backend_metadata_json(const BackendMetadata &metadata) {
@@ -1403,7 +1417,19 @@ bool write_provider_metadata_group(hid_t parent, const char *name,
          write_string_attribute(provider_group.id, "validity_id",
                                 provider.validity_id, diagnostic) &&
          write_string_attribute(provider_group.id, "validity_description",
-                                provider.validity_description, diagnostic);
+                                provider.validity_description, diagnostic) &&
+         write_string_attribute(provider_group.id, "support_status",
+                                provider.capability.support_status,
+                                diagnostic) &&
+         write_string_attribute(provider_group.id, "fidelity_level",
+                                provider.capability.fidelity_level,
+                                diagnostic) &&
+         write_string_attribute(provider_group.id, "validation_status",
+                                provider.capability.validation_status,
+                                diagnostic) &&
+         write_string_attribute(provider_group.id, "capability_summary",
+                                provider.capability.capability_summary,
+                                diagnostic);
 }
 
 bool write_backend_metadata_group(hid_t parent, const char *name,

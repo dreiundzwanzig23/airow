@@ -272,8 +272,10 @@ Current implemented library surface:
   moment reporting behind the shared `AeroProvider` seam, plus an explicit
   `steady_wind_calibrated` built-in id that consumes imported steady-wind
   drag and yaw coefficients from a validated calibration artifact
-- structured provider metadata in run summaries with per-role provider ids plus
-  validity identifiers and descriptions
+- structured provider metadata in run summaries with per-role provider ids,
+  validity identifiers and descriptions, plus additive capability metadata for
+  support status, fidelity level, validation status, and plain-language
+  capability summaries
 - structured external-artifact provenance metadata in JSON and HDF5 outputs
   when a run uses an imported calibration artifact
 - optional `--report compact|full` CLI output for human-readable run-state and
@@ -334,7 +336,8 @@ Current implementation status:
   shared run path,
 - `A-007 Output and Diagnostics` is now in progress with deterministic
   machine-readable summary/time-series artifact emission, structured provider
-  metadata propagation, optional HDF5 parity behind the same output contract,
+  metadata propagation including the first `R-071` provider-capability
+  metadata slice, optional HDF5 parity behind the same output contract,
   deterministic batch-summary artifact emission for ordered multi-case jobs,
   and closed `R-041` propulsion-metric reporting across summary, time-series,
   HDF5, and human-readable analysis outputs,

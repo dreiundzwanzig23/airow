@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 ### Changed
+- Started the `R-071` provider-capability metadata foundation: built-in
+  provider catalog entries now declare support status, fidelity level,
+  validation status, and a plain-language capability summary, and JSON/HDF5 run
+  outputs propagate those declarations additively under provider metadata.
 - Removed stale wind and backend compatibility paths before starting the
   full-simulation packets: config now rejects the old
   `environment.ambient_wind_world_mps` field and the removed

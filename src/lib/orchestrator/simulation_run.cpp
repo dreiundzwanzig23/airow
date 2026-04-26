@@ -83,6 +83,14 @@ ProviderMetadata fallback_provider_metadata(std::string_view id,
           "Externally supplied or manually constructed " +
           std::string(role_label) +
           " provider selection outside the built-in runtime catalog.",
+      .capability =
+          {.support_status = "active",
+           .fidelity_level = "none",
+           .validation_status = "artifact_declared",
+           .capability_summary =
+               "Externally supplied " + std::string(role_label) +
+               " provider metadata is active, but built-in capability claims "
+               "are not available."},
   };
 }
 

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -75,6 +76,104 @@ Json parse_valid_config_json(
 }
 
 std::string dump_json(const Json &root) { return root.dump(2); }
+
+struct ExpectedProviderCapability {
+  std::string_view support_status;
+  std::string_view fidelity_level;
+  std::string_view validation_status;
+  std::string_view capability_summary;
+};
+
+struct ProviderCapabilityCase {
+  project::ProviderRole role;
+  std::string_view id;
+  ExpectedProviderCapability expected;
+};
+
+const std::array kProviderCapabilityCases{
+    ProviderCapabilityCase{
+        .role = project::ProviderRole::hull_resistance,
+        .id = "none",
+        .expected = {.support_status = "disabled",
+                     .fidelity_level = "none",
+                     .validation_status = "not_applicable",
+                     .capability_summary =
+                         "No hull-resistance provider is active, so this role "
+                         "contributes no modeled hull drag."}},
+    ProviderCapabilityCase{
+        .role = project::ProviderRole::hull_resistance,
+        .id = "quadratic_drag_placeholder",
+        .expected =
+            {.support_status = "active",
+             .fidelity_level = "reduced",
+             .validation_status = "scenario_backed",
+             .capability_summary =
+                 "Reduced longitudinal hull drag is active for default tow "
+                 "and calm-water studies, but off-axis, wave, and calibrated "
+                 "resistance effects are not claimed."}},
+    ProviderCapabilityCase{
+        .role = project::ProviderRole::blade_force,
+        .id = "none",
+        .expected =
+            {.support_status = "disabled",
+             .fidelity_level = "none",
+             .validation_status = "not_applicable",
+             .capability_summary =
+                 "No blade-force provider is active, so this role contributes "
+                 "no modeled blade propulsion."}},
+    ProviderCapabilityCase{
+        .role = project::ProviderRole::blade_force,
+        .id = "stroke_propulsion_placeholder",
+        .expected =
+            {.support_status = "active",
+             .fidelity_level = "reduced",
+             .validation_status = "scenario_backed",
+             .capability_summary =
+                 "Reduced immersion-aware blade force is active for default "
+                 "single-scull stroke studies, but detailed blade-water flow "
+                 "and calibrated blade coefficients are not claimed."}},
+    ProviderCapabilityCase{
+        .role = project::ProviderRole::aero_load,
+        .id = "none",
+        .expected =
+            {.support_status = "disabled",
+             .fidelity_level = "none",
+             .validation_status = "not_applicable",
+             .capability_summary =
+                 "No aero-load provider is active, so this role contributes "
+                 "no modeled aerodynamic load."}},
+    ProviderCapabilityCase{
+        .role = project::ProviderRole::aero_load,
+        .id = "steady_wind_placeholder",
+        .expected =
+            {.support_status = "active",
+             .fidelity_level = "reduced",
+             .validation_status = "scenario_backed",
+             .capability_summary =
+                 "Reduced steady apparent-wind aero load is active for "
+                 "default headwind and crosswind studies, but gust dynamics "
+                 "and calibrated coefficients are not claimed."}},
+    ProviderCapabilityCase{
+        .role = project::ProviderRole::aero_load,
+        .id = "steady_wind_calibrated",
+        .expected =
+            {.support_status = "requires_external_artifact",
+             .fidelity_level = "calibrated_reduced",
+             .validation_status = "artifact_declared",
+             .capability_summary =
+                 "Calibrated reduced steady-wind aero load is available when "
+                 "a valid external calibration artifact is supplied, but gust "
+                 "dynamics and full CFD fidelity are not claimed."}},
+};
+
+void expect_provider_capability(const project::ProviderMetadata &provider,
+                                const ExpectedProviderCapability &expected) {
+  EXPECT_EQ(provider.capability.support_status, expected.support_status);
+  EXPECT_EQ(provider.capability.fidelity_level, expected.fidelity_level);
+  EXPECT_EQ(provider.capability.validation_status, expected.validation_status);
+  EXPECT_EQ(provider.capability.capability_summary,
+            expected.capability_summary);
+}
 
 std::filesystem::path write_temp_file(const std::filesystem::path &path,
                                       const std::string &contents) {
@@ -386,6 +485,23 @@ TEST(SimulatorConfigRuntime, BuiltInProviderCatalogExposesValidityMetadata) {
       project::ProviderRole::aero_load, "steady_wind_calibrated"));
   EXPECT_FALSE(project::builtin_provider_requires_calibration_artifact(
       project::ProviderRole::hull_resistance, "quadratic_drag_placeholder"));
+}
+
+/**
+ * @test UT-368
+ * @verifies [D-059]
+ * @notes Given the built-in runtime provider catalog, when all known provider
+ * ids are queried, then each entry exposes deterministic support, fidelity,
+ * validation, and plain-language capability metadata without changing ids or
+ * validity descriptors.
+ */
+TEST(SimulatorConfigRuntime, BuiltInProviderCatalogExposesCapabilityMetadata) {
+  for (const auto &test_case : kProviderCapabilityCases) {
+    const auto metadata =
+        project::lookup_builtin_provider_metadata(test_case.role, test_case.id);
+    ASSERT_TRUE(metadata.has_value()) << test_case.id;
+    expect_provider_capability(*metadata, test_case.expected);
+  }
 }
 
 /**

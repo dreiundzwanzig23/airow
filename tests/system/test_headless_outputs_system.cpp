@@ -459,6 +459,64 @@ TEST(HeadlessOutputsSystem, CliEmitsProviderValidityMetadata) {
 }
 
 /**
+ * @test QT-047
+ * @verifies [R-071]
+ * @notes Given a CLI run using the default reduced built-in providers, when
+ * the summary artifact is emitted, then every active provider reports
+ * non-empty machine-readable capability metadata for support, fidelity,
+ * validation, and human-facing summary text.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsProviderCapabilityMetadata) {
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-qt-capability-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-capability-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto config_path =
+      write_temp_file("airow-qt-capability-config.json",
+                      make_provider_selection_config_json(
+                          "qt-provider-capability", summary_path.string(),
+                          time_series_path.string(),
+                          R"({
+            "hull_resistance": "quadratic_drag_placeholder",
+            "blade_force": "stroke_propulsion_placeholder",
+            "aero_load": "steady_wind_placeholder"
+          })",
+                          "[-2.0, 1.0, 0.0]", 1.0));
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-capability.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-capability.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  EXPECT_TRUE(read_file(stderr_path).empty());
+  const Json summary = Json::parse(read_file(summary_path));
+  const auto &providers = summary.at("metadata").at("providers");
+  for (const auto &role : {"hull_resistance", "blade_force", "aero_load"}) {
+    const auto &capability = providers.at(role).at("capability");
+    EXPECT_FALSE(capability.at("support_status").get<std::string>().empty());
+    EXPECT_FALSE(capability.at("fidelity_level").get<std::string>().empty());
+    EXPECT_FALSE(capability.at("validation_status").get<std::string>().empty());
+    EXPECT_FALSE(
+        capability.at("capability_summary").get<std::string>().empty());
+  }
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
  * @test QT-041
  * @verifies [R-024]
  * @notes Given a default-runtime CLI config that requests the optional

@@ -1271,4 +1271,4 @@ Milestone framing:
 - **Updated**: 2026-04-24
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: A realistic simulator should be physically accurate, but it also needs to be legible to humans.
+- **Notes**: A realistic simulator should be physically accurate, but it also needs to be legible to humans. The first Phase 1 slice starts the provider metadata foundation by adding catalog-backed capability declarations to run outputs; report prose and the public capability matrix remain follow-up slices while this requirement stays review-flagged.

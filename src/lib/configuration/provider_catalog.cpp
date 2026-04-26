@@ -5,47 +5,78 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 
 namespace project {
 
 namespace {
 
-using ProviderCatalogEntry =
-    std::pair<std::string_view, std::pair<std::string_view, std::string_view>>;
+struct ProviderCatalogEntry {
+  std::string_view id;
+  std::string_view validity_id;
+  std::string_view validity_description;
+  std::string_view support_status;
+  std::string_view fidelity_level;
+  std::string_view validation_status;
+  std::string_view capability_summary;
+};
+
+/**
+ * @design D-059 — Built-in provider capability declarations
+ * @title Catalog-backed support, fidelity, validation, and plain-language
+ * capability declarations for built-in runtime providers
+ * @satisfies [A-001]
+ */
 
 constexpr std::array<ProviderCatalogEntry, 2U> HULL_RESISTANCE_PROVIDERS{{
-    {"none",
-     {"not_applicable",
-      "No hull-resistance runtime provider is selected for this run."}},
-    {"quadratic_drag_placeholder",
-     {"baseline-longitudinal-drag-v1",
-      "Supported reduced longitudinal hull-drag baseline for deterministic "
-      "tow and calm-water default-runtime studies."}},
+    {"none", "not_applicable",
+     "No hull-resistance runtime provider is selected for this run.",
+     "disabled", "none", "not_applicable",
+     "No hull-resistance provider is active, so this role contributes no "
+     "modeled hull drag."},
+    {"quadratic_drag_placeholder", "baseline-longitudinal-drag-v1",
+     "Supported reduced longitudinal hull-drag baseline for deterministic "
+     "tow and calm-water default-runtime studies.",
+     "active", "reduced", "scenario_backed",
+     "Reduced longitudinal hull drag is active for default tow and "
+     "calm-water studies, but off-axis, wave, and calibrated resistance "
+     "effects are not claimed."},
 }};
 
 constexpr std::array<ProviderCatalogEntry, 2U> BLADE_FORCE_PROVIDERS{{
-    {"none",
-     {"not_applicable",
-      "No blade-force runtime provider is selected for this run."}},
-    {"stroke_propulsion_placeholder",
-     {"baseline-blade-force-v1",
-      "Supported immersion-aware reduced blade-force baseline for "
-      "deterministic single-scull default-runtime stroke studies."}},
+    {"none", "not_applicable",
+     "No blade-force runtime provider is selected for this run.", "disabled",
+     "none", "not_applicable",
+     "No blade-force provider is active, so this role contributes no modeled "
+     "blade propulsion."},
+    {"stroke_propulsion_placeholder", "baseline-blade-force-v1",
+     "Supported immersion-aware reduced blade-force baseline for "
+     "deterministic single-scull default-runtime stroke studies.",
+     "active", "reduced", "scenario_backed",
+     "Reduced immersion-aware blade force is active for default single-scull "
+     "stroke studies, but detailed blade-water flow and calibrated blade "
+     "coefficients are not claimed."},
 }};
 
 constexpr std::array<ProviderCatalogEntry, 3U> AERO_LOAD_PROVIDERS{{
-    {"none",
-     {"not_applicable",
-      "No aerodynamic runtime provider is selected for this run."}},
-    {"steady_wind_placeholder",
-     {"baseline-steady-wind-v1",
-      "Supported reduced steady apparent-wind aero baseline for "
-      "deterministic headwind and crosswind default-runtime studies."}},
-    {"steady_wind_calibrated",
-     {"external-calibrated-steady-wind-v1",
-      "Calibrated steady apparent-wind aero provider requiring imported "
-      "external calibration artifact provenance."}},
+    {"none", "not_applicable",
+     "No aerodynamic runtime provider is selected for this run.", "disabled",
+     "none", "not_applicable",
+     "No aero-load provider is active, so this role contributes no modeled "
+     "aerodynamic load."},
+    {"steady_wind_placeholder", "baseline-steady-wind-v1",
+     "Supported reduced steady apparent-wind aero baseline for "
+     "deterministic headwind and crosswind default-runtime studies.",
+     "active", "reduced", "scenario_backed",
+     "Reduced steady apparent-wind aero load is active for default headwind "
+     "and crosswind studies, but gust dynamics and calibrated coefficients "
+     "are not claimed."},
+    {"steady_wind_calibrated", "external-calibrated-steady-wind-v1",
+     "Calibrated steady apparent-wind aero provider requiring imported "
+     "external calibration artifact provenance.",
+     "requires_external_artifact", "calibrated_reduced", "artifact_declared",
+     "Calibrated reduced steady-wind aero load is available when a valid "
+     "external calibration artifact is supplied, but gust dynamics and full "
+     "CFD fidelity are not claimed."},
 }};
 
 /**
@@ -59,11 +90,17 @@ std::optional<ProviderMetadata>
 lookup_provider_metadata(const std::array<ProviderCatalogEntry, Count> &entries,
                          std::string_view id) {
   for (const auto &entry : entries) {
-    if (entry.first == id) {
+    if (entry.id == id) {
       return ProviderMetadata{
-          .id = std::string(entry.first),
-          .validity_id = std::string(entry.second.first),
-          .validity_description = std::string(entry.second.second),
+          .id = std::string(entry.id),
+          .validity_id = std::string(entry.validity_id),
+          .validity_description = std::string(entry.validity_description),
+          .capability = {.support_status = std::string(entry.support_status),
+                         .fidelity_level = std::string(entry.fidelity_level),
+                         .validation_status =
+                             std::string(entry.validation_status),
+                         .capability_summary =
+                             std::string(entry.capability_summary)},
       };
     }
   }

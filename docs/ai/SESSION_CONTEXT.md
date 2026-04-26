@@ -3,8 +3,8 @@
 ## Snapshot
 - **Date**: 2026-04-26
 - **Branch**: `new_roadmap`
-- **Current Objective**: Use the merged full-simulation roadmap and
-  requirements as the active guide for upcoming work.
+- **Current Objective**: Build the first Phase 1 trust/capability visibility
+  slices from the merged full-simulation roadmap.
 
 ## Current State
 - The simulator remains a headless-first deterministic single-scull runtime
@@ -17,6 +17,10 @@
   propulsion metrics.
 - `R-050..R-071` are now merged into the canonical requirements as the
   full-simulation extension backlog.
+- The first `R-071` provider-capability metadata slice is in place:
+  built-in provider catalog entries declare support status, fidelity level,
+  validation status, and a plain-language capability summary, and JSON/HDF5 run
+  outputs propagate those declarations additively under provider metadata.
 - `R-019` is temporarily review-flagged because P0 trace closure now excludes
   `Needs-Review: yes` draft backlog items until they are reviewed and
   allocated.
@@ -40,10 +44,10 @@
 
 ## Next Actions
 1. Clear or carry forward the `R-019` and `R-023` reviews.
-2. Select the first `Needs-Review: yes` full-simulation packet from
-   `R-050..R-071`, starting with trust/capability and visualization artifact
-   foundations.
-3. Allocate the selected packet in `docs/process/ARCHITECTURE.md` before
+2. Continue `R-071` Phase 1 with the public capability matrix and
+   human-readable report prose slices; keep `R-071` `Needs-Review: yes` until
+   those follow-ups are reviewed.
+3. Allocate each selected packet in `docs/process/ARCHITECTURE.md` before
    adding failing tests.
 4. Preserve current numerical behavior unless the selected requirement
    explicitly changes runtime physics.

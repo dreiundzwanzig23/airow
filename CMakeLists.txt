@@ -271,6 +271,7 @@ if(BUILD_TESTING)
         tests/unit/test_simulation_run_advancer.cpp
         tests/unit/test_simulation_run_state_validation.cpp
         tests/unit/test_simulation_run_state_validation_additional.cpp
+        tests/unit/test_provider_capability_metadata.cpp
         tests/unit/test_run_outputs.cpp
         tests/unit/test_run_outputs_truth_model.cpp
         tests/unit/test_run_outputs_wind.cpp
