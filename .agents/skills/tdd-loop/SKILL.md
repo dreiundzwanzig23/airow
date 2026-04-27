@@ -16,6 +16,9 @@ description: Execute the repository's failing-tests-first workflow for behavior-
 - Keep each red/green/refactor loop to one behavior claim whenever practical.
   Split broad work into multiple micro-slices instead of hiding several
   behaviors behind one failing test.
+- Run a fresh red/green/refactor loop for every distinct observable behavior
+  slice. If implementation exposes another behavior, stop and add the next
+  failing test before continuing.
 - Identify the target requirement IDs (`R-*`), candidate owning architecture IDs
   (`A-*`), and affected design IDs (`D-*`) before changing tests.
 - Switch to `.agents/skills/major-change-loop/SKILL.md` when the change is
@@ -40,6 +43,7 @@ description: Execute the repository's failing-tests-first workflow for behavior-
      lane is `UT-*`,
    - add or adjust targeted failing tests first (`UT-*`, `IT-*`, `QT-*` as
      needed),
+   - keep the current red phase scoped to one observable behavior,
    - confirm the intended failure is reproducible,
    - explain why the failure proves the intended missing behavior instead of an
      incidental setup problem,
@@ -110,7 +114,9 @@ Gates:
   process-visible.
 - Keep RGR evidence markers (`rgr:red`, `rgr:green`, `rgr:refactor`) in a
   commit message or evidence note. `./scripts/check_rgr_evidence.sh` is strict
-  by default; use `RGR_ENFORCEMENT_MODE=warn` or `off` only as explicit local
-  overrides.
+  by default and rejects out-of-order markers. Use `RGR_ENFORCEMENT_MODE=warn`
+  or `off` only as explicit local overrides.
+- For multi-slice work, repeat the evidence sequence for each slice:
+  `rgr:red`, then `rgr:green`, then `rgr:refactor`.
 - Do not create a thin 1:1 `R -> A` mapping unless the architecture policy
   explicitly justifies it.

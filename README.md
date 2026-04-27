@@ -174,3 +174,6 @@ Useful local validation commands:
 ```
 
 Required completion gates for repository changes are defined in `AGENTS.md`.
+Functional changes use a red/green/refactor loop per observable behavior
+slice. Changed unit tests are linted for focused authoring metadata:
+one `@case` tag and one `@oracle` tag per changed `UT-*` block.

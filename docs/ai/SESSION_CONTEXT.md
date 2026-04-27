@@ -3,26 +3,20 @@
 ## Snapshot
 - **Date**: 2026-04-27
 - **Branch**: `new_roadmap`
-- **Current Objective**: Continue additive visualization/trust surfaces without
-  changing reduced-runtime physics.
+- **Current Objective**: Continue additive visualization/trust surfaces without changing reduced-runtime physics.
 
 ## Current State
 - The simulator remains a headless-first deterministic single-scull runtime
   with active `A-001`, `A-002`, `A-003`, `A-004`, `A-005`, `A-007`, `A-008`,
-  `A-009`, and `A-010` contracts.
-- Closed baseline packets remain the reference floor: reduced hydro/aero,
-  preferred backend, calibration, time-varying wind, batch/truth-model
-  guardrails, budgets, actuation, rower coupling, and propulsion metrics.
+  `A-009`, and `A-010`; closed baseline packets remain the reference floor.
 - `R-050..R-071` are now merged into the canonical requirements as the
   full-simulation extension backlog.
-- The first `R-071` provider-capability metadata slice is in place:
-  built-in provider catalog entries declare support status, fidelity level,
-  validation status, and a plain-language capability summary, and JSON/HDF5 run
-  outputs propagate those declarations additively under provider metadata.
-- The Phase 1 trust-envelope/report slice is also in place: `RunMetadata`,
-  JSON summaries, HDF5 metadata, and compact/full reports now expose a derived
-  trust envelope, and `docs/process/CAPABILITY_MATRIX.md` documents the public
-  capability matrix. `R-035`, `R-049`, and `R-071` remain open.
+- The first `R-071` provider-capability metadata slice is in place and
+  propagates support, fidelity, validation, and capability summaries into run
+  outputs.
+- The Phase 1 trust-envelope/report slice is in place, and
+  `docs/process/CAPABILITY_MATRIX.md` documents the public capability matrix.
+  `R-035`, `R-049`, and `R-071` remain open.
 - The first `R-050` / `R-052` / `R-053` / `R-070` visualization path is in
   place: `output.visualization_path` emits `airow.visualization.v1`, malformed
   artifacts are rejected, examples emit the artifact, and `tools/run_analysis.py`
@@ -42,6 +36,9 @@
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
 - Active docs stay compact; use `python3 tools/tracecheck.py --json` for full
   trace data instead of hand-expanding generated `TRACEABILITY.md`.
+- Process/tooling guardrail: functional work now repeats red/green/refactor per
+  observable behavior slice; changed `tests/unit/**` blocks must declare one
+  `@case` and one `@oracle`; RGR evidence markers must be ordered.
 - Superseded planning files are archived under `docs/archive/` and `docs/ai/archive/`.
 
 ## Guardrails
@@ -50,12 +47,14 @@
 - Build observability, capability reporting, and artifact contracts before
   claiming deeper physics realism.
 - Keep optional high-fidelity water workflows offline.
-- Do not reintroduce the removed `environment.ambient_wind_world_mps` config
-  field or `simulation.state_advancer` selector; represent constant wind as a
-  single-sample series or equivalent constant profile.
+- Do not reintroduce removed wind/state-advancer config fields; represent
+  constant wind as a single-sample series or equivalent constant profile.
 - Do not use archived roadmaps or handoffs as active implementation guidance.
 - Keep final responses for repository changes ending with a one-line
   `Commit message:` summary; do not hand-expand generated trace markdown.
+- Keep changed unit tests focused on one observable behavior and let the
+  changed-test lint lane enforce `@case` / `@oracle` metadata instead of
+  mass-rewriting untouched legacy tests.
 
 ## Next Actions
 1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` toward remaining

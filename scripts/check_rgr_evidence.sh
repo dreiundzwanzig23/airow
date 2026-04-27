@@ -4,6 +4,7 @@ set -euo pipefail
 mode="${RGR_ENFORCEMENT_MODE:-strict}"
 default_evidence_file=".rgr-evidence.md"
 expected_markers=("rgr:red" "rgr:green" "rgr:refactor")
+expected_phases=("red" "green" "refactor")
 
 source_label=""
 evidence_text=""
@@ -62,9 +63,47 @@ for marker in "${expected_markers[@]}"; do
   fi
 done
 
-if [[ "${#missing_markers[@]}" -eq 0 ]]; then
+mapfile -t observed_phases < <(
+  printf '%s' "${evidence_text}" \
+    | python3 -c 'import re, sys
+text = sys.stdin.read()
+for match in re.finditer(r"\brgr\s*:\s*(red|green|refactor)\b", text, re.IGNORECASE):
+    print(match.group(1).lower())
+'
+)
+
+order_problem=""
+expected_index=0
+for phase in "${observed_phases[@]}"; do
+  expected_phase="${expected_phases[${expected_index}]}"
+  if [[ "${phase}" != "${expected_phase}" ]]; then
+    order_problem="out-of-order expected=rgr:${expected_phase} observed=rgr:${phase}"
+    break
+  fi
+  expected_index=$((expected_index + 1))
+  if [[ "${expected_index}" -eq "${#expected_phases[@]}" ]]; then
+    expected_index=0
+  fi
+done
+
+if [[ -z "${order_problem}" && "${expected_index}" -ne 0 ]]; then
+  order_problem="incomplete-slice expected=rgr:${expected_phases[${expected_index}]}"
+fi
+
+if [[ "${#missing_markers[@]}" -eq 0 && -z "${order_problem}" ]]; then
   printf '[RGR][OK] source=%s markers=%s\n' \
     "${source_label}" "$(IFS=,; echo "${expected_markers[*]}")"
+  exit 0
+fi
+
+if [[ -n "${order_problem}" ]]; then
+  printf '[RGR][WARN] source=%s %s\n' "${source_label}" "${order_problem}"
+  if [[ "${mode}" == "strict" ]]; then
+    exit 1
+  fi
+fi
+
+if [[ "${#missing_markers[@]}" -eq 0 ]]; then
   exit 0
 fi
 

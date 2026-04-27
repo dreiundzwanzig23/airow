@@ -15,7 +15,12 @@ lives in `AGENTS.md`; this file must not redefine it.
 ## Execution Shape
 - Pick requirement work using the order in `AGENTS.md`.
 - Allocate architecture before tests.
-- Use failing-tests-first red/green/refactor for functional changes.
+- Use failing-tests-first red/green/refactor for each distinct functional
+  behavior slice, not once per broad milestone.
+- If a new behavior is discovered while implementing, pause implementation and
+  add the next failing test before continuing.
+- Keep RGR evidence markers ordered as `rgr:red`, `rgr:green`,
+  `rgr:refactor`; repeat that sequence for multi-slice work.
 - Regenerate traceability with `python3 tools/tracecheck.py --write` when
   trace-relevant files change.
 - Update release/context docs only when triggered by the change.

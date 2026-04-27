@@ -15,6 +15,15 @@ Define verification-layer intent. Detailed lane choice and execution belongs in
 ## Design Rules
 - Keep tests deterministic, bounded, and behavior-focused.
 - Keep `@test` IDs unique and `@verifies` targets lane-consistent.
+- Keep each new or changed `UT-*` focused on one observable design-level
+  behavior, with separate tests for distinct equivalence classes, boundaries,
+  edge cases, or invalid-input reasons.
+- Changed unit tests must include exactly one `@case` tag
+  (`nominal`, `equivalence`, `boundary`, `edge`, or `invalid`) and exactly one
+  `@oracle` tag (`exact`, `tolerance`, `invariant`, `monotonic`,
+  `accounting`, `diagnostic`, or `rejection`).
+- Prefer one primary `D-*` target for new or changed `UT-*` blocks unless the
+  behavior is explicitly integration-level and belongs in `IT-*`.
 - Use explicit tolerances when comparing numerics.
 - Avoid implementation backdoors such as private-public hacks,
   `FRIEND_TEST`, implementation-file includes, wall-clock reads, or sleep

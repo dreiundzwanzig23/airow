@@ -18,6 +18,17 @@ DEFAULT_MAX_TEST_CASES_PER_FILE = int(os.environ.get("TEST_MAX_TEST_CASES", "14"
 TEST_FILE_LINE_LIMIT_OVERRIDES: dict[str, int] = {}
 TEST_CASE_LIMIT_OVERRIDES: dict[str, int] = {}
 TEST_CASE_PATTERN = re.compile(r"^\s*TEST(?:_F|_P)?\s*\(", re.M)
+DOXYGEN_BLOCK_PATTERN = re.compile(r"/\*\*(?P<body>.*?)\*/", re.S)
+UNIT_CASE_VALUES = {"nominal", "equivalence", "boundary", "edge", "invalid"}
+UNIT_ORACLE_VALUES = {
+    "exact",
+    "tolerance",
+    "invariant",
+    "monotonic",
+    "accounting",
+    "diagnostic",
+    "rejection",
+}
 
 
 @dataclass(frozen=True)
@@ -84,8 +95,71 @@ def line_number(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def is_unit_test_path(rel_path: pathlib.Path) -> bool:
+    return len(rel_path.parts) >= 2 and rel_path.parts[:2] == ("tests", "unit")
+
+
+def preceding_doxygen_block(text: str, offset: int) -> str | None:
+    blocks = list(DOXYGEN_BLOCK_PATTERN.finditer(text, 0, offset))
+    if not blocks:
+        return None
+
+    block = blocks[-1]
+    if text[block.end() : offset].strip():
+        return None
+    return block.group("body")
+
+
+def tag_values(block: str, tag: str) -> list[str]:
+    pattern = re.compile(rf"^\s*\*\s*@{re.escape(tag)}\s+([A-Za-z0-9_-]+)\b", re.M)
+    return [match.group(1) for match in pattern.finditer(block)]
+
+
+def unit_authoring_contract_problems(
+    rel_path: pathlib.Path, text: str
+) -> list[str]:
+    problems: list[str] = []
+
+    for match in TEST_CASE_PATTERN.finditer(text):
+        test_line = line_number(text, match.start())
+        block = preceding_doxygen_block(text, match.start())
+        if block is None:
+            problems.append(
+                f"{rel_path}:{test_line}: changed unit TEST requires an adjacent Doxygen block"
+            )
+            continue
+
+        case_values = tag_values(block, "case")
+        oracle_values = tag_values(block, "oracle")
+
+        if len(case_values) != 1:
+            problems.append(
+                f"{rel_path}:{test_line}: changed unit TEST requires exactly one @case tag"
+            )
+        elif case_values[0] not in UNIT_CASE_VALUES:
+            expected = ", ".join(sorted(UNIT_CASE_VALUES))
+            problems.append(
+                f"{rel_path}:{test_line}: unsupported @case value {case_values[0]!r} "
+                f"(expected one of: {expected})"
+            )
+
+        if len(oracle_values) != 1:
+            problems.append(
+                f"{rel_path}:{test_line}: changed unit TEST requires exactly one @oracle tag"
+            )
+        elif oracle_values[0] not in UNIT_ORACLE_VALUES:
+            expected = ", ".join(sorted(UNIT_ORACLE_VALUES))
+            problems.append(
+                f"{rel_path}:{test_line}: unsupported @oracle value {oracle_values[0]!r} "
+                f"(expected one of: {expected})"
+            )
+
+    return problems
+
+
 def main(argv: list[str]) -> int:
     problems: list[str] = []
+    changed_scope = os.environ.get("TEST_LINT_SCOPE") == "changed"
 
     for path in candidate_files(argv):
         rel_path = path.relative_to(ROOT)
@@ -115,6 +189,9 @@ def main(argv: list[str]) -> int:
                 problems.append(
                     f"{rel_path}:{line_number(text, match.start())}: {policy.description}"
                 )
+
+        if changed_scope and is_unit_test_path(rel_path):
+            problems.extend(unit_authoring_contract_problems(rel_path, text))
 
     if problems:
         print("TEST QUALITY CHECK FAILED:")

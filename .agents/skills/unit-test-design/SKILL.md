@@ -40,6 +40,11 @@ description: Design or tighten repository unit tests (`UT-*`) for design-level b
    reasons.
 7. Prefer one behavior axis per test. Split cases instead of building one
    oversized assertion bundle.
+8. For changed or new `UT-*` blocks, choose exactly one `@case` classification:
+   `nominal`, `equivalence`, `boundary`, `edge`, or `invalid`.
+9. For changed or new `UT-*` blocks, choose exactly one `@oracle`
+   classification: `exact`, `tolerance`, `invariant`, `monotonic`,
+   `accounting`, `diagnostic`, or `rejection`.
 
 ## Write Tests
 - Keep tests behavior-focused. Do not couple them to private structure,
@@ -51,6 +56,11 @@ description: Design or tighten repository unit tests (`UT-*`) for design-level b
   - use overrides only with explicit rationale.
 - Use names that describe the contract outcome, not the internal mechanism.
 - Use Doxygen blocks with `@test`, `@verifies`, and `@notes`.
+- For new or changed unit tests, include exactly one `@case` and one `@oracle`
+  tag in the Doxygen block.
+- Prefer one primary `D-*` target per new or changed `UT-*`; move broader
+  boundary behavior to `IT-*` when a single design owner is no longer the
+  narrowest correct lane.
 - Write `@notes` in Given/When/Then form.
 - Make the Then clause concrete. State the expected output, diagnostic, or
   invariant instead of only saying that the call "succeeds" or "fails".
@@ -77,6 +87,10 @@ Cases:
 Oracle:
 - exact | tolerance | invariant | monotonic | accounting | diagnostic | rejection
 - expected observable:
+
+Doxygen:
+- @case:
+- @oracle:
 
 Red expectation:
 - why this test should fail before implementation:

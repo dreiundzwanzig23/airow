@@ -4,11 +4,12 @@
 - 2026-04-27
 
 ## What Changed In This Session
-- Added the next offline inspection slice under the existing visualization
-  owners: top/side/end projection controls, frame selection labels, checkbox
-  vector overlays derived from emitted artifact vectors, disabled unavailable
-  channel controls, broader selectable plot coverage, plot-click seeking, and
-  `metrics.json.interactive_controls` metadata.
+- Tightened TDD/unit-test standards: functional work repeats RGR per behavior
+  slice, RGR markers are order-checked, and changed `tests/unit/**` blocks must
+  declare one `@case` and one `@oracle`.
+- Added offline inspection controls under existing visualization owners:
+  top/side/end projections, frame labels, vector toggles, unavailable-channel
+  disabling, broader plots, plot-click seeking, and control metadata.
 - Added the follow-on event-marker and moment-vector slice: offline reports now
   expose peak, zero-crossing, stroke-boundary, and trust-warning markers,
   fill provenance for already-emitted force/moment vectors, and verify mirrored
@@ -16,9 +17,8 @@
 - Added hull-body-frame visualization vector channels for already-emitted
   world-frame force, moment, wind, and rower-inertial vectors, with offline
   report toggles preserving unit, frame, and provenance labels.
-- Added the first reduced ParaView/VTK export slice: validated
-  `airow.visualization.v1` artifacts can produce deterministic geometry/vector
-  VTK files plus a metadata sidecar, with optional `run_analysis.py` metadata.
+- Added reduced ParaView/VTK export from validated `airow.visualization.v1`
+  artifacts, including deterministic geometry/vector files and a metadata sidecar.
 - Added `QT-052`, `QT-053`, and `QT-054` coverage for the richer offline report
   controls and `QT-055` coverage for the ParaView bundle while keeping the
   `airow.visualization.v1` schema additive and unchanged.
@@ -35,6 +35,8 @@
 ## Current Technical Posture
 - The reduced runtime remains numerically unchanged; this visualization-control
   slice is an additive output/reporting surface only.
+- The process/tooling change affects changed-test lint and RGR evidence only;
+  simulator runtime behavior and public C++ APIs are unchanged.
 - `R-035`, `R-049`, and `R-071` remain `Status: OPEN`; `R-071` remains
   `Needs-Review: yes`.
 - `R-050`, `R-052`, `R-053`, `R-056`, and `R-070` are `IN_PROGRESS` for the
@@ -47,14 +49,11 @@
   existing numbering-gap warnings.
 
 ## Immediate Next Steps
-1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` with remaining
-   interface/disturbance vector coverage, true 3D playback linkage, and
-   ParaView loading guidance.
+1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` with remaining vector coverage, true 3D playback linkage, and ParaView loading guidance.
 2. Keep `R-052` and `R-053` review-flagged until true 3D playback and full
    linked timeline/channel coverage are implemented.
 3. Continue `R-071` with viewer entry pages and study-recommendation or
    optimization links once those surfaces exist.
-4. Preserve current reduced-runtime behavior unless a scoped physics
-   requirement changes it.
+4. Preserve current reduced-runtime behavior unless a scoped physics requirement changes it.
 5. Use `python3 tools/tracecheck.py --json` when full trace mappings are
    needed.

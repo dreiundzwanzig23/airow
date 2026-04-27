@@ -24,6 +24,9 @@
   sidecar preserving vector unit, frame, and provenance labels.
 
 ### Changed
+- Tightened the repository TDD standard so functional work repeats
+  red/green/refactor per observable behavior slice, RGR evidence must appear in
+  order, and changed unit tests must declare one `@case` and one `@oracle`.
 - Standardized final Codex responses after repository changes to include a
   one-line `Commit message:` summary.
 - Restored the `karpathy-guidelines` repository skill index entry and expected

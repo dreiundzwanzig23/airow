@@ -29,8 +29,11 @@ description: Select the correct repository test lane based on confidence, covera
   transition.
 - Keep explicit `rgr:red`, `rgr:green`, and `rgr:refactor` evidence markers.
 - `./scripts/check_rgr_evidence.sh` is strict by default and is wired into
-  `test_tdd.sh` and `verify.sh`; use `RGR_ENFORCEMENT_MODE=warn` or `off` only
-  as explicit local overrides.
+  `test_tdd.sh` and `verify.sh`; it rejects missing, incomplete, or out-of-order
+  marker sequences. Use `RGR_ENFORCEMENT_MODE=warn` or `off` only as explicit
+  local overrides.
+- `TEST_LINT_SCOPE=changed` in the fast lane enforces the changed-unit-test
+  authoring contract without forcing a legacy-wide rewrite.
 - Treat `IT-*` as the main subsystem-contract lane for architecture boundary
   checks and characterization coverage around preserved seams.
 - Treat scenario-oriented `QT-*` runs as the main requirement-level evidence lane

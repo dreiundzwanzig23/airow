@@ -3,10 +3,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +26,7 @@ def load_module(path: Path, name: str):
     if spec is None or spec.loader is None:
         raise AssertionError(f"could not load module from {path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -93,9 +99,168 @@ def check_visualization_artifact_validator() -> None:
         raise AssertionError("malformed visualization vector channel was accepted")
 
 
+def run_test_quality_with_fixture(
+    relative_dir: str, content: str, *, changed_scope: bool
+) -> tuple[int, str]:
+    check_test_quality = load_module(
+        ROOT / "tools" / "check_test_quality.py",
+        "airow_check_test_quality_contract",
+    )
+    fixture_root = ROOT / relative_dir
+    with tempfile.TemporaryDirectory(dir=fixture_root) as temp_dir:
+        path = Path(temp_dir) / "test_contract_fixture.cpp"
+        path.write_text(content, encoding="utf-8")
+        old_scope = os.environ.get("TEST_LINT_SCOPE")
+        if changed_scope:
+            os.environ["TEST_LINT_SCOPE"] = "changed"
+        elif old_scope is not None:
+            del os.environ["TEST_LINT_SCOPE"]
+        try:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                rc = check_test_quality.main([str(path)])
+        finally:
+            if old_scope is None:
+                os.environ.pop("TEST_LINT_SCOPE", None)
+            else:
+                os.environ["TEST_LINT_SCOPE"] = old_scope
+    return rc, relative_dir
+
+
+def unit_test_fixture(*, extra_tags: str = "") -> str:
+    return f"""
+#include <gtest/gtest.h>
+
+/**
+ * @test UT-999
+ * @verifies [D-999]
+{extra_tags} * @notes Given one input, when the behavior is evaluated, then the
+ * single observable output is exact.
+ */
+TEST(ToolingContractFixture, ChecksOneObservableBehavior) {{
+  EXPECT_EQ(2, 1 + 1);
+}}
+"""
+
+
+def check_changed_unit_test_authoring_contract() -> None:
+    missing_tags_rc, _ = run_test_quality_with_fixture(
+        "tests/unit",
+        unit_test_fixture(),
+        changed_scope=True,
+    )
+    if missing_tags_rc == 0:
+        raise AssertionError(
+            "changed unit tests without @case and @oracle tags must be rejected"
+        )
+
+    valid_rc, _ = run_test_quality_with_fixture(
+        "tests/unit",
+        unit_test_fixture(extra_tags=" * @case nominal\n * @oracle exact\n"),
+        changed_scope=True,
+    )
+    if valid_rc != 0:
+        raise AssertionError("changed unit tests with one @case and one @oracle must pass")
+
+    legacy_scope_rc, _ = run_test_quality_with_fixture(
+        "tests/unit",
+        unit_test_fixture(),
+        changed_scope=False,
+    )
+    if legacy_scope_rc != 0:
+        raise AssertionError("full-suite test quality must keep accepting legacy UT blocks")
+
+    integration_rc, _ = run_test_quality_with_fixture(
+        "tests/integration",
+        unit_test_fixture().replace("@test UT-999", "@test IT-999").replace(
+            "@verifies [D-999]", "@verifies [A-999]"
+        ),
+        changed_scope=True,
+    )
+    if integration_rc != 0:
+        raise AssertionError("IT fixtures must not require UT-only @case/@oracle tags")
+
+    system_rc, _ = run_test_quality_with_fixture(
+        "tests/system",
+        unit_test_fixture().replace("@test UT-999", "@test QT-999").replace(
+            "@verifies [D-999]", "@verifies [R-999]"
+        ),
+        changed_scope=True,
+    )
+    if system_rc != 0:
+        raise AssertionError("QT fixtures must not require UT-only @case/@oracle tags")
+
+
+def run_rgr_check(evidence: str) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["RGR_ENFORCEMENT_MODE"] = "strict"
+    env["RGR_EVIDENCE_TEXT"] = evidence
+    return subprocess.run(
+        [str(ROOT / "scripts" / "check_rgr_evidence.sh")],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def check_rgr_evidence_order_contract() -> None:
+    valid_multi_slice = """
+rgr:red:
+- failing test for first behavior
+rgr:green:
+- minimal implementation
+rgr:refactor:
+- cleanup
+rgr:red:
+- failing test for second behavior
+rgr:green:
+- minimal implementation
+rgr:refactor:
+- no-op rationale
+"""
+    if run_rgr_check(valid_multi_slice).returncode != 0:
+        raise AssertionError("ordered multi-slice RGR evidence must pass")
+
+    out_of_order = """
+rgr:red:
+- failing test
+rgr:refactor:
+- cleanup before green
+rgr:green:
+- implementation
+"""
+    out_of_order_result = run_rgr_check(out_of_order)
+    if out_of_order_result.returncode == 0:
+        raise AssertionError("out-of-order RGR evidence must fail")
+    require_contains(
+        out_of_order_result.stdout + out_of_order_result.stderr,
+        "out-of-order",
+        "RGR order diagnostic",
+    )
+
+    incomplete_slice = """
+rgr:red:
+- failing test
+rgr:green:
+- implementation
+"""
+    incomplete_result = run_rgr_check(incomplete_slice)
+    if incomplete_result.returncode == 0:
+        raise AssertionError("incomplete RGR evidence slices must fail")
+    require_contains(
+        incomplete_result.stdout + incomplete_result.stderr,
+        "incomplete-slice",
+        "RGR incomplete-slice diagnostic",
+    )
+
+
 def main() -> int:
     check_compact_traceability_report()
     check_visualization_artifact_validator()
+    check_changed_unit_test_authoring_contract()
+    check_rgr_evidence_order_contract()
 
     compiler_warnings = (ROOT / "cmake" / "CompilerWarnings.cmake").read_text(
         encoding="utf-8"
