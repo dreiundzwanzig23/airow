@@ -206,11 +206,126 @@ def script_json(value: object) -> str:
     return json.dumps(value, separators=(",", ":")).replace("</", "<\\/")
 
 
+def vector_channel_metadata_id(vector_id: str) -> str:
+    replacements = {
+        "hull_hydro_force_world_n": "hull_hydro_force",
+        "hull_hydro_moment_world_n_m": "hull_hydro_moment",
+        "port_blade_force_world_n": "blade_force",
+        "starboard_blade_force_world_n": "blade_force",
+        "aero_force_world_n": "aero_force",
+        "aero_moment_world_n_m": "aero_moment",
+        "ambient_wind_world_mps": "ambient_wind",
+        "apparent_wind_world_mps": "apparent_wind",
+        "rower_inertial_force_world_n": "rower_inertial_force",
+    }
+    return replacements.get(vector_id, vector_id)
+
+
+def display_label(identifier: str) -> str:
+    return identifier.replace("_", " ")
+
+
+def vector_controls(visualization: dict | None) -> list[dict]:
+    if visualization is None:
+        return []
+
+    channels = visualization.get("channels", {})
+    samples = visualization.get("samples", [])
+    first_sample = samples[0] if samples and isinstance(samples[0], dict) else {}
+    sample_vectors = first_sample.get("vectors", {})
+    controls: list[dict] = []
+
+    if isinstance(sample_vectors, dict):
+        for vector_id, vector in sorted(sample_vectors.items()):
+            if not isinstance(vector, dict):
+                continue
+            metadata_id = vector_channel_metadata_id(vector_id)
+            metadata = channels.get(metadata_id, {})
+            if not isinstance(metadata, dict):
+                metadata = {}
+            controls.append(
+                {
+                    "id": vector_id,
+                    "label": display_label(vector_id),
+                    "availability": "available",
+                    "unit": str(vector.get("unit", metadata.get("unit", ""))),
+                    "frame": str(vector.get("frame", metadata.get("frame", ""))),
+                    "provenance": str(metadata.get("provenance", "emitted_sample")),
+                    "metadata_channel": metadata_id,
+                }
+            )
+
+    return controls
+
+
+def unavailable_channel_controls(visualization: dict | None) -> list[dict]:
+    if visualization is None:
+        return []
+
+    unavailable: list[dict] = []
+    channels = visualization.get("channels", {})
+    if isinstance(channels, dict):
+        for channel_id, metadata in sorted(channels.items()):
+            if not isinstance(metadata, dict):
+                continue
+            if metadata.get("availability") != "unavailable":
+                continue
+            unavailable.append(
+                {
+                    "id": channel_id,
+                    "label": display_label(channel_id),
+                    "availability": "unavailable",
+                    "unit": str(metadata.get("unit", "")),
+                    "frame": str(metadata.get("frame", "")),
+                    "reason": str(metadata.get("reason", "unavailable")),
+                }
+            )
+    return unavailable
+
+
+def reference_frame_ids(visualization: dict | None) -> list[str]:
+    if visualization is None:
+        return []
+    frames = visualization.get("frames", {})
+    if not isinstance(frames, dict):
+        return []
+    preferred = ["world", "hull_body", "waterline"]
+    return [frame for frame in preferred if frame in frames]
+
+
+def interactive_controls_metadata(
+    visualization: dict | None,
+    plot_channels: list[dict],
+) -> dict:
+    return {
+        "enabled": visualization is not None,
+        "schema_id": visualization.get("schema_id") if visualization else None,
+        "projection_modes": ["top", "side", "end"] if visualization else [],
+        "reference_frames": reference_frame_ids(visualization),
+        "plot_click_seek": visualization is not None,
+        "vector_channels": vector_controls(visualization),
+        "unavailable_channels": unavailable_channel_controls(visualization),
+        "plot_channels": [plot_channel_metadata(channel) for channel in plot_channels],
+    }
+
+
+def plot_channel_metadata(channel: dict) -> dict:
+    return {
+        "id": channel["id"],
+        "label": channel["label"],
+        "unit": channel["unit"],
+        "frame": channel.get("frame", ""),
+        "availability": "available",
+        "source": channel.get("source", "time_series"),
+    }
+
+
 def viewer_payload(
     summary: dict,
     time_series: dict,
     visualization: dict | None,
     generated_plots: list[str],
+    plot_channels: list[dict],
 ) -> dict:
     records = time_series.get("records", [])
     return {
@@ -225,18 +340,61 @@ def viewer_payload(
         "records": records if isinstance(records, list) else [],
         "visualization": visualization,
         "plots": generated_plots,
+        "plot_channels": plot_channels,
+        "controls": interactive_controls_metadata(visualization, plot_channels),
     }
 
 
-def render_interactive_viewer(visualization: dict | None) -> str:
+def render_interactive_viewer(
+    visualization: dict | None,
+    plot_channels: list[dict],
+) -> str:
     if visualization is None:
         return ""
 
-    channels = visualization.get("channels", {})
+    controls = interactive_controls_metadata(visualization, plot_channels)
+    vector_markup = "\n".join(
+        '<label class="control-option">'
+        f'<input id="vector-toggle-{escape(channel["id"])}" '
+        f'type="checkbox" value="{escape(channel["id"])}" '
+        'data-availability="available" checked />'
+        f'<span>{escape(channel["label"])} '
+        f'[{escape(channel["unit"])} {escape(channel["frame"])}]</span>'
+        "</label>"
+        for channel in controls["vector_channels"]
+    )
+    unavailable_vector_markup = "\n".join(
+        '<label class="control-option unavailable">'
+        f'<input id="vector-toggle-{escape(channel["id"])}" '
+        f'type="checkbox" value="{escape(channel["id"])}" '
+        'data-availability="unavailable" disabled />'
+        f'<span>{escape(channel["label"])} unavailable: '
+        f'{escape(channel["reason"])}</span>'
+        "</label>"
+        for channel in controls["unavailable_channels"]
+    )
+    projection_options = "\n".join(
+        f'<option id="projection-{escape(mode)}" value="{escape(mode)}">'
+        f"{escape(mode.title())}</option>"
+        for mode in controls["projection_modes"]
+    )
+    frame_options = "\n".join(
+        f'<option value="{escape(frame)}">{escape(frame)}</option>'
+        for frame in controls["reference_frames"]
+    )
+    plot_options = "\n".join(
+        f'<option value="{escape(channel["id"])}" selected>'
+        f'{escape(channel["label"])} [{escape(channel["unit"])}]</option>'
+        for channel in controls["plot_channels"]
+    )
+    plot_canvases = "\n".join(
+        f'<canvas class="linked-plot" data-channel="{escape(channel["id"])}" '
+        'width="720" height="180"></canvas>'
+        for channel in controls["plot_channels"]
+    )
     unavailable = [
-        f"{name}: {channel.get('reason', 'unavailable')}"
-        for name, channel in channels.items()
-        if isinstance(channel, dict) and channel.get("availability") == "unavailable"
+        f"{channel['id']}: {channel['reason']}"
+        for channel in controls["unavailable_channels"]
     ]
     unavailable_markup = "\n".join(
         f"<li>{escape(item)}</li>" for item in unavailable
@@ -251,6 +409,21 @@ def render_interactive_viewer(visualization: dict | None) -> str:
         <input id="timeline" type="range" min="0" max="0" value="0" step="1" />
         <div class="readout"><strong id="viewer-time">0.000 s</strong><span id="viewer-phase">phase</span></div>
       </div>
+      <div class="control-grid">
+        <label>Projection
+          <select id="projection-mode">{projection_options}</select>
+        </label>
+        <label>Reference Frame
+          <select id="reference-frame">{frame_options}</select>
+        </label>
+        <label>Plot Channels
+          <select id="plot-channel-select" multiple size="6">{plot_options}</select>
+        </label>
+      </div>
+      <div class="vector-controls" aria-label="Vector overlays">
+        {vector_markup}
+        {unavailable_vector_markup}
+      </div>
       <div class="viewer-grid">
         <div>
           <h2>Top Projection</h2>
@@ -260,18 +433,23 @@ def render_interactive_viewer(visualization: dict | None) -> str:
           <h2>Side Projection</h2>
           <canvas id="projection-side" width="720" height="320"></canvas>
         </div>
+        <div>
+          <h2>End Projection</h2>
+          <canvas id="projection-end-canvas" width="720" height="320"></canvas>
+        </div>
       </div>
       <div class="status-row">
         <div id="trust-status">trust-status</div>
         <div id="vector-status">hull_hydro_force_world_n</div>
+        <div id="frame-status">world frame</div>
       </div>
       <details open>
         <summary>Unavailable Channels</summary>
         <ul>{unavailable_markup}</ul>
       </details>
-      <div class="plot-board" id="plot-board">
-        <canvas class="linked-plot" data-channel="boat_speed_mps" width="720" height="180"></canvas>
-        <canvas class="linked-plot" data-channel="stroke_power_w" width="720" height="180"></canvas>
+      <script type="application/json" id="metrics_metadata">{script_json(controls)}</script>
+      <div class="plot-board" id="plot-board" data-plot-click-seek="true">
+        {plot_canvases}
         <span class="plot-cursor" aria-hidden="true"></span>
       </div>
     </section>
@@ -283,13 +461,14 @@ def write_html_report(
     summary: dict,
     metrics: dict,
     plot_files: list[str],
+    plot_channels: list[dict],
     time_series: dict,
     visualization: dict | None = None,
 ) -> None:
     analysis = summary.get("analysis", {})
     metric_table = render_metrics_table(analysis if isinstance(analysis, dict) else {})
-    interactive_markup = render_interactive_viewer(visualization)
-    payload = viewer_payload(summary, time_series, visualization, plot_files)
+    interactive_markup = render_interactive_viewer(visualization, plot_channels)
+    payload = viewer_payload(summary, time_series, visualization, plot_files, plot_channels)
     plot_markup = "\n".join(
         f'<section class="plot-card"><h2>{escape(plot_file[:-4].replace("_", " ").title())}</h2>'
         f'<img src="{escape(plot_file)}" alt="{escape(plot_file)}" /></section>'
@@ -352,6 +531,32 @@ def write_html_report(
       align-items: center;
       margin-bottom: 14px;
     }}
+    .control-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }}
+    .control-grid label, .control-option {{
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .control-option {{
+      grid-template-columns: 18px minmax(0, 1fr);
+      align-items: start;
+      color: var(--text);
+    }}
+    .control-option.unavailable {{
+      color: var(--muted);
+    }}
+    .vector-controls {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 8px 14px;
+      margin-bottom: 14px;
+    }}
     button {{
       min-height: 34px;
       border: 1px solid var(--border);
@@ -363,6 +568,15 @@ def write_html_report(
     }}
     input[type="range"] {{
       width: 100%;
+    }}
+    select {{
+      min-height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      color: var(--text);
+      font: inherit;
+      padding: 4px 8px;
     }}
     .readout {{
       display: flex;
@@ -446,16 +660,23 @@ def write_html_report(
         return;
       }}
       const samples = airowViewerData.visualization.samples || [];
-      const records = airowViewerData.records || [];
       const timeline = document.getElementById("timeline");
       const playButton = document.getElementById("playback-toggle");
       const timeReadout = document.getElementById("viewer-time");
       const phaseReadout = document.getElementById("viewer-phase");
       const trustStatus = document.getElementById("trust-status");
       const vectorStatus = document.getElementById("vector-status");
+      const frameStatus = document.getElementById("frame-status");
       const topCanvas = document.getElementById("projection-top");
       const sideCanvas = document.getElementById("projection-side");
+      const endCanvas = document.getElementById("projection-end-canvas");
+      const projectionMode = document.getElementById("projection-mode");
+      const referenceFrame = document.getElementById("reference-frame");
+      const plotChannelSelect = document.getElementById("plot-channel-select");
+      const vectorInputs = Array.from(document.querySelectorAll(".vector-controls input"));
       const plotCanvases = Array.from(document.querySelectorAll(".linked-plot"));
+      const plotChannelLookup = new Map((airowViewerData.plot_channels || []).map((channel) => [channel.id, channel]));
+      const vectorColors = ["#0b5870", "#b34d3d", "#266f4d", "#8b3f6b", "#7b5b1f", "#4d6480"];
       let frameIndex = 0;
       let timer = 0;
 
@@ -500,6 +721,45 @@ def write_html_report(
         return pad + (value - min) / (max - min) * (size - 2 * pad);
       }}
 
+      function projectedPosition(point, mode, width, height) {{
+        if (mode === "end") {{
+          return {{
+            x: map(Number(point[1] || 0), extent.yMin, extent.yMax, width, 48),
+            y: height - map(Number(point[2] || 0), extent.zMin, extent.zMax, height, 42),
+          }};
+        }}
+        if (mode === "side") {{
+          return {{
+            x: map(Number(point[0] || 0), extent.xMin, extent.xMax, width, 48),
+            y: height - map(Number(point[2] || 0), extent.zMin, extent.zMax, height, 42),
+          }};
+        }}
+        return {{
+          x: map(Number(point[0] || 0), extent.xMin, extent.xMax, width, 48),
+          y: height - map(Number(point[1] || 0), extent.yMin, extent.yMax, height, 42),
+        }};
+      }}
+
+      function projectedVector(vector, mode) {{
+        if (mode === "end") {{
+          return [component(vector, 1), component(vector, 2)];
+        }}
+        if (mode === "side") {{
+          return [component(vector, 0), component(vector, 2)];
+        }}
+        return [component(vector, 0), component(vector, 1)];
+      }}
+
+      function selectedVectorIds() {{
+        return vectorInputs
+          .filter((input) => input.checked && !input.disabled)
+          .map((input) => input.value);
+      }}
+
+      function selectedPlotIds() {{
+        return Array.from(plotChannelSelect.selectedOptions).map((option) => option.value);
+      }}
+
       function drawProjection(canvas, sample, mode) {{
         const ctx = canvas.getContext("2d");
         const w = canvas.width;
@@ -519,47 +779,51 @@ def write_html_report(
         const vectors = sample.vectors || {{}};
         const hull = transforms.hull || {{}};
         const hullPos = hull.position_world_m || [0, 0, 0];
-        const x = map(Number(hullPos[0] || 0), extent.xMin, extent.xMax, w, 48);
-        const yValue = mode === "top" ? Number(hullPos[1] || 0) : Number(hullPos[2] || 0);
-        const yMin = mode === "top" ? extent.yMin : extent.zMin;
-        const yMax = mode === "top" ? extent.yMax : extent.zMax;
-        const y = h - map(yValue, yMin, yMax, h, 42);
+        const hullPoint = projectedPosition(hullPos, mode, w, h);
 
         ctx.fillStyle = "#145a7a";
-        ctx.fillRect(x - 24, y - 8, 48, 16);
+        ctx.fillRect(hullPoint.x - 24, hullPoint.y - 8, 48, 16);
         ctx.fillStyle = "#172026";
-        ctx.fillText("hull", x - 12, y - 14);
+        ctx.fillText(`hull / ${{referenceFrame.value}} frame`, hullPoint.x - 34, hullPoint.y - 14);
 
         for (const [key, color] of [["port_blade", "#b34d3d"], ["starboard_blade", "#266f4d"]]) {{
           const blade = transforms[key] || {{}};
           const tip = blade.tip_position_world_m || [0, 0, 0];
-          const bx = map(Number(tip[0] || 0), extent.xMin, extent.xMax, w, 48);
-          const byValue = mode === "top" ? Number(tip[1] || 0) : Number(tip[2] || 0);
-          const by = h - map(byValue, yMin, yMax, h, 42);
+          const bladePoint = projectedPosition(tip, mode, w, h);
           ctx.strokeStyle = color;
           ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(bx, by); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(hullPoint.x, hullPoint.y); ctx.lineTo(bladePoint.x, bladePoint.y); ctx.stroke();
           ctx.fillStyle = color;
-          ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(bladePoint.x, bladePoint.y, 5, 0, Math.PI * 2); ctx.fill();
         }}
 
-        const hydro = vectors.hull_hydro_force_world_n;
-        const vx = component(hydro, 0);
-        const vy = mode === "top" ? component(hydro, 1) : component(hydro, 2);
-        const scale = 2.0;
-        ctx.strokeStyle = "#0b5870";
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + vx * scale, y - vy * scale); ctx.stroke();
-        vectorStatus.textContent = `hull_hydro_force_world_n: [${{component(hydro, 0).toFixed(2)}}, ${{component(hydro, 1).toFixed(2)}}, ${{component(hydro, 2).toFixed(2)}}] N world`;
+        const status = [];
+        selectedVectorIds().forEach((vectorId, vectorIndex) => {{
+          const vector = vectors[vectorId];
+          if (!vector) return;
+          const [vx, vy] = projectedVector(vector, mode);
+          const scale = vector.unit === "m/s" ? 8.0 : 2.0;
+          ctx.strokeStyle = vectorColors[vectorIndex % vectorColors.length];
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(hullPoint.x, hullPoint.y);
+          ctx.lineTo(hullPoint.x + vx * scale, hullPoint.y - vy * scale);
+          ctx.stroke();
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.fillText(`${{vectorId}} ${{vector.unit || ""}}/${{vector.frame || ""}}`, 48, 22 + vectorIndex * 16);
+          status.push(`${{vectorId}}: [${{component(vector, 0).toFixed(2)}}, ${{component(vector, 1).toFixed(2)}}, ${{component(vector, 2).toFixed(2)}}] ${{vector.unit || ""}} ${{vector.frame || ""}}`);
+        }});
+        if (status.length) {{
+          vectorStatus.textContent = status.join(" | ");
+        }} else {{
+          vectorStatus.textContent = "no available vector overlays selected";
+        }}
       }}
 
       function drawPlot(canvas, channel, index) {{
+        const spec = plotChannelLookup.get(channel) || {{}};
+        const values = Array.isArray(spec.values) ? spec.values.map((value) => Number(value || 0)) : [];
         const ctx = canvas.getContext("2d");
-        const values = records.map((record) => {{
-          if (channel === "boat_speed_mps") return Number(record.boat_speed_mps?.value || 0);
-          if (channel === "stroke_power_w") return Number(record.stroke_power_w?.value || 0);
-          return 0;
-        }});
         const min = Math.min(...values, 0);
         const max = Math.max(...values, 1);
         const w = canvas.width;
@@ -569,7 +833,7 @@ def write_html_report(
         ctx.fillRect(0, 0, w, h);
         ctx.strokeStyle = "#d8e0e6";
         ctx.strokeRect(45, 16, w - 65, h - 48);
-        ctx.strokeStyle = channel === "boat_speed_mps" ? "#145a7a" : "#266f4d";
+        ctx.strokeStyle = spec.color || "#266f4d";
         ctx.lineWidth = 2;
         ctx.beginPath();
         values.forEach((value, i) => {{
@@ -582,7 +846,21 @@ def write_html_report(
         ctx.strokeStyle = "#b34d3d";
         ctx.beginPath(); ctx.moveTo(cursorX, 16); ctx.lineTo(cursorX, h - 32); ctx.stroke();
         ctx.fillStyle = "#172026";
-        ctx.fillText(channel, 48, 12);
+        ctx.fillText(`${{spec.label || channel}} [${{spec.unit || ""}} ${{spec.frame || ""}}]`, 48, 12);
+      }}
+
+      function updatePlotVisibility() {{
+        const selected = new Set(selectedPlotIds());
+        plotCanvases.forEach((canvas) => {{
+          canvas.hidden = !selected.has(canvas.dataset.channel || "");
+        }});
+      }}
+
+      function updateProjectionFocus() {{
+        const selected = projectionMode.value;
+        for (const [mode, canvas] of [["top", topCanvas], ["side", sideCanvas], ["end", endCanvas]]) {{
+          canvas.style.outline = mode === selected ? "2px solid #145a7a" : "none";
+        }}
       }}
 
       function render() {{
@@ -592,9 +870,15 @@ def write_html_report(
         const sample = samples[frameIndex];
         timeReadout.textContent = `${{Number(sample.time_s || 0).toFixed(3)}} s`;
         phaseReadout.textContent = String(sample.scalars?.stroke_phase || "phase");
+        frameStatus.textContent = `${{referenceFrame.value}} frame selected; emitted vector frames are preserved`;
+        updateProjectionFocus();
+        updatePlotVisibility();
         drawProjection(topCanvas, sample, "top");
         drawProjection(sideCanvas, sample, "side");
-        plotCanvases.forEach((canvas) => drawPlot(canvas, canvas.dataset.channel || "", frameIndex));
+        drawProjection(endCanvas, sample, "end");
+        plotCanvases.forEach((canvas) => {{
+          if (!canvas.hidden) drawPlot(canvas, canvas.dataset.channel || "", frameIndex);
+        }});
       }}
 
       function stop() {{
@@ -614,6 +898,19 @@ def write_html_report(
       document.getElementById("step-back").addEventListener("click", () => {{ stop(); frameIndex -= 1; render(); }});
       document.getElementById("step-forward").addEventListener("click", () => {{ stop(); frameIndex += 1; render(); }});
       timeline.addEventListener("input", () => {{ stop(); frameIndex = Number(timeline.value); render(); }});
+      projectionMode.addEventListener("change", render);
+      referenceFrame.addEventListener("change", render);
+      plotChannelSelect.addEventListener("change", render);
+      vectorInputs.forEach((input) => input.addEventListener("change", render));
+      plotCanvases.forEach((canvas) => {{
+        canvas.addEventListener("click", (event) => {{
+          stop();
+          const rect = canvas.getBoundingClientRect();
+          const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
+          frameIndex = Math.round(ratio * Math.max(0, samples.length - 1));
+          render();
+        }});
+      }});
       render();
     }})();
   </script>
@@ -673,6 +970,90 @@ def main() -> int:
         ]
         stroke_power = [scalar_channel_value(record, "stroke_power_w") for record in records]
 
+        plot_channels = [
+            {
+                "id": "boat_speed_mps",
+                "label": "Boat Speed",
+                "unit": "m/s",
+                "frame": "world",
+                "source": "time_series.boat_speed_mps",
+                "values": boat_speed,
+                "color": "#145a7a",
+            },
+            {
+                "id": "seat_position_m",
+                "label": "Seat Position",
+                "unit": "m",
+                "frame": "hull_body",
+                "source": "time_series.seat_state.position_along_rail_m",
+                "values": seat_position,
+                "color": "#4c7a34",
+            },
+            {
+                "id": "port_blade_immersion_depth_m",
+                "label": "Port Blade Immersion",
+                "unit": "m",
+                "frame": "blade",
+                "source": "time_series.blade_state.port.immersion_depth_m",
+                "values": port_immersion,
+                "color": "#145a7a",
+            },
+            {
+                "id": "starboard_blade_immersion_depth_m",
+                "label": "Starboard Blade Immersion",
+                "unit": "m",
+                "frame": "blade",
+                "source": "time_series.blade_state.starboard.immersion_depth_m",
+                "values": starboard_immersion,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "port_blade_force_n",
+                "label": "Port Blade Force",
+                "unit": "N",
+                "frame": "world",
+                "source": "time_series.blade_load_world_n.port",
+                "values": port_blade_load,
+                "color": "#145a7a",
+            },
+            {
+                "id": "starboard_blade_force_n",
+                "label": "Starboard Blade Force",
+                "unit": "N",
+                "frame": "world",
+                "source": "time_series.blade_load_world_n.starboard",
+                "values": starboard_blade_load,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "hull_position_z_m",
+                "label": "Hull Vertical Position",
+                "unit": "m",
+                "frame": "world",
+                "source": "time_series.hull_state.position_world_m",
+                "values": hull_position_z,
+                "color": "#8b3f6b",
+            },
+            {
+                "id": "apparent_wind_speed_mps",
+                "label": "Apparent Wind Speed",
+                "unit": "m/s",
+                "frame": "world",
+                "source": "time_series.apparent_wind_world_mps",
+                "values": apparent_wind_speed,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "stroke_power_w",
+                "label": "Stroke Power",
+                "unit": "W",
+                "frame": "",
+                "source": "time_series.stroke_power_w",
+                "values": stroke_power,
+                "color": "#4c7a34",
+            },
+        ]
+
         output_dir.mkdir(parents=True, exist_ok=True)
         plot_specs = [
             ("boat_speed.svg", "Boat Speed", [("boat_speed_mps", boat_speed, "#145a7a")], "m/s"),
@@ -716,6 +1097,9 @@ def main() -> int:
             "record_count": len(records),
             "generated_plots": generated_plots,
             "interactive_visualization": visualization is not None,
+            "interactive_controls": interactive_controls_metadata(
+                visualization, plot_channels
+            ),
             "analysis": summary.get("analysis", {}),
         }
         (output_dir / "metrics.json").write_text(
@@ -726,6 +1110,7 @@ def main() -> int:
             summary,
             metrics,
             generated_plots,
+            plot_channels,
             time_series,
             visualization,
         )

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Karpathy-Guidelines"
+  short_description: "Behavioral guidelines to reduce common LLM coding mistakes"
+  default_prompt: "Use $karpathy-guidelines when working on the code base to reduce the bias of the agentic behaviors and to create clean and maintainable code and tests."

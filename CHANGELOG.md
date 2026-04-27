@@ -9,8 +9,14 @@
   a visualization artifact is provided, with offline playback controls, 2D
   projection canvases, linked plot cursors, trust labels, and deterministic
   malformed-artifact rejection.
+- Added richer offline visualization report controls: top/side/end projection
+  selection, frame labels, vector toggles with disabled unavailable channels,
+  selectable linked plot channels, plot-click seeking, and
+  `metrics.json.interactive_controls` metadata.
 
 ### Changed
+- Cleared the review flags for `R-019` and `R-023` after confirming trace and
+  wind-contract evidence remained intact.
 - Refocused `README.md` as a concise simulator-user entry point, moving
   process, roadmap, gate, and implementation-inventory detail behind links to
   the canonical docs.

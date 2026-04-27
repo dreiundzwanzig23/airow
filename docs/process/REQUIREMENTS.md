@@ -393,15 +393,15 @@ Milestone framing:
 - **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
+- **Change-Type**: none
+- **Needs-Review**: no
 - **Notes**: This is a workflow-support requirement rather than a physics
   requirement. The `v0.1` closure now includes requirement-level evidence that
   `tools/tracecheck.py --json` exposes machine-searchable trace data and that
-  every reviewed `P0` requirement has requirement-level `QT-*` coverage.
-  Review remains required to confirm the new full-simulation draft backlog
-  should be excluded from evidence closure until individual requirements are
-  allocated and implemented.
+  every reviewed `P0` requirement has requirement-level `QT-*` coverage. The
+  2026-04-27 review confirmed `Needs-Review: yes` roadmap items remain
+  intentionally excluded from reviewed-P0 closure until individually allocated
+  and implemented.
 
 ## R-020 — Runtime-Selectable Hydro and Aero Providers
 - **Title**: Select reduced-model providers at runtime without recompilation
@@ -471,8 +471,8 @@ Milestone framing:
 - **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-27
-- **Change-Type**: semantic
-- **Needs-Review**: yes
+- **Change-Type**: none
+- **Needs-Review**: no
 - **Notes**: Delivered post-`v0.1` through an exclusive `environment`
   wind-input contract: replay-oriented `wind_time_series` with zero-order hold
   or authored `wind_profile` with deterministic linear interpolation. Removed
@@ -480,7 +480,8 @@ Milestone framing:
   single-sample series or equivalent constant profile. Constant series or
   profile inputs preserve steady-wind parity, and
   `scenarios/gust_headwind_stroke.json` provides the first checked-in
-  non-constant regression artifact.
+  non-constant regression artifact. The 2026-04-27 review confirmed current
+  wind evidence remains intact under the narrowed contract.
 
 ## R-024 — Runtime and Truth-Model Separation
 - **Title**: Keep the default runtime path independent of optional high-fidelity toolchains
@@ -914,7 +915,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: First slice emits and validates `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The offline report tool now rejects malformed visualization artifacts before generating an interactive report. Configurable reference-frame selection and richer disturbance channels remain future work.
+- **Notes**: Current slices emit and validate `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The offline report tool rejects malformed visualization artifacts before generating an interactive report and exposes projection, frame, vector, and plot-control metadata without changing the schema. Transformed local-frame channel data, full 3D playback, and richer disturbance channels remain future work.
 
 ## R-051 — Interactive 3D Run Playback
 
@@ -948,7 +949,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: First inspection slice adds dependency-free offline 2D top/side projections with hull, oar, blade, waterline, selected vector overlays, frame/unit metadata, trust labels, and unavailable-channel reporting. `Needs-Review: yes` remains because full toggleable frame/vector coverage, mirrored scenario visualization, and moment/vector controls are still follow-up work.
+- **Notes**: The offline inspection report now adds dependency-free 2D top/side/end projections, projection and frame controls, checkbox vector overlays derived from emitted artifact channels, unit/frame/provenance labels, trust labels, and disabled unavailable-channel controls. `Needs-Review: yes` remains because true 3D playback, mirrored scenario visualization, transformed local-frame vectors, and full moment/vector coverage are still follow-up work.
 
 ## R-053 — Synchronized Time-Series Inspection
 
@@ -965,7 +966,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: First inspection slice adds playback controls, scrubbing, step controls, and canvas plot cursors for selected channels in the offline report. `Needs-Review: yes` remains because plot-point selection, full channel coverage, event markers, and true 3D timeline linkage are still follow-up work.
+- **Notes**: The offline inspection report now adds playback controls, scrubbing, step controls, plot cursors, plot-click seek hooks, selectable linked plot channels, and machine-readable control metadata for available plot coverage. `Needs-Review: yes` remains because full channel coverage, event markers, peak/zero-crossing annotations, and true 3D timeline linkage are still follow-up work.
 
 ## R-054 — Run Comparison Visualization
 
@@ -1254,7 +1255,7 @@ Milestone framing:
 - **Updated**: 2026-04-26
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: First slice has direct CLI/example configs emitting summary, time-series, and visualization JSON paths. Human report path instructions, optional VTK/ParaView export, and debug bundles remain open.
+- **Notes**: Current slices have direct CLI/example configs emitting summary, time-series, and visualization JSON paths, plus documented offline HTML report generation with playback, vector, projection, frame, and linked-plot controls. Optional VTK/ParaView export and debug bundles remain open.
 
 ## R-071 — Human-Facing Physics Explanation and Capability Matrix
 

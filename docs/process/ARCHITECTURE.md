@@ -486,8 +486,13 @@ Allocation guardrails:
   visualization artifact alongside summary and time-series JSON to generate a
   dependency-free HTML bundle with synchronized plots, 2D top/side projections,
   vector overlays, playback controls, and channel availability or trust labels.
-  This remains a reduced inspection surface and must not imply full 3D,
-  calibrated, or validated visualization fidelity.
+  The second offline inspection slice remains under the same owner by deriving
+  available vector and plot controls from emitted artifacts, recording report
+  control metadata in `metrics.json`, adding top/side/end projection selection,
+  preserving frame and unit labels for selected overlays, disabling unavailable
+  channels explicitly, and wiring linked plot click-to-seek behavior without
+  changing `airow.visualization.v1`. This remains a reduced inspection surface
+  and must not imply full 3D, calibrated, or validated visualization fidelity.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
@@ -537,7 +542,11 @@ Allocation guardrails:
   coverage that generates an offline report from emitted summary, time-series,
   and visualization artifacts, then verifies playback controls, 2D projection
   hooks, vector-overlay labels, plot cursor hooks, trust labels, and
-  deterministic malformed-artifact rejection.
+  deterministic malformed-artifact rejection. The follow-on inspection slice
+  keeps scenario-level proof here by checking the same offline report path for
+  configurable projection/frame controls, vector toggles, broader linked plot
+  channel availability, plot-to-time seeking hooks, trust labels, and stable
+  report-control metadata.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

@@ -7,8 +7,9 @@
   calibration, actuation, comparison, and trust-reporting backlog.
 - `R-050..R-071` are now merged into `docs/process/REQUIREMENTS.md` as the
   active full-simulation extension backlog.
-- `R-050` and `R-070` are `IN_PROGRESS` for the first visualization-ready
-  artifact and analysis-first CLI slice.
+- `R-050`, `R-052`, `R-053`, and `R-070` are `IN_PROGRESS` for the
+  visualization-ready artifact, offline report controls, and analysis-first
+  CLI slices.
 - The active long-range plan is `docs/process/ROADMAP_FULL_SIMULATION.md`.
 - Superseded planning snapshots live under `docs/archive/` and
   `docs/ai/archive/`; do not use them as current implementation guidance.
@@ -26,8 +27,9 @@
 
 ## Recommended Near-Term Packet
 - Continue `R-050` / `R-052` / `R-053` / `R-070` from the current artifact and
-  offline report slice into configurable frames, full vector toggles, broader
-  linked plot coverage, and VTK/ParaView export.
+  offline report controls into transformed local-frame channels, mirrored
+  visualization evidence, event markers, full vector/moment coverage, and
+  VTK/ParaView export.
 - Preserve current reduced-runtime numerical behavior unless a scoped physics
   requirement explicitly changes it.
 - Keep archived roadmaps out of normal context retrieval unless historical

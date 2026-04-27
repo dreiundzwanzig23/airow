@@ -9,11 +9,11 @@ machine-readable trace graph is available through
 ## Summary
 
 - Requirements: 71 (DONE: 33, IN_PROGRESS: 4, OPEN: 34)
-- Requirements needing review: 22
+- Requirements needing review: 20
 - Architecture items: 10 (IN_PROGRESS: 10)
 - Architecture evidence profiles: CODE: 10
 - Design blocks: 61
-- Evidence tests: UT 372, IT 28, QT 51
+- Evidence tests: UT 373, IT 28, QT 52
 - Auxiliary tests excluded from evidence gates: 0
 
 ## Evidence Coverage

@@ -9,11 +9,14 @@
 #include <string_view>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "project/orchestrator/cli.hpp"
 #include "project/orchestrator/simulation_run.hpp"
 
 namespace {
 
+using Json = nlohmann::json;
 using namespace std::chrono_literals;
 
 std::string make_valid_config_json(std::string_view config_id,
@@ -73,6 +76,31 @@ std::filesystem::path write_temp_file(const std::string &file_name,
   output << contents;
   output.close();
   return path;
+}
+
+struct CliArtifactPaths {
+  std::filesystem::path summary;
+  std::filesystem::path time_series;
+  std::filesystem::path visualization;
+  std::filesystem::path truth_model;
+  std::filesystem::path hdf5;
+};
+
+std::string make_config_with_artifact_paths(std::string_view config_id,
+                                            const CliArtifactPaths &paths) {
+  auto root = Json::parse(make_valid_config_json(config_id));
+  root["output"] = Json{
+      {"summary_path", paths.summary.string()},
+      {"time_series_path", paths.time_series.string()},
+      {"visualization_path", paths.visualization.string()},
+      {"truth_model_export_path", paths.truth_model.string()},
+      {"formats", Json::array({"json"})},
+  };
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+  root["output"]["hdf5_path"] = paths.hdf5.string();
+  root["output"]["formats"].push_back("hdf5");
+#endif
+  return root.dump(2);
 }
 
 void remove_file_if_present(const std::filesystem::path &path) {
@@ -291,6 +319,43 @@ TEST(SimulationRunCli, HeadlessCliWrapperRejectsInvalidUsage) {
               64);
     EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
   }
+
+  stdout_stream.str("");
+  stdout_stream.clear();
+  stderr_stream.str("");
+  stderr_stream.clear();
+
+  {
+    const std::vector<std::string_view> args = {"--config"};
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
+              64);
+    EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
+  }
+
+  stdout_stream.str("");
+  stdout_stream.clear();
+  stderr_stream.str("");
+  stderr_stream.clear();
+
+  {
+    const std::vector<std::string_view> args = {"--config", ""};
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
+              64);
+    EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
+  }
+
+  stdout_stream.str("");
+  stdout_stream.clear();
+  stderr_stream.str("");
+  stderr_stream.clear();
+
+  {
+    const std::vector<std::string_view> args = {"--config", "ignored.json",
+                                                "--report"};
+    EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream),
+              64);
+    EXPECT_NE(stderr_stream.str().find("usage:"), std::string::npos);
+  }
 }
 
 /**
@@ -416,6 +481,54 @@ TEST(SimulationRunCli, HeadlessCliWrapperMapsRuntimeFailure) {
             3);
   EXPECT_NE(stderr_stream.str().find("runtime_error"), std::string::npos);
   remove_file_if_present(path);
+}
+
+/**
+ * @test UT-381
+ * @verifies [D-014]
+ * @notes Given a successful run config with optional artifact paths, when the
+ * headless CLI wrapper runs, then stdout reports the emitted visualization,
+ * truth-model, and available HDF5 artifact paths.
+ */
+TEST(SimulationRunCli, HeadlessCliWrapperReportsOptionalArtifactPaths) {
+  const auto root = std::filesystem::temp_directory_path();
+  const CliArtifactPaths artifacts{
+      .summary = root / "airow-unit-cli-artifacts-summary.json",
+      .time_series = root / "airow-unit-cli-artifacts-timeseries.json",
+      .visualization = root / "airow-unit-cli-artifacts-visualization.json",
+      .truth_model = root / "airow-unit-cli-artifacts-truth-model.json",
+      .hdf5 = root / "airow-unit-cli-artifacts.h5",
+  };
+  const auto path = write_temp_file(
+      "airow-unit-cli-artifacts-config.json",
+      make_config_with_artifact_paths("unit-cli-artifacts", artifacts));
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 7h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 4} + 7h + 1s});
+  std::ostringstream stdout_stream;
+  std::ostringstream stderr_stream;
+  const auto path_text = path.string();
+  const std::vector<std::string_view> args = {"--config", path_text};
+
+  EXPECT_EQ(project::run_headless_cli(args, stdout_stream, stderr_stream,
+                                      project::CliDependencies{
+                                          .simulation = {.clock = &clock},
+                                      }),
+            0);
+  EXPECT_NE(stdout_stream.str().find("visualization="), std::string::npos);
+  EXPECT_NE(stdout_stream.str().find("truth_model="), std::string::npos);
+#if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
+  EXPECT_NE(stdout_stream.str().find("hdf5="), std::string::npos);
+#endif
+  EXPECT_TRUE(stderr_stream.str().empty());
+
+  remove_file_if_present(path);
+  remove_file_if_present(artifacts.summary);
+  remove_file_if_present(artifacts.time_series);
+  remove_file_if_present(artifacts.visualization);
+  remove_file_if_present(artifacts.truth_model);
+  remove_file_if_present(artifacts.hdf5);
 }
 
 /**

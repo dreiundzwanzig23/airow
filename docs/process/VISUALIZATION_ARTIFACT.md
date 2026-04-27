@@ -31,7 +31,8 @@ python3 tools/validate_visualization_artifact.py path/to/visualization.json
 ```
 
 Generate an offline interactive inspection report with synchronized 2D
-projections, vector overlays, playback controls, and linked plot cursors:
+projections, vector overlays, playback controls, linked plot cursors, plot
+click-to-seek hooks, and report-control metadata in `metrics.json`:
 
 ```bash
 python3 tools/run_analysis.py \
@@ -64,15 +65,18 @@ Validity range:
 Oracle:
 - visual invariant and deterministic artifact validation.
 - details: malformed artifacts are rejected, vectors retain units and frames,
-  unavailable channels remain labeled unavailable, and linked plots share the
-  same sample index as the playback controls.
+  unavailable channels remain labeled unavailable and disabled, projection and
+  frame controls do not imply transformed local-frame data unless such channels
+  are emitted, and linked plots share the same sample index as the playback
+  controls.
 
 Required outputs:
-- time-series channels: existing emitted records plus visualization samples.
+- time-series channels: existing emitted records plus visualization samples and
+  derived report `plot_channels` metadata.
 - units: inherited from scalar and vector channel metadata.
 - frames: world, hull-body, waterline, and port/starboard conventions.
-- visualization vectors: hull hydro, blade, aero, wind, and rower inertial
-  vectors when present.
+- visualization vectors: hull hydro, blade, aero, wind, moment, and rower
+  inertial vectors when present.
 - diagnostics: invalid visualization artifacts fail report generation with a
   deterministic error.
 
@@ -80,7 +84,7 @@ Tests:
 - UT: existing output helper coverage for artifact/time-series shape.
 - IT: existing output integration coverage for visualization metadata and
   sample alignment.
-- QT: `QT-049`, `QT-050`, and `QT-051`.
+- QT: `QT-049`, `QT-050`, `QT-051`, and `QT-052`.
 
 Failure modes:
 - rejected: unsupported or malformed visualization schema.
