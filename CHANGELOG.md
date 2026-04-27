@@ -13,8 +13,15 @@
   selection, frame labels, vector toggles with disabled unavailable channels,
   selectable linked plot channels, plot-click seeking, and
   `metrics.json.interactive_controls` metadata.
+- Added offline inspection event markers for peak values, zero crossings,
+  stroke boundaries, and trust warnings, plus report-visible force and moment
+  vector provenance for mirrored direction checks.
 
 ### Changed
+- Standardized final Codex responses after repository changes to include a
+  one-line `Commit message:` summary.
+- Restored the `karpathy-guidelines` repository skill index entry and expected
+  `SKILL.md` filename so auxiliary skill lint can validate it.
 - Cleared the review flags for `R-019` and `R-023` after confirming trace and
   wind-contract evidence remained intact.
 - Refocused `README.md` as a concise simulator-user entry point, moving

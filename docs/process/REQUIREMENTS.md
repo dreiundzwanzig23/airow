@@ -949,7 +949,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: The offline inspection report now adds dependency-free 2D top/side/end projections, projection and frame controls, checkbox vector overlays derived from emitted artifact channels, unit/frame/provenance labels, trust labels, and disabled unavailable-channel controls. `Needs-Review: yes` remains because true 3D playback, mirrored scenario visualization, transformed local-frame vectors, and full moment/vector coverage are still follow-up work.
+- **Notes**: The offline inspection report now adds dependency-free 2D top/side/end projections, projection and frame controls, checkbox vector overlays derived from emitted artifact channels, unit/frame/provenance labels, trust labels, disabled unavailable-channel controls, report-visible force/moment vector provenance, and mirrored yaw-moment sign evidence. `Needs-Review: yes` remains because true 3D playback, transformed local-frame vectors, interface-load vectors, and broader disturbance coverage are still follow-up work.
 
 ## R-053 — Synchronized Time-Series Inspection
 
@@ -966,7 +966,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: The offline inspection report now adds playback controls, scrubbing, step controls, plot cursors, plot-click seek hooks, selectable linked plot channels, and machine-readable control metadata for available plot coverage. `Needs-Review: yes` remains because full channel coverage, event markers, peak/zero-crossing annotations, and true 3D timeline linkage are still follow-up work.
+- **Notes**: The offline inspection report now adds playback controls, scrubbing, step controls, plot cursors, plot-click seek hooks, selectable linked plot channels, and machine-readable control metadata for available plot coverage. It also emits deterministic peak, zero-crossing, stroke-boundary, and trust-warning event markers in report metadata and HTML seek controls. `Needs-Review: yes` remains because full channel coverage and true 3D timeline linkage are still follow-up work.
 
 ## R-054 — Run Comparison Visualization
 
@@ -1252,10 +1252,10 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-26
+- **Updated**: 2026-04-27
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Current slices have direct CLI/example configs emitting summary, time-series, and visualization JSON paths, plus documented offline HTML report generation with playback, vector, projection, frame, and linked-plot controls. Optional VTK/ParaView export and debug bundles remain open.
+- **Notes**: Current slices have direct CLI/example configs emitting summary, time-series, and visualization JSON paths, plus documented offline HTML report generation with playback, vector, projection, frame, linked-plot, and event-marker controls. Optional VTK/ParaView export and debug bundles remain open.
 
 ## R-071 — Human-Facing Physics Explanation and Capability Matrix
 

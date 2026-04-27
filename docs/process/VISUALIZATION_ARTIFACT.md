@@ -32,7 +32,8 @@ python3 tools/validate_visualization_artifact.py path/to/visualization.json
 
 Generate an offline interactive inspection report with synchronized 2D
 projections, vector overlays, playback controls, linked plot cursors, plot
-click-to-seek hooks, and report-control metadata in `metrics.json`:
+click-to-seek hooks, derived event markers, and report-control metadata in
+`metrics.json`:
 
 ```bash
 python3 tools/run_analysis.py \
@@ -46,8 +47,8 @@ python3 tools/run_analysis.py \
 
 Physical or interpretive claim:
 - Users can inspect a reduced-runtime run's state evolution, frame directions,
-  selected world-frame vectors, and time-series relationships without changing
-  the numerical result.
+  selected world-frame vectors, report-side event markers, and time-series
+  relationships without changing the numerical result.
 
 Fidelity level:
 - reduced visualization of the current reduced runtime.
@@ -67,8 +68,9 @@ Oracle:
 - details: malformed artifacts are rejected, vectors retain units and frames,
   unavailable channels remain labeled unavailable and disabled, projection and
   frame controls do not imply transformed local-frame data unless such channels
-  are emitted, and linked plots share the same sample index as the playback
-  controls.
+  are emitted, linked plots share the same sample index as the playback
+  controls, and event markers are derived from existing emitted samples or trust
+  metadata rather than new runtime state.
 
 Required outputs:
 - time-series channels: existing emitted records plus visualization samples and
@@ -77,6 +79,9 @@ Required outputs:
 - frames: world, hull-body, waterline, and port/starboard conventions.
 - visualization vectors: hull hydro, blade, aero, wind, moment, and rower
   inertial vectors when present.
+- diagnostics: `metrics.json.interactive_controls.event_markers` lists peak,
+  zero-crossing, stroke-boundary, and trust-warning markers with sample index,
+  time, channel, unit, frame, and source metadata.
 - diagnostics: invalid visualization artifacts fail report generation with a
   deterministic error.
 
@@ -84,7 +89,7 @@ Tests:
 - UT: existing output helper coverage for artifact/time-series shape.
 - IT: existing output integration coverage for visualization metadata and
   sample alignment.
-- QT: `QT-049`, `QT-050`, `QT-051`, and `QT-052`.
+- QT: `QT-049`, `QT-050`, `QT-051`, `QT-052`, `QT-053`, and `QT-054`.
 
 Failure modes:
 - rejected: unsupported or malformed visualization schema.

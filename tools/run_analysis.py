@@ -296,6 +296,7 @@ def reference_frame_ids(visualization: dict | None) -> list[str]:
 def interactive_controls_metadata(
     visualization: dict | None,
     plot_channels: list[dict],
+    markers: list[dict] | None = None,
 ) -> dict:
     return {
         "enabled": visualization is not None,
@@ -306,6 +307,7 @@ def interactive_controls_metadata(
         "vector_channels": vector_controls(visualization),
         "unavailable_channels": unavailable_channel_controls(visualization),
         "plot_channels": [plot_channel_metadata(channel) for channel in plot_channels],
+        "event_markers": markers or [],
     }
 
 
@@ -320,12 +322,146 @@ def plot_channel_metadata(channel: dict) -> dict:
     }
 
 
+def marker_time(records: list[dict], sample_index: int) -> float:
+    if 0 <= sample_index < len(records):
+        return float(records[sample_index].get("time_s", 0.0))
+    return 0.0
+
+
+def event_marker(
+    marker_id: str,
+    marker_type: str,
+    label: str,
+    records: list[dict],
+    sample_index: int,
+    channel: dict,
+    value: object,
+) -> dict:
+    return {
+        "id": marker_id,
+        "type": marker_type,
+        "label": label,
+        "time_s": marker_time(records, sample_index),
+        "sample_index": sample_index,
+        "channel_id": channel.get("id", ""),
+        "value": value,
+        "unit": channel.get("unit", ""),
+        "frame": channel.get("frame", ""),
+        "source": channel.get("source", ""),
+    }
+
+
+def first_zero_crossing(values: list[float]) -> int | None:
+    for index, value in enumerate(values):
+        if math.isclose(value, 0.0, abs_tol=1e-12):
+            return index
+    for index in range(1, len(values)):
+        if values[index - 1] * values[index] < 0.0:
+            return index
+    return None
+
+
+def channel_event_markers(records: list[dict], channel: dict) -> list[dict]:
+    values = [float(value) for value in channel.get("values", [])]
+    if not values:
+        return []
+
+    peak_index = max(range(len(values)), key=lambda index: abs(values[index]))
+    markers = [
+        event_marker(
+            f"peak_value_{channel['id']}",
+            "peak_value",
+            f"Peak {channel['label']}",
+            records,
+            peak_index,
+            channel,
+            values[peak_index],
+        )
+    ]
+    zero_index = first_zero_crossing(values)
+    if zero_index is not None:
+        markers.append(
+            event_marker(
+                f"zero_crossing_{channel['id']}",
+                "zero_crossing",
+                f"Zero crossing {channel['label']}",
+                records,
+                zero_index,
+                channel,
+                values[zero_index],
+            )
+        )
+    return markers
+
+
+def stroke_event_markers(records: list[dict]) -> list[dict]:
+    markers: list[dict] = []
+    previous_phase = ""
+    channel = {
+        "id": "stroke_input.phase",
+        "unit": "",
+        "frame": "",
+        "source": "time_series.stroke_input.phase",
+    }
+    for index, record in enumerate(records):
+        phase = str(record.get("stroke_input", {}).get("phase", ""))
+        if index == 0 or (phase and phase != previous_phase):
+            markers.append(
+                event_marker(
+                    f"stroke_boundary_{index}",
+                    "stroke_boundary",
+                    f"Stroke phase {phase or 'unknown'}",
+                    records,
+                    index,
+                    channel,
+                    phase,
+                )
+            )
+        previous_phase = phase
+    return markers
+
+
+def trust_warning_markers(summary: dict, records: list[dict]) -> list[dict]:
+    trust = summary.get("metadata", {}).get("trust_envelope", {})
+    warnings = trust.get("warnings", [])
+    if not isinstance(warnings, list):
+        return []
+    channel = {
+        "id": "metadata.trust_envelope.warnings",
+        "unit": "",
+        "frame": "",
+        "source": "summary.metadata.trust_envelope.warnings",
+    }
+    return [
+        event_marker(
+            f"trust_warning_{index}",
+            "trust_warning",
+            "Trust warning",
+            records,
+            0,
+            channel,
+            str(warning),
+        )
+        for index, warning in enumerate(warnings)
+    ]
+
+
+def event_markers(summary: dict, records: list[dict], plot_channels: list[dict]) -> list[dict]:
+    markers: list[dict] = []
+    for channel in plot_channels:
+        markers.extend(channel_event_markers(records, channel))
+    markers.extend(stroke_event_markers(records))
+    markers.extend(trust_warning_markers(summary, records))
+    return sorted(markers, key=lambda marker: (marker["time_s"], marker["id"]))
+
+
 def viewer_payload(
     summary: dict,
     time_series: dict,
     visualization: dict | None,
     generated_plots: list[str],
     plot_channels: list[dict],
+    markers: list[dict],
 ) -> dict:
     records = time_series.get("records", [])
     return {
@@ -341,18 +477,19 @@ def viewer_payload(
         "visualization": visualization,
         "plots": generated_plots,
         "plot_channels": plot_channels,
-        "controls": interactive_controls_metadata(visualization, plot_channels),
+        "controls": interactive_controls_metadata(visualization, plot_channels, markers),
     }
 
 
 def render_interactive_viewer(
     visualization: dict | None,
     plot_channels: list[dict],
+    markers: list[dict],
 ) -> str:
     if visualization is None:
         return ""
 
-    controls = interactive_controls_metadata(visualization, plot_channels)
+    controls = interactive_controls_metadata(visualization, plot_channels, markers)
     vector_markup = "\n".join(
         '<label class="control-option">'
         f'<input id="vector-toggle-{escape(channel["id"])}" '
@@ -398,6 +535,17 @@ def render_interactive_viewer(
     ]
     unavailable_markup = "\n".join(
         f"<li>{escape(item)}</li>" for item in unavailable
+    ) or "<li>none</li>"
+    event_markup = "\n".join(
+        '<li>'
+        f'<button type="button" class="event-marker" '
+        f'data-event-seek="{int(marker["sample_index"])}">'
+        f'{escape(marker["label"])} '
+        f'({escape(marker["type"])}) '
+        f'@ {float(marker["time_s"]):.3f} s'
+        "</button>"
+        "</li>"
+        for marker in controls["event_markers"]
     ) or "<li>none</li>"
 
     return f"""
@@ -447,6 +595,10 @@ def render_interactive_viewer(
         <summary>Unavailable Channels</summary>
         <ul>{unavailable_markup}</ul>
       </details>
+      <details open id="event-marker-list">
+        <summary>Event Markers</summary>
+        <ul>{event_markup}</ul>
+      </details>
       <script type="application/json" id="metrics_metadata">{script_json(controls)}</script>
       <div class="plot-board" id="plot-board" data-plot-click-seek="true">
         {plot_canvases}
@@ -464,11 +616,17 @@ def write_html_report(
     plot_channels: list[dict],
     time_series: dict,
     visualization: dict | None = None,
+    markers: list[dict] | None = None,
 ) -> None:
     analysis = summary.get("analysis", {})
     metric_table = render_metrics_table(analysis if isinstance(analysis, dict) else {})
-    interactive_markup = render_interactive_viewer(visualization, plot_channels)
-    payload = viewer_payload(summary, time_series, visualization, plot_files, plot_channels)
+    event_marker_data = markers or []
+    interactive_markup = render_interactive_viewer(
+        visualization, plot_channels, event_marker_data
+    )
+    payload = viewer_payload(
+        summary, time_series, visualization, plot_files, plot_channels, event_marker_data
+    )
     plot_markup = "\n".join(
         f'<section class="plot-card"><h2>{escape(plot_file[:-4].replace("_", " ").title())}</h2>'
         f'<img src="{escape(plot_file)}" alt="{escape(plot_file)}" /></section>'
@@ -675,7 +833,9 @@ def write_html_report(
       const plotChannelSelect = document.getElementById("plot-channel-select");
       const vectorInputs = Array.from(document.querySelectorAll(".vector-controls input"));
       const plotCanvases = Array.from(document.querySelectorAll(".linked-plot"));
+      const eventButtons = Array.from(document.querySelectorAll("[data-event-seek]"));
       const plotChannelLookup = new Map((airowViewerData.plot_channels || []).map((channel) => [channel.id, channel]));
+      const eventMarkers = airowViewerData.controls?.event_markers || [];
       const vectorColors = ["#0b5870", "#b34d3d", "#266f4d", "#8b3f6b", "#7b5b1f", "#4d6480"];
       let frameIndex = 0;
       let timer = 0;
@@ -842,6 +1002,13 @@ def write_html_report(
           if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }});
         ctx.stroke();
+        eventMarkers
+          .filter((marker) => marker.channel_id === channel)
+          .forEach((marker) => {{
+            const markerX = 45 + (Number(marker.sample_index || 0) / Math.max(1, values.length - 1)) * (w - 65);
+            ctx.strokeStyle = "#7b5b1f";
+            ctx.beginPath(); ctx.moveTo(markerX, 16); ctx.lineTo(markerX, h - 32); ctx.stroke();
+          }});
         const cursorX = 45 + (index / Math.max(1, values.length - 1)) * (w - 65);
         ctx.strokeStyle = "#b34d3d";
         ctx.beginPath(); ctx.moveTo(cursorX, 16); ctx.lineTo(cursorX, h - 32); ctx.stroke();
@@ -902,6 +1069,13 @@ def write_html_report(
       referenceFrame.addEventListener("change", render);
       plotChannelSelect.addEventListener("change", render);
       vectorInputs.forEach((input) => input.addEventListener("change", render));
+      eventButtons.forEach((button) => {{
+        button.addEventListener("click", () => {{
+          stop();
+          frameIndex = Number(button.dataset.eventSeek || 0);
+          render();
+        }});
+      }});
       plotCanvases.forEach((canvas) => {{
         canvas.addEventListener("click", (event) => {{
           stop();
@@ -1090,6 +1264,7 @@ def main() -> int:
             write_svg_chart(output_dir / file_name, title, times, series, unit)
             generated_plots.append(file_name)
 
+        markers = event_markers(summary, records, plot_channels)
         metrics = {
             "config_id": summary.get("config_id", "unknown"),
             "status": summary.get("status", "unknown"),
@@ -1098,7 +1273,7 @@ def main() -> int:
             "generated_plots": generated_plots,
             "interactive_visualization": visualization is not None,
             "interactive_controls": interactive_controls_metadata(
-                visualization, plot_channels
+                visualization, plot_channels, markers
             ),
             "analysis": summary.get("analysis", {}),
         }
@@ -1113,6 +1288,7 @@ def main() -> int:
             plot_channels,
             time_series,
             visualization,
+            markers,
         )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)

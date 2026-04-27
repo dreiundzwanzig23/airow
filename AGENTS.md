@@ -127,6 +127,11 @@ A task is complete only when:
 - Relevant docs and AI context files are updated.
 - `CHANGELOG.md` and `README.md` reflect user/process-visible changes.
 
+### Final response standard
+- When code, documentation, process, or repository files are changed, the final
+  response must include a one-line `Commit message:` summary suitable for use as
+  a git commit message.
+
 Update `docs/ai/*` when milestone-level change occurs:
 - requirement status changes (`R-*`)
 - architecture status changes (`A-*`)
@@ -163,6 +168,7 @@ Always use the OpenAI developer documentation MCP server if you need to work wit
 - `.agents/skills/release-doc-sync/SKILL.md`
 - `.agents/skills/workflow-audit/SKILL.md`
 - `.agents/skills/simulation-evidence-design/SKILL.md`
+- `.agents/skills/karpathy-guidelines/SKILL.md`
 
 Policy stays here. Operational playbooks live in skills and should be loaded
 only when relevant to the task.

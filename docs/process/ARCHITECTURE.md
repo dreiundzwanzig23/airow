@@ -493,6 +493,13 @@ Allocation guardrails:
   channels explicitly, and wiring linked plot click-to-seek behavior without
   changing `airow.visualization.v1`. This remains a reduced inspection surface
   and must not imply full 3D, calibrated, or validated visualization fidelity.
+  The event-annotation inspection slice extends `D-063` with report-side
+  derived metadata: offline reports compute peak, zero-crossing,
+  stroke-boundary, and trust-warning markers from already-emitted summary,
+  time-series, and visualization artifacts; expose those markers in
+  `metrics.json`, the viewer payload, and static HTML controls; and fill
+  vector-control metadata for already-emitted force and moment sample vectors
+  without changing runtime stepping or the `airow.visualization.v1` schema.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
@@ -546,7 +553,10 @@ Allocation guardrails:
   keeps scenario-level proof here by checking the same offline report path for
   configurable projection/frame controls, vector toggles, broader linked plot
   channel availability, plot-to-time seeking hooks, trust labels, and stable
-  report-control metadata.
+  report-control metadata. Event-annotation evidence remains here by verifying
+  that the offline report exposes derived event markers and that mirrored runs
+  preserve report-visible moment signs and frame/unit metadata without changing
+  scenario pass/fail policy.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

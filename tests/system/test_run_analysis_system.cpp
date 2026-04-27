@@ -78,10 +78,20 @@ int decode_exit_code(int raw_status) {
   return -1;
 }
 
+struct ReportConfigOptions {
+  std::string_view visualization_path;
+  double ambient_wind_y_mps{};
+  bool enable_aero_provider{};
+};
+
+std::string provider_id(bool enable_aero_provider) {
+  return enable_aero_provider ? "steady_wind_placeholder" : "none";
+}
+
 std::string make_valid_config_json(std::string_view config_id,
                                    std::string_view summary_path,
                                    std::string_view time_series_path,
-                                   std::string_view visualization_path = "") {
+                                   ReportConfigOptions options = {}) {
   std::ostringstream stream;
   stream << R"({
         "config_id": ")"
@@ -123,19 +133,34 @@ std::string make_valid_config_json(std::string_view config_id,
           "catch_angle_rad": -0.9,
           "release_angle_rad": 0.6
         },
+          "providers": {
+          "hull_resistance": "quadratic_drag_placeholder",
+          "blade_force": "stroke_propulsion_placeholder",
+          "aero_load": ")"
+         << provider_id(options.enable_aero_provider) << R"("
+        },
         "output": {
           "summary_path": ")"
          << summary_path << R"(",
           "time_series_path": ")"
          << time_series_path << R"(")";
-  if (!visualization_path.empty()) {
+  if (!options.visualization_path.empty()) {
     stream << R"(,
           "visualization_path": ")"
-           << visualization_path << R"(")";
+           << options.visualization_path << R"(")";
   }
   stream << R"(,
           "formats": ["json"],
           "high_frequency_time_series": true
+        },
+        "environment": {
+          "wind_time_series": [
+            {
+              "time_s": 0.0,
+              "ambient_wind_world_mps": [0.0, )"
+         << options.ambient_wind_y_mps << R"(, 0.0]
+            }
+          ]
         }
       })";
   return stream.str();
@@ -184,6 +209,37 @@ bool json_array_contains_string(const Json &items, std::string_view value) {
   return false;
 }
 
+bool json_array_contains_type(const Json &items, std::string_view type) {
+  for (const auto &item : items) {
+    if (item.is_object() && item.contains("type") &&
+        item.at("type").get<std::string>() == type) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool json_array_contains_channel_with_provenance(const Json &items,
+                                                 std::string_view id,
+                                                 std::string_view provenance) {
+  for (const auto &item : items) {
+    if (item.is_object() && item.contains("id") &&
+        item.at("id").get<std::string>() == id && item.contains("provenance") &&
+        item.at("provenance").get<std::string>() == provenance) {
+      return true;
+    }
+  }
+  return false;
+}
+
+double final_vector_component(const Json &visualization, std::string_view id,
+                              std::size_t component_index) {
+  const auto &samples = visualization.at("samples");
+  const auto &value =
+      samples.back().at("vectors").at(std::string(id)).at("value");
+  return value.at(component_index).get<double>();
+}
+
 struct InteractiveReportRun {
   std::filesystem::path config_path;
   std::filesystem::path summary_path;
@@ -196,22 +252,27 @@ struct InteractiveReportRun {
   std::filesystem::path tool_stderr_path;
 };
 
-InteractiveReportRun make_interactive_report_run(std::string_view suffix,
-                                                 std::string_view config_id) {
+InteractiveReportRun
+make_interactive_report_run(std::string_view suffix, std::string_view config_id,
+                            double ambient_wind_y_mps = 0.0,
+                            bool enable_aero_provider = false) {
   const std::string name{suffix};
   InteractiveReportRun run{
       .config_path = write_temp_file(
           "airow-" + name + "-config.json",
-          make_valid_config_json(config_id,
-                                 (std::filesystem::temp_directory_path() /
-                                  ("airow-" + name + "-summary.json"))
-                                     .string(),
-                                 (std::filesystem::temp_directory_path() /
-                                  ("airow-" + name + "-timeseries.json"))
-                                     .string(),
-                                 (std::filesystem::temp_directory_path() /
-                                  ("airow-" + name + "-artifact.json"))
-                                     .string())),
+          make_valid_config_json(
+              config_id,
+              (std::filesystem::temp_directory_path() /
+               ("airow-" + name + "-summary.json"))
+                  .string(),
+              (std::filesystem::temp_directory_path() /
+               ("airow-" + name + "-timeseries.json"))
+                  .string(),
+              {.visualization_path = (std::filesystem::temp_directory_path() /
+                                      ("airow-" + name + "-artifact.json"))
+                                         .string(),
+               .ambient_wind_y_mps = ambient_wind_y_mps,
+               .enable_aero_provider = enable_aero_provider})),
       .summary_path = std::filesystem::temp_directory_path() /
                       ("airow-" + name + "-summary.json"),
       .time_series_path = std::filesystem::temp_directory_path() /
@@ -418,9 +479,9 @@ TEST(RunAnalysisSystem, PythonToolGeneratesInteractiveVisualizationReport) {
                                   "airow-qt-analysis-viz-artifact.json";
   const auto config_path = write_temp_file(
       "airow-qt-analysis-viz-config.json",
-      make_valid_config_json("qt-analysis-viz", summary_path.string(),
-                             time_series_path.string(),
-                             visualization_path.string()));
+      make_valid_config_json(
+          "qt-analysis-viz", summary_path.string(), time_series_path.string(),
+          {.visualization_path = visualization_path.string()}));
   const auto cli_stdout_path = std::filesystem::temp_directory_path() /
                                "airow-qt-analysis-viz-cli.stdout";
   const auto cli_stderr_path = std::filesystem::temp_directory_path() /
@@ -540,6 +601,87 @@ TEST(RunAnalysisSystem, PythonToolReportsConfigurableVisualizationControls) {
   EXPECT_GE(controls.at("plot_channels").size(), 6U);
 
   cleanup_interactive_report_run(run);
+}
+
+/**
+ * @test QT-053
+ * @verifies [R-052, R-053]
+ * @notes Given emitted summary, time-series, and visualization artifacts, when
+ * the repository analysis tool builds an offline inspection report, then the
+ * report exposes deterministic event markers for peak values, zero crossings,
+ * stroke phase boundaries, and trust warnings in machine-readable metadata and
+ * HTML seek controls.
+ */
+TEST(RunAnalysisSystem, PythonToolReportsInteractiveEventMarkers) {
+  const auto run =
+      make_interactive_report_run("qt-analysis-events", "qt-analysis-events");
+  prepare_interactive_report_run(run);
+  execute_interactive_report_run(run);
+
+  const auto html = read_file(run.report_dir / "index.html");
+  EXPECT_NE(html.find("event-marker-list"), std::string::npos);
+  EXPECT_NE(html.find("data-event-seek"), std::string::npos);
+  EXPECT_NE(html.find("peak_value"), std::string::npos);
+  EXPECT_NE(html.find("zero_crossing"), std::string::npos);
+  EXPECT_NE(html.find("stroke_boundary"), std::string::npos);
+  EXPECT_NE(html.find("trust_warning"), std::string::npos);
+
+  const auto metrics = read_json_file(run.report_dir / "metrics.json");
+  const auto &markers = metrics.at("interactive_controls").at("event_markers");
+  EXPECT_TRUE(json_array_contains_type(markers, "peak_value"));
+  EXPECT_TRUE(json_array_contains_type(markers, "zero_crossing"));
+  EXPECT_TRUE(json_array_contains_type(markers, "stroke_boundary"));
+  EXPECT_TRUE(json_array_contains_type(markers, "trust_warning"));
+
+  cleanup_interactive_report_run(run);
+}
+
+/**
+ * @test QT-054
+ * @verifies [R-052, R-053]
+ * @notes Given mirrored crosswind-style runs with visualization artifacts,
+ * when the offline reports are generated, then report-visible moment-vector
+ * controls preserve provider provenance, units, and world-frame metadata while
+ * the emitted yaw moment changes sign deterministically.
+ */
+TEST(RunAnalysisSystem, PythonToolReportsMirroredMomentVectorCoverage) {
+  const auto starboard_run =
+      make_interactive_report_run("qt-analysis-starboard-moment",
+                                  "qt-analysis-starboard-moment", 2.0, true);
+  const auto port_run = make_interactive_report_run(
+      "qt-analysis-port-moment", "qt-analysis-port-moment", -2.0, true);
+  prepare_interactive_report_run(starboard_run);
+  prepare_interactive_report_run(port_run);
+  execute_interactive_report_run(starboard_run);
+  execute_interactive_report_run(port_run);
+
+  const auto starboard_visualization =
+      read_json_file(starboard_run.visualization_path);
+  const auto port_visualization = read_json_file(port_run.visualization_path);
+  EXPECT_GT(final_vector_component(starboard_visualization,
+                                   "aero_moment_world_n_m", 2),
+            0.0);
+  EXPECT_LT(
+      final_vector_component(port_visualization, "aero_moment_world_n_m", 2),
+      0.0);
+
+  const auto starboard_metrics =
+      read_json_file(starboard_run.report_dir / "metrics.json");
+  const auto &vectors =
+      starboard_metrics.at("interactive_controls").at("vector_channels");
+  EXPECT_TRUE(json_array_contains_id(vectors, "aero_moment_world_n_m"));
+  EXPECT_TRUE(json_array_contains_channel_with_provenance(
+      vectors, "aero_moment_world_n_m", "aero_load_provider"));
+  EXPECT_TRUE(json_array_contains_channel_with_provenance(
+      vectors, "hull_hydro_moment_world_n_m", "hull_resistance_provider"));
+
+  const auto html = read_file(starboard_run.report_dir / "index.html");
+  EXPECT_NE(html.find("vector-toggle-aero_moment_world_n_m"),
+            std::string::npos);
+  EXPECT_NE(html.find("N*m world"), std::string::npos);
+
+  cleanup_interactive_report_run(starboard_run);
+  cleanup_interactive_report_run(port_run);
 }
 
 /**

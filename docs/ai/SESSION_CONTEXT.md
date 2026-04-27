@@ -29,9 +29,11 @@
   can generate an offline interactive report with 2D top/side/end projections,
   projection and frame controls, vector toggles, linked plot cursors,
   plot-click seeking, broader selectable plot coverage, trust labels,
-  unavailable-channel disabling, and `metrics.json.interactive_controls`
-  metadata. Full 3D playback, transformed local-frame vectors, and richer
-  exports remain open.
+  unavailable-channel disabling, derived event markers for peaks, zero
+  crossings, stroke boundaries, and trust warnings, report-visible moment
+  vector provenance, mirrored yaw-moment evidence, and
+  `metrics.json.interactive_controls` metadata. Full 3D playback, transformed
+  local-frame vectors, and richer exports remain open.
 - `R-019` and `R-023` review flags are cleared as of 2026-04-27 after
   `tools/tracecheck.py --json`, `QT-025`, and `QT-039` confirmed current trace
   and wind-contract evidence.
@@ -51,19 +53,17 @@
   field or `simulation.state_advancer` selector; represent constant wind as a
   single-sample series or equivalent constant profile.
 - Do not use archived roadmaps or handoffs as active implementation guidance.
-- Do not hand-expand generated trace markdown; keep full trace inspection on
-  the JSON output path.
+- Keep final responses for repository changes ending with a one-line
+  `Commit message:` summary; do not hand-expand generated trace markdown.
 
 ## Next Actions
 1. Continue `R-050` / `R-052` / `R-053` / `R-070` toward transformed
-   local-frame channels, mirrored scenario visualization, event markers, full
-   vector/moment coverage, and VTK/ParaView export.
+   local-frame channels, remaining interface/disturbance vector coverage, full
+   3D playback linkage, and VTK/ParaView export.
 2. Keep `R-052` and `R-053` `Needs-Review: yes` until true 3D playback and
    full linked timeline/channel coverage land.
-3. Continue `R-071` Phase 1 with viewer entry pages and study-recommendation or
-   optimization links once those surfaces exist; keep `R-071`
-   `Needs-Review: yes`.
+3. Continue `R-071` Phase 1 with viewer entry pages and study/optimization
+   links once those surfaces exist; keep `R-071` `Needs-Review: yes`.
 4. Allocate each selected packet in `docs/process/ARCHITECTURE.md` before
    adding failing tests.
-5. Preserve current numerical behavior unless the selected requirement
-   explicitly changes runtime physics.
+5. Preserve current numerical behavior unless the selected requirement changes runtime physics.

@@ -89,7 +89,8 @@ validated with `python3 tools/validate_visualization_artifact.py <path>`.
 When a visualization artifact is provided, `tools/run_analysis.py` also writes
 report-control metadata to `metrics.json` and exposes offline playback,
 top/side/end projections, frame labels, vector toggles, disabled unavailable
-channels, selectable linked plots, and plot-click seeking.
+channels, selectable linked plots, plot-click seeking, and derived event
+markers for peaks, zero crossings, stroke boundaries, and trust warnings.
 
 ## Current Capabilities
 

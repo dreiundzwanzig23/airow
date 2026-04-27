@@ -13,7 +13,7 @@ machine-readable trace graph is available through
 - Architecture items: 10 (IN_PROGRESS: 10)
 - Architecture evidence profiles: CODE: 10
 - Design blocks: 61
-- Evidence tests: UT 373, IT 28, QT 52
+- Evidence tests: UT 373, IT 28, QT 54
 - Auxiliary tests excluded from evidence gates: 0
 
 ## Evidence Coverage
