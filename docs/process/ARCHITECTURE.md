@@ -499,7 +499,11 @@ Allocation guardrails:
   time-series, and visualization artifacts; expose those markers in
   `metrics.json`, the viewer payload, and static HTML controls; and fill
   vector-control metadata for already-emitted force and moment sample vectors
-  without changing runtime stepping or the `airow.visualization.v1` schema.
+  without changing runtime stepping or the `airow.visualization.v1` schema. The
+  local-frame vector slice keeps that ownership: `D-063` now derives
+  hull-body-frame variants for already-emitted world-frame vectors during
+  artifact serialization, preserving units, provenance, and availability
+  labels for offline report controls while leaving runtime physics unchanged.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem

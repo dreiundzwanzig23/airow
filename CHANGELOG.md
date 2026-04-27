@@ -16,6 +16,9 @@
 - Added offline inspection event markers for peak values, zero crossings,
   stroke boundaries, and trust warnings, plus report-visible force and moment
   vector provenance for mirrored direction checks.
+- Added hull-body-frame visualization vector channels derived from emitted
+  world-frame vectors, with report-visible toggles preserving unit, frame, and
+  provenance metadata.
 
 ### Changed
 - Standardized final Codex responses after repository changes to include a

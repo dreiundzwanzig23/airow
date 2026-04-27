@@ -627,6 +627,42 @@ Json quaternion_json(const Quaternion &value) {
   return Json::array({value.x, value.y, value.z, value.w});
 }
 
+double quaternion_norm(const Quaternion &value) {
+  return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z +
+                   value.w * value.w);
+}
+
+Quaternion normalize_quaternion(const Quaternion &value) {
+  const double magnitude = quaternion_norm(value);
+  return {.x = value.x / magnitude,
+          .y = value.y / magnitude,
+          .z = value.z / magnitude,
+          .w = value.w / magnitude};
+}
+
+Quaternion quaternion_multiply(const Quaternion &lhs, const Quaternion &rhs) {
+  return {
+      .x = lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y,
+      .y = lhs.w * rhs.y - lhs.x * rhs.z + lhs.y * rhs.w + lhs.z * rhs.x,
+      .z = lhs.w * rhs.z + lhs.x * rhs.y - lhs.y * rhs.x + lhs.z * rhs.w,
+      .w = lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z,
+  };
+}
+
+Vector3 rotate_world_vector_to_body(const Quaternion &world_from_body,
+                                    const Vector3 &world_value) {
+  const Quaternion normalized = normalize_quaternion(world_from_body);
+  const Quaternion body_from_world{.x = -normalized.x,
+                                   .y = -normalized.y,
+                                   .z = -normalized.z,
+                                   .w = normalized.w};
+  const Quaternion pure{
+      .x = world_value.x, .y = world_value.y, .z = world_value.z, .w = 0.0};
+  const Quaternion rotated = quaternion_multiply(
+      quaternion_multiply(body_from_world, pure), normalized);
+  return {.x = rotated.x, .y = rotated.y, .z = rotated.z};
+}
+
 Json truth_model_environment_json(const EnvironmentSettings &environment) {
   Json environment_json = Json::object();
   if (!environment.wind_time_series.empty()) {
@@ -1068,39 +1104,80 @@ Json visualization_channels_json() {
                                 {"frame", "world"},
                                 {"unit", "N"},
                                 {"provenance", "hull_resistance_provider"}}},
+      {"hull_hydro_force_body",
+       Json{{"kind", "vector"},
+            {"availability", "available"},
+            {"frame", "hull_body"},
+            {"unit", "N"},
+            {"provenance", "hull_resistance_provider"}}},
       {"hull_hydro_moment", Json{{"kind", "vector"},
                                  {"availability", "available"},
                                  {"frame", "world"},
                                  {"unit", "N*m"},
                                  {"provenance", "hull_resistance_provider"}}},
+      {"hull_hydro_moment_body",
+       Json{{"kind", "vector"},
+            {"availability", "available"},
+            {"frame", "hull_body"},
+            {"unit", "N*m"},
+            {"provenance", "hull_resistance_provider"}}},
       {"blade_force", Json{{"kind", "vector"},
                            {"availability", "available"},
                            {"frame", "world"},
                            {"unit", "N"},
                            {"provenance", "blade_force_provider"}}},
+      {"blade_force_body", Json{{"kind", "vector"},
+                                {"availability", "available"},
+                                {"frame", "hull_body"},
+                                {"unit", "N"},
+                                {"provenance", "blade_force_provider"}}},
       {"aero_force", Json{{"kind", "vector"},
                           {"availability", "available"},
                           {"frame", "world"},
                           {"unit", "N"},
                           {"provenance", "aero_load_provider"}}},
+      {"aero_force_body", Json{{"kind", "vector"},
+                               {"availability", "available"},
+                               {"frame", "hull_body"},
+                               {"unit", "N"},
+                               {"provenance", "aero_load_provider"}}},
       {"aero_moment", Json{{"kind", "vector"},
                            {"availability", "available"},
                            {"frame", "world"},
                            {"unit", "N*m"},
                            {"provenance", "aero_load_provider"}}},
+      {"aero_moment_body", Json{{"kind", "vector"},
+                                {"availability", "available"},
+                                {"frame", "hull_body"},
+                                {"unit", "N*m"},
+                                {"provenance", "aero_load_provider"}}},
       {"ambient_wind", Json{{"kind", "vector"},
                             {"availability", "available"},
                             {"frame", "world"},
                             {"unit", "m/s"}}},
+      {"ambient_wind_body", Json{{"kind", "vector"},
+                                 {"availability", "available"},
+                                 {"frame", "hull_body"},
+                                 {"unit", "m/s"}}},
       {"apparent_wind", Json{{"kind", "vector"},
                              {"availability", "available"},
                              {"frame", "world"},
                              {"unit", "m/s"}}},
+      {"apparent_wind_body", Json{{"kind", "vector"},
+                                  {"availability", "available"},
+                                  {"frame", "hull_body"},
+                                  {"unit", "m/s"}}},
       {"rower_inertial_force", Json{{"kind", "vector"},
                                     {"availability", "available"},
                                     {"frame", "world"},
                                     {"unit", "N"},
                                     {"provenance", "runtime_reconstruction"}}},
+      {"rower_inertial_force_body",
+       Json{{"kind", "vector"},
+            {"availability", "available"},
+            {"frame", "hull_body"},
+            {"unit", "N"},
+            {"provenance", "runtime_reconstruction"}}},
       {"gate_loads",
        Json{{"kind", "vector"},
             {"availability", "unavailable"},
@@ -1125,6 +1202,7 @@ Json visualization_sample_json(const MechanicalStateSnapshot &state,
   const auto port_blade_load = loads.resolved_port_blade_force_world_n();
   const auto starboard_blade_load =
       loads.resolved_starboard_blade_force_world_n();
+  const auto &hull_orientation = state.hull.orientation_world_from_body;
 
   return Json{
       {"time_s", state.time_s},
@@ -1160,22 +1238,59 @@ Json visualization_sample_json(const MechanicalStateSnapshot &state,
        Json{
            {"hull_hydro_force_world_n",
             vector_channel(hydro_load, "N", "world")},
+           {"hull_hydro_force_body_n",
+            vector_channel(
+                rotate_world_vector_to_body(hull_orientation, hydro_load), "N",
+                "hull_body")},
            {"hull_hydro_moment_world_n_m",
             vector_channel(loads.hull_moment_world_n_m, "N*m", "world")},
+           {"hull_hydro_moment_body_n_m",
+            vector_channel(rotate_world_vector_to_body(
+                               hull_orientation, loads.hull_moment_world_n_m),
+                           "N*m", "hull_body")},
            {"port_blade_force_world_n",
             vector_channel(port_blade_load, "N", "world")},
+           {"port_blade_force_body_n",
+            vector_channel(
+                rotate_world_vector_to_body(hull_orientation, port_blade_load),
+                "N", "hull_body")},
            {"starboard_blade_force_world_n",
             vector_channel(starboard_blade_load, "N", "world")},
+           {"starboard_blade_force_body_n",
+            vector_channel(rotate_world_vector_to_body(hull_orientation,
+                                                       starboard_blade_load),
+                           "N", "hull_body")},
            {"aero_force_world_n",
             vector_channel(loads.aero_force_world_n, "N", "world")},
+           {"aero_force_body_n",
+            vector_channel(rotate_world_vector_to_body(
+                               hull_orientation, loads.aero_force_world_n),
+                           "N", "hull_body")},
            {"aero_moment_world_n_m",
             vector_channel(loads.aero_moment_world_n_m, "N*m", "world")},
+           {"aero_moment_body_n_m",
+            vector_channel(rotate_world_vector_to_body(
+                               hull_orientation, loads.aero_moment_world_n_m),
+                           "N*m", "hull_body")},
            {"ambient_wind_world_mps",
             vector_channel(loads.ambient_wind_world_mps, "m/s", "world")},
+           {"ambient_wind_body_mps",
+            vector_channel(rotate_world_vector_to_body(
+                               hull_orientation, loads.ambient_wind_world_mps),
+                           "m/s", "hull_body")},
            {"apparent_wind_world_mps",
             vector_channel(loads.apparent_wind_world_mps, "m/s", "world")},
+           {"apparent_wind_body_mps",
+            vector_channel(rotate_world_vector_to_body(
+                               hull_orientation, loads.apparent_wind_world_mps),
+                           "m/s", "hull_body")},
            {"rower_inertial_force_world_n",
-            vector_channel(loads.rower_inertial_force_world_n, "N", "world")}}},
+            vector_channel(loads.rower_inertial_force_world_n, "N", "world")},
+           {"rower_inertial_force_body_n",
+            vector_channel(
+                rotate_world_vector_to_body(hull_orientation,
+                                            loads.rower_inertial_force_world_n),
+                "N", "hull_body")}}},
       {"scalars",
        Json{{"boat_speed_mps", state.hull.linear_velocity_world_mps.x},
             {"seat_position_along_rail_m", state.seat.position_along_rail_m},

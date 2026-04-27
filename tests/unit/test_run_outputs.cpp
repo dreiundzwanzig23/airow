@@ -251,6 +251,16 @@ void expect_visualization_contract(const Json &visualization,
   EXPECT_EQ(hydro_force.at("unit").get<std::string>(), "N");
   EXPECT_EQ(hydro_force.at("frame").get<std::string>(), "world");
   EXPECT_EQ(hydro_force.at("value").size(), 3U);
+  const auto &body_hydro_force =
+      first_sample.at("vectors").at("hull_hydro_force_body_n");
+  EXPECT_EQ(body_hydro_force.at("unit").get<std::string>(), "N");
+  EXPECT_EQ(body_hydro_force.at("frame").get<std::string>(), "hull_body");
+  EXPECT_EQ(body_hydro_force.at("value").size(), 3U);
+  EXPECT_EQ(visualization.at("channels")
+                .at("hull_hydro_force_body")
+                .at("provenance")
+                .get<std::string>(),
+            "hull_resistance_provider");
 }
 
 } // namespace

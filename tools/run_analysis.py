@@ -209,14 +209,23 @@ def script_json(value: object) -> str:
 def vector_channel_metadata_id(vector_id: str) -> str:
     replacements = {
         "hull_hydro_force_world_n": "hull_hydro_force",
+        "hull_hydro_force_body_n": "hull_hydro_force_body",
         "hull_hydro_moment_world_n_m": "hull_hydro_moment",
+        "hull_hydro_moment_body_n_m": "hull_hydro_moment_body",
         "port_blade_force_world_n": "blade_force",
+        "port_blade_force_body_n": "blade_force_body",
         "starboard_blade_force_world_n": "blade_force",
+        "starboard_blade_force_body_n": "blade_force_body",
         "aero_force_world_n": "aero_force",
+        "aero_force_body_n": "aero_force_body",
         "aero_moment_world_n_m": "aero_moment",
+        "aero_moment_body_n_m": "aero_moment_body",
         "ambient_wind_world_mps": "ambient_wind",
+        "ambient_wind_body_mps": "ambient_wind_body",
         "apparent_wind_world_mps": "apparent_wind",
+        "apparent_wind_body_mps": "apparent_wind_body",
         "rower_inertial_force_world_n": "rower_inertial_force",
+        "rower_inertial_force_body_n": "rower_inertial_force_body",
     }
     return replacements.get(vector_id, vector_id)
 

@@ -915,7 +915,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Current slices emit and validate `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The offline report tool rejects malformed visualization artifacts before generating an interactive report and exposes projection, frame, vector, and plot-control metadata without changing the schema. Transformed local-frame channel data, full 3D playback, and richer disturbance channels remain future work.
+- **Notes**: Current slices emit and validate `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The artifact now includes additive hull-body-frame variants for available world-frame vector channels, and the offline report tool rejects malformed visualization artifacts before generating an interactive report with projection, frame, vector, and plot-control metadata. Full 3D playback and richer disturbance channels remain future work.
 
 ## R-051 — Interactive 3D Run Playback
 
@@ -949,7 +949,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: The offline inspection report now adds dependency-free 2D top/side/end projections, projection and frame controls, checkbox vector overlays derived from emitted artifact channels, unit/frame/provenance labels, trust labels, disabled unavailable-channel controls, report-visible force/moment vector provenance, and mirrored yaw-moment sign evidence. `Needs-Review: yes` remains because true 3D playback, transformed local-frame vectors, interface-load vectors, and broader disturbance coverage are still follow-up work.
+- **Notes**: The offline inspection report now adds dependency-free 2D top/side/end projections, projection and frame controls, checkbox vector overlays derived from emitted world-frame and hull-body-frame artifact channels, unit/frame/provenance labels, trust labels, disabled unavailable-channel controls, report-visible force/moment vector provenance, and mirrored yaw-moment sign evidence. `Needs-Review: yes` remains because true 3D playback, interface-load vectors, and broader disturbance coverage are still follow-up work.
 
 ## R-053 — Synchronized Time-Series Inspection
 

@@ -559,7 +559,11 @@ TEST(RunAnalysisSystem, PythonToolReportsConfigurableVisualizationControls) {
   EXPECT_NE(html.find("waterline"), std::string::npos);
   EXPECT_NE(html.find("vector-toggle-hull_hydro_force_world_n"),
             std::string::npos);
+  EXPECT_NE(html.find("vector-toggle-hull_hydro_force_body_n"),
+            std::string::npos);
   EXPECT_NE(html.find("vector-toggle-port_blade_force_world_n"),
+            std::string::npos);
+  EXPECT_NE(html.find("vector-toggle-port_blade_force_body_n"),
             std::string::npos);
   EXPECT_NE(html.find("vector-toggle-gate_loads"), std::string::npos);
   EXPECT_NE(html.find("data-availability=\"unavailable\""), std::string::npos);
@@ -589,7 +593,11 @@ TEST(RunAnalysisSystem, PythonToolReportsConfigurableVisualizationControls) {
   EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
                                      "hull_hydro_force_world_n"));
   EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
+                                     "hull_hydro_force_body_n"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
                                      "port_blade_force_world_n"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
+                                     "port_blade_force_body_n"));
   EXPECT_TRUE(json_array_contains_id(controls.at("unavailable_channels"),
                                      "gate_loads"));
   EXPECT_TRUE(

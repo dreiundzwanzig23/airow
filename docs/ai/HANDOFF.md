@@ -13,6 +13,9 @@
   expose peak, zero-crossing, stroke-boundary, and trust-warning markers,
   fill provenance for already-emitted force/moment vectors, and verify mirrored
   yaw-moment sign evidence.
+- Added hull-body-frame visualization vector channels for already-emitted
+  world-frame force, moment, wind, and rower-inertial vectors, with offline
+  report toggles preserving unit, frame, and provenance labels.
 - Added `QT-052`, `QT-053`, and `QT-054` coverage for the richer offline report
   controls while keeping the `airow.visualization.v1` schema additive and
   unchanged.
@@ -33,17 +36,17 @@
   `Needs-Review: yes`.
 - `R-050`, `R-052`, `R-053`, and `R-070` are `IN_PROGRESS` for the first
   visualization artifact and interactive-report slice. `R-052` and `R-053`
-  remain `Needs-Review: yes` with explicit follow-up notes for transformed
-  local-frame channels, remaining interface/disturbance vector coverage, full
-  linked channel coverage, and true 3D timeline linkage.
+  remain `Needs-Review: yes` with explicit follow-up notes for remaining
+  interface/disturbance vector coverage, full linked channel coverage, and true
+  3D timeline linkage.
 - The reduced runtime remains unchanged by the documentation cleanup.
 - Required gates pass as of this handoff; tracecheck still reports only the
   existing numbering-gap warnings.
 
 ## Immediate Next Steps
-1. Continue `R-050` / `R-052` / `R-053` / `R-070` with transformed local-frame
-   channels, remaining interface/disturbance vector coverage, true 3D playback
-   linkage, and VTK/ParaView export.
+1. Continue `R-050` / `R-052` / `R-053` / `R-070` with remaining
+   interface/disturbance vector coverage, true 3D playback linkage, and
+   VTK/ParaView export.
 2. Keep `R-052` and `R-053` review-flagged until true 3D playback and full
    linked timeline/channel coverage are implemented.
 3. Continue `R-071` with viewer entry pages and study-recommendation or

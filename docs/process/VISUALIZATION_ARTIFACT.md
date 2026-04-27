@@ -19,7 +19,8 @@ artifact must not change the numerical result of a run.
 - `metadata`: config id, simulator version, provider metadata, backend
   metadata, trust envelope, and external artifact provenance.
 - `frames`: world, hull-body, waterline, and port/starboard conventions.
-- `channels`: available transform/vector channels and explicit unavailable
+- `channels`: available transform/vector channels, including world-frame and
+  hull-body-frame variants for emitted vectors, plus explicit unavailable
   channels such as current gate loads.
 - `samples`: time-indexed transforms, vectors, and scalar values sampled with
   the same policy as time-series JSON.
@@ -47,8 +48,8 @@ python3 tools/run_analysis.py \
 
 Physical or interpretive claim:
 - Users can inspect a reduced-runtime run's state evolution, frame directions,
-  selected world-frame vectors, report-side event markers, and time-series
-  relationships without changing the numerical result.
+  selected world-frame and hull-body-frame vectors, report-side event markers,
+  and time-series relationships without changing the numerical result.
 
 Fidelity level:
 - reduced visualization of the current reduced runtime.
@@ -66,19 +67,19 @@ Validity range:
 Oracle:
 - visual invariant and deterministic artifact validation.
 - details: malformed artifacts are rejected, vectors retain units and frames,
-  unavailable channels remain labeled unavailable and disabled, projection and
-  frame controls do not imply transformed local-frame data unless such channels
-  are emitted, linked plots share the same sample index as the playback
-  controls, and event markers are derived from existing emitted samples or trust
-  metadata rather than new runtime state.
+  unavailable channels remain labeled unavailable and disabled, hull-body
+  vector controls are derived only from emitted body-frame channels, linked
+  plots share the same sample index as the playback controls, and event markers
+  are derived from existing emitted samples or trust metadata rather than new
+  runtime state.
 
 Required outputs:
 - time-series channels: existing emitted records plus visualization samples and
   derived report `plot_channels` metadata.
 - units: inherited from scalar and vector channel metadata.
 - frames: world, hull-body, waterline, and port/starboard conventions.
-- visualization vectors: hull hydro, blade, aero, wind, moment, and rower
-  inertial vectors when present.
+- visualization vectors: world-frame and hull-body-frame hull hydro, blade,
+  aero, wind, moment, and rower inertial vectors when present.
 - diagnostics: `metrics.json.interactive_controls.event_markers` lists peak,
   zero-crossing, stroke-boundary, and trust-warning markers with sample index,
   time, channel, unit, frame, and source metadata.
@@ -86,7 +87,8 @@ Required outputs:
   deterministic error.
 
 Tests:
-- UT: existing output helper coverage for artifact/time-series shape.
+- UT: `UT-382` plus existing output helper coverage for artifact/time-series
+  shape.
 - IT: existing output integration coverage for visualization metadata and
   sample alignment.
 - QT: `QT-049`, `QT-050`, `QT-051`, `QT-052`, `QT-053`, and `QT-054`.

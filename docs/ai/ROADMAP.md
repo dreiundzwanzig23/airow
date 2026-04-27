@@ -27,10 +27,10 @@
 
 ## Recommended Near-Term Packet
 - Continue `R-050` / `R-052` / `R-053` / `R-070` from the current artifact and
-  offline report controls into transformed local-frame channels, broader
-  visualization evidence, remaining vector/interface coverage, and
-  VTK/ParaView export. Event markers and mirrored moment-vector evidence have
-  an initial offline-report slice.
+  offline report controls into broader visualization evidence, remaining
+  interface/disturbance vector coverage, true 3D playback linkage, and
+  VTK/ParaView export. Event markers, mirrored moment-vector evidence, and
+  hull-body-frame vector variants have initial offline-report slices.
 - Preserve current reduced-runtime numerical behavior unless a scoped physics
   requirement explicitly changes it.
 - Keep archived roadmaps out of normal context retrieval unless historical
