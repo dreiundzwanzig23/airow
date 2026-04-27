@@ -45,6 +45,7 @@
   "output": {
     "summary_path": "examples/output/passive_float/summary.json",
     "time_series_path": "examples/output/passive_float/time_series.json",
+    "visualization_path": "examples/output/passive_float/visualization.json",
     "formats": ["json"],
     "high_frequency_time_series": true
   }

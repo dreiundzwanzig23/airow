@@ -76,6 +76,14 @@ std::string with_truth_model_export_path(std::string_view export_path) {
   return dump_json(root);
 }
 
+std::string with_visualization_path(std::string_view visualization_path) {
+  auto root = parse_valid_config_json("visualization-output");
+  root["output"] = Json{
+      {"visualization_path", std::string(visualization_path)},
+  };
+  return dump_json(root);
+}
+
 } // namespace
 
 /**
@@ -122,4 +130,50 @@ TEST(SimulatorConfigTruthModel, RejectsNonStringTruthModelExportPath) {
   EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
   EXPECT_EQ(result.diagnostics.front().path,
             "$.output.truth_model_export_path");
+}
+
+/**
+ * @test UT-379
+ * @verifies [D-063]
+ * @notes Given the optional visualization artifact output path, when
+ * configuration parsing runs, then the field is accepted and normalized
+ * deterministically without changing other output settings.
+ */
+TEST(SimulatorConfigVisualization, ParsesVisualizationArtifactPath) {
+  const auto visualization_path =
+      (std::filesystem::temp_directory_path() / "airow-ut-visualization.json")
+          .string();
+  const auto result = project::parse_simulator_config_text(
+      with_visualization_path(visualization_path));
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.config.has_value());
+  EXPECT_EQ(result.config->output.visualization_path, visualization_path);
+  EXPECT_NE(
+      std::find(result.normalized_config.begin(),
+                result.normalized_config.end(),
+                project::NormalizedConfigEntry{"$.output.visualization_path",
+                                               visualization_path, ""}),
+      result.normalized_config.end());
+}
+
+/**
+ * @test UT-380
+ * @verifies [D-063]
+ * @notes Given a non-string visualization artifact path, when configuration
+ * parsing runs, then validation rejects the specific output path
+ * deterministically.
+ */
+TEST(SimulatorConfigVisualization, RejectsNonStringVisualizationArtifactPath) {
+  auto root = parse_valid_config_json("visualization-output");
+  root["output"] = Json{
+      {"visualization_path", 42},
+  };
+
+  const auto result = project::parse_simulator_config_text(dump_json(root));
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "invalid_type");
+  EXPECT_EQ(result.diagnostics.front().path, "$.output.visualization_path");
 }

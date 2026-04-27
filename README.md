@@ -1,587 +1,190 @@
-# AIRow Repository
+# AIRow
 
-AIRow is an open-source C++ rowing simulator project focused on a physically
-serious single-scull simulator with strict red-green-refactor TDD, traceability
-(`R -> A -> D -> UT/IT/QT`), and deterministic local gates.
+AIRow is an open-source C++ rowing simulator focused on deterministic,
+inspectable single-scull studies. The current runtime is a headless simulator
+with reduced hydro, blade, aero, stroke, rower-coupling, calibration, and
+reporting surfaces. It is built to say clearly what each run can and cannot
+claim.
 
-The `v0.1` cut line is now complete: the repository ships a deterministic
-headless single-scull baseline with validated configuration loading, shared
-in-memory and CLI execution, mechanics-backed startup and stepping, reduced
-hydro and steady-wind aero runtime models, machine-readable outputs, and
-runtime-backed passive-float, tow, calm-water, headwind, and crosswind
-evidence.
-
-The broader rowing simulator direction remains defined in the requirements,
-architecture, technology stack, decision records, and full-simulation roadmap.
-Post-`v0.1` work has landed the observability, provider-selection, calibration,
-actuation, rower-coupling, comparison, and propulsion-metric foundations while
-preserving the current reduced baseline. The active next phase is the
-full-simulation extension in `R-050..R-071`, starting with capability/trust
-visibility and visualization-ready artifacts before deeper geometry,
-6-DOF, blade-water, environment, validation, optimization, or optional
-truth-model workflows.
+The active supported scope is a reduced single-scull baseline. Crew boats,
+sweep rowing, waves, flexible oars, full 6-DOF validation, interactive
+playback, and full-3D water reference workflows are roadmap items rather than
+current runtime capability.
 
 ## Quick Start
 
 Install dependencies:
+
 ```bash
 ./scripts/setup.sh
 ```
 
-Standard setup now defaults to `clang + libstdc++`, installs the required
-Ubuntu SUNDIALS package (`libsundials-dev`), and provisions the supported
-Chrono install into `.external/chrono-install`. By default the helper looks
-for Chrono source at `../chrono`; override it with `CHRONO_SOURCE_DIR`.
-
-```bash
-CHRONO_SOURCE_DIR=/path/to/chrono ./scripts/setup.sh
-```
-
-Libc++ remains available for the auxiliary no-Chrono sanitizer and coverage
-lanes:
-
-```bash
-./scripts/setup.sh --stdlib=libc++
-```
-
 Build:
+
 ```bash
 ./scripts/build.sh
 ```
 
-Standard build notes:
-```bash
-# Uses the repo-managed Chrono prefix when present
-./scripts/build.sh
+Run a checked-in example:
 
-# Fallback for an explicit Chrono install
-CMAKE_PREFIX_PATH=/path/to/chrono/prefix ./scripts/build.sh
-```
-
-The preferred supported runtime now defaults to
-`chrono_rigidbody + sundials_ida`. To force the fallback modes in a config,
-set:
-
-```json
-{
-  "simulation": {
-    "mechanics_backend": "internal_baseline",
-    "integration_backend": "sundials_ida"
-  }
-}
-```
-
-or for the deterministic debug fallback:
-
-```json
-{
-  "simulation": {
-    "mechanics_backend": "internal_baseline",
-    "integration_backend": "deterministic_baseline"
-  }
-}
-```
-
-Run one headless baseline case:
-```bash
-./build/project_app --config /path/to/config.json
-```
-
-Make the supported scope explicit in a config when helpful:
-```json
-{
-  "boat_class": "single_scull"
-}
-```
-
-Omitting `boat_class` still defaults to `single_scull`. Any other explicit
-value is rejected before runtime startup; crew and sweep support remain future
-expansion only in the current repository state.
-
-Request an offline truth-model handoff export without changing the runtime
-path:
-```json
-{
-  "output": {
-    "truth_model_export_path": "/path/to/truth-model-input.json"
-  }
-}
-```
-
-The exported JSON bundle is optional and disabled by default. Runtime
-re-import stays on the existing calibrated-artifact path through
-`providers.aero_load = "steady_wind_calibrated"` plus
-`artifacts.calibration.path`.
-
-Import study-facing parameter or trial artifacts on the shared run path:
-```json
-{
-  "artifacts": {
-    "measurement_bundle": {
-      "path": "/path/to/measurement-bundle.json"
-    },
-    "measured_trial": {
-      "path": "/path/to/measured-trial.json"
-    }
-  }
-}
-```
-
-The same `measurement_bundle` path now also has checked-in proof coverage for
-parameter-sensitive studies: swapping valid hull, rigging, and athlete
-mass-distribution bundles changes reported trim and/or performance metrics
-through the existing summary contract instead of a separate hull-study schema.
-
-Select the low-order stroke-actuation mode explicitly when a study needs more
-than prescribed kinematics:
-```json
-{
-  "stroke": {
-    "actuation": {
-      "mode": "power_driven",
-      "peak_drive_power_w": 650.0,
-      "power_mode_speed_floor_mps": 0.35
-    },
-    "rower_coupling": {
-      "enabled": true,
-      "rower_mass_kg": 82.0,
-      "body_center_of_mass_m": [0.05, 0.0, 0.32],
-      "seat_position_to_com_scale": 0.78
-    }
-  }
-}
-```
-
-`measurement_bundle` is the current authoritative overlay for overlapping
-hull, rigging, and athlete mass-distribution inputs. Summary, time-series, and
-truth-model handoff JSON now propagate the imported study identifiers plus the
-selected actuation and coupling metadata.
-
-Run one case with the human-readable compact report:
-```bash
-./build/project_app --config /path/to/config.json --report compact
-```
-
-Run one ordered batch job from the same entry point:
-```bash
-./build/project_app --config /path/to/batch.json
-```
-
-Runnable example catalog:
 ```bash
 ./examples/run_example.sh passive_float
 ./examples/run_example.sh tow_test
 ./examples/run_example.sh calm_water_stroke
 ```
 
-See `examples/README.md` for the checked-in CLI configs, output locations, and
-the distinction between direct example configs and the scenario-harness
-artifacts under `scenarios/`.
+Each example writes JSON outputs under `examples/output/<example-name>/`.
+See `examples/README.md` for the example catalog and output locations.
 
-Protected-scenario performance guardrail:
+## Run A Config Directly
+
+After building, run the CLI from the repository root:
+
 ```bash
-./scripts/test_performance.sh
+./build/project_app --config examples/calm_water_stroke/config.json
 ```
 
-That lane evaluates the checked-in `scenarios/performance_budgets.json`
-manifest separately from ordinary functional test failures. The quick
-`./scripts/test_tdd.sh` lane stays free of those budget checks.
+For a compact human-readable summary:
 
-Current implemented library surface:
-- `include/project/aero/baseline_providers.hpp`
-- `include/project/calibration/artifact.hpp`
-- `include/project/calibration/measurement_bundle.hpp`
-- `include/project/calibration/measured_trial.hpp`
-- `include/project/configuration/provider_catalog.hpp`
-- `include/project/configuration/simulator_config.hpp`
-- `include/project/hydro/baseline_providers.hpp`
-- `include/project/mechanics/state.hpp`
-- `include/project/numerics/backend_catalog.hpp`
-- `include/project/numerics/state_advancement.hpp`
-- `include/project/orchestrator/simulation_run.hpp`
-- `include/project/orchestrator/cli.hpp`
-- `include/project/orchestrator/scenario_harness.hpp`
-- `include/project/output/run_analysis.hpp`
-- JSON file or in-memory loading for baseline simulation, hull, oar, seat, and
-  prescribed-stroke startup fields
-- deterministic diagnostics and normalized configuration metadata for `R-001`
-- deterministic mechanics startup and state-advancement seams for the first
-  `A-003` and `A-010` slice
-- reusable in-memory single-run API with injected hydro, aero, and
-  state-advancer seams plus structured state/load history
-- optional top-level `boat_class` scope selector, defaulting to
-  `single_scull` and rejecting unsupported crew or sweep scope explicitly
-- top-level config-driven built-in provider selection for
-  `hull_resistance`, `blade_force`, and `aero_load`
-- optional file-backed external calibration artifact loading with
-  deterministic schema or provenance validation on the shared runtime path
-- optional file-backed `measurement_bundle.v1` and `measured_trial.v1`
-  imports with deterministic provenance, frame, and identifier validation on
-  the shared runtime path
-- bounded `prescribed_kinematic`, `force_driven`, and `power_driven` stroke
-  actuation settings plus optional low-order rower center-of-mass coupling
-  inputs in the public config contract
-- optional `output.truth_model_export_path` for one deterministic JSON offline
-  handoff bundle, disabled by default and kept separate from runtime import
-  consumers
-- top-level config-driven composed backend selection for
-  `mechanics_backend` and `integration_backend`, with preferred
-  `chrono_rigidbody + sundials_ida`, supported
-  `internal_baseline + sundials_ida`, deterministic debug
-  `internal_baseline + deterministic_baseline`, and deterministic rejection
-  of `chrono_rigidbody + deterministic_baseline`
-- structured mechanics-backend and integration-backend metadata in run
-  summaries with stable built-in policy ids or descriptions plus startup and
-  runtime solver-status fields
-- deterministic machine-readable summary and time-series artifacts with
-  explicit unit or frame annotations for boundary-visible channels
-- imported study identifiers, trial-alignment metadata, actuation-command
-  channels, realized blade-force totals, and rower center-of-mass or inertial
-  contribution channels in JSON runtime outputs
-- structured hydro force or moment vectors, final passive-float equilibrium
-  diagnostics, and explicit blade-immersion or blade-tip-velocity channels in
-  runtime outputs
-- explicit world-frame ambient-wind configuration plus replay-oriented
-  `wind_time_series` and authored `wind_profile` inputs, with structured
-  ambient-wind, apparent-wind, and aerodynamic-moment channels in runtime
-  outputs
-- top-level ordered batch execution with per-case override objects, stable
-  per-case result records, and deterministic batch-summary artifact emission
-- output-format selection (`json`, `hdf5`, or both) with deterministic
-  configuration rejection when HDF5 is requested but unavailable in the build
-- configuration-controlled high-frequency time-series emission
-- headless CLI wrapper with stable exit-code behavior for `R-002` and `R-003`
-- stable run-result contract now lives in `include/project/output/run_result.hpp`
-  with output-writer seams in `include/project/output/run_output.hpp`
-- derived single-run analysis summaries and human-readable report formatting in
-  `include/project/output/run_analysis.hpp`
-- deterministic scenario-definition loading and acceptance-envelope evaluation
-  for checked-in passive-float, tow, calm-water stroke, headwind stroke, and
-  crosswind stroke artifacts in `scenarios/*.json`
-- checked-in protected-scenario performance budgets in
-  `scenarios/performance_budgets.json` plus a dedicated
-  `./scripts/test_performance.sh` validation lane and machine-readable budget
-  report
-- deterministic hydro baseline providers for passive float, tow drag, and
-  calm-water stroke propulsion behind the shared `HydroProvider` seam, now
-  including reduced hydrostatic restoring loads, low-speed-damped built-in
-  hull resistance, and phase-shaped immersion-aware blade forces with
-  backward-slip gating and zero-load catch or release boundaries
-- deterministic aero baseline provider for steady apparent-wind, low-speed-
-  sensitive headwind drag, lateral crosswind force, and speed-shaped yaw-
-  moment reporting behind the shared `AeroProvider` seam, plus an explicit
-  `steady_wind_calibrated` built-in id that consumes imported steady-wind
-  drag and yaw coefficients from a validated calibration artifact
-- structured provider metadata in run summaries with per-role provider ids plus
-  validity identifiers and descriptions
-- structured external-artifact provenance metadata in JSON and HDF5 outputs
-  when a run uses an imported calibration artifact
-- optional `--report compact|full` CLI output for human-readable run-state and
-  load-envelope inspection
-- offline `python3 tools/run_analysis.py --summary <path> --time-series <path>
-  --output-dir <dir>` report generation with static HTML and SVG plots from
-  emitted JSON artifacts
+```bash
+./build/project_app --config examples/calm_water_stroke/config.json --report compact
+```
 
-## Project Direction
+For an interactive HTML report from emitted JSON artifacts:
 
-Primary planning and process sources:
-- `docs/process/REQUIREMENTS.md`
-- `docs/process/ARCHITECTURE.md`
-- `docs/process/ROADMAP_FULL_SIMULATION.md`
-- `docs/process/ARCHITECTURE_POLICY.md`
-- `docs/process/TECHNOLOGY_STACK.md`
-- `docs/ai/DECISIONS.md`
+```bash
+python3 tools/run_analysis.py \
+  --summary examples/output/calm_water_stroke/summary.json \
+  --time-series examples/output/calm_water_stroke/time_series.json \
+  --visualization examples/output/calm_water_stroke/visualization.json \
+  --output-dir examples/output/calm_water_stroke/report
+```
 
-Architecture note: `docs/process/ARCHITECTURE.md` now starts with a compact
-overview of system context, building blocks, runtime flows, cross-cutting
-concepts, and current implementation status before the normative `A-*`
-ownership catalog.
+For a reduced ParaView/VTK export from the same visualization artifact:
 
-Current intent:
-- single-scull simulator first,
-- crew and sweep remain future expansion rather than current capability,
-- headless executable plus reusable library API,
-- 3D mechanics core with reduced hydro and aero runtime models,
-- explicit world-frame, sign, and orientation conventions at simulator
-  boundaries,
-- explicit numerical integration and startup-validity ownership separate from
-  mechanics ownership,
-- optional high-fidelity calibration and truth-model workflows kept outside the
-  default runtime,
-- next-phase full-simulation work focused on observability, capability
-  reporting, visualization artifacts, staged geometry and physics expansion,
-  validation scorecards, and optimization-safe outputs,
-- real simulator code should now land inside the hardened architecture-first
-  workflow rather than extending the bootstrap sample.
+```bash
+python3 tools/export_visualization_vtk.py \
+  --visualization examples/output/calm_water_stroke/visualization.json \
+  --output-dir examples/output/calm_water_stroke/paraview
+```
 
-Current implementation status:
-- the `v0.1` roadmap cut line is complete at the requirement level,
-- `A-001 Configuration and Validation` is now in progress with a real public
-  contract for deterministic JSON loading and validation of mechanics-startup
-  inputs plus the top-level built-in provider-selection schema and ordered
-  batch container,
-- `A-002 Simulation Orchestrator` is now in progress with a shared single-run
-  path for CLI and in-memory execution, config-driven built-in provider
-  construction when injected seams are absent, and a closed sequential batch
-  packet that reuses that same shared run path,
-- `A-003 Mechanics Subsystem` and `A-010 Numerical Integration and State
-  Advancement` are now in progress through a closed composed-backend slice:
-  the shared standard runtime prefers `chrono_rigidbody + sundials_ida`,
-  keeps `internal_baseline + sundials_ida` as the supported fallback,
-  keeps `internal_baseline + deterministic_baseline` as the deterministic
-  debug fallback, rejects unsupported backend pairs deterministically, and
-  propagates split backend-policy plus solver-status metadata through the
-  shared run path,
-- `A-007 Output and Diagnostics` is now in progress with deterministic
-  machine-readable summary/time-series artifact emission, structured provider
-  metadata propagation, optional HDF5 parity behind the same output contract,
-  deterministic batch-summary artifact emission for ordered multi-case jobs,
-  and closed `R-041` propulsion-metric reporting across summary, time-series,
-  HDF5, and human-readable analysis outputs,
-- `A-005 Aero Runtime Models` is now in progress with the first steady-wind
-  apparent-wind and aerodynamic-load slice, runtime-selectable built-in
-  provider wiring, and an in-place steady-wind fidelity refinement on the
-  existing built-in aero id,
-- `A-008 Scenario Harness and Validation` is now in progress with a public
-  scenario-harness API and runtime-backed passive-float/tow/calm-water/
-  headwind/crosswind/gust-headwind `QT-*` evidence plus one reusable
-  shared-baseline technique-comparison surface for actuation-mode studies,
-- bootstrap-only placeholder code has been removed from the compiled targets,
-- richer runtime provider fidelity is now in progress on the existing
-  `A-004` and `A-005` seams through in-place hydro and steady-wind aero
-  baseline refinements plus re-characterized wind-backed scenario envelopes,
-  while the closed `A-010` composed-backend slice now remains separate from
-  provider work through split mechanics and integration backend selection,
-  a preferred Chrono plus SUNDIALS standard runtime, and explicit fallback
-  pairs rather than mixing backend adoption into provider-selection work,
-- the next major planning packet now keeps that reduced baseline intact while
-  staging the full-simulation backlog through
-  `docs/process/ROADMAP_FULL_SIMULATION.md` and `R-050..R-071`, starting with
-  trust/capability visibility and visualization artifact foundations before
-  deeper physics is reopened.
+The export bundle includes `paraview_loading_guide.md` with a minimal loading
+sequence for the generated geometry, vectors, and metadata files.
 
-Wind config uses an exclusive one-of contract under `environment`. Constant
-wind is represented as a single-sample series or an equivalent constant
-profile; the removed `ambient_wind_world_mps` config field is no longer
-accepted.
+The CLI also supports ordered batch configs through the same entry point:
+
+```bash
+./build/project_app --config /path/to/batch.json
+```
+
+## Outputs
+
+Typical runs can emit:
+
+- machine-readable summary JSON;
+- machine-readable time-series JSON;
+- optional visualization artifact JSON for downstream playback or analysis
+  tooling;
+- optional reduced ParaView/VTK export generated from a visualization artifact;
+- optional HDF5 output when built with HDF5 support;
+- optional compact or full terminal reports;
+- optional static or interactive analysis reports generated from JSON
+  artifacts.
+
+Run summaries include provider metadata, selected mechanics and integration
+backends, diagnostics, units or frame annotations for boundary-visible
+channels, reduced energy-accounting terms, and trust-envelope metadata. Energy
+accounting covers reconstructed blade work, hull kinetic-energy change, aero
+and hull-water losses, rower input work when power-driven actuation supports
+it, and explicit unavailable terms such as oar kinetic energy. The trust fields
+are the intended place to check whether a run supports a study claim.
+
+Visualization artifacts use the `airow.visualization.v1` schema and can be
+validated with `python3 tools/validate_visualization_artifact.py <path>`.
+When a visualization artifact is provided, `tools/run_analysis.py` also writes
+report-control metadata to `metrics.json` and exposes a physics
+capability/trust entry section, offline playback, top/side/end projections,
+frame labels, world-frame and hull-body-frame vector toggles, disabled
+unavailable channels, selectable linked plots, plot-click seeking, and derived
+event markers for peaks, zero crossings, stroke boundaries, and trust
+warnings. The same report bundle writes `metrics.json.energy_accounting`, an
+`Energy Flow` section, and an energy/power plot from emitted time-series
+channels. `tools/export_visualization_vtk.py` writes a reduced
+ParaView-compatible bundle with geometry, sample vector fields, a loading
+guide, and a metadata sidecar preserving vector units, frames, and provenance.
+
+## Current Capabilities
+
+The current reduced runtime supports deterministic studies around:
+
+- single-scull configuration loading and validation;
+- headless single-run and batch execution;
+- passive float, tow, calm-water stroke, headwind, crosswind, and gust-headwind
+  scenario evidence;
+- reduced hull-water resistance and hydrostatic restoring loads;
+- reduced blade-water propulsion with slip, work, and efficiency reporting;
+- reduced energy and power accounting with support labels and explicit
+  unavailable terms;
+- reduced steady apparent-wind aero with headwind and crosswind behavior;
+- prescribed, force-driven, and power-driven low-order stroke actuation;
+- optional low-order rower center-of-mass coupling;
+- file-backed calibration, measurement-bundle, and measured-trial imports;
+- capability and trust reporting in machine-readable and human-readable output.
+
+Capability status and limitations are summarized in
+`docs/process/CAPABILITY_MATRIX.md`.
+
+## Configuration Notes
+
+The default scope is `single_scull`. A config may make that explicit:
 
 ```json
 {
-  "environment": {
-    "wind_time_series": [
-      { "time_s": 0.0, "ambient_wind_world_mps": [-0.5, 0.0, 0.0] },
-      { "time_s": 1.0, "ambient_wind_world_mps": [-1.5, 0.0, 0.0] }
-    ]
-  }
+  "boat_class": "single_scull"
 }
 ```
 
-```json
-{
-  "environment": {
-    "wind_profile": [
-      { "time_s": 0.0, "ambient_wind_world_mps": [-0.1, 0.0, 0.0] },
-      { "time_s": 1.2, "ambient_wind_world_mps": [-0.3, 0.0, 0.0] }
-    ]
-  }
-}
-```
+Unsupported boat classes are rejected before runtime startup.
 
-`wind_time_series` replays samples with zero-order hold, while `wind_profile`
-linearly interpolates between keyframes. Mixing these modes in one config is
-rejected deterministically.
-
-Batch jobs add one top-level `batch` container around the shared base run
-definition:
+The preferred standard runtime is:
 
 ```json
 {
-  "config_id": "baseline-sweep",
   "simulation": {
-    "duration_s": 2.0,
-    "time_step_s": 0.5
-  },
-  "batch": {
-    "summary_path": "results/batch-summary.json",
-    "cases": [
-      { "case_id": "baseline" },
-      {
-        "case_id": "gusty",
-        "overrides": {
-          "environment": {
-            "wind_profile": [
-              { "time_s": 0.0, "ambient_wind_world_mps": [-0.1, 0.0, 0.0] },
-              { "time_s": 1.0, "ambient_wind_world_mps": [-0.4, 0.0, 0.0] }
-            ]
-          }
-        }
-      }
-    ]
+    "mechanics_backend": "chrono_rigidbody",
+    "integration_backend": "sundials_ida"
   }
 }
 ```
 
-Each case gets a derived config id, isolated artifact paths, and a separate
-status record in the batch summary. Human-readable `--report` modes remain
-single-run only.
+Supported fallback modes are documented in the process and architecture docs.
+Checked-in examples show the normal config shape for direct simulator use.
 
-## Validation Lanes
+## Development Entry Points
 
-Fast local TDD loop:
+For users who want to inspect or contribute to the project:
+
+- product requirements: `docs/process/REQUIREMENTS.md`;
+- architecture: `docs/process/ARCHITECTURE.md`;
+- architecture allocation policy: `docs/process/ARCHITECTURE_POLICY.md`;
+- full-simulation roadmap: `docs/process/ROADMAP_FULL_SIMULATION.md`;
+- approved technologies: `docs/process/TECHNOLOGY_STACK.md`;
+- visualization artifact schema: `docs/process/VISUALIZATION_ARTIFACT.md`;
+- state and frame conventions: `docs/process/STATE_CONVENTIONS.md`;
+- workflow and test strategy: `docs/process/WORKFLOW.md` and
+  `docs/process/TEST_STRATEGY.md`;
+- cross-cutting change playbook: `.agents/skills/major-change-loop/SKILL.md`;
+- durable decisions: `docs/ai/DECISIONS.md`.
+
+Useful local validation commands:
+
 ```bash
 ./scripts/test_tdd.sh
-```
-
-Standard full local testing:
-```bash
 ./scripts/test.sh
-```
-
-Dedicated sanitized test lane:
-```bash
-./scripts/test_sanitized.sh
-```
-
-Dedicated GCC portability lane:
-```bash
-./scripts/test_gcc.sh
-```
-
-Auxiliary script/tool contracts:
-```bash
-./scripts/test_aux.sh
-```
-
-Dedicated test-quality lint lane:
-```bash
-./scripts/lint_tests.sh
-```
-
-Aggregate pre-merge validation:
-```bash
 ./scripts/verify.sh
 ```
 
-RGR evidence check (strict by default):
-```bash
-./scripts/check_rgr_evidence.sh
-```
-
-Required local completion gates:
-```bash
-./scripts/format.sh
-./scripts/lint.sh
-./scripts/build.sh
-./scripts/test.sh
-./scripts/depcheck.sh
-python3 tools/tracecheck.py --write
-```
-
-## Process Model
-
-Core artifacts:
-- `AGENTS.md`
-- `docs/process/REQUIREMENTS.md`
-- `docs/process/ARCHITECTURE.md`
-- `docs/process/ROADMAP_FULL_SIMULATION.md`
-- `docs/process/TECHNOLOGY_STACK.md`
-- `docs/process/ARCHITECTURE_POLICY.md`
-- `docs/process/WORKFLOW.md`
-- `docs/process/TEST_STRATEGY.md`
-- `docs/process/SCENARIOS.md`
-- `docs/process/TRACEABILITY.md`
-- `docs/process/MAINTENANCE.md`
-- `docs/process/LLM_DRIFT_REVIEW.md`
-- `docs/process/ARCHITECTURE_HEALTH.md`
-- `docs/process/MODEL_FIDELITY.md`
-- `docs/process/STATE_CONVENTIONS.md`
-- `docs/process/NUMERICS_POLICY.md`
-- `docs/process/CALIBRATION_PROVENANCE.md`
-- `docs/ai/SESSION_CONTEXT.md`
-- `docs/ai/HANDOFF.md`
-- `docs/ai/ROADMAP.md`
-- `docs/ai/DECISIONS.md`
-
-Repo-local skills:
-- `.agents/skills/README.md`
-- `.agents/skills/tdd-loop/SKILL.md`
-- `.agents/skills/unit-test-design/SKILL.md`
-- `.agents/skills/trace-maintenance/SKILL.md`
-- `.agents/skills/test-lanes/SKILL.md`
-- `.agents/skills/release-doc-sync/SKILL.md`
-- `.agents/skills/major-change-loop/SKILL.md`
-
-Traceability note: non-aux `UT/IT/QT` Doxygen `@test` blocks must verify one
-or more same-layer IDs (`UT->D`, `IT->A`, `QT->R`). Use optional `@aux yes`
-for informational tests that should be excluded from evidence gates.
-
-Technology note: `docs/process/TECHNOLOGY_STACK.md` is the source of truth for
-approved core libraries and formats. `docs/ai/DECISIONS.md` records the
-rationale and durable technical constraints behind those choices.
-
-## Validation Output
-
-Validation scripts default to compact summaries. Use `VALIDATION_OUTPUT=verbose`
-for live command output.
-
-Artifacts:
-- logs: `build/logs/validation/`
-- JSON summaries: `build/logs/validation/*.json`
-- interrupted runs keep a `*.json.steps.tsv` scratch file instead of leaving a
-  stale summary behind
-
-Useful environment variables:
-- `TEST_BUILD_DIR`
-- `LINT_BUILD_DIR`
-- `VALIDATION_OUTPUT`
-- `VALIDATION_LOG_DIR`
-- `VALIDATION_SUMMARY_DIR`
-- `VALIDATION_SUMMARY_PATH`
-- `RGR_ENFORCEMENT_MODE` (`strict`, `warn`, `off`)
-- `RGR_EVIDENCE_TEXT`
-- `RGR_EVIDENCE_FILE`
-
-## AI Context and Archive
-
-Active AI docs are intentionally compact. Historical ADRs and AI snapshots are
-archived under `docs/ai/archive/`; superseded planning docs are archived under
-`docs/archive/`.
-
-Maintenance commands:
-```bash
-./scripts/maintenance.sh
-./scripts/project_stats.py --format agent
-```
-
-## Gate Highlights
-
-- `./scripts/lint.sh`: strict `clang-tidy` and `lizard` gates over the current
-  `src/` and `include/` translation-unit tree, including newly added source
-  files, with
-  aligned naming and function-size thresholds plus stronger guidance checks for
-  const-correctness, braces, magic numbers, declaration isolation,
-  LLVM-native include-cleaner coverage, and related agent-facing code quality
-  issues.
-- `./scripts/test.sh`: full validation includes repo-wide auxiliary tooling
-  contracts and test-quality linting, a dedicated sanitized runtime lane, a
-  dedicated GCC portability lane, preset-level sanitizer environment for
-  runtime GoogleTest discovery, and unit coverage over `src/lib/**` with
-  stricter 90% region and 80% branch gates plus changed-file coverage
-  ratchets.
-- `./scripts/lint_tests.sh`: separate test-quality linting with banned-pattern
-  checks for implementation-coupled or nondeterministic tests plus tighter
-  test-only structural thresholds (default max `900` lines and `14` test
-  cases per file) with no per-file override escape hatch in the enforced
-  default policy.
-- `./scripts/test_aux.sh`: auxiliary coverage now includes the dedicated
-  test-quality lint lane, tooling contracts, and public-header self-containment
-  compilation, plus a regression that checks validation summaries report
-  nested child failures truthfully.
-- `./scripts/test_tdd.sh` and `./scripts/test.sh`: coverage enforcement on
-  `src/lib/**` plus changed-file coverage ratchets against merge-base
-  baselines.
-- `./scripts/depcheck.sh`: dependency rules, ADR archival, and instruction
-  coherence checks, including public-header-only cross-component access,
-  realized component cycle detection, and component-orphan guardrails tied to
-  architecture ownership and non-aux test coverage.
-- `python3 tools/tracecheck.py --write`: strict traceability and evidence checks.
+Required completion gates for repository changes are defined in `AGENTS.md`.
+Functional changes use a red/green/refactor loop per observable behavior
+slice. Changed unit tests are linted for focused authoring metadata:
+one `@case` tag and one `@oracle` tag per changed `UT-*` block.

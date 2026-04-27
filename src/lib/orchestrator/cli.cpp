@@ -147,7 +147,19 @@ int write_single_result(
         << " startup=" << result.metadata.startup_status
         << " start=" << result.metadata.start_timestamp_utc
         << " end=" << result.metadata.end_timestamp_utc
-        << " steps=" << result.summary.executed_step_count << '\n';
+        << " steps=" << result.summary.executed_step_count
+        << " summary=" << result.outputs.summary_path
+        << " time_series=" << result.outputs.time_series_path;
+    if (!result.outputs.visualization_path.empty()) {
+      out << " visualization=" << result.outputs.visualization_path;
+    }
+    if (!result.outputs.hdf5_path.empty() && result.outputs.emit_hdf5) {
+      out << " hdf5=" << result.outputs.hdf5_path;
+    }
+    if (!result.outputs.truth_model_export_path.empty()) {
+      out << " truth_model=" << result.outputs.truth_model_export_path;
+    }
+    out << '\n';
     if (report_mode.has_value()) {
       out << '\n' << format_run_analysis_report(result, *report_mode) << '\n';
     }

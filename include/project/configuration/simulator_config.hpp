@@ -163,6 +163,7 @@ struct OutputSettings {
   std::string time_series_path;
   std::string hdf5_path;
   std::string truth_model_export_path;
+  std::string visualization_path{};
   bool high_frequency_time_series{};
   bool emit_json{true};
   bool emit_hdf5{};

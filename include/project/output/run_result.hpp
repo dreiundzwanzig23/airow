@@ -38,6 +38,17 @@ struct ExternalArtifactMetadata {
   bool operator==(const ExternalArtifactMetadata &) const = default;
 };
 
+struct TrustEnvelopeMetadata {
+  std::string fidelity_tier;
+  std::string validity_status;
+  std::string confidence_status;
+  std::vector<std::string> supported_study_questions;
+  std::vector<std::string> limitations;
+  std::vector<std::string> warnings;
+
+  bool operator==(const TrustEnvelopeMetadata &) const = default;
+};
+
 struct RunMetadata {
   std::string simulator_version;
   std::string config_id;
@@ -60,7 +71,11 @@ struct RunMetadata {
   double trial_alignment_end_s{};
   std::string actuation_mode{};
   bool rower_coupling_enabled{};
+  double hull_mass_kg{};
+  Vector3 hull_inertia_kg_m2{};
+  double rower_mass_kg{};
   std::vector<ExternalArtifactMetadata> external_artifacts;
+  TrustEnvelopeMetadata trust_envelope;
   std::vector<NormalizedConfigEntry> normalized_config;
 
   bool operator==(const RunMetadata &) const = default;
@@ -141,10 +156,12 @@ struct OutputArtifacts {
   std::string time_series_path;
   std::string hdf5_path;
   std::string truth_model_export_path;
+  std::string visualization_path{};
   bool summary_written{};
   bool time_series_written{};
   bool hdf5_written{};
   bool truth_model_export_written{};
+  bool visualization_written{};
   bool high_frequency_time_series{};
   bool emit_json{true};
   bool emit_hdf5{};

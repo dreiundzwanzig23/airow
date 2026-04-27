@@ -28,6 +28,14 @@ Each example writes machine-readable JSON artifacts under:
 - `examples/output/tow_test/`
 - `examples/output/calm_water_stroke/`
 
+The standard example outputs are `summary.json`, `time_series.json`, and
+`visualization.json`. Validate a visualization artifact with:
+
+```bash
+python3 tools/validate_visualization_artifact.py \
+  examples/output/calm_water_stroke/visualization.json
+```
+
 The helper script keeps the working directory anchored at the repo root so the
 relative output paths in the example configs resolve consistently.
 Each checked-in example now includes an explicit `providers` block so the
@@ -49,12 +57,13 @@ For a compact human-readable overview of one run:
 ./build/project_app --config examples/calm_water_stroke/config.json --report compact
 ```
 
-For a static HTML plus SVG report from the emitted JSON artifacts:
+For an interactive HTML report from the emitted JSON artifacts:
 
 ```bash
 python3 tools/run_analysis.py \
   --summary examples/output/calm_water_stroke/summary.json \
-  --time-series examples/output/calm_water_stroke/timeseries.json \
+  --time-series examples/output/calm_water_stroke/time_series.json \
+  --visualization examples/output/calm_water_stroke/visualization.json \
   --output-dir examples/output/calm_water_stroke/report
 ```
 

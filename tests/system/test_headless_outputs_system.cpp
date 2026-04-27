@@ -75,7 +75,8 @@ make_valid_config_json(std::string_view config_id,
                        std::string_view time_series_path,
                        std::string_view formats_json = R"(["json"])",
                        std::string_view hdf5_path = "",
-                       std::string_view truth_model_export_path = "") {
+                       std::string_view truth_model_export_path = "",
+                       std::string_view visualization_path = "") {
   std::ostringstream stream;
   stream << R"({
         "config_id": ")"
@@ -128,6 +129,8 @@ make_valid_config_json(std::string_view config_id,
          << hdf5_path << R"(",
           "truth_model_export_path": ")"
          << truth_model_export_path << R"(",
+          "visualization_path": ")"
+         << visualization_path << R"(",
           "high_frequency_time_series": true
         }
       })";
@@ -262,6 +265,72 @@ TEST(HeadlessOutputsSystem, CliEmitsStructuredOutputArtifacts) {
   remove_file_if_present(stderr_path);
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test QT-049
+ * @verifies [R-050, R-070]
+ * @notes Given a headless run config with a visualization artifact path, when
+ * the CLI executes, then a versioned visualization artifact is emitted and the
+ * CLI success line exposes the artifact path for downstream tooling.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsVisualizationArtifactAndPath) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz-summary.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz-timeseries.json";
+  const auto visualization_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz-artifact.json";
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
+
+  const auto config_path = write_temp_file(
+      "airow-qt-viz-config.json",
+      make_valid_config_json("qt-viz", summary_path.string(),
+                             time_series_path.string(), R"(["json"])", "", "",
+                             visualization_path.string()));
+
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  EXPECT_TRUE(read_file(stderr_path).empty());
+  EXPECT_NE(read_file(stdout_path)
+                .find("visualization=" + visualization_path.string()),
+            std::string::npos);
+
+  ASSERT_TRUE(std::filesystem::exists(summary_path));
+  ASSERT_TRUE(std::filesystem::exists(time_series_path));
+  ASSERT_TRUE(std::filesystem::exists(visualization_path));
+
+  const Json summary = Json::parse(read_file(summary_path));
+  const Json visualization = Json::parse(read_file(visualization_path));
+  EXPECT_EQ(summary.at("outputs").at("visualization").at("written").get<bool>(),
+            true);
+  EXPECT_EQ(visualization.at("schema_id").get<std::string>(),
+            "airow.visualization.v1");
+  EXPECT_EQ(
+      visualization.at("frames").at("world").at("axes").get<std::string>(),
+      "x_forward_y_starboard_z_up");
+  EXPECT_TRUE(visualization.at("channels").contains("gate_loads"));
+  EXPECT_FALSE(visualization.at("samples").empty());
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
 }
 
 /**
@@ -450,6 +519,130 @@ TEST(HeadlessOutputsSystem, CliEmitsProviderValidityMetadata) {
     EXPECT_FALSE(
         provider.at("validity_description").get<std::string>().empty());
   }
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test QT-047
+ * @verifies [R-071]
+ * @notes Given a CLI run using the default reduced built-in providers, when
+ * the summary artifact is emitted, then every active provider reports
+ * non-empty machine-readable capability metadata for support, fidelity,
+ * validation, and human-facing summary text.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsProviderCapabilityMetadata) {
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-qt-capability-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-capability-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto config_path =
+      write_temp_file("airow-qt-capability-config.json",
+                      make_provider_selection_config_json(
+                          "qt-provider-capability", summary_path.string(),
+                          time_series_path.string(),
+                          R"({
+            "hull_resistance": "quadratic_drag_placeholder",
+            "blade_force": "stroke_propulsion_placeholder",
+            "aero_load": "steady_wind_placeholder"
+          })",
+                          "[-2.0, 1.0, 0.0]", 1.0));
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-capability.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-capability.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  EXPECT_TRUE(read_file(stderr_path).empty());
+  const Json summary = Json::parse(read_file(summary_path));
+  const auto &providers = summary.at("metadata").at("providers");
+  for (const auto &role : {"hull_resistance", "blade_force", "aero_load"}) {
+    const auto &capability = providers.at(role).at("capability");
+    EXPECT_FALSE(capability.at("support_status").get<std::string>().empty());
+    EXPECT_FALSE(capability.at("fidelity_level").get<std::string>().empty());
+    EXPECT_FALSE(capability.at("validation_status").get<std::string>().empty());
+    EXPECT_FALSE(
+        capability.at("capability_summary").get<std::string>().empty());
+  }
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test QT-048
+ * @verifies [R-035, R-049, R-071]
+ * @notes Given a CLI run using default reduced built-in providers and compact
+ * report output, when the run succeeds, then stdout carries the Physics
+ * Capability and Trust section and the summary JSON exposes the matching
+ * metadata.trust_envelope object.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsTrustEnvelopeInReportAndSummary) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust-summary.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust-timeseries.json";
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+
+  const auto config_path = write_temp_file(
+      "airow-qt-trust-config.json",
+      make_provider_selection_config_json(
+          "qt-trust-envelope", summary_path.string(), time_series_path.string(),
+          R"({
+            "hull_resistance": "quadratic_drag_placeholder",
+            "blade_force": "stroke_propulsion_placeholder",
+            "aero_load": "steady_wind_placeholder"
+          })",
+          "[-2.0, 1.0, 0.0]", 1.0));
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-trust.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) +
+                       " --report compact > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  EXPECT_TRUE(read_file(stderr_path).empty());
+  const auto stdout_text = read_file(stdout_path);
+  EXPECT_NE(stdout_text.find("Physics Capability and Trust"),
+            std::string::npos);
+  EXPECT_NE(stdout_text.find("fidelity_tier=validated_reduced_baseline"),
+            std::string::npos);
+  EXPECT_NE(stdout_text.find("hull_resistance id=quadratic_drag_placeholder"),
+            std::string::npos);
+
+  const Json summary = Json::parse(read_file(summary_path));
+  const auto &trust = summary.at("metadata").at("trust_envelope");
+  EXPECT_EQ(trust.at("fidelity_tier").get<std::string>(),
+            "validated_reduced_baseline");
+  EXPECT_EQ(trust.at("validity_status").get<std::string>(),
+            "inside_declared_envelope");
+  EXPECT_EQ(trust.at("confidence_status").get<std::string>(),
+            "scenario_backed");
+  ASSERT_EQ(trust.at("supported_study_questions").size(), 1U);
+  EXPECT_TRUE(trust.at("warnings").empty());
 
   remove_file_if_present(config_path);
   remove_file_if_present(stdout_path);

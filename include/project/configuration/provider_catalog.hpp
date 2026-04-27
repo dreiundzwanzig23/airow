@@ -8,10 +8,20 @@ namespace project {
 
 enum class ProviderRole { hull_resistance, blade_force, aero_load };
 
+struct ProviderCapabilityMetadata {
+  std::string support_status;
+  std::string fidelity_level;
+  std::string validation_status;
+  std::string capability_summary;
+
+  bool operator==(const ProviderCapabilityMetadata &) const = default;
+};
+
 struct ProviderMetadata {
   std::string id;
   std::string validity_id;
   std::string validity_description;
+  ProviderCapabilityMetadata capability{};
 
   bool operator==(const ProviderMetadata &) const = default;
 };

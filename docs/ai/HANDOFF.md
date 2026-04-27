@@ -1,31 +1,58 @@
 # HANDOFF.md
 
 ## Handoff Timestamp
-- 2026-04-26
+- 2026-04-27
 
 ## What Changed In This Session
-- Removed stale public config compatibility for
-  `environment.ambient_wind_world_mps`; configs now use `wind_time_series` or
-  `wind_profile` for ambient wind, including constant wind.
-- Removed the legacy-specific `simulation.state_advancer` compatibility branch;
-  the old selector is rejected as an unsupported field.
-- Updated checked-in headwind and crosswind scenarios, tests, README,
-  CHANGELOG, architecture notes, and scenario docs to the sampled wind
-  contract.
-- Centralized propulsion-metric provider support in the provider catalog so
-  output and analysis code no longer duplicate the blade-provider id check.
+- Tightened TDD/unit-test standards: functional work repeats RGR per behavior
+  slice, RGR markers are order-checked, and changed `tests/unit/**` blocks must
+  declare one `@case` and one `@oracle`.
+- Added offline inspection controls under existing visualization owners:
+  projections, frame labels, vector toggles, linked plots, event markers,
+  mirrored moment-vector evidence, and hull-body-frame vector variants.
+- Added reduced ParaView/VTK export from validated `airow.visualization.v1`
+  artifacts, including deterministic geometry/vector files and a metadata sidecar.
+- Added the offline report capability/trust entry page and export usability
+  slice: reports now expose run-level physics capability metadata before
+  inspection controls, and reduced ParaView bundles include a deterministic
+  loading guide linked from report/export metadata.
+- Closed `R-062`: reduced energy accounting now appears in successful run JSON,
+  optional HDF5, terminal reports, offline analysis bundles, and
+  technique-comparison deltas, with unavailable oar kinetic energy and
+  unbounded residual status labeled explicitly.
+- Added `QT-052..QT-057` coverage for richer report controls, event/moment
+  evidence, ParaView export, report-entry capability/trust metadata, and
+  loading-guide linkage.
+- Cleared `R-019` and `R-023` review flags after `tools/tracecheck.py --json`,
+  `QT-025`, and `QT-039` confirmed trace and wind-contract evidence.
+- Updated `ARCHITECTURE.md`, `REQUIREMENTS.md`,
+  `VISUALIZATION_ARTIFACT.md`, `README.md`, `CHANGELOG.md`, and active AI
+  context to reflect the new controls and remaining limitations.
+- Restored the `karpathy-guidelines` skill filename/index and added the
+  repository-wide final-response `Commit message:` standard.
 
 ## Current Technical Posture
-- The reduced runtime remains numerically unchanged for equivalent sampled wind
-  inputs.
-- `R-023` is now `Needs-Review: yes` because its accepted config contract was
-  semantically narrowed.
-- `R-019` remains review-flagged after the traceability-scope clarification.
-- `R-050..R-071` remain the next full-simulation extension backlog.
+- The reduced runtime remains numerically unchanged; this visualization-control
+  slice is an additive output/reporting surface only.
+- The process/tooling change affects changed-test lint and RGR evidence only;
+  simulator runtime behavior and public C++ APIs are unchanged.
+- `R-035`, `R-049`, and `R-071` remain `Status: OPEN`; `R-071` remains
+  `Needs-Review: yes`.
+- `R-050`, `R-052`, `R-053`, `R-056`, and `R-070` are `IN_PROGRESS` for the
+  first visualization artifact, interactive-report slice, and reduced
+  ParaView/VTK export. `R-052`, `R-053`, and `R-056` remain
+  `Needs-Review: yes` with explicit follow-up notes for remaining
+  interface/disturbance vector coverage, full linked channel coverage, true 3D
+  timeline linkage, and reference-scenario ParaView loading review.
+- Required gates pass as of this handoff; tracecheck still reports only the
+  existing numbering-gap warnings.
 
 ## Immediate Next Steps
-1. Clear or explicitly carry forward the `R-019` and `R-023` reviews.
-2. Start the first full-simulation packet from trust/capability and artifact
-   foundations after architecture allocation.
-3. Preserve current reduced-runtime behavior for sampled-wind equivalent
-   configs unless a scoped physics requirement changes it.
+1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` with remaining
+   vector coverage, true 3D playback linkage, and reference-scenario ParaView
+   loading review.
+2. Keep `R-052` and `R-053` review-flagged until true 3D playback and full
+   linked timeline/channel coverage are implemented.
+3. Continue `R-071` with study-recommendation or optimization links and
+   broader viewer explanation coverage once those surfaces exist.
+4. Preserve current reduced-runtime behavior unless a scoped physics requirement changes it.

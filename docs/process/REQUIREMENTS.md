@@ -393,15 +393,15 @@ Milestone framing:
 - **Status**: DONE
 - **Created**: 2026-04-01
 - **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
+- **Change-Type**: none
+- **Needs-Review**: no
 - **Notes**: This is a workflow-support requirement rather than a physics
   requirement. The `v0.1` closure now includes requirement-level evidence that
   `tools/tracecheck.py --json` exposes machine-searchable trace data and that
-  every reviewed `P0` requirement has requirement-level `QT-*` coverage.
-  Review remains required to confirm the new full-simulation draft backlog
-  should be excluded from evidence closure until individual requirements are
-  allocated and implemented.
+  every reviewed `P0` requirement has requirement-level `QT-*` coverage. The
+  2026-04-27 review confirmed `Needs-Review: yes` roadmap items remain
+  intentionally excluded from reviewed-P0 closure until individually allocated
+  and implemented.
 
 ## R-020 — Runtime-Selectable Hydro and Aero Providers
 - **Title**: Select reduced-model providers at runtime without recompilation
@@ -470,9 +470,9 @@ Milestone framing:
 - **Priority**: P2
 - **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-26
-- **Change-Type**: semantic
-- **Needs-Review**: yes
+- **Updated**: 2026-04-27
+- **Change-Type**: none
+- **Needs-Review**: no
 - **Notes**: Delivered post-`v0.1` through an exclusive `environment`
   wind-input contract: replay-oriented `wind_time_series` with zero-order hold
   or authored `wind_profile` with deterministic linear interpolation. Removed
@@ -480,7 +480,8 @@ Milestone framing:
   single-sample series or equivalent constant profile. Constant series or
   profile inputs preserve steady-wind parity, and
   `scenarios/gust_headwind_stroke.json` provides the first checked-in
-  non-constant regression artifact.
+  non-constant regression artifact. The 2026-04-27 review confirmed current
+  wind evidence remains intact under the narrowed contract.
 
 ## R-024 — Runtime and Truth-Model Separation
 - **Title**: Keep the default runtime path independent of optional high-fidelity toolchains
@@ -909,12 +910,12 @@ Milestone framing:
   - The artifact declares units, frames, coordinate axes, time base, scenario id, simulator version, provider ids, backend ids, calibration ids, and fidelity/trust-envelope metadata.
   - The artifact schema is versioned, documented, and rejected deterministically by visualization tools when unsupported or malformed.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Notes**: This requirement bridges the headless simulator to understandable post-processing. It extends `R-015`, `R-034`, `R-035`, and `R-049`.
+- **Updated**: 2026-04-27
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Current slices emit and validate `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The artifact now includes additive hull-body-frame variants for available world-frame vector channels, and the offline report tool rejects malformed visualization artifacts before generating an interactive report with projection, frame, vector, plot-control, physics-capability, and ParaView-export metadata. Full 3D playback and richer disturbance channels remain future work.
 
 ## R-051 — Interactive 3D Run Playback
 
@@ -943,12 +944,12 @@ Milestone framing:
   - Vector overlays include scale, units, frame label, sign convention, channel provenance, and availability state.
   - A mirrored port/starboard scenario visibly changes the expected sign or direction of mirrored channels.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: If reviewers cannot see directions and frames, the simulator remains a black box even when the math is correct.
+- **Notes**: The offline inspection report now adds dependency-free 2D top/side/end projections, projection and frame controls, checkbox vector overlays derived from emitted world-frame and hull-body-frame artifact channels, unit/frame/provenance labels, trust labels, disabled unavailable-channel controls, report-visible force/moment vector provenance, and mirrored yaw-moment sign evidence. `Needs-Review: yes` remains because true 3D playback, interface-load vectors, and broader disturbance coverage are still follow-up work.
 
 ## R-053 — Synchronized Time-Series Inspection
 
@@ -960,12 +961,12 @@ Milestone framing:
   - The tool identifies peak values, zero crossings, catch/release timing, stroke boundaries, validity-envelope crossings, and configured warning events.
   - Plot channels preserve units, frames, sign conventions, and availability/provenance labels from the machine-readable outputs.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: Static analysis is useful, but linked plots and 3D playback are what make state evolution intelligible.
+- **Notes**: The offline inspection report now adds playback controls, scrubbing, step controls, plot cursors, plot-click seek hooks, selectable linked plot channels, and machine-readable control metadata for available plot coverage. It also emits deterministic peak, zero-crossing, stroke-boundary, and trust-warning event markers in report metadata and HTML seek controls. `Needs-Review: yes` remains because full channel coverage and true 3D timeline linkage are still follow-up work.
 
 ## R-054 — Run Comparison Visualization
 
@@ -1011,12 +1012,18 @@ Milestone framing:
   - Export generation is deterministic for the same run artifact and export settings.
   - The export path is optional and does not become a dependency of the headless runtime path.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: ParaView support gives airow a serious scientific visualization route before every custom-viewer feature exists.
+- **Notes**: The first reduced export slice converts validated
+  `airow.visualization.v1` artifacts into deterministic legacy ASCII VTK
+  geometry/vector files plus a JSON sidecar with unit, frame, and provenance
+  metadata. The export bundle now also includes a deterministic
+  `paraview_loading_guide.md`, and report/export metadata links the guide to
+  the generated files. `Needs-Review: yes` remains until reference-scenario
+  loading coverage and broader export scope are reviewed.
 
 ## R-057 — Geometry and Surface Asset Contract
 
@@ -1113,12 +1120,17 @@ Milestone framing:
   - Numerical energy residuals are bounded or explicitly reported for supported scenarios.
   - At least one scenario compares energy accounting across a baseline run and a changed technique, provider, or environment setting.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Notes**: Optimization without energy accounting is especially good at finding fake improvements.
+- **Updated**: 2026-04-27
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: The closure packet exposes reduced energy accounting in summary
+  JSON, time-series JSON, optional HDF5 output, human-readable reports,
+  offline analysis bundles, and the checked-in actuation-mode comparison
+  scenario. Oar kinetic energy remains explicitly unavailable until oar mass
+  and inertia modeling land, and the reported residual is labeled
+  `reported_unbounded_reduced_model` rather than conservation-validated.
 
 ## R-063 — Environmental Disturbance Model
 
@@ -1249,12 +1261,16 @@ Milestone framing:
   - The workflow is deterministic for the same inputs and build configuration.
   - The workflow documents which artifacts are for physics, which are for visualization, and which are for debugging.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Notes**: The project should have a happy path that feels like an inspectable physics lab, not a scavenger hunt through files.
+- **Updated**: 2026-04-27
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: Current slices have direct CLI/example configs emitting summary,
+  time-series, and visualization JSON paths, plus documented offline HTML
+  report generation with playback, vector, projection, frame, linked-plot,
+  event-marker controls, and optional VTK/ParaView export from the
+  visualization artifact. Optional debug bundles remain open.
 
 ## R-071 — Human-Facing Physics Explanation and Capability Matrix
 
@@ -1268,7 +1284,7 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: OPEN
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: A realistic simulator should be physically accurate, but it also needs to be legible to humans.
+- **Notes**: A realistic simulator should be physically accurate, but it also needs to be legible to humans. Current Phase 1 slices propagate catalog-backed provider capability declarations into outputs, maintain the public capability matrix, render a physics-capability and trust entry section in offline reports, and expose matching metadata for visualization/report tooling. `Needs-Review: yes` remains because study-recommendation or optimization links and broader viewer explanation coverage remain follow-up work.

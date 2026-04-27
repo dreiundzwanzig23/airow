@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 #include "project/mechanics/state.hpp"
@@ -7,6 +10,10 @@
 #include "project/output/run_result.hpp"
 
 namespace {
+
+#ifndef PROJECT_SOURCE_DIR
+#error PROJECT_SOURCE_DIR must be defined for unit tests
+#endif
 
 struct StateSample {
   double time_s{};
@@ -74,14 +81,83 @@ project::MechanicalStateSnapshot make_state(const StateSample &sample) {
   };
 }
 
-project::SimulationRunResult make_result() {
-  project::SimulationRunResult result;
-  result.status = project::RunStatus::success;
-  result.metadata.config_id = "ut-analysis";
-  result.metadata.simulator_version = "0.2.0";
-  result.metadata.startup_status = "success";
-  result.outputs.high_frequency_time_series = false;
+project::ProviderSelectionMetadata baseline_provider_metadata() {
+  return {
+      .hull_resistance =
+          {
+              .id = "quadratic_drag_placeholder",
+              .validity_id = "baseline-longitudinal-drag-v1",
+              .validity_description =
+                  "Supported reduced longitudinal hull-drag baseline for "
+                  "deterministic "
+                  "tow and calm-water default-runtime studies.",
+              .capability =
+                  {.support_status = "active",
+                   .fidelity_level = "reduced",
+                   .validation_status = "scenario_backed",
+                   .capability_summary =
+                       "Reduced longitudinal hull drag is active for default "
+                       "tow and "
+                       "calm-water studies, but off-axis, wave, and calibrated "
+                       "resistance effects are not claimed."},
+          },
+      .blade_force =
+          {
+              .id = "stroke_propulsion_placeholder",
+              .validity_id = "baseline-blade-force-v1",
+              .validity_description =
+                  "Supported immersion-aware reduced blade-force baseline for "
+                  "deterministic single-scull default-runtime stroke studies.",
+              .capability =
+                  {.support_status = "active",
+                   .fidelity_level = "reduced",
+                   .validation_status = "scenario_backed",
+                   .capability_summary =
+                       "Reduced immersion-aware blade force is active for "
+                       "default "
+                       "single-scull stroke studies, but detailed blade-water "
+                       "flow and "
+                       "calibrated blade coefficients are not claimed."},
+          },
+      .aero_load =
+          {
+              .id = "steady_wind_placeholder",
+              .validity_id = "baseline-steady-wind-v1",
+              .validity_description =
+                  "Supported reduced steady apparent-wind aero baseline for "
+                  "deterministic headwind and crosswind default-runtime "
+                  "studies.",
+              .capability =
+                  {.support_status = "active",
+                   .fidelity_level = "reduced",
+                   .validation_status = "scenario_backed",
+                   .capability_summary =
+                       "Reduced steady apparent-wind aero load is active for "
+                       "default "
+                       "headwind and crosswind studies, but gust dynamics and "
+                       "calibrated coefficients are not claimed."},
+          },
+  };
+}
 
+project::TrustEnvelopeMetadata baseline_trust_envelope() {
+  return {
+      .fidelity_tier = "validated_reduced_baseline",
+      .validity_status = "inside_declared_envelope",
+      .confidence_status = "scenario_backed",
+      .supported_study_questions =
+          {"Default single-scull reduced-model smoke, tow, calm-water stroke, "
+           "headwind, and crosswind studies."},
+      .limitations =
+          {"Reduced runtime providers do not claim CFD, SPH, wave/current, "
+           "crew, flexible-oar, or full biomechanics fidelity.",
+           "Provider capability metadata describes declared runtime support, "
+           "not broad physical validation."},
+      .warnings = {},
+  };
+}
+
+void append_state_history(project::SimulationRunResult &result) {
   result.state_history.push_back(
       make_state({.time_s = 0.0,
                   .boat_speed_mps = 0.3,
@@ -109,7 +185,9 @@ project::SimulationRunResult make_result() {
                   .starboard_handle_angle_rad = -0.15,
                   .phase = project::StrokePhase::drive,
                   .phase_time_s = 0.0}));
+}
 
+void append_load_history(project::SimulationRunResult &result) {
   result.load_history.push_back(project::LoadSample{
       .time_s = 0.0,
       .hull_force_world_n = {.x = 1.0, .y = 0.0, .z = 0.0},
@@ -140,7 +218,27 @@ project::SimulationRunResult make_result() {
       .apparent_wind_world_mps = {.x = 0.0, .y = 2.0, .z = 0.0},
       .aero_force_world_n = {.x = 1.0, .y = 0.0, .z = 0.0},
   });
+}
+
+project::SimulationRunResult make_result() {
+  project::SimulationRunResult result;
+  result.status = project::RunStatus::success;
+  result.metadata.config_id = "ut-analysis";
+  result.metadata.simulator_version = "0.2.0";
+  result.metadata.startup_status = "success";
+  result.metadata.providers = baseline_provider_metadata();
+  result.metadata.trust_envelope = baseline_trust_envelope();
+  result.outputs.high_frequency_time_series = false;
+  append_state_history(result);
+  append_load_history(result);
   return result;
+}
+
+std::string read_file(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
 }
 
 } // namespace
@@ -208,4 +306,49 @@ TEST(RunAnalysis, RendersCompactAndFullReports) {
   EXPECT_NE(full.find("Load Peaks"), std::string::npos);
   EXPECT_NE(full.find("peak_total_hydro_force_n"), std::string::npos);
   EXPECT_NE(full.find("ut-analysis"), std::string::npos);
+}
+
+/**
+ * @test UT-374
+ * @verifies [D-062]
+ * @notes Given a run result with a derived trust envelope and provider
+ * capability summaries, when compact and full reports are rendered, then both
+ * expose the operator-facing Physics Capability and Trust section.
+ */
+TEST(RunAnalysis, RendersPhysicsCapabilityAndTrustSection) {
+  const auto result = make_result();
+
+  const auto compact = project::format_run_analysis_report(
+      result, project::RunAnalysisReportMode::compact);
+  const auto full = project::format_run_analysis_report(
+      result, project::RunAnalysisReportMode::full);
+
+  EXPECT_NE(compact.find("Physics Capability and Trust"), std::string::npos);
+  EXPECT_NE(compact.find("fidelity_tier=validated_reduced_baseline"),
+            std::string::npos);
+  EXPECT_NE(compact.find("hull_resistance id=quadratic_drag_placeholder"),
+            std::string::npos);
+  EXPECT_NE(compact.find("warnings: none"), std::string::npos);
+  EXPECT_NE(full.find("Physics Capability and Trust"), std::string::npos);
+  EXPECT_NE(full.find("Reduced steady apparent-wind aero load is active"),
+            std::string::npos);
+}
+
+/**
+ * @test UT-375
+ * @verifies [D-062]
+ * @notes Given the checked-in R-071 compact-report trust fixture, when the
+ * report renderer emits the trust section for the same deterministic run
+ * shape, then the reduced/placeholder explanation text remains stable.
+ */
+TEST(RunAnalysis, CompactTrustReportMatchesCheckedInR071Fixture) {
+  const auto result = make_result();
+
+  const auto compact = project::format_run_analysis_report(
+      result, project::RunAnalysisReportMode::compact);
+  const auto expected =
+      read_file(std::filesystem::path(PROJECT_SOURCE_DIR) / "tests" /
+                "fixtures" / "r071_compact_trust_report.txt");
+
+  EXPECT_NE(compact.find(expected), std::string::npos);
 }

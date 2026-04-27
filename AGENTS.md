@@ -41,8 +41,8 @@ Autonomous work must be traceable, test-driven, and resumable.
    - prefer extending an existing coherent subsystem,
    - record the architecture delta before TDD,
    - justify any new `A-*` with explicit cohesion and reuse intent.
-3. Red: add/adjust failing tests first for functional changes and capture test
-   failure evidence.
+3. Red: add/adjust one focused failing test first for the current functional
+   behavior slice and capture test failure evidence.
 4. Green: implement the minimum code needed to make the targeted failing tests
    pass.
 5. Refactor: run a mandatory behavior-preserving cleanup pass after green; if
@@ -54,11 +54,16 @@ Autonomous work must be traceable, test-driven, and resumable.
 
 Never skip failing-tests-first for functional behavior changes, and never skip
 the refactor phase for functional loops.
+Repeat red/green/refactor for each distinct observable behavior slice; when a
+new behavior is discovered during implementation, stop and add the next failing
+test before continuing.
 Use explicit `rgr:red`, `rgr:green`, and `rgr:refactor` markers in commit
 messages or evidence notes.
 `./scripts/check_rgr_evidence.sh` is strict by default and is wired into
 `test_tdd.sh` and `verify.sh`; use `RGR_ENFORCEMENT_MODE=warn` or `off` only
 as explicit local overrides.
+RGR evidence markers must appear in slice order: `rgr:red`, then `rgr:green`,
+then `rgr:refactor`; repeat that sequence for multi-slice work.
 Do not create a 1:1 `R -> A` mapping unless `Allocation Rationale` makes the
 need explicit.
 When a task affects technology choice, solver direction, file-format policy, or
@@ -118,7 +123,7 @@ python3 tools/tracecheck.py --write
 `./scripts/test_aux.sh` is the auxiliary contract lane.
 `./scripts/verify.sh` is the aggregate pre-merge run.
 `./scripts/check_rgr_evidence.sh` checks for `rgr:red`, `rgr:green`, and
-`rgr:refactor` evidence markers.
+`rgr:refactor` evidence markers in order.
 
 ### Context/document completion rules
 A task is complete only when:
@@ -126,6 +131,11 @@ A task is complete only when:
 - Trace check passes.
 - Relevant docs and AI context files are updated.
 - `CHANGELOG.md` and `README.md` reflect user/process-visible changes.
+
+### Final response standard
+- When code, documentation, process, or repository files are changed, the final
+  response must include a one-line `Commit message:` summary suitable for use as
+  a git commit message.
 
 Update `docs/ai/*` when milestone-level change occurs:
 - requirement status changes (`R-*`)
@@ -163,6 +173,7 @@ Always use the OpenAI developer documentation MCP server if you need to work wit
 - `.agents/skills/release-doc-sync/SKILL.md`
 - `.agents/skills/workflow-audit/SKILL.md`
 - `.agents/skills/simulation-evidence-design/SKILL.md`
+- `.agents/skills/karpathy-guidelines/SKILL.md`
 
 Policy stays here. Operational playbooks live in skills and should be loaded
 only when relevant to the task.

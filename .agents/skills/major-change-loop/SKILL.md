@@ -31,6 +31,7 @@ description: Execute the repository's workflow for cross-cutting, architectural,
      behavior belongs in `UT-*`,
    - use `IT-*` when the preserved behavior is a subsystem boundary contract,
    - use `QT-*` when the preserved behavior is requirement/scenario-level.
+   - keep each functional behavior slice in its own red/green/refactor loop.
 5. Implement seam-first when the change can be split into transitional steps.
 6. Remove transitional code explicitly once the replacement path is stable.
 7. Run a drift review after the change to catch documentation or ownership gaps.

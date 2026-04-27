@@ -45,6 +45,7 @@
   "output": {
     "summary_path": "examples/output/calm_water_stroke/summary.json",
     "time_series_path": "examples/output/calm_water_stroke/time_series.json",
+    "visualization_path": "examples/output/calm_water_stroke/visualization.json",
     "formats": ["json"],
     "high_frequency_time_series": true
   }

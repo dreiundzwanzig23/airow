@@ -249,6 +249,7 @@ if(BUILD_TESTING)
         tests/unit/test_hydro_runtime_actuation.cpp
         tests/unit/test_stroke_command.cpp
         tests/unit/test_run_analysis.cpp
+        tests/unit/test_energy_accounting.cpp
         tests/unit/test_propulsion_metrics.cpp
         tests/unit/test_state_advancement.cpp
         tests/unit/test_state_advancement_startup_validation.cpp
@@ -271,7 +272,9 @@ if(BUILD_TESTING)
         tests/unit/test_simulation_run_advancer.cpp
         tests/unit/test_simulation_run_state_validation.cpp
         tests/unit/test_simulation_run_state_validation_additional.cpp
+        tests/unit/test_provider_capability_metadata.cpp
         tests/unit/test_run_outputs.cpp
+        tests/unit/test_run_outputs_visualization.cpp
         tests/unit/test_run_outputs_truth_model.cpp
         tests/unit/test_run_outputs_wind.cpp
         tests/unit/test_run_outputs_hdf5.cpp
@@ -324,6 +327,7 @@ if(BUILD_TESTING)
         tests/system/test_examples_system.cpp
         tests/system/test_fidelity_packet_system.cpp
         tests/system/test_simulator_config_system.cpp
+        tests/system/test_run_analysis_capability_system.cpp
         tests/system/test_run_analysis_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp

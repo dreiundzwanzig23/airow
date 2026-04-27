@@ -5,6 +5,26 @@ active-window rollover is needed).
 
 Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
 
+## ADR-2026-04-27-010
+- **Date**: 2026-04-27
+- **Context**: Broad implementation sessions can hide multiple behavior
+  changes behind one failing test or one coarse RGR evidence note. Unit tests
+  can also become hard to review when one `UT-*` bundles several equivalence
+  classes, boundaries, or failure reasons without naming the oracle.
+- **Decision**:
+  - require functional work to repeat red/green/refactor for each distinct
+    observable behavior slice,
+  - require RGR evidence markers to appear in order and allow the ordered
+    sequence to repeat for multi-slice work,
+  - require changed `tests/unit/**` Doxygen blocks to include exactly one
+    `@case` and one `@oracle` tag while leaving untouched legacy tests alone.
+- **Consequences**:
+  - the fast changed-test lane catches unfocused new or modified `UT-*`
+    authoring without forcing a repository-wide legacy rewrite,
+  - future evidence notes must show red before green and green before refactor
+    for every behavior slice,
+  - integration and system tests remain governed by their existing layer
+    contracts.
 ## ADR-2026-04-18-009
 - **Date**: 2026-04-18
 - **Context**: The first Slice 3 closure left Chrono as an optional bounded
@@ -146,21 +166,3 @@ Archived ADR index: `docs/ai/archive/DECISIONS_INDEX.md`.
     requirement churn,
   - numerical-method changes should update ADRs before large implementation
     work proceeds.
-## ADR-2026-04-02-002
-- **Date**: 2026-04-02
-- **Context**: The simulator needs stable top-level ownership boundaries early
-  so that mechanics, loads, calibration, and validation do not accrete in one
-  undifferentiated code path.
-- **Decision**:
-  - seed the project with the following primary simulator component themes:
-    `Configuration and Validation`, `Simulation Orchestrator`, `Mechanics`,
-    `Hydro Runtime Models`, `Aero Runtime Models`, `Control and Stroke Input`,
-    `Output and Diagnostics`, `Scenario Harness and Validation`, and
-    `External Calibration Integration`,
-  - prefer adding `D-*` realizations inside these themes over creating new
-    top-level `A-*` items.
-- **Consequences**:
-  - new requirements have an obvious architectural home,
-  - dependency rules and tests can be tightened around known subsystem seams,
-  - major changes are more likely to evolve existing components than create
-    narrow feature containers.

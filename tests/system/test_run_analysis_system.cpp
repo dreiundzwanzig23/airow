@@ -78,9 +78,20 @@ int decode_exit_code(int raw_status) {
   return -1;
 }
 
+struct ReportConfigOptions {
+  std::string_view visualization_path;
+  double ambient_wind_y_mps{};
+  bool enable_aero_provider{};
+};
+
+std::string provider_id(bool enable_aero_provider) {
+  return enable_aero_provider ? "steady_wind_placeholder" : "none";
+}
+
 std::string make_valid_config_json(std::string_view config_id,
                                    std::string_view summary_path,
-                                   std::string_view time_series_path) {
+                                   std::string_view time_series_path,
+                                   ReportConfigOptions options = {}) {
   std::ostringstream stream;
   stream << R"({
         "config_id": ")"
@@ -122,16 +133,253 @@ std::string make_valid_config_json(std::string_view config_id,
           "catch_angle_rad": -0.9,
           "release_angle_rad": 0.6
         },
+          "providers": {
+          "hull_resistance": "quadratic_drag_placeholder",
+          "blade_force": "stroke_propulsion_placeholder",
+          "aero_load": ")"
+         << provider_id(options.enable_aero_provider) << R"("
+        },
         "output": {
           "summary_path": ")"
          << summary_path << R"(",
           "time_series_path": ")"
-         << time_series_path << R"(",
+         << time_series_path << R"(")";
+  if (!options.visualization_path.empty()) {
+    stream << R"(,
+          "visualization_path": ")"
+           << options.visualization_path << R"(")";
+  }
+  stream << R"(,
           "formats": ["json"],
           "high_frequency_time_series": true
+        },
+        "environment": {
+          "wind_time_series": [
+            {
+              "time_s": 0.0,
+              "ambient_wind_world_mps": [0.0, )"
+         << options.ambient_wind_y_mps << R"(, 0.0]
+            }
+          ]
         }
       })";
   return stream.str();
+}
+
+void expect_interactive_report_html(const std::filesystem::path &report_dir) {
+  ASSERT_TRUE(std::filesystem::exists(report_dir / "index.html"));
+  ASSERT_TRUE(std::filesystem::exists(report_dir / "metrics.json"));
+
+  const auto html = read_file(report_dir / "index.html");
+  EXPECT_NE(html.find("data-airow-viewer"), std::string::npos);
+  EXPECT_NE(html.find("airowViewerData"), std::string::npos);
+  EXPECT_NE(html.find("projection-top"), std::string::npos);
+  EXPECT_NE(html.find("projection-side"), std::string::npos);
+  EXPECT_NE(html.find("plot-cursor"), std::string::npos);
+  EXPECT_NE(html.find("playback-toggle"), std::string::npos);
+  EXPECT_NE(html.find("hull_hydro_force_world_n"), std::string::npos);
+  EXPECT_NE(html.find("gate_loads"), std::string::npos);
+  EXPECT_NE(html.find("unavailable"), std::string::npos);
+  EXPECT_NE(html.find("trust-status"), std::string::npos);
+}
+
+void expect_interactive_report_metrics(const std::filesystem::path &report_dir,
+                                       std::string_view config_id) {
+  const auto metrics = read_json_file(report_dir / "metrics.json");
+  EXPECT_EQ(metrics.at("config_id").get<std::string>(), config_id);
+  EXPECT_TRUE(metrics.at("interactive_visualization").get<bool>());
+}
+
+bool json_array_contains_id(const Json &items, std::string_view id) {
+  for (const auto &item : items) {
+    if (item.is_object() && item.contains("id") &&
+        item.at("id").get<std::string>() == id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool json_array_contains_string(const Json &items, std::string_view value) {
+  for (const auto &item : items) {
+    if (item.is_string() && item.get<std::string>() == value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool json_array_contains_type(const Json &items, std::string_view type) {
+  for (const auto &item : items) {
+    if (item.is_object() && item.contains("type") &&
+        item.at("type").get<std::string>() == type) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool json_array_contains_channel_with_provenance(const Json &items,
+                                                 std::string_view id,
+                                                 std::string_view provenance) {
+  for (const auto &item : items) {
+    if (item.is_object() && item.contains("id") &&
+        item.at("id").get<std::string>() == id && item.contains("provenance") &&
+        item.at("provenance").get<std::string>() == provenance) {
+      return true;
+    }
+  }
+  return false;
+}
+
+double final_vector_component(const Json &visualization, std::string_view id,
+                              std::size_t component_index) {
+  const auto &samples = visualization.at("samples");
+  const auto &value =
+      samples.back().at("vectors").at(std::string(id)).at("value");
+  return value.at(component_index).get<double>();
+}
+
+struct InteractiveReportRun {
+  std::filesystem::path config_path;
+  std::filesystem::path summary_path;
+  std::filesystem::path time_series_path;
+  std::filesystem::path visualization_path;
+  std::filesystem::path cli_stdout_path;
+  std::filesystem::path cli_stderr_path;
+  std::filesystem::path report_dir;
+  std::filesystem::path tool_stdout_path;
+  std::filesystem::path tool_stderr_path;
+};
+
+InteractiveReportRun
+make_interactive_report_run(std::string_view suffix, std::string_view config_id,
+                            double ambient_wind_y_mps = 0.0,
+                            bool enable_aero_provider = false) {
+  const std::string name{suffix};
+  InteractiveReportRun run{
+      .config_path = write_temp_file(
+          "airow-" + name + "-config.json",
+          make_valid_config_json(
+              config_id,
+              (std::filesystem::temp_directory_path() /
+               ("airow-" + name + "-summary.json"))
+                  .string(),
+              (std::filesystem::temp_directory_path() /
+               ("airow-" + name + "-timeseries.json"))
+                  .string(),
+              {.visualization_path = (std::filesystem::temp_directory_path() /
+                                      ("airow-" + name + "-artifact.json"))
+                                         .string(),
+               .ambient_wind_y_mps = ambient_wind_y_mps,
+               .enable_aero_provider = enable_aero_provider})),
+      .summary_path = std::filesystem::temp_directory_path() /
+                      ("airow-" + name + "-summary.json"),
+      .time_series_path = std::filesystem::temp_directory_path() /
+                          ("airow-" + name + "-timeseries.json"),
+      .visualization_path = std::filesystem::temp_directory_path() /
+                            ("airow-" + name + "-artifact.json"),
+      .cli_stdout_path = std::filesystem::temp_directory_path() /
+                         ("airow-" + name + "-cli.stdout"),
+      .cli_stderr_path = std::filesystem::temp_directory_path() /
+                         ("airow-" + name + "-cli.stderr"),
+      .report_dir = std::filesystem::temp_directory_path() /
+                    ("airow-" + name + "-report"),
+      .tool_stdout_path = std::filesystem::temp_directory_path() /
+                          ("airow-" + name + "-tool.stdout"),
+      .tool_stderr_path = std::filesystem::temp_directory_path() /
+                          ("airow-" + name + "-tool.stderr"),
+  };
+  return run;
+}
+
+void prepare_interactive_report_run(const InteractiveReportRun &run) {
+  remove_file_if_present(run.summary_path);
+  remove_file_if_present(run.time_series_path);
+  remove_file_if_present(run.visualization_path);
+  remove_file_if_present(run.cli_stdout_path);
+  remove_file_if_present(run.cli_stderr_path);
+  remove_file_if_present(run.tool_stdout_path);
+  remove_file_if_present(run.tool_stderr_path);
+  remove_directory_if_present(run.report_dir);
+}
+
+void execute_interactive_report_run(const InteractiveReportRun &run) {
+  const auto cli_command = shell_quote(kProjectAppPath.string()) +
+                           " --config " +
+                           shell_quote(run.config_path.string()) + " > " +
+                           shell_quote(run.cli_stdout_path.string()) + " 2> " +
+                           shell_quote(run.cli_stderr_path.string());
+  ASSERT_EQ(decode_exit_code(std::system(cli_command.c_str())), 0);
+  ASSERT_TRUE(read_file(run.cli_stderr_path).empty());
+
+  const auto tool_path = kProjectSourceDir / "tools" / "run_analysis.py";
+  const auto tool_command =
+      std::string("python3 ") + shell_quote(tool_path.string()) +
+      " --summary " + shell_quote(run.summary_path.string()) +
+      " --time-series " + shell_quote(run.time_series_path.string()) +
+      " --visualization " + shell_quote(run.visualization_path.string()) +
+      " --output-dir " + shell_quote(run.report_dir.string()) + " > " +
+      shell_quote(run.tool_stdout_path.string()) + " 2> " +
+      shell_quote(run.tool_stderr_path.string());
+  EXPECT_EQ(decode_exit_code(std::system(tool_command.c_str())), 0);
+  EXPECT_TRUE(read_file(run.tool_stderr_path).empty());
+}
+
+void cleanup_interactive_report_run(const InteractiveReportRun &run) {
+  remove_file_if_present(run.config_path);
+  remove_file_if_present(run.summary_path);
+  remove_file_if_present(run.time_series_path);
+  remove_file_if_present(run.visualization_path);
+  remove_file_if_present(run.cli_stdout_path);
+  remove_file_if_present(run.cli_stderr_path);
+  remove_file_if_present(run.tool_stdout_path);
+  remove_file_if_present(run.tool_stderr_path);
+  remove_directory_if_present(run.report_dir);
+}
+
+void expect_paraview_export_bundle(const std::filesystem::path &report_dir,
+                                   const std::filesystem::path &paraview_dir) {
+  ASSERT_TRUE(std::filesystem::exists(paraview_dir / "airow_geometry.vtk"));
+  ASSERT_TRUE(std::filesystem::exists(paraview_dir / "airow_vectors.vtk"));
+  ASSERT_TRUE(std::filesystem::exists(paraview_dir / "airow_metadata.json"));
+
+  const auto geometry = read_file(paraview_dir / "airow_geometry.vtk");
+  EXPECT_NE(geometry.find("# vtk DataFile Version"), std::string::npos);
+  EXPECT_NE(geometry.find("POLYDATA"), std::string::npos);
+  EXPECT_NE(geometry.find("LINES"), std::string::npos);
+  EXPECT_NE(geometry.find("hull_trajectory"), std::string::npos);
+
+  const auto vectors = read_file(paraview_dir / "airow_vectors.vtk");
+  EXPECT_NE(vectors.find("POINT_DATA"), std::string::npos);
+  EXPECT_NE(vectors.find("VECTORS hull_hydro_force_world_n float"),
+            std::string::npos);
+  EXPECT_NE(vectors.find("VECTORS aero_moment_body_n_m float"),
+            std::string::npos);
+
+  const auto metadata = read_json_file(paraview_dir / "airow_metadata.json");
+  EXPECT_EQ(metadata.at("schema_id").get<std::string>(),
+            "airow.paraview_export.v1");
+  EXPECT_EQ(metadata.at("source_schema_id").get<std::string>(),
+            "airow.visualization.v1");
+  EXPECT_EQ(metadata.at("config_id").get<std::string>(),
+            "qt-analysis-paraview");
+  EXPECT_TRUE(
+      json_array_contains_string(metadata.at("files"), "airow_geometry.vtk"));
+  EXPECT_TRUE(
+      json_array_contains_string(metadata.at("files"), "airow_vectors.vtk"));
+
+  const auto &channel =
+      metadata.at("vector_channels").at("hull_hydro_force_world_n");
+  EXPECT_EQ(channel.at("unit").get<std::string>(), "N");
+  EXPECT_EQ(channel.at("frame").get<std::string>(), "world");
+  EXPECT_EQ(channel.at("provenance").get<std::string>(),
+            "hull_resistance_provider");
+
+  const auto metrics = read_json_file(report_dir / "metrics.json");
+  EXPECT_EQ(
+      metrics.at("paraview_export").at("metadata_path").get<std::string>(),
+      (paraview_dir / "airow_metadata.json").string());
 }
 
 } // namespace
@@ -242,14 +490,370 @@ TEST(RunAnalysisSystem, PythonToolGeneratesStaticReportBundle) {
   ASSERT_TRUE(std::filesystem::exists(report_dir / "metrics.json"));
   ASSERT_TRUE(std::filesystem::exists(report_dir / "boat_speed.svg"));
   ASSERT_TRUE(std::filesystem::exists(report_dir / "stroke_power.svg"));
+  ASSERT_TRUE(std::filesystem::exists(report_dir / "energy_power.svg"));
 
   const auto metrics = read_json_file(report_dir / "metrics.json");
   EXPECT_EQ(metrics.at("config_id").get<std::string>(), "qt-analysis-tool");
   EXPECT_GE(metrics.at("record_count").get<std::size_t>(), 1U);
+  EXPECT_TRUE(metrics.contains("energy_accounting"));
+  EXPECT_TRUE(metrics.at("generated_plots").dump().find("energy_power.svg") !=
+              std::string::npos);
+  const auto html = read_file(report_dir / "index.html");
+  EXPECT_NE(html.find("Energy Flow"), std::string::npos);
 
   remove_file_if_present(config_path);
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+  remove_file_if_present(cli_stdout_path);
+  remove_file_if_present(cli_stderr_path);
+  remove_file_if_present(tool_stdout_path);
+  remove_file_if_present(tool_stderr_path);
+  remove_directory_if_present(report_dir);
+}
+
+/**
+ * @test QT-050
+ * @verifies [R-052, R-053]
+ * @notes Given emitted summary, time-series, and visualization artifacts, when
+ * the repository analysis tool runs offline, then it creates an interactive
+ * inspection report with synchronized playback controls, 2D state projections,
+ * vector-overlay metadata, plot cursor hooks, and explicit trust or channel
+ * availability labels.
+ */
+TEST(RunAnalysisSystem, PythonToolGeneratesInteractiveVisualizationReport) {
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-qt-analysis-viz-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-analysis-viz-timeseries.json";
+  const auto visualization_path = std::filesystem::temp_directory_path() /
+                                  "airow-qt-analysis-viz-artifact.json";
+  const auto config_path = write_temp_file(
+      "airow-qt-analysis-viz-config.json",
+      make_valid_config_json(
+          "qt-analysis-viz", summary_path.string(), time_series_path.string(),
+          {.visualization_path = visualization_path.string()}));
+  const auto cli_stdout_path = std::filesystem::temp_directory_path() /
+                               "airow-qt-analysis-viz-cli.stdout";
+  const auto cli_stderr_path = std::filesystem::temp_directory_path() /
+                               "airow-qt-analysis-viz-cli.stderr";
+  const auto report_dir =
+      std::filesystem::temp_directory_path() / "airow-qt-analysis-viz-report";
+  const auto tool_stdout_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-analysis-viz-tool.stdout";
+  const auto tool_stderr_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-analysis-viz-tool.stderr";
+  const auto tool_path = kProjectSourceDir / "tools" / "run_analysis.py";
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
+  remove_file_if_present(cli_stdout_path);
+  remove_file_if_present(cli_stderr_path);
+  remove_file_if_present(tool_stdout_path);
+  remove_file_if_present(tool_stderr_path);
+  remove_directory_if_present(report_dir);
+
+  const auto cli_command = shell_quote(kProjectAppPath.string()) +
+                           " --config " + shell_quote(config_path.string()) +
+                           " > " + shell_quote(cli_stdout_path.string()) +
+                           " 2> " + shell_quote(cli_stderr_path.string());
+  ASSERT_EQ(decode_exit_code(std::system(cli_command.c_str())), 0);
+  ASSERT_TRUE(read_file(cli_stderr_path).empty());
+
+  const auto tool_command =
+      std::string("python3 ") + shell_quote(tool_path.string()) +
+      " --summary " + shell_quote(summary_path.string()) + " --time-series " +
+      shell_quote(time_series_path.string()) + " --visualization " +
+      shell_quote(visualization_path.string()) + " --output-dir " +
+      shell_quote(report_dir.string()) + " > " +
+      shell_quote(tool_stdout_path.string()) + " 2> " +
+      shell_quote(tool_stderr_path.string());
+  const auto tool_status = std::system(tool_command.c_str());
+
+  EXPECT_EQ(decode_exit_code(tool_status), 0);
+  EXPECT_TRUE(read_file(tool_stderr_path).empty());
+  expect_interactive_report_html(report_dir);
+  expect_interactive_report_metrics(report_dir, "qt-analysis-viz");
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
+  remove_file_if_present(cli_stdout_path);
+  remove_file_if_present(cli_stderr_path);
+  remove_file_if_present(tool_stdout_path);
+  remove_file_if_present(tool_stderr_path);
+  remove_directory_if_present(report_dir);
+}
+
+/**
+ * @test QT-052
+ * @verifies [R-052, R-053, R-070]
+ * @notes Given emitted summary, time-series, and visualization artifacts, when
+ * the repository analysis tool builds an offline inspection report, then the
+ * generated report exposes vector toggles, projection and frame controls,
+ * broader linked plot channel selection, plot-click seek hooks, unavailable
+ * channel disabling, trust labels, and machine-readable control metadata.
+ */
+TEST(RunAnalysisSystem, PythonToolReportsConfigurableVisualizationControls) {
+  const auto run = make_interactive_report_run("qt-analysis-controls",
+                                               "qt-analysis-controls");
+  prepare_interactive_report_run(run);
+  execute_interactive_report_run(run);
+
+  const auto html = read_file(run.report_dir / "index.html");
+  EXPECT_NE(html.find("projection-mode"), std::string::npos);
+  EXPECT_NE(html.find("projection-end"), std::string::npos);
+  EXPECT_NE(html.find("reference-frame"), std::string::npos);
+  EXPECT_NE(html.find("hull_body"), std::string::npos);
+  EXPECT_NE(html.find("waterline"), std::string::npos);
+  EXPECT_NE(html.find("vector-toggle-hull_hydro_force_world_n"),
+            std::string::npos);
+  EXPECT_NE(html.find("vector-toggle-hull_hydro_force_body_n"),
+            std::string::npos);
+  EXPECT_NE(html.find("vector-toggle-port_blade_force_world_n"),
+            std::string::npos);
+  EXPECT_NE(html.find("vector-toggle-port_blade_force_body_n"),
+            std::string::npos);
+  EXPECT_NE(html.find("vector-toggle-gate_loads"), std::string::npos);
+  EXPECT_NE(html.find("data-availability=\"unavailable\""), std::string::npos);
+  EXPECT_NE(html.find("data-plot-click-seek=\"true\""), std::string::npos);
+  EXPECT_NE(html.find("plot-channel-select"), std::string::npos);
+  EXPECT_NE(html.find("hull_position_z_m"), std::string::npos);
+  EXPECT_NE(html.find("apparent_wind_speed_mps"), std::string::npos);
+  EXPECT_NE(html.find("trust-status"), std::string::npos);
+  EXPECT_NE(html.find("metrics_metadata"), std::string::npos);
+
+  const auto metrics = read_json_file(run.report_dir / "metrics.json");
+  const auto &controls = metrics.at("interactive_controls");
+  EXPECT_TRUE(controls.at("enabled").get<bool>());
+  EXPECT_TRUE(controls.at("plot_click_seek").get<bool>());
+  EXPECT_TRUE(
+      json_array_contains_string(controls.at("projection_modes"), "top"));
+  EXPECT_TRUE(
+      json_array_contains_string(controls.at("projection_modes"), "side"));
+  EXPECT_TRUE(
+      json_array_contains_string(controls.at("projection_modes"), "end"));
+  EXPECT_TRUE(
+      json_array_contains_string(controls.at("reference_frames"), "world"));
+  EXPECT_TRUE(
+      json_array_contains_string(controls.at("reference_frames"), "hull_body"));
+  EXPECT_TRUE(
+      json_array_contains_string(controls.at("reference_frames"), "waterline"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
+                                     "hull_hydro_force_world_n"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
+                                     "hull_hydro_force_body_n"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
+                                     "port_blade_force_world_n"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("vector_channels"),
+                                     "port_blade_force_body_n"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("unavailable_channels"),
+                                     "gate_loads"));
+  EXPECT_TRUE(
+      json_array_contains_id(controls.at("plot_channels"), "boat_speed_mps"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("plot_channels"),
+                                     "hull_position_z_m"));
+  EXPECT_TRUE(json_array_contains_id(controls.at("plot_channels"),
+                                     "apparent_wind_speed_mps"));
+  EXPECT_GE(controls.at("plot_channels").size(), 6U);
+
+  cleanup_interactive_report_run(run);
+}
+
+/**
+ * @test QT-053
+ * @verifies [R-052, R-053]
+ * @notes Given emitted summary, time-series, and visualization artifacts, when
+ * the repository analysis tool builds an offline inspection report, then the
+ * report exposes deterministic event markers for peak values, zero crossings,
+ * stroke phase boundaries, and trust warnings in machine-readable metadata and
+ * HTML seek controls.
+ */
+TEST(RunAnalysisSystem, PythonToolReportsInteractiveEventMarkers) {
+  const auto run =
+      make_interactive_report_run("qt-analysis-events", "qt-analysis-events");
+  prepare_interactive_report_run(run);
+  execute_interactive_report_run(run);
+
+  const auto html = read_file(run.report_dir / "index.html");
+  EXPECT_NE(html.find("event-marker-list"), std::string::npos);
+  EXPECT_NE(html.find("data-event-seek"), std::string::npos);
+  EXPECT_NE(html.find("peak_value"), std::string::npos);
+  EXPECT_NE(html.find("zero_crossing"), std::string::npos);
+  EXPECT_NE(html.find("stroke_boundary"), std::string::npos);
+  EXPECT_NE(html.find("trust_warning"), std::string::npos);
+
+  const auto metrics = read_json_file(run.report_dir / "metrics.json");
+  const auto &markers = metrics.at("interactive_controls").at("event_markers");
+  EXPECT_TRUE(json_array_contains_type(markers, "peak_value"));
+  EXPECT_TRUE(json_array_contains_type(markers, "zero_crossing"));
+  EXPECT_TRUE(json_array_contains_type(markers, "stroke_boundary"));
+  EXPECT_TRUE(json_array_contains_type(markers, "trust_warning"));
+
+  cleanup_interactive_report_run(run);
+}
+
+/**
+ * @test QT-054
+ * @verifies [R-052, R-053]
+ * @notes Given mirrored crosswind-style runs with visualization artifacts,
+ * when the offline reports are generated, then report-visible moment-vector
+ * controls preserve provider provenance, units, and world-frame metadata while
+ * the emitted yaw moment changes sign deterministically.
+ */
+TEST(RunAnalysisSystem, PythonToolReportsMirroredMomentVectorCoverage) {
+  const auto starboard_run =
+      make_interactive_report_run("qt-analysis-starboard-moment",
+                                  "qt-analysis-starboard-moment", 2.0, true);
+  const auto port_run = make_interactive_report_run(
+      "qt-analysis-port-moment", "qt-analysis-port-moment", -2.0, true);
+  prepare_interactive_report_run(starboard_run);
+  prepare_interactive_report_run(port_run);
+  execute_interactive_report_run(starboard_run);
+  execute_interactive_report_run(port_run);
+
+  const auto starboard_visualization =
+      read_json_file(starboard_run.visualization_path);
+  const auto port_visualization = read_json_file(port_run.visualization_path);
+  EXPECT_GT(final_vector_component(starboard_visualization,
+                                   "aero_moment_world_n_m", 2),
+            0.0);
+  EXPECT_LT(
+      final_vector_component(port_visualization, "aero_moment_world_n_m", 2),
+      0.0);
+
+  const auto starboard_metrics =
+      read_json_file(starboard_run.report_dir / "metrics.json");
+  const auto &vectors =
+      starboard_metrics.at("interactive_controls").at("vector_channels");
+  EXPECT_TRUE(json_array_contains_id(vectors, "aero_moment_world_n_m"));
+  EXPECT_TRUE(json_array_contains_channel_with_provenance(
+      vectors, "aero_moment_world_n_m", "aero_load_provider"));
+  EXPECT_TRUE(json_array_contains_channel_with_provenance(
+      vectors, "hull_hydro_moment_world_n_m", "hull_resistance_provider"));
+
+  const auto html = read_file(starboard_run.report_dir / "index.html");
+  EXPECT_NE(html.find("vector-toggle-aero_moment_world_n_m"),
+            std::string::npos);
+  EXPECT_NE(html.find("N*m world"), std::string::npos);
+
+  cleanup_interactive_report_run(starboard_run);
+  cleanup_interactive_report_run(port_run);
+}
+
+/**
+ * @test QT-055
+ * @verifies [R-056, R-070]
+ * @notes Given emitted summary, time-series, and visualization artifacts, when
+ * the repository analysis tool is asked for a ParaView export, then it writes
+ * deterministic VTK geometry/vector files plus a metadata sidecar preserving
+ * schema, unit, frame, and provenance labels.
+ */
+TEST(RunAnalysisSystem, PythonToolExportsParaViewBundle) {
+  const auto run = make_interactive_report_run(
+      "qt-analysis-paraview", "qt-analysis-paraview", 1.5, true);
+  const auto paraview_dir =
+      std::filesystem::temp_directory_path() / "airow-qt-analysis-paraview";
+  prepare_interactive_report_run(run);
+  remove_directory_if_present(paraview_dir);
+
+  const auto cli_command = shell_quote(kProjectAppPath.string()) +
+                           " --config " +
+                           shell_quote(run.config_path.string()) + " > " +
+                           shell_quote(run.cli_stdout_path.string()) + " 2> " +
+                           shell_quote(run.cli_stderr_path.string());
+  ASSERT_EQ(decode_exit_code(std::system(cli_command.c_str())), 0);
+  ASSERT_TRUE(read_file(run.cli_stderr_path).empty());
+
+  const auto tool_path = kProjectSourceDir / "tools" / "run_analysis.py";
+  const auto tool_command =
+      std::string("python3 ") + shell_quote(tool_path.string()) +
+      " --summary " + shell_quote(run.summary_path.string()) +
+      " --time-series " + shell_quote(run.time_series_path.string()) +
+      " --visualization " + shell_quote(run.visualization_path.string()) +
+      " --output-dir " + shell_quote(run.report_dir.string()) +
+      " --vtk-output-dir " + shell_quote(paraview_dir.string()) + " > " +
+      shell_quote(run.tool_stdout_path.string()) + " 2> " +
+      shell_quote(run.tool_stderr_path.string());
+  const auto tool_status = std::system(tool_command.c_str());
+
+  EXPECT_EQ(decode_exit_code(tool_status), 0);
+  EXPECT_TRUE(read_file(run.tool_stderr_path).empty());
+  expect_paraview_export_bundle(run.report_dir, paraview_dir);
+
+  cleanup_interactive_report_run(run);
+  remove_directory_if_present(paraview_dir);
+}
+
+/**
+ * @test QT-051
+ * @verifies [R-050]
+ * @notes Given emitted summary and time-series artifacts but a malformed
+ * visualization artifact, when the repository analysis tool runs offline, then
+ * it rejects the unsupported visualization schema deterministically instead of
+ * generating an ambiguous inspection report.
+ */
+TEST(RunAnalysisSystem, PythonToolRejectsMalformedVisualizationArtifact) {
+  const auto summary_path = std::filesystem::temp_directory_path() /
+                            "airow-qt-analysis-bad-viz-summary.json";
+  const auto time_series_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-analysis-bad-viz-timeseries.json";
+  const auto bad_visualization_path =
+      write_temp_file("airow-qt-analysis-bad-viz-artifact.json",
+                      R"({"schema_id":"airow.visualization.v0"})");
+  const auto config_path = write_temp_file(
+      "airow-qt-analysis-bad-viz-config.json",
+      make_valid_config_json("qt-analysis-bad-viz", summary_path.string(),
+                             time_series_path.string()));
+  const auto cli_stdout_path = std::filesystem::temp_directory_path() /
+                               "airow-qt-analysis-bad-viz-cli.stdout";
+  const auto cli_stderr_path = std::filesystem::temp_directory_path() /
+                               "airow-qt-analysis-bad-viz-cli.stderr";
+  const auto report_dir = std::filesystem::temp_directory_path() /
+                          "airow-qt-analysis-bad-viz-report";
+  const auto tool_stdout_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-analysis-bad-viz-tool.stdout";
+  const auto tool_stderr_path = std::filesystem::temp_directory_path() /
+                                "airow-qt-analysis-bad-viz-tool.stderr";
+  const auto tool_path = kProjectSourceDir / "tools" / "run_analysis.py";
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(cli_stdout_path);
+  remove_file_if_present(cli_stderr_path);
+  remove_file_if_present(tool_stdout_path);
+  remove_file_if_present(tool_stderr_path);
+  remove_directory_if_present(report_dir);
+
+  const auto cli_command = shell_quote(kProjectAppPath.string()) +
+                           " --config " + shell_quote(config_path.string()) +
+                           " > " + shell_quote(cli_stdout_path.string()) +
+                           " 2> " + shell_quote(cli_stderr_path.string());
+  ASSERT_EQ(decode_exit_code(std::system(cli_command.c_str())), 0);
+  ASSERT_TRUE(read_file(cli_stderr_path).empty());
+
+  const auto tool_command =
+      std::string("python3 ") + shell_quote(tool_path.string()) +
+      " --summary " + shell_quote(summary_path.string()) + " --time-series " +
+      shell_quote(time_series_path.string()) + " --visualization " +
+      shell_quote(bad_visualization_path.string()) + " --output-dir " +
+      shell_quote(report_dir.string()) + " > " +
+      shell_quote(tool_stdout_path.string()) + " 2> " +
+      shell_quote(tool_stderr_path.string());
+  const auto tool_status = std::system(tool_command.c_str());
+
+  EXPECT_EQ(decode_exit_code(tool_status), 1);
+  const auto stderr_text = read_file(tool_stderr_path);
+  EXPECT_NE(stderr_text.find("invalid visualization artifact"),
+            std::string::npos);
+  EXPECT_NE(stderr_text.find("$.schema_id"), std::string::npos);
+  EXPECT_FALSE(std::filesystem::exists(report_dir / "index.html"));
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(bad_visualization_path);
   remove_file_if_present(cli_stdout_path);
   remove_file_if_present(cli_stderr_path);
   remove_file_if_present(tool_stdout_path);

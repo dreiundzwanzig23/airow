@@ -1438,6 +1438,9 @@ bool parse_output_settings(const Json &root, SimulatorConfig &config,
              output, "truth_model_export_path",
              "$.output.truth_model_export_path",
              config.output.truth_model_export_path, result) &&
+         parse_optional_output_string_field(
+             output, "visualization_path", "$.output.visualization_path",
+             config.output.visualization_path, result) &&
          parse_output_high_frequency_toggle(output, config.output, result) &&
          parse_output_formats_field(output, config.output, result);
 }
@@ -1564,6 +1567,7 @@ normalize_simulator_config(const SimulatorConfig &config) {
       {"$.output.hdf5_path", config.output.hdf5_path, ""},
       {"$.output.truth_model_export_path",
        config.output.truth_model_export_path, ""},
+      {"$.output.visualization_path", config.output.visualization_path, ""},
       {"$.output.formats", format_output_formats(config.output), ""},
       {"$.output.high_frequency_time_series",
        format_bool(config.output.high_frequency_time_series), "bool"},

@@ -11,6 +11,15 @@ from pathlib import Path
 import sys
 from typing import Iterable
 
+from export_visualization_vtk import export_visualization_to_vtk
+from validate_visualization_artifact import validate_document
+
+CAPABILITY_MATRIX_PATH = "docs/process/CAPABILITY_MATRIX.md"
+CLAIM_GUIDANCE = (
+    "This report explains reduced-runtime capability and trust status; it is "
+    "not a full 3D water or optimization claim."
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -21,7 +30,15 @@ def parse_args() -> argparse.Namespace:
         "--time-series", required=True, help="Path to time-series JSON artifact"
     )
     parser.add_argument(
+        "--visualization",
+        help="Optional path to airow.visualization.v1 JSON for interactive inspection",
+    )
+    parser.add_argument(
         "--output-dir", required=True, help="Directory where the report bundle will be written"
+    )
+    parser.add_argument(
+        "--vtk-output-dir",
+        help="Optional directory for a ParaView/VTK bundle derived from --visualization",
     )
     return parser.parse_args()
 
@@ -33,6 +50,17 @@ def load_json(path: Path) -> dict:
         raise RuntimeError(f"missing artifact: {path}") from exc
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"failed to parse JSON artifact {path}: {exc}") from exc
+
+
+def load_visualization(path: Path) -> dict:
+    visualization = load_json(path)
+    issues = validate_document(visualization)
+    if issues:
+        joined = "; ".join(issues[:4])
+        if len(issues) > 4:
+            joined += f"; {len(issues) - 4} more issue(s)"
+        raise RuntimeError(f"invalid visualization artifact {path}: {joined}")
+    return visualization
 
 
 def nested_value(mapping: dict, *keys: str) -> dict | list | float | str:
@@ -51,6 +79,19 @@ def scalar_channel_value(record: dict, *keys: str) -> float:
         joined = ".".join(keys)
         raise RuntimeError(f"expected scalar channel at '{joined}'")
     return float(value["value"])
+
+
+def energy_channel_value(record: dict, channel: str) -> float:
+    try:
+        value = nested_value(record, "energy_accounting", channel)
+    except RuntimeError:
+        return 0.0
+    if not isinstance(value, dict) or "value" not in value:
+        return 0.0
+    raw_value = value["value"]
+    if raw_value is None:
+        return 0.0
+    return float(raw_value)
 
 
 def vector_channel_value(record: dict, *keys: str) -> list[float]:
@@ -185,14 +226,600 @@ def render_metrics_table(analysis: dict) -> str:
     )
 
 
+def script_json(value: object) -> str:
+    return json.dumps(value, separators=(",", ":")).replace("</", "<\\/")
+
+
+def string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def provider_capability_metadata(summary: dict) -> dict:
+    providers = summary.get("metadata", {}).get("providers", {})
+    if not isinstance(providers, dict):
+        return {}
+
+    shaped: dict[str, dict[str, str]] = {}
+    for role, provider in sorted(providers.items()):
+        if not isinstance(provider, dict):
+            continue
+        capability = provider.get("capability", {})
+        if not isinstance(capability, dict):
+            capability = {}
+        shaped[str(role)] = {
+            "id": str(provider.get("id", "")),
+            "validity_id": str(provider.get("validity_id", "")),
+            "validity_description": str(provider.get("validity_description", "")),
+            "support_status": str(capability.get("support_status", "")),
+            "fidelity_level": str(capability.get("fidelity_level", "")),
+            "validation_status": str(capability.get("validation_status", "")),
+            "capability_summary": str(capability.get("capability_summary", "")),
+        }
+    return shaped
+
+
+def physics_capability_metadata(summary: dict) -> dict:
+    trust = summary.get("metadata", {}).get("trust_envelope", {})
+    if not isinstance(trust, dict):
+        trust = {}
+    return {
+        "capability_matrix": CAPABILITY_MATRIX_PATH,
+        "fidelity_tier": str(trust.get("fidelity_tier", "unknown")),
+        "validity_status": str(trust.get("validity_status", "unknown")),
+        "confidence_status": str(trust.get("confidence_status", "unknown")),
+        "supported_study_questions": string_list(
+            trust.get("supported_study_questions", [])
+        ),
+        "limitations": string_list(trust.get("limitations", [])),
+        "warnings": string_list(trust.get("warnings", [])),
+        "claim_guidance": [CLAIM_GUIDANCE],
+        "providers": provider_capability_metadata(summary),
+    }
+
+
+def render_item_list(items: list[str]) -> str:
+    if not items:
+        return "<li>none</li>"
+    return "\n".join(f"<li>{escape(item)}</li>" for item in items)
+
+
+def render_provider_capability_rows(providers: dict) -> str:
+    if not providers:
+        return '<tr><td colspan="5">none</td></tr>'
+    rows: list[str] = []
+    for role, provider in providers.items():
+        rows.append(
+            "<tr>"
+            f"<th>{escape(role)}</th>"
+            f"<td>{escape(provider.get('id', ''))}</td>"
+            f"<td>{escape(provider.get('fidelity_level', ''))}</td>"
+            f"<td>{escape(provider.get('validation_status', ''))}</td>"
+            f"<td>{escape(provider.get('capability_summary', ''))}</td>"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+def render_physics_capability_section(capability: dict) -> str:
+    providers = capability.get("providers", {})
+    if not isinstance(providers, dict):
+        providers = {}
+    return f"""
+    <section class="capability-entry">
+      <h2>Physics Capability and Trust</h2>
+      <div class="meta">
+        <div><strong>Fidelity</strong><br />{escape(str(capability.get("fidelity_tier", "unknown")))}</div>
+        <div><strong>Validity</strong><br />{escape(str(capability.get("validity_status", "unknown")))}</div>
+        <div><strong>Confidence</strong><br />{escape(str(capability.get("confidence_status", "unknown")))}</div>
+        <div><strong>Capability Matrix</strong><br /><a href="{escape(str(capability.get("capability_matrix", CAPABILITY_MATRIX_PATH)))}">{escape(str(capability.get("capability_matrix", CAPABILITY_MATRIX_PATH)))}</a></div>
+      </div>
+      <p>{escape(" ".join(string_list(capability.get("claim_guidance", []))))}</p>
+      <h3>Supported Study Questions</h3>
+      <ul>{render_item_list(string_list(capability.get("supported_study_questions", [])))}</ul>
+      <h3>Limitations</h3>
+      <ul>{render_item_list(string_list(capability.get("limitations", [])))}</ul>
+      <h3>Warnings</h3>
+      <ul>{render_item_list(string_list(capability.get("warnings", [])))}</ul>
+      <h3>Provider Capability</h3>
+      <table class="provider-capability">
+        <thead><tr><th>Role</th><th>ID</th><th>Fidelity</th><th>Validation</th><th>Summary</th></tr></thead>
+        <tbody>{render_provider_capability_rows(providers)}</tbody>
+      </table>
+    </section>
+"""
+
+
+def render_energy_flow_section(energy_accounting: object) -> str:
+    if not isinstance(energy_accounting, dict):
+        return ""
+    run_metrics = energy_accounting.get("run_metrics", {})
+    residual = energy_accounting.get("residual", {})
+    dominant = energy_accounting.get("dominant_terms", [])
+    unavailable = energy_accounting.get("unavailable_terms", [])
+    if not isinstance(run_metrics, dict):
+        run_metrics = {}
+    if not isinstance(residual, dict):
+        residual = {}
+    return f"""
+    <section class="energy-flow">
+      <h2>Energy Flow</h2>
+      <div class="meta">
+        <div><strong>Blade Work</strong><br />{escape(str(run_metrics.get("blade_work_j", "unknown")))} J</div>
+        <div><strong>Aero Loss</strong><br />{escape(str(run_metrics.get("aerodynamic_loss_j", "unknown")))} J</div>
+        <div><strong>Hull-Water Loss</strong><br />{escape(str(run_metrics.get("hull_water_loss_j", "unknown")))} J</div>
+        <div><strong>Residual</strong><br />{escape(str(residual.get("value_j", "unknown")))} J</div>
+      </div>
+      <p>Residual status: {escape(str(residual.get("status", "unknown")))}</p>
+      <h3>Dominant Terms</h3>
+      <ul>{render_item_list(string_list(dominant))}</ul>
+      <h3>Unavailable Terms</h3>
+      <ul>{render_item_list(string_list(unavailable))}</ul>
+    </section>
+"""
+
+
+def render_paraview_export_section(paraview_export: object) -> str:
+    if not isinstance(paraview_export, dict):
+        return ""
+    guide_path = str(paraview_export.get("loading_guide_path", ""))
+    metadata_path = str(paraview_export.get("metadata_path", ""))
+    geometry_path = str(paraview_export.get("geometry_path", ""))
+    vectors_path = str(paraview_export.get("vectors_path", ""))
+    return f"""
+    <section class="paraview-export">
+      <h2>ParaView Export</h2>
+      <p>Use the ParaView Loading Guide for reduced visualization export setup.</p>
+      <ul>
+        <li>Geometry: {escape(geometry_path)}</li>
+        <li>Vectors: {escape(vectors_path)}</li>
+        <li>Metadata: {escape(metadata_path)}</li>
+        <li>ParaView Loading Guide: {escape(guide_path)}</li>
+      </ul>
+    </section>
+"""
+
+
+def vector_channel_metadata_id(vector_id: str) -> str:
+    replacements = {
+        "hull_hydro_force_world_n": "hull_hydro_force",
+        "hull_hydro_force_body_n": "hull_hydro_force_body",
+        "hull_hydro_moment_world_n_m": "hull_hydro_moment",
+        "hull_hydro_moment_body_n_m": "hull_hydro_moment_body",
+        "port_blade_force_world_n": "blade_force",
+        "port_blade_force_body_n": "blade_force_body",
+        "starboard_blade_force_world_n": "blade_force",
+        "starboard_blade_force_body_n": "blade_force_body",
+        "aero_force_world_n": "aero_force",
+        "aero_force_body_n": "aero_force_body",
+        "aero_moment_world_n_m": "aero_moment",
+        "aero_moment_body_n_m": "aero_moment_body",
+        "ambient_wind_world_mps": "ambient_wind",
+        "ambient_wind_body_mps": "ambient_wind_body",
+        "apparent_wind_world_mps": "apparent_wind",
+        "apparent_wind_body_mps": "apparent_wind_body",
+        "rower_inertial_force_world_n": "rower_inertial_force",
+        "rower_inertial_force_body_n": "rower_inertial_force_body",
+    }
+    return replacements.get(vector_id, vector_id)
+
+
+def display_label(identifier: str) -> str:
+    return identifier.replace("_", " ")
+
+
+def vector_controls(visualization: dict | None) -> list[dict]:
+    if visualization is None:
+        return []
+
+    channels = visualization.get("channels", {})
+    samples = visualization.get("samples", [])
+    first_sample = samples[0] if samples and isinstance(samples[0], dict) else {}
+    sample_vectors = first_sample.get("vectors", {})
+    controls: list[dict] = []
+
+    if isinstance(sample_vectors, dict):
+        for vector_id, vector in sorted(sample_vectors.items()):
+            if not isinstance(vector, dict):
+                continue
+            metadata_id = vector_channel_metadata_id(vector_id)
+            metadata = channels.get(metadata_id, {})
+            if not isinstance(metadata, dict):
+                metadata = {}
+            controls.append(
+                {
+                    "id": vector_id,
+                    "label": display_label(vector_id),
+                    "availability": "available",
+                    "unit": str(vector.get("unit", metadata.get("unit", ""))),
+                    "frame": str(vector.get("frame", metadata.get("frame", ""))),
+                    "provenance": str(metadata.get("provenance", "emitted_sample")),
+                    "metadata_channel": metadata_id,
+                }
+            )
+
+    return controls
+
+
+def unavailable_channel_controls(visualization: dict | None) -> list[dict]:
+    if visualization is None:
+        return []
+
+    unavailable: list[dict] = []
+    channels = visualization.get("channels", {})
+    if isinstance(channels, dict):
+        for channel_id, metadata in sorted(channels.items()):
+            if not isinstance(metadata, dict):
+                continue
+            if metadata.get("availability") != "unavailable":
+                continue
+            unavailable.append(
+                {
+                    "id": channel_id,
+                    "label": display_label(channel_id),
+                    "availability": "unavailable",
+                    "unit": str(metadata.get("unit", "")),
+                    "frame": str(metadata.get("frame", "")),
+                    "reason": str(metadata.get("reason", "unavailable")),
+                }
+            )
+    return unavailable
+
+
+def reference_frame_ids(visualization: dict | None) -> list[str]:
+    if visualization is None:
+        return []
+    frames = visualization.get("frames", {})
+    if not isinstance(frames, dict):
+        return []
+    preferred = ["world", "hull_body", "waterline"]
+    return [frame for frame in preferred if frame in frames]
+
+
+def interactive_controls_metadata(
+    visualization: dict | None,
+    plot_channels: list[dict],
+    markers: list[dict] | None = None,
+) -> dict:
+    return {
+        "enabled": visualization is not None,
+        "schema_id": visualization.get("schema_id") if visualization else None,
+        "projection_modes": ["top", "side", "end"] if visualization else [],
+        "reference_frames": reference_frame_ids(visualization),
+        "plot_click_seek": visualization is not None,
+        "vector_channels": vector_controls(visualization),
+        "unavailable_channels": unavailable_channel_controls(visualization),
+        "plot_channels": [plot_channel_metadata(channel) for channel in plot_channels],
+        "event_markers": markers or [],
+    }
+
+
+def plot_channel_metadata(channel: dict) -> dict:
+    return {
+        "id": channel["id"],
+        "label": channel["label"],
+        "unit": channel["unit"],
+        "frame": channel.get("frame", ""),
+        "availability": "available",
+        "source": channel.get("source", "time_series"),
+    }
+
+
+def marker_time(records: list[dict], sample_index: int) -> float:
+    if 0 <= sample_index < len(records):
+        return float(records[sample_index].get("time_s", 0.0))
+    return 0.0
+
+
+def event_marker(
+    marker_id: str,
+    marker_type: str,
+    label: str,
+    records: list[dict],
+    sample_index: int,
+    channel: dict,
+    value: object,
+) -> dict:
+    return {
+        "id": marker_id,
+        "type": marker_type,
+        "label": label,
+        "time_s": marker_time(records, sample_index),
+        "sample_index": sample_index,
+        "channel_id": channel.get("id", ""),
+        "value": value,
+        "unit": channel.get("unit", ""),
+        "frame": channel.get("frame", ""),
+        "source": channel.get("source", ""),
+    }
+
+
+def first_zero_crossing(values: list[float]) -> int | None:
+    for index, value in enumerate(values):
+        if math.isclose(value, 0.0, abs_tol=1e-12):
+            return index
+    for index in range(1, len(values)):
+        if values[index - 1] * values[index] < 0.0:
+            return index
+    return None
+
+
+def channel_event_markers(records: list[dict], channel: dict) -> list[dict]:
+    values = [float(value) for value in channel.get("values", [])]
+    if not values:
+        return []
+
+    peak_index = max(range(len(values)), key=lambda index: abs(values[index]))
+    markers = [
+        event_marker(
+            f"peak_value_{channel['id']}",
+            "peak_value",
+            f"Peak {channel['label']}",
+            records,
+            peak_index,
+            channel,
+            values[peak_index],
+        )
+    ]
+    zero_index = first_zero_crossing(values)
+    if zero_index is not None:
+        markers.append(
+            event_marker(
+                f"zero_crossing_{channel['id']}",
+                "zero_crossing",
+                f"Zero crossing {channel['label']}",
+                records,
+                zero_index,
+                channel,
+                values[zero_index],
+            )
+        )
+    return markers
+
+
+def stroke_event_markers(records: list[dict]) -> list[dict]:
+    markers: list[dict] = []
+    previous_phase = ""
+    channel = {
+        "id": "stroke_input.phase",
+        "unit": "",
+        "frame": "",
+        "source": "time_series.stroke_input.phase",
+    }
+    for index, record in enumerate(records):
+        phase = str(record.get("stroke_input", {}).get("phase", ""))
+        if index == 0 or (phase and phase != previous_phase):
+            markers.append(
+                event_marker(
+                    f"stroke_boundary_{index}",
+                    "stroke_boundary",
+                    f"Stroke phase {phase or 'unknown'}",
+                    records,
+                    index,
+                    channel,
+                    phase,
+                )
+            )
+        previous_phase = phase
+    return markers
+
+
+def trust_warning_markers(summary: dict, records: list[dict]) -> list[dict]:
+    trust = summary.get("metadata", {}).get("trust_envelope", {})
+    warnings = trust.get("warnings", [])
+    if not isinstance(warnings, list):
+        return []
+    channel = {
+        "id": "metadata.trust_envelope.warnings",
+        "unit": "",
+        "frame": "",
+        "source": "summary.metadata.trust_envelope.warnings",
+    }
+    return [
+        event_marker(
+            f"trust_warning_{index}",
+            "trust_warning",
+            "Trust warning",
+            records,
+            0,
+            channel,
+            str(warning),
+        )
+        for index, warning in enumerate(warnings)
+    ]
+
+
+def event_markers(summary: dict, records: list[dict], plot_channels: list[dict]) -> list[dict]:
+    markers: list[dict] = []
+    for channel in plot_channels:
+        markers.extend(channel_event_markers(records, channel))
+    markers.extend(stroke_event_markers(records))
+    markers.extend(trust_warning_markers(summary, records))
+    return sorted(markers, key=lambda marker: (marker["time_s"], marker["id"]))
+
+
+def viewer_payload(
+    summary: dict,
+    time_series: dict,
+    visualization: dict | None,
+    generated_plots: list[str],
+    plot_channels: list[dict],
+    markers: list[dict],
+) -> dict:
+    records = time_series.get("records", [])
+    return {
+        "enabled": visualization is not None,
+        "summary": {
+            "config_id": summary.get("config_id", "unknown"),
+            "status": summary.get("status", "unknown"),
+            "simulator_version": summary.get("simulator_version", "unknown"),
+            "trust_envelope": summary.get("metadata", {}).get("trust_envelope", {}),
+            "providers": summary.get("metadata", {}).get("providers", {}),
+            "physics_capability_and_trust": physics_capability_metadata(summary),
+        },
+        "records": records if isinstance(records, list) else [],
+        "visualization": visualization,
+        "plots": generated_plots,
+        "plot_channels": plot_channels,
+        "controls": interactive_controls_metadata(visualization, plot_channels, markers),
+    }
+
+
+def render_interactive_viewer(
+    visualization: dict | None,
+    plot_channels: list[dict],
+    markers: list[dict],
+) -> str:
+    if visualization is None:
+        return ""
+
+    controls = interactive_controls_metadata(visualization, plot_channels, markers)
+    vector_markup = "\n".join(
+        '<label class="control-option">'
+        f'<input id="vector-toggle-{escape(channel["id"])}" '
+        f'type="checkbox" value="{escape(channel["id"])}" '
+        'data-availability="available" checked />'
+        f'<span>{escape(channel["label"])} '
+        f'[{escape(channel["unit"])} {escape(channel["frame"])}]</span>'
+        "</label>"
+        for channel in controls["vector_channels"]
+    )
+    unavailable_vector_markup = "\n".join(
+        '<label class="control-option unavailable">'
+        f'<input id="vector-toggle-{escape(channel["id"])}" '
+        f'type="checkbox" value="{escape(channel["id"])}" '
+        'data-availability="unavailable" disabled />'
+        f'<span>{escape(channel["label"])} unavailable: '
+        f'{escape(channel["reason"])}</span>'
+        "</label>"
+        for channel in controls["unavailable_channels"]
+    )
+    projection_options = "\n".join(
+        f'<option id="projection-{escape(mode)}" value="{escape(mode)}">'
+        f"{escape(mode.title())}</option>"
+        for mode in controls["projection_modes"]
+    )
+    frame_options = "\n".join(
+        f'<option value="{escape(frame)}">{escape(frame)}</option>'
+        for frame in controls["reference_frames"]
+    )
+    plot_options = "\n".join(
+        f'<option value="{escape(channel["id"])}" selected>'
+        f'{escape(channel["label"])} [{escape(channel["unit"])}]</option>'
+        for channel in controls["plot_channels"]
+    )
+    plot_canvases = "\n".join(
+        f'<canvas class="linked-plot" data-channel="{escape(channel["id"])}" '
+        'width="720" height="180"></canvas>'
+        for channel in controls["plot_channels"]
+    )
+    unavailable = [
+        f"{channel['id']}: {channel['reason']}"
+        for channel in controls["unavailable_channels"]
+    ]
+    unavailable_markup = "\n".join(
+        f"<li>{escape(item)}</li>" for item in unavailable
+    ) or "<li>none</li>"
+    event_markup = "\n".join(
+        '<li>'
+        f'<button type="button" class="event-marker" '
+        f'data-event-seek="{int(marker["sample_index"])}">'
+        f'{escape(marker["label"])} '
+        f'({escape(marker["type"])}) '
+        f'@ {float(marker["time_s"]):.3f} s'
+        "</button>"
+        "</li>"
+        for marker in controls["event_markers"]
+    ) or "<li>none</li>"
+
+    return f"""
+    <section class="viewer" data-airow-viewer>
+      <div class="viewer-toolbar">
+        <button id="playback-toggle" type="button">Play</button>
+        <button id="step-back" type="button">Prev</button>
+        <button id="step-forward" type="button">Next</button>
+        <input id="timeline" type="range" min="0" max="0" value="0" step="1" />
+        <div class="readout"><strong id="viewer-time">0.000 s</strong><span id="viewer-phase">phase</span></div>
+      </div>
+      <div class="control-grid">
+        <label>Projection
+          <select id="projection-mode">{projection_options}</select>
+        </label>
+        <label>Reference Frame
+          <select id="reference-frame">{frame_options}</select>
+        </label>
+        <label>Plot Channels
+          <select id="plot-channel-select" multiple size="6">{plot_options}</select>
+        </label>
+      </div>
+      <div class="vector-controls" aria-label="Vector overlays">
+        {vector_markup}
+        {unavailable_vector_markup}
+      </div>
+      <div class="viewer-grid">
+        <div>
+          <h2>Top Projection</h2>
+          <canvas id="projection-top" width="720" height="320"></canvas>
+        </div>
+        <div>
+          <h2>Side Projection</h2>
+          <canvas id="projection-side" width="720" height="320"></canvas>
+        </div>
+        <div>
+          <h2>End Projection</h2>
+          <canvas id="projection-end-canvas" width="720" height="320"></canvas>
+        </div>
+      </div>
+      <div class="status-row">
+        <div id="trust-status">trust-status</div>
+        <div id="vector-status">hull_hydro_force_world_n</div>
+        <div id="frame-status">world frame</div>
+      </div>
+      <details open>
+        <summary>Unavailable Channels</summary>
+        <ul>{unavailable_markup}</ul>
+      </details>
+      <details open id="event-marker-list">
+        <summary>Event Markers</summary>
+        <ul>{event_markup}</ul>
+      </details>
+      <script type="application/json" id="metrics_metadata">{script_json(controls)}</script>
+      <div class="plot-board" id="plot-board" data-plot-click-seek="true">
+        {plot_canvases}
+        <span class="plot-cursor" aria-hidden="true"></span>
+      </div>
+    </section>
+"""
+
+
 def write_html_report(
     path: Path,
     summary: dict,
     metrics: dict,
     plot_files: list[str],
+    plot_channels: list[dict],
+    time_series: dict,
+    visualization: dict | None = None,
+    markers: list[dict] | None = None,
 ) -> None:
     analysis = summary.get("analysis", {})
     metric_table = render_metrics_table(analysis if isinstance(analysis, dict) else {})
+    capability_metadata = metrics.get(
+        "physics_capability_and_trust", physics_capability_metadata(summary)
+    )
+    capability_markup = render_physics_capability_section(capability_metadata)
+    energy_markup = render_energy_flow_section(metrics.get("energy_accounting"))
+    paraview_export_markup = render_paraview_export_section(
+        metrics.get("paraview_export")
+    )
+    event_marker_data = markers or []
+    interactive_markup = render_interactive_viewer(
+        visualization, plot_channels, event_marker_data
+    )
+    payload = viewer_payload(
+        summary, time_series, visualization, plot_files, plot_channels, event_marker_data
+    )
     plot_markup = "\n".join(
         f'<section class="plot-card"><h2>{escape(plot_file[:-4].replace("_", " ").title())}</h2>'
         f'<img src="{escape(plot_file)}" alt="{escape(plot_file)}" /></section>'
@@ -206,16 +833,19 @@ def write_html_report(
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f6f2e8;
-      --card: #fffdf8;
-      --text: #1f241f;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #172026;
+      --muted: #60707d;
       --accent: #145a7a;
-      --border: #d9d0bf;
+      --port: #b34d3d;
+      --starboard: #266f4d;
+      --border: #d8e0e6;
     }}
     body {{
       margin: 0;
       font-family: "Iosevka Aile", "IBM Plex Sans", sans-serif;
-      background: linear-gradient(180deg, #f6f2e8 0%, #efe7d7 100%);
+      background: var(--bg);
       color: var(--text);
     }}
     main {{
@@ -223,12 +853,12 @@ def write_html_report(
       margin: 0 auto;
       padding: 32px 24px 48px;
     }}
-    .hero, .plot-card {{
-      background: var(--card);
+    .hero, .plot-card, .viewer, .capability-entry, .paraview-export, .energy-flow {{
+      background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 8px;
       padding: 20px 22px;
-      box-shadow: 0 10px 30px rgba(20, 30, 40, 0.08);
+      box-shadow: 0 6px 18px rgba(20, 30, 40, 0.06);
       margin-bottom: 18px;
     }}
     h1, h2 {{
@@ -242,8 +872,99 @@ def write_html_report(
     }}
     .meta div {{
       padding: 10px 12px;
-      border-radius: 12px;
+      border-radius: 8px;
       background: #f1f6f8;
+    }}
+    .viewer-toolbar {{
+      display: grid;
+      grid-template-columns: auto auto auto minmax(180px, 1fr) minmax(150px, auto);
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }}
+    .control-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }}
+    .control-grid label, .control-option {{
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .control-option {{
+      grid-template-columns: 18px minmax(0, 1fr);
+      align-items: start;
+      color: var(--text);
+    }}
+    .control-option.unavailable {{
+      color: var(--muted);
+    }}
+    .vector-controls {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 8px 14px;
+      margin-bottom: 14px;
+    }}
+    button {{
+      min-height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #edf3f6;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }}
+    input[type="range"] {{
+      width: 100%;
+    }}
+    select {{
+      min-height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      color: var(--text);
+      font: inherit;
+      padding: 4px 8px;
+    }}
+    .readout {{
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }}
+    .viewer-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }}
+    canvas {{
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      display: block;
+      background: #fbfdff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }}
+    .status-row {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }}
+    .plot-board {{
+      display: grid;
+      gap: 10px;
+      position: relative;
+    }}
+    .plot-cursor {{
+      display: none;
     }}
     table {{
       width: 100%;
@@ -280,8 +1001,289 @@ def write_html_report(
       </div>
       {metric_table}
     </section>
+    {capability_markup}
+    {energy_markup}
+    {paraview_export_markup}
+    {interactive_markup}
     {plot_markup}
   </main>
+  <script>
+    const airowViewerData = {script_json(payload)};
+    (() => {{
+      if (!airowViewerData.enabled || !airowViewerData.visualization) {{
+        return;
+      }}
+      const samples = airowViewerData.visualization.samples || [];
+      const timeline = document.getElementById("timeline");
+      const playButton = document.getElementById("playback-toggle");
+      const timeReadout = document.getElementById("viewer-time");
+      const phaseReadout = document.getElementById("viewer-phase");
+      const trustStatus = document.getElementById("trust-status");
+      const vectorStatus = document.getElementById("vector-status");
+      const frameStatus = document.getElementById("frame-status");
+      const topCanvas = document.getElementById("projection-top");
+      const sideCanvas = document.getElementById("projection-side");
+      const endCanvas = document.getElementById("projection-end-canvas");
+      const projectionMode = document.getElementById("projection-mode");
+      const referenceFrame = document.getElementById("reference-frame");
+      const plotChannelSelect = document.getElementById("plot-channel-select");
+      const vectorInputs = Array.from(document.querySelectorAll(".vector-controls input"));
+      const plotCanvases = Array.from(document.querySelectorAll(".linked-plot"));
+      const eventButtons = Array.from(document.querySelectorAll("[data-event-seek]"));
+      const plotChannelLookup = new Map((airowViewerData.plot_channels || []).map((channel) => [channel.id, channel]));
+      const eventMarkers = airowViewerData.controls?.event_markers || [];
+      const vectorColors = ["#0b5870", "#b34d3d", "#266f4d", "#8b3f6b", "#7b5b1f", "#4d6480"];
+      let frameIndex = 0;
+      let timer = 0;
+
+      timeline.max = String(Math.max(0, samples.length - 1));
+      const trust = airowViewerData.summary.trust_envelope || {{}};
+      trustStatus.textContent = `trust-status: ${{trust.fidelity_tier || "unknown"}} / ${{trust.validity_status || "unknown"}}`;
+
+      function component(vector, axis) {{
+        if (!vector || !Array.isArray(vector.value)) return 0;
+        return Number(vector.value[axis] || 0);
+      }}
+
+      function bounds() {{
+        const xs = [];
+        const ys = [];
+        const zs = [];
+        for (const sample of samples) {{
+          const transforms = sample.transforms || {{}};
+          const hull = transforms.hull || {{}};
+          const pos = hull.position_world_m || [0, 0, 0];
+          xs.push(Number(pos[0] || 0));
+          ys.push(Number(pos[1] || 0));
+          zs.push(Number(pos[2] || 0));
+          for (const key of ["port_blade", "starboard_blade"]) {{
+            const blade = transforms[key] || {{}};
+            const tip = blade.tip_position_world_m || [0, 0, 0];
+            xs.push(Number(tip[0] || 0));
+            ys.push(Number(tip[1] || 0));
+            zs.push(Number(tip[2] || 0));
+          }}
+        }}
+        return {{
+          xMin: Math.min(...xs, -1), xMax: Math.max(...xs, 1),
+          yMin: Math.min(...ys, -1), yMax: Math.max(...ys, 1),
+          zMin: Math.min(...zs, -0.5), zMax: Math.max(...zs, 0.5),
+        }};
+      }}
+
+      const extent = bounds();
+      function map(value, min, max, size, pad) {{
+        if (Math.abs(max - min) < 1e-9) return size / 2;
+        return pad + (value - min) / (max - min) * (size - 2 * pad);
+      }}
+
+      function projectedPosition(point, mode, width, height) {{
+        if (mode === "end") {{
+          return {{
+            x: map(Number(point[1] || 0), extent.yMin, extent.yMax, width, 48),
+            y: height - map(Number(point[2] || 0), extent.zMin, extent.zMax, height, 42),
+          }};
+        }}
+        if (mode === "side") {{
+          return {{
+            x: map(Number(point[0] || 0), extent.xMin, extent.xMax, width, 48),
+            y: height - map(Number(point[2] || 0), extent.zMin, extent.zMax, height, 42),
+          }};
+        }}
+        return {{
+          x: map(Number(point[0] || 0), extent.xMin, extent.xMax, width, 48),
+          y: height - map(Number(point[1] || 0), extent.yMin, extent.yMax, height, 42),
+        }};
+      }}
+
+      function projectedVector(vector, mode) {{
+        if (mode === "end") {{
+          return [component(vector, 1), component(vector, 2)];
+        }}
+        if (mode === "side") {{
+          return [component(vector, 0), component(vector, 2)];
+        }}
+        return [component(vector, 0), component(vector, 1)];
+      }}
+
+      function selectedVectorIds() {{
+        return vectorInputs
+          .filter((input) => input.checked && !input.disabled)
+          .map((input) => input.value);
+      }}
+
+      function selectedPlotIds() {{
+        return Array.from(plotChannelSelect.selectedOptions).map((option) => option.value);
+      }}
+
+      function drawProjection(canvas, sample, mode) {{
+        const ctx = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "#fbfdff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#d8e0e6";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i += 1) {{
+          const x = 40 + i * (w - 80) / 4;
+          const y = 30 + i * (h - 60) / 4;
+          ctx.beginPath(); ctx.moveTo(x, 30); ctx.lineTo(x, h - 30); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(w - 40, y); ctx.stroke();
+        }}
+        const transforms = sample.transforms || {{}};
+        const vectors = sample.vectors || {{}};
+        const hull = transforms.hull || {{}};
+        const hullPos = hull.position_world_m || [0, 0, 0];
+        const hullPoint = projectedPosition(hullPos, mode, w, h);
+
+        ctx.fillStyle = "#145a7a";
+        ctx.fillRect(hullPoint.x - 24, hullPoint.y - 8, 48, 16);
+        ctx.fillStyle = "#172026";
+        ctx.fillText(`hull / ${{referenceFrame.value}} frame`, hullPoint.x - 34, hullPoint.y - 14);
+
+        for (const [key, color] of [["port_blade", "#b34d3d"], ["starboard_blade", "#266f4d"]]) {{
+          const blade = transforms[key] || {{}};
+          const tip = blade.tip_position_world_m || [0, 0, 0];
+          const bladePoint = projectedPosition(tip, mode, w, h);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(hullPoint.x, hullPoint.y); ctx.lineTo(bladePoint.x, bladePoint.y); ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(bladePoint.x, bladePoint.y, 5, 0, Math.PI * 2); ctx.fill();
+        }}
+
+        const status = [];
+        selectedVectorIds().forEach((vectorId, vectorIndex) => {{
+          const vector = vectors[vectorId];
+          if (!vector) return;
+          const [vx, vy] = projectedVector(vector, mode);
+          const scale = vector.unit === "m/s" ? 8.0 : 2.0;
+          ctx.strokeStyle = vectorColors[vectorIndex % vectorColors.length];
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(hullPoint.x, hullPoint.y);
+          ctx.lineTo(hullPoint.x + vx * scale, hullPoint.y - vy * scale);
+          ctx.stroke();
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.fillText(`${{vectorId}} ${{vector.unit || ""}}/${{vector.frame || ""}}`, 48, 22 + vectorIndex * 16);
+          status.push(`${{vectorId}}: [${{component(vector, 0).toFixed(2)}}, ${{component(vector, 1).toFixed(2)}}, ${{component(vector, 2).toFixed(2)}}] ${{vector.unit || ""}} ${{vector.frame || ""}}`);
+        }});
+        if (status.length) {{
+          vectorStatus.textContent = status.join(" | ");
+        }} else {{
+          vectorStatus.textContent = "no available vector overlays selected";
+        }}
+      }}
+
+      function drawPlot(canvas, channel, index) {{
+        const spec = plotChannelLookup.get(channel) || {{}};
+        const values = Array.isArray(spec.values) ? spec.values.map((value) => Number(value || 0)) : [];
+        const ctx = canvas.getContext("2d");
+        const min = Math.min(...values, 0);
+        const max = Math.max(...values, 1);
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "#fbfdff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#d8e0e6";
+        ctx.strokeRect(45, 16, w - 65, h - 48);
+        ctx.strokeStyle = spec.color || "#266f4d";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        values.forEach((value, i) => {{
+          const px = 45 + (i / Math.max(1, values.length - 1)) * (w - 65);
+          const py = h - 32 - ((value - min) / Math.max(1e-9, max - min)) * (h - 48);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }});
+        ctx.stroke();
+        eventMarkers
+          .filter((marker) => marker.channel_id === channel)
+          .forEach((marker) => {{
+            const markerX = 45 + (Number(marker.sample_index || 0) / Math.max(1, values.length - 1)) * (w - 65);
+            ctx.strokeStyle = "#7b5b1f";
+            ctx.beginPath(); ctx.moveTo(markerX, 16); ctx.lineTo(markerX, h - 32); ctx.stroke();
+          }});
+        const cursorX = 45 + (index / Math.max(1, values.length - 1)) * (w - 65);
+        ctx.strokeStyle = "#b34d3d";
+        ctx.beginPath(); ctx.moveTo(cursorX, 16); ctx.lineTo(cursorX, h - 32); ctx.stroke();
+        ctx.fillStyle = "#172026";
+        ctx.fillText(`${{spec.label || channel}} [${{spec.unit || ""}} ${{spec.frame || ""}}]`, 48, 12);
+      }}
+
+      function updatePlotVisibility() {{
+        const selected = new Set(selectedPlotIds());
+        plotCanvases.forEach((canvas) => {{
+          canvas.hidden = !selected.has(canvas.dataset.channel || "");
+        }});
+      }}
+
+      function updateProjectionFocus() {{
+        const selected = projectionMode.value;
+        for (const [mode, canvas] of [["top", topCanvas], ["side", sideCanvas], ["end", endCanvas]]) {{
+          canvas.style.outline = mode === selected ? "2px solid #145a7a" : "none";
+        }}
+      }}
+
+      function render() {{
+        if (!samples.length) return;
+        frameIndex = Math.max(0, Math.min(frameIndex, samples.length - 1));
+        timeline.value = String(frameIndex);
+        const sample = samples[frameIndex];
+        timeReadout.textContent = `${{Number(sample.time_s || 0).toFixed(3)}} s`;
+        phaseReadout.textContent = String(sample.scalars?.stroke_phase || "phase");
+        frameStatus.textContent = `${{referenceFrame.value}} frame selected; emitted vector frames are preserved`;
+        updateProjectionFocus();
+        updatePlotVisibility();
+        drawProjection(topCanvas, sample, "top");
+        drawProjection(sideCanvas, sample, "side");
+        drawProjection(endCanvas, sample, "end");
+        plotCanvases.forEach((canvas) => {{
+          if (!canvas.hidden) drawPlot(canvas, canvas.dataset.channel || "", frameIndex);
+        }});
+      }}
+
+      function stop() {{
+        window.clearInterval(timer);
+        timer = 0;
+        playButton.textContent = "Play";
+      }}
+
+      playButton.addEventListener("click", () => {{
+        if (timer) {{ stop(); return; }}
+        playButton.textContent = "Pause";
+        timer = window.setInterval(() => {{
+          frameIndex = (frameIndex + 1) % Math.max(1, samples.length);
+          render();
+        }}, 200);
+      }});
+      document.getElementById("step-back").addEventListener("click", () => {{ stop(); frameIndex -= 1; render(); }});
+      document.getElementById("step-forward").addEventListener("click", () => {{ stop(); frameIndex += 1; render(); }});
+      timeline.addEventListener("input", () => {{ stop(); frameIndex = Number(timeline.value); render(); }});
+      projectionMode.addEventListener("change", render);
+      referenceFrame.addEventListener("change", render);
+      plotChannelSelect.addEventListener("change", render);
+      vectorInputs.forEach((input) => input.addEventListener("change", render));
+      eventButtons.forEach((button) => {{
+        button.addEventListener("click", () => {{
+          stop();
+          frameIndex = Number(button.dataset.eventSeek || 0);
+          render();
+        }});
+      }});
+      plotCanvases.forEach((canvas) => {{
+        canvas.addEventListener("click", (event) => {{
+          stop();
+          const rect = canvas.getBoundingClientRect();
+          const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
+          frameIndex = Math.round(ratio * Math.max(0, samples.length - 1));
+          render();
+        }});
+      }});
+      render();
+    }})();
+  </script>
 </body>
 </html>
 """
@@ -297,6 +1299,11 @@ def main() -> int:
     try:
         summary = load_json(summary_path)
         time_series = load_json(time_series_path)
+        visualization = (
+            load_visualization(Path(args.visualization))
+            if args.visualization is not None
+            else None
+        )
         records = time_series.get("records")
         if not isinstance(records, list) or not records:
             raise RuntimeError("time-series artifact has no records")
@@ -332,8 +1339,133 @@ def main() -> int:
             for record in records
         ]
         stroke_power = [scalar_channel_value(record, "stroke_power_w") for record in records]
+        blade_power = [energy_channel_value(record, "blade_power_w") for record in records]
+        aero_loss_power = [
+            energy_channel_value(record, "aerodynamic_loss_power_w") for record in records
+        ]
+        hull_water_loss_power = [
+            energy_channel_value(record, "hull_water_loss_power_w") for record in records
+        ]
+
+        plot_channels = [
+            {
+                "id": "boat_speed_mps",
+                "label": "Boat Speed",
+                "unit": "m/s",
+                "frame": "world",
+                "source": "time_series.boat_speed_mps",
+                "values": boat_speed,
+                "color": "#145a7a",
+            },
+            {
+                "id": "seat_position_m",
+                "label": "Seat Position",
+                "unit": "m",
+                "frame": "hull_body",
+                "source": "time_series.seat_state.position_along_rail_m",
+                "values": seat_position,
+                "color": "#4c7a34",
+            },
+            {
+                "id": "port_blade_immersion_depth_m",
+                "label": "Port Blade Immersion",
+                "unit": "m",
+                "frame": "blade",
+                "source": "time_series.blade_state.port.immersion_depth_m",
+                "values": port_immersion,
+                "color": "#145a7a",
+            },
+            {
+                "id": "starboard_blade_immersion_depth_m",
+                "label": "Starboard Blade Immersion",
+                "unit": "m",
+                "frame": "blade",
+                "source": "time_series.blade_state.starboard.immersion_depth_m",
+                "values": starboard_immersion,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "port_blade_force_n",
+                "label": "Port Blade Force",
+                "unit": "N",
+                "frame": "world",
+                "source": "time_series.blade_load_world_n.port",
+                "values": port_blade_load,
+                "color": "#145a7a",
+            },
+            {
+                "id": "starboard_blade_force_n",
+                "label": "Starboard Blade Force",
+                "unit": "N",
+                "frame": "world",
+                "source": "time_series.blade_load_world_n.starboard",
+                "values": starboard_blade_load,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "hull_position_z_m",
+                "label": "Hull Vertical Position",
+                "unit": "m",
+                "frame": "world",
+                "source": "time_series.hull_state.position_world_m",
+                "values": hull_position_z,
+                "color": "#8b3f6b",
+            },
+            {
+                "id": "apparent_wind_speed_mps",
+                "label": "Apparent Wind Speed",
+                "unit": "m/s",
+                "frame": "world",
+                "source": "time_series.apparent_wind_world_mps",
+                "values": apparent_wind_speed,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "stroke_power_w",
+                "label": "Stroke Power",
+                "unit": "W",
+                "frame": "",
+                "source": "time_series.stroke_power_w",
+                "values": stroke_power,
+                "color": "#4c7a34",
+            },
+            {
+                "id": "blade_power_w",
+                "label": "Blade Power",
+                "unit": "W",
+                "frame": "world_x_reduced",
+                "source": "time_series.energy_accounting.blade_power_w",
+                "values": blade_power,
+                "color": "#145a7a",
+            },
+            {
+                "id": "aerodynamic_loss_power_w",
+                "label": "Aerodynamic Loss Power",
+                "unit": "W",
+                "frame": "world",
+                "source": "time_series.energy_accounting.aerodynamic_loss_power_w",
+                "values": aero_loss_power,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "hull_water_loss_power_w",
+                "label": "Hull-Water Loss Power",
+                "unit": "W",
+                "frame": "world",
+                "source": "time_series.energy_accounting.hull_water_loss_power_w",
+                "values": hull_water_loss_power,
+                "color": "#8b3f6b",
+            },
+        ]
 
         output_dir.mkdir(parents=True, exist_ok=True)
+        if args.vtk_output_dir is not None and visualization is None:
+            raise RuntimeError("--vtk-output-dir requires --visualization")
+        paraview_export = (
+            export_visualization_to_vtk(visualization, Path(args.vtk_output_dir))
+            if args.vtk_output_dir is not None
+            else None
+        )
         plot_specs = [
             ("boat_speed.svg", "Boat Speed", [("boat_speed_mps", boat_speed, "#145a7a")], "m/s"),
             ("seat_position.svg", "Seat Position", [("seat_position_m", seat_position, "#4c7a34")], "m"),
@@ -363,24 +1495,51 @@ def main() -> int:
                 "m/s",
             ),
             ("stroke_power.svg", "Stroke Power", [("stroke_power_w", stroke_power, "#4c7a34")], "W"),
+            (
+                "energy_power.svg",
+                "Energy Power",
+                [
+                    ("blade_power_w", blade_power, "#145a7a"),
+                    ("aerodynamic_loss_power_w", aero_loss_power, "#c05a2b"),
+                    ("hull_water_loss_power_w", hull_water_loss_power, "#8b3f6b"),
+                ],
+                "W",
+            ),
         ]
         generated_plots: list[str] = []
         for file_name, title, series, unit in plot_specs:
             write_svg_chart(output_dir / file_name, title, times, series, unit)
             generated_plots.append(file_name)
 
+        markers = event_markers(summary, records, plot_channels)
         metrics = {
             "config_id": summary.get("config_id", "unknown"),
             "status": summary.get("status", "unknown"),
             "simulator_version": summary.get("simulator_version", "unknown"),
             "record_count": len(records),
             "generated_plots": generated_plots,
+            "interactive_visualization": visualization is not None,
+            "interactive_controls": interactive_controls_metadata(
+                visualization, plot_channels, markers
+            ),
+            "physics_capability_and_trust": physics_capability_metadata(summary),
+            "energy_accounting": summary.get("analysis", {}).get("energy_accounting", {}),
+            "paraview_export": paraview_export,
             "analysis": summary.get("analysis", {}),
         }
         (output_dir / "metrics.json").write_text(
             json.dumps(metrics, indent=2) + "\n", encoding="utf-8"
         )
-        write_html_report(output_dir / "index.html", summary, metrics, generated_plots)
+        write_html_report(
+            output_dir / "index.html",
+            summary,
+            metrics,
+            generated_plots,
+            plot_channels,
+            time_series,
+            visualization,
+            markers,
+        )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1

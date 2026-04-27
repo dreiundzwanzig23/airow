@@ -221,6 +221,42 @@ TEST(RunOutputsTruthModel, DoesNotEmitTruthModelHandoffArtifactByDefault) {
 }
 
 /**
+ * @test UT-378
+ * @verifies [D-052]
+ * @notes Given a truth-model export path whose parent component is an existing
+ * file, when output emission runs, then the export failure is reported
+ * deterministically through the shared output diagnostic path.
+ */
+TEST(RunOutputsTruthModel,
+     ReportsTruthModelExportWriteFailuresDeterministically) {
+  auto config = make_config("ut-output-truth-export-write-fail", 0.5, 0.25);
+  const auto marker_path = std::filesystem::temp_directory_path() /
+                           "airow-ut-truth-export-parent-marker";
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(marker_path, cleanup_error);
+  const auto parent_marker =
+      write_temp_file("airow-ut-truth-export-parent-marker", "marker");
+  config.output.emit_json = false;
+  config.output.emit_hdf5 = false;
+  config.output.truth_model_export_path =
+      (parent_marker / "export.json").string();
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 11h + 2s,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 7} + 11h + 3s});
+  const auto result = project::run_simulation(
+      config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_EQ(result.diagnostics.front().code, "output_write_failed");
+  EXPECT_EQ(result.diagnostics.front().subsystem, "output");
+  EXPECT_FALSE(result.outputs.truth_model_export_written);
+
+  remove_file_if_present(parent_marker);
+}
+
+/**
  * @test UT-316
  * @verifies [D-052]
  * @notes Given imported measurement or trial artifacts plus explicit stroke
