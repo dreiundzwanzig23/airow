@@ -29,9 +29,10 @@
 - Continue `R-050` / `R-052` / `R-053` / `R-070` from the current artifact and
   offline report controls into broader visualization evidence, remaining
   interface/disturbance vector coverage, true 3D playback linkage, and
-  ParaView loading guidance. Event markers, mirrored moment-vector evidence,
-  hull-body-frame vector variants, and reduced VTK export have initial
-  offline-report/tooling slices.
+  reference-scenario ParaView loading review. Event markers, mirrored
+  moment-vector evidence, hull-body-frame vector variants, report-entry
+  capability/trust metadata, reduced VTK export, and generated ParaView loading
+  guidance have initial offline-report/tooling slices.
 - Preserve current reduced-runtime numerical behavior unless a scoped physics
   requirement explicitly changes it.
 - Keep archived roadmaps out of normal context retrieval unless historical

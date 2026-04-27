@@ -11,12 +11,9 @@
   `A-009`, and `A-010`; closed baseline packets remain the reference floor.
 - `R-050..R-071` are now merged into the canonical requirements as the
   full-simulation extension backlog.
-- The first `R-071` provider-capability metadata slice is in place and
-  propagates support, fidelity, validation, and capability summaries into run
-  outputs.
-- The Phase 1 trust-envelope/report slice is in place, and
-  `docs/process/CAPABILITY_MATRIX.md` documents the public capability matrix.
-  `R-035`, `R-049`, and `R-071` remain open.
+- `R-071` provider-capability metadata, trust-envelope reports, and
+  `docs/process/CAPABILITY_MATRIX.md` are in place; `R-035`, `R-049`, and
+  `R-071` remain open.
 - The first `R-050` / `R-052` / `R-053` / `R-070` visualization path is in
   place: `output.visualization_path` emits `airow.visualization.v1`, malformed
   artifacts are rejected, examples emit the artifact, and `tools/run_analysis.py`
@@ -27,11 +24,12 @@
   crossings, stroke boundaries, and trust warnings, report-visible moment
   vector provenance, mirrored yaw-moment evidence, hull-body-frame vector
   variants derived from emitted world-frame vectors, and
-  `metrics.json.interactive_controls` metadata. The first `R-056` export slice
-  converts validated visualization artifacts into deterministic reduced
-  ParaView/VTK geometry/vector files plus a metadata sidecar. Full 3D playback,
-  unavailable interface/disturbance vectors, ParaView loading guides, and richer
-  exports remain open.
+  `metrics.json.interactive_controls` metadata. Offline reports also include
+  `metrics.json.physics_capability_and_trust` metadata. The first `R-056`
+  export slice converts validated visualization artifacts into deterministic reduced
+  ParaView/VTK geometry/vector files plus a metadata sidecar and deterministic
+  loading guide. Full 3D playback, unavailable interface/disturbance vectors,
+  reference-scenario loading review, and richer exports remain open.
 - `R-019` and `R-023` review flags are cleared as of 2026-04-27.
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
 - Active docs stay compact; use `python3 tools/tracecheck.py --json` for full
@@ -59,11 +57,9 @@
 ## Next Actions
 1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` toward remaining
    interface/disturbance vector coverage, full 3D playback linkage, and
-   ParaView loading guidance.
+   reference-scenario ParaView loading review.
 2. Keep `R-052` and `R-053` `Needs-Review: yes` until true 3D playback and
    full linked timeline/channel coverage land.
-3. Continue `R-071` Phase 1 with viewer entry pages and study/optimization
-   links once those surfaces exist; keep `R-071` `Needs-Review: yes`.
-4. Allocate each selected packet in `docs/process/ARCHITECTURE.md` before
-   adding failing tests.
-5. Preserve current numerical behavior unless selected work changes runtime physics.
+3. Continue `R-071` Phase 1 with study/optimization links and broader viewer
+   explanation coverage; keep `R-071` `Needs-Review: yes`.
+4. Preserve current numerical behavior unless selected work changes runtime physics.

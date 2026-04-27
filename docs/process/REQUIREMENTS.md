@@ -915,7 +915,7 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Current slices emit and validate `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The artifact now includes additive hull-body-frame variants for available world-frame vector channels, and the offline report tool rejects malformed visualization artifacts before generating an interactive report with projection, frame, vector, and plot-control metadata. Full 3D playback and richer disturbance channels remain future work.
+- **Notes**: Current slices emit and validate `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The artifact now includes additive hull-body-frame variants for available world-frame vector channels, and the offline report tool rejects malformed visualization artifacts before generating an interactive report with projection, frame, vector, plot-control, physics-capability, and ParaView-export metadata. Full 3D playback and richer disturbance channels remain future work.
 
 ## R-051 — Interactive 3D Run Playback
 
@@ -1020,9 +1020,10 @@ Milestone framing:
 - **Notes**: The first reduced export slice converts validated
   `airow.visualization.v1` artifacts into deterministic legacy ASCII VTK
   geometry/vector files plus a JSON sidecar with unit, frame, and provenance
-  metadata. `Needs-Review: yes` remains until a minimal ParaView loading guide
-  or scripted example is added and broader reference-scenario coverage is
-  reviewed.
+  metadata. The export bundle now also includes a deterministic
+  `paraview_loading_guide.md`, and report/export metadata links the guide to
+  the generated files. `Needs-Review: yes` remains until reference-scenario
+  loading coverage and broader export scope are reviewed.
 
 ## R-057 — Geometry and Surface Asset Contract
 
@@ -1278,7 +1279,7 @@ Milestone framing:
 - **Priority**: P0
 - **Status**: OPEN
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: A realistic simulator should be physically accurate, but it also needs to be legible to humans. The first Phase 1 slice starts the provider metadata foundation by adding catalog-backed capability declarations to run outputs; report prose and the public capability matrix remain follow-up slices while this requirement stays review-flagged.
+- **Notes**: A realistic simulator should be physically accurate, but it also needs to be legible to humans. Current Phase 1 slices propagate catalog-backed provider capability declarations into outputs, maintain the public capability matrix, render a physics-capability and trust entry section in offline reports, and expose matching metadata for visualization/report tooling. `Needs-Review: yes` remains because study-recommendation or optimization links and broader viewer explanation coverage remain follow-up work.

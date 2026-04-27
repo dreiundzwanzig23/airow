@@ -22,6 +22,8 @@
 - Added reduced ParaView/VTK export tooling for validated visualization
   artifacts, including deterministic geometry/vector VTK files and a metadata
   sidecar preserving vector unit, frame, and provenance labels.
+- Added offline report physics capability/trust entry metadata and a
+  deterministic ParaView loading guide linked from reduced export bundles.
 
 ### Changed
 - Tightened the repository TDD standard so functional work repeats

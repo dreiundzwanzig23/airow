@@ -14,6 +14,12 @@ from typing import Iterable
 from export_visualization_vtk import export_visualization_to_vtk
 from validate_visualization_artifact import validate_document
 
+CAPABILITY_MATRIX_PATH = "docs/process/CAPABILITY_MATRIX.md"
+CLAIM_GUIDANCE = (
+    "This report explains reduced-runtime capability and trust status; it is "
+    "not a full 3D water or optimization claim."
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -209,6 +215,128 @@ def render_metrics_table(analysis: dict) -> str:
 
 def script_json(value: object) -> str:
     return json.dumps(value, separators=(",", ":")).replace("</", "<\\/")
+
+
+def string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def provider_capability_metadata(summary: dict) -> dict:
+    providers = summary.get("metadata", {}).get("providers", {})
+    if not isinstance(providers, dict):
+        return {}
+
+    shaped: dict[str, dict[str, str]] = {}
+    for role, provider in sorted(providers.items()):
+        if not isinstance(provider, dict):
+            continue
+        capability = provider.get("capability", {})
+        if not isinstance(capability, dict):
+            capability = {}
+        shaped[str(role)] = {
+            "id": str(provider.get("id", "")),
+            "validity_id": str(provider.get("validity_id", "")),
+            "validity_description": str(provider.get("validity_description", "")),
+            "support_status": str(capability.get("support_status", "")),
+            "fidelity_level": str(capability.get("fidelity_level", "")),
+            "validation_status": str(capability.get("validation_status", "")),
+            "capability_summary": str(capability.get("capability_summary", "")),
+        }
+    return shaped
+
+
+def physics_capability_metadata(summary: dict) -> dict:
+    trust = summary.get("metadata", {}).get("trust_envelope", {})
+    if not isinstance(trust, dict):
+        trust = {}
+    return {
+        "capability_matrix": CAPABILITY_MATRIX_PATH,
+        "fidelity_tier": str(trust.get("fidelity_tier", "unknown")),
+        "validity_status": str(trust.get("validity_status", "unknown")),
+        "confidence_status": str(trust.get("confidence_status", "unknown")),
+        "supported_study_questions": string_list(
+            trust.get("supported_study_questions", [])
+        ),
+        "limitations": string_list(trust.get("limitations", [])),
+        "warnings": string_list(trust.get("warnings", [])),
+        "claim_guidance": [CLAIM_GUIDANCE],
+        "providers": provider_capability_metadata(summary),
+    }
+
+
+def render_item_list(items: list[str]) -> str:
+    if not items:
+        return "<li>none</li>"
+    return "\n".join(f"<li>{escape(item)}</li>" for item in items)
+
+
+def render_provider_capability_rows(providers: dict) -> str:
+    if not providers:
+        return '<tr><td colspan="5">none</td></tr>'
+    rows: list[str] = []
+    for role, provider in providers.items():
+        rows.append(
+            "<tr>"
+            f"<th>{escape(role)}</th>"
+            f"<td>{escape(provider.get('id', ''))}</td>"
+            f"<td>{escape(provider.get('fidelity_level', ''))}</td>"
+            f"<td>{escape(provider.get('validation_status', ''))}</td>"
+            f"<td>{escape(provider.get('capability_summary', ''))}</td>"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+def render_physics_capability_section(capability: dict) -> str:
+    providers = capability.get("providers", {})
+    if not isinstance(providers, dict):
+        providers = {}
+    return f"""
+    <section class="capability-entry">
+      <h2>Physics Capability and Trust</h2>
+      <div class="meta">
+        <div><strong>Fidelity</strong><br />{escape(str(capability.get("fidelity_tier", "unknown")))}</div>
+        <div><strong>Validity</strong><br />{escape(str(capability.get("validity_status", "unknown")))}</div>
+        <div><strong>Confidence</strong><br />{escape(str(capability.get("confidence_status", "unknown")))}</div>
+        <div><strong>Capability Matrix</strong><br /><a href="{escape(str(capability.get("capability_matrix", CAPABILITY_MATRIX_PATH)))}">{escape(str(capability.get("capability_matrix", CAPABILITY_MATRIX_PATH)))}</a></div>
+      </div>
+      <p>{escape(" ".join(string_list(capability.get("claim_guidance", []))))}</p>
+      <h3>Supported Study Questions</h3>
+      <ul>{render_item_list(string_list(capability.get("supported_study_questions", [])))}</ul>
+      <h3>Limitations</h3>
+      <ul>{render_item_list(string_list(capability.get("limitations", [])))}</ul>
+      <h3>Warnings</h3>
+      <ul>{render_item_list(string_list(capability.get("warnings", [])))}</ul>
+      <h3>Provider Capability</h3>
+      <table class="provider-capability">
+        <thead><tr><th>Role</th><th>ID</th><th>Fidelity</th><th>Validation</th><th>Summary</th></tr></thead>
+        <tbody>{render_provider_capability_rows(providers)}</tbody>
+      </table>
+    </section>
+"""
+
+
+def render_paraview_export_section(paraview_export: object) -> str:
+    if not isinstance(paraview_export, dict):
+        return ""
+    guide_path = str(paraview_export.get("loading_guide_path", ""))
+    metadata_path = str(paraview_export.get("metadata_path", ""))
+    geometry_path = str(paraview_export.get("geometry_path", ""))
+    vectors_path = str(paraview_export.get("vectors_path", ""))
+    return f"""
+    <section class="paraview-export">
+      <h2>ParaView Export</h2>
+      <p>Use the ParaView Loading Guide for reduced visualization export setup.</p>
+      <ul>
+        <li>Geometry: {escape(geometry_path)}</li>
+        <li>Vectors: {escape(vectors_path)}</li>
+        <li>Metadata: {escape(metadata_path)}</li>
+        <li>ParaView Loading Guide: {escape(guide_path)}</li>
+      </ul>
+    </section>
+"""
 
 
 def vector_channel_metadata_id(vector_id: str) -> str:
@@ -486,6 +614,7 @@ def viewer_payload(
             "simulator_version": summary.get("simulator_version", "unknown"),
             "trust_envelope": summary.get("metadata", {}).get("trust_envelope", {}),
             "providers": summary.get("metadata", {}).get("providers", {}),
+            "physics_capability_and_trust": physics_capability_metadata(summary),
         },
         "records": records if isinstance(records, list) else [],
         "visualization": visualization,
@@ -634,6 +763,13 @@ def write_html_report(
 ) -> None:
     analysis = summary.get("analysis", {})
     metric_table = render_metrics_table(analysis if isinstance(analysis, dict) else {})
+    capability_metadata = metrics.get(
+        "physics_capability_and_trust", physics_capability_metadata(summary)
+    )
+    capability_markup = render_physics_capability_section(capability_metadata)
+    paraview_export_markup = render_paraview_export_section(
+        metrics.get("paraview_export")
+    )
     event_marker_data = markers or []
     interactive_markup = render_interactive_viewer(
         visualization, plot_channels, event_marker_data
@@ -674,7 +810,7 @@ def write_html_report(
       margin: 0 auto;
       padding: 32px 24px 48px;
     }}
-    .hero, .plot-card, .viewer {{
+    .hero, .plot-card, .viewer, .capability-entry, .paraview-export {{
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -822,6 +958,8 @@ def write_html_report(
       </div>
       {metric_table}
     </section>
+    {capability_markup}
+    {paraview_export_markup}
     {interactive_markup}
     {plot_markup}
   </main>
@@ -1296,6 +1434,7 @@ def main() -> int:
             "interactive_controls": interactive_controls_metadata(
                 visualization, plot_channels, markers
             ),
+            "physics_capability_and_trust": physics_capability_metadata(summary),
             "paraview_export": paraview_export,
             "analysis": summary.get("analysis", {}),
         }

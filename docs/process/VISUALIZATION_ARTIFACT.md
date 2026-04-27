@@ -33,8 +33,9 @@ python3 tools/validate_visualization_artifact.py path/to/visualization.json
 
 Generate an offline interactive inspection report with synchronized 2D
 projections, vector overlays, playback controls, linked plot cursors, plot
-click-to-seek hooks, derived event markers, optional ParaView/VTK export, and
-report-control metadata in `metrics.json`:
+click-to-seek hooks, derived event markers, a physics capability/trust entry
+section, optional ParaView/VTK export, and report-control metadata in
+`metrics.json`:
 
 ```bash
 python3 tools/run_analysis.py \
@@ -45,7 +46,8 @@ python3 tools/run_analysis.py \
 ```
 
 Export a validated visualization artifact directly to a reduced ParaView/VTK
-bundle:
+bundle. The bundle includes a minimal `paraview_loading_guide.md` alongside the
+VTK files and metadata sidecar:
 
 ```bash
 python3 tools/export_visualization_vtk.py \
@@ -58,8 +60,8 @@ python3 tools/export_visualization_vtk.py \
 Physical or interpretive claim:
 - Users can inspect a reduced-runtime run's state evolution, frame directions,
   selected world-frame and hull-body-frame vectors, report-side event markers,
-  ParaView/VTK-compatible reduced export files, and time-series relationships
-  without changing the numerical result.
+  ParaView/VTK-compatible reduced export files and loading guidance, plus
+  time-series relationships without changing the numerical result.
 
 Fidelity level:
 - reduced visualization of the current reduced runtime.
@@ -91,7 +93,11 @@ Required outputs:
 - visualization vectors: world-frame and hull-body-frame hull hydro, blade,
   aero, wind, moment, and rower inertial vectors when present.
 - diagnostics: optional ParaView export writes deterministic
-  `airow_geometry.vtk`, `airow_vectors.vtk`, and `airow_metadata.json` files.
+  `airow_geometry.vtk`, `airow_vectors.vtk`, `airow_metadata.json`, and
+  `paraview_loading_guide.md` files.
+- diagnostics: `metrics.json.physics_capability_and_trust` mirrors the
+  report-entry explanation with trust-envelope, provider-capability, and
+  capability-matrix metadata.
 - diagnostics: `metrics.json.interactive_controls.event_markers` lists peak,
   zero-crossing, stroke-boundary, and trust-warning markers with sample index,
   time, channel, unit, frame, and source metadata.
@@ -103,8 +109,8 @@ Tests:
   shape.
 - IT: existing output integration coverage for visualization metadata and
   sample alignment.
-- QT: `QT-049`, `QT-050`, `QT-051`, `QT-052`, `QT-053`, `QT-054`, and
-  `QT-055`.
+- QT: `QT-049`, `QT-050`, `QT-051`, `QT-052`, `QT-053`, `QT-054`, `QT-055`,
+  `QT-056`, and `QT-057`.
 
 Failure modes:
 - rejected: unsupported or malformed visualization schema.

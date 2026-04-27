@@ -506,9 +506,14 @@ Allocation guardrails:
   labels for offline report controls while leaving runtime physics unchanged.
   The first ParaView/VTK export slice also stays under `D-063`: offline tools
   convert validated `airow.visualization.v1` artifacts into deterministic
-  legacy ASCII VTK geometry/vector files plus a JSON metadata sidecar, keeping
-  export generation out of the headless runtime path and preserving frame,
-  unit, and provenance labels for downstream scientific visualization.
+  legacy ASCII VTK geometry/vector files plus a JSON metadata sidecar and
+  loading guide, keeping export generation out of the headless runtime path
+  and preserving frame, unit, provenance, and guide links for downstream
+  scientific visualization. The report-entry explanation slice keeps the same
+  output owner: offline reports render a physics capability and trust section
+  from already-emitted summary metadata, link the public capability matrix, and
+  expose matching `metrics.json` metadata before users inspect plots, vectors,
+  or exports.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
@@ -567,8 +572,11 @@ Allocation guardrails:
   preserve report-visible moment signs and frame/unit metadata without changing
   scenario pass/fail policy. ParaView/VTK export evidence remains here by
   generating a checked offline report/export bundle from an emitted
-  visualization artifact and verifying deterministic files and metadata without
-  introducing optional visualization tooling into scenario execution.
+  visualization artifact and verifying deterministic files, metadata, loading
+  guidance, and report links without introducing optional visualization tooling
+  into scenario execution. The report-entry explanation evidence also stays
+  here by checking that offline reports expose capability/trust guidance before
+  interactive inspection controls.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

@@ -68,6 +68,9 @@ python3 tools/export_visualization_vtk.py \
   --output-dir examples/output/calm_water_stroke/paraview
 ```
 
+The export bundle includes `paraview_loading_guide.md` with a minimal loading
+sequence for the generated geometry, vectors, and metadata files.
+
 The CLI also supports ordered batch configs through the same entry point:
 
 ```bash
@@ -96,13 +99,14 @@ to check whether a run supports a study claim.
 Visualization artifacts use the `airow.visualization.v1` schema and can be
 validated with `python3 tools/validate_visualization_artifact.py <path>`.
 When a visualization artifact is provided, `tools/run_analysis.py` also writes
-report-control metadata to `metrics.json` and exposes offline playback,
-top/side/end projections, frame labels, world-frame and hull-body-frame vector
-toggles, disabled unavailable channels, selectable linked plots, plot-click
-seeking, and derived event markers for peaks, zero crossings, stroke
-boundaries, and trust warnings. `tools/export_visualization_vtk.py` writes a
-reduced ParaView-compatible bundle with geometry, sample vector fields, and a
-metadata sidecar preserving vector units, frames, and provenance.
+report-control metadata to `metrics.json` and exposes a physics
+capability/trust entry section, offline playback, top/side/end projections,
+frame labels, world-frame and hull-body-frame vector toggles, disabled
+unavailable channels, selectable linked plots, plot-click seeking, and derived
+event markers for peaks, zero crossings, stroke boundaries, and trust
+warnings. `tools/export_visualization_vtk.py` writes a reduced
+ParaView-compatible bundle with geometry, sample vector fields, a loading
+guide, and a metadata sidecar preserving vector units, frames, and provenance.
 
 ## Current Capabilities
 

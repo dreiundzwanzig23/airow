@@ -14,6 +14,7 @@ from typing import Any
 from validate_visualization_artifact import validate_document
 
 EXPORT_SCHEMA_ID = "airow.paraview_export.v1"
+LOADING_GUIDE_FILE_NAME = "paraview_loading_guide.md"
 
 
 def parse_args() -> argparse.Namespace:
@@ -281,9 +282,32 @@ def write_metadata_json(
         "sample_count": len(visualization.get("samples", [])),
         "coordinate_conventions": visualization.get("frames", {}),
         "files": files,
+        "loading_guide_path": LOADING_GUIDE_FILE_NAME,
         "vector_channels": vector_metadata(visualization),
     }
     path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+
+
+def write_loading_guide(path: Path) -> None:
+    guide = """# ParaView Loading Guide
+
+This bundle is a reduced visualization export from an
+`airow.visualization.v1` artifact. It is intended for offline inspection of the
+emitted reduced-runtime geometry and vector channels, not as a full 3D water or
+optimization claim.
+
+1. Open `airow_geometry.vtk` in ParaView to inspect hull trajectory, oar and
+   blade line segments, and the waterline reference.
+2. Open `airow_vectors.vtk` in the same session to inspect sample-point vector
+   fields.
+3. Use `airow_metadata.json` to interpret vector units, frames, provenance, and
+   coordinate conventions.
+4. Apply Glyph or similar vector filters to `airow_vectors.vtk` when arrow
+   overlays are needed.
+
+The files are deterministic for the same source artifact and export settings.
+"""
+    path.write_text(guide, encoding="utf-8")
 
 
 def export_visualization_to_vtk(
@@ -293,18 +317,26 @@ def export_visualization_to_vtk(
     geometry_path = output_dir / "airow_geometry.vtk"
     vectors_path = output_dir / "airow_vectors.vtk"
     metadata_path = output_dir / "airow_metadata.json"
+    loading_guide_path = output_dir / LOADING_GUIDE_FILE_NAME
     write_geometry_vtk(geometry_path, visualization)
     write_vectors_vtk(vectors_path, visualization)
+    write_loading_guide(loading_guide_path)
     write_metadata_json(
         metadata_path,
         visualization,
-        [geometry_path.name, vectors_path.name, metadata_path.name],
+        [
+            geometry_path.name,
+            vectors_path.name,
+            metadata_path.name,
+            loading_guide_path.name,
+        ],
     )
     return {
         "schema_id": EXPORT_SCHEMA_ID,
         "geometry_path": str(geometry_path),
         "vectors_path": str(vectors_path),
         "metadata_path": str(metadata_path),
+        "loading_guide_path": str(loading_guide_path),
     }
 
 

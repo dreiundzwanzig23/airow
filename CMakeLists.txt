@@ -326,6 +326,7 @@ if(BUILD_TESTING)
         tests/system/test_examples_system.cpp
         tests/system/test_fidelity_packet_system.cpp
         tests/system/test_simulator_config_system.cpp
+        tests/system/test_run_analysis_capability_system.cpp
         tests/system/test_run_analysis_system.cpp
         tests/system/test_headless_simulation_system.cpp
         tests/system/test_headless_outputs_system.cpp
