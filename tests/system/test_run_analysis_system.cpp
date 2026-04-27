@@ -338,6 +338,50 @@ void cleanup_interactive_report_run(const InteractiveReportRun &run) {
   remove_directory_if_present(run.report_dir);
 }
 
+void expect_paraview_export_bundle(const std::filesystem::path &report_dir,
+                                   const std::filesystem::path &paraview_dir) {
+  ASSERT_TRUE(std::filesystem::exists(paraview_dir / "airow_geometry.vtk"));
+  ASSERT_TRUE(std::filesystem::exists(paraview_dir / "airow_vectors.vtk"));
+  ASSERT_TRUE(std::filesystem::exists(paraview_dir / "airow_metadata.json"));
+
+  const auto geometry = read_file(paraview_dir / "airow_geometry.vtk");
+  EXPECT_NE(geometry.find("# vtk DataFile Version"), std::string::npos);
+  EXPECT_NE(geometry.find("POLYDATA"), std::string::npos);
+  EXPECT_NE(geometry.find("LINES"), std::string::npos);
+  EXPECT_NE(geometry.find("hull_trajectory"), std::string::npos);
+
+  const auto vectors = read_file(paraview_dir / "airow_vectors.vtk");
+  EXPECT_NE(vectors.find("POINT_DATA"), std::string::npos);
+  EXPECT_NE(vectors.find("VECTORS hull_hydro_force_world_n float"),
+            std::string::npos);
+  EXPECT_NE(vectors.find("VECTORS aero_moment_body_n_m float"),
+            std::string::npos);
+
+  const auto metadata = read_json_file(paraview_dir / "airow_metadata.json");
+  EXPECT_EQ(metadata.at("schema_id").get<std::string>(),
+            "airow.paraview_export.v1");
+  EXPECT_EQ(metadata.at("source_schema_id").get<std::string>(),
+            "airow.visualization.v1");
+  EXPECT_EQ(metadata.at("config_id").get<std::string>(),
+            "qt-analysis-paraview");
+  EXPECT_TRUE(
+      json_array_contains_string(metadata.at("files"), "airow_geometry.vtk"));
+  EXPECT_TRUE(
+      json_array_contains_string(metadata.at("files"), "airow_vectors.vtk"));
+
+  const auto &channel =
+      metadata.at("vector_channels").at("hull_hydro_force_world_n");
+  EXPECT_EQ(channel.at("unit").get<std::string>(), "N");
+  EXPECT_EQ(channel.at("frame").get<std::string>(), "world");
+  EXPECT_EQ(channel.at("provenance").get<std::string>(),
+            "hull_resistance_provider");
+
+  const auto metrics = read_json_file(report_dir / "metrics.json");
+  EXPECT_EQ(
+      metrics.at("paraview_export").at("metadata_path").get<std::string>(),
+      (paraview_dir / "airow_metadata.json").string());
+}
+
 } // namespace
 
 /**
@@ -690,6 +734,50 @@ TEST(RunAnalysisSystem, PythonToolReportsMirroredMomentVectorCoverage) {
 
   cleanup_interactive_report_run(starboard_run);
   cleanup_interactive_report_run(port_run);
+}
+
+/**
+ * @test QT-055
+ * @verifies [R-056, R-070]
+ * @notes Given emitted summary, time-series, and visualization artifacts, when
+ * the repository analysis tool is asked for a ParaView export, then it writes
+ * deterministic VTK geometry/vector files plus a metadata sidecar preserving
+ * schema, unit, frame, and provenance labels.
+ */
+TEST(RunAnalysisSystem, PythonToolExportsParaViewBundle) {
+  const auto run = make_interactive_report_run(
+      "qt-analysis-paraview", "qt-analysis-paraview", 1.5, true);
+  const auto paraview_dir =
+      std::filesystem::temp_directory_path() / "airow-qt-analysis-paraview";
+  prepare_interactive_report_run(run);
+  remove_directory_if_present(paraview_dir);
+
+  const auto cli_command = shell_quote(kProjectAppPath.string()) +
+                           " --config " +
+                           shell_quote(run.config_path.string()) + " > " +
+                           shell_quote(run.cli_stdout_path.string()) + " 2> " +
+                           shell_quote(run.cli_stderr_path.string());
+  ASSERT_EQ(decode_exit_code(std::system(cli_command.c_str())), 0);
+  ASSERT_TRUE(read_file(run.cli_stderr_path).empty());
+
+  const auto tool_path = kProjectSourceDir / "tools" / "run_analysis.py";
+  const auto tool_command =
+      std::string("python3 ") + shell_quote(tool_path.string()) +
+      " --summary " + shell_quote(run.summary_path.string()) +
+      " --time-series " + shell_quote(run.time_series_path.string()) +
+      " --visualization " + shell_quote(run.visualization_path.string()) +
+      " --output-dir " + shell_quote(run.report_dir.string()) +
+      " --vtk-output-dir " + shell_quote(paraview_dir.string()) + " > " +
+      shell_quote(run.tool_stdout_path.string()) + " 2> " +
+      shell_quote(run.tool_stderr_path.string());
+  const auto tool_status = std::system(tool_command.c_str());
+
+  EXPECT_EQ(decode_exit_code(tool_status), 0);
+  EXPECT_TRUE(read_file(run.tool_stderr_path).empty());
+  expect_paraview_export_bundle(run.report_dir, paraview_dir);
+
+  cleanup_interactive_report_run(run);
+  remove_directory_if_present(paraview_dir);
 }
 
 /**

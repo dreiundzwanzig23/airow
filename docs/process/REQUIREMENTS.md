@@ -1012,12 +1012,17 @@ Milestone framing:
   - Export generation is deterministic for the same run artifact and export settings.
   - The export path is optional and does not become a dependency of the headless runtime path.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: ParaView support gives airow a serious scientific visualization route before every custom-viewer feature exists.
+- **Notes**: The first reduced export slice converts validated
+  `airow.visualization.v1` artifacts into deterministic legacy ASCII VTK
+  geometry/vector files plus a JSON sidecar with unit, frame, and provenance
+  metadata. `Needs-Review: yes` remains until a minimal ParaView loading guide
+  or scripted example is added and broader reference-scenario coverage is
+  reviewed.
 
 ## R-057 — Geometry and Surface Asset Contract
 
@@ -1255,7 +1260,11 @@ Milestone framing:
 - **Updated**: 2026-04-27
 - **Change-Type**: none
 - **Needs-Review**: no
-- **Notes**: Current slices have direct CLI/example configs emitting summary, time-series, and visualization JSON paths, plus documented offline HTML report generation with playback, vector, projection, frame, linked-plot, and event-marker controls. Optional VTK/ParaView export and debug bundles remain open.
+- **Notes**: Current slices have direct CLI/example configs emitting summary,
+  time-series, and visualization JSON paths, plus documented offline HTML
+  report generation with playback, vector, projection, frame, linked-plot,
+  event-marker controls, and optional VTK/ParaView export from the
+  visualization artifact. Optional debug bundles remain open.
 
 ## R-071 — Human-Facing Physics Explanation and Capability Matrix
 

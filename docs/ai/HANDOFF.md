@@ -16,9 +16,12 @@
 - Added hull-body-frame visualization vector channels for already-emitted
   world-frame force, moment, wind, and rower-inertial vectors, with offline
   report toggles preserving unit, frame, and provenance labels.
+- Added the first reduced ParaView/VTK export slice: validated
+  `airow.visualization.v1` artifacts can produce deterministic geometry/vector
+  VTK files plus a metadata sidecar, with optional `run_analysis.py` metadata.
 - Added `QT-052`, `QT-053`, and `QT-054` coverage for the richer offline report
-  controls while keeping the `airow.visualization.v1` schema additive and
-  unchanged.
+  controls and `QT-055` coverage for the ParaView bundle while keeping the
+  `airow.visualization.v1` schema additive and unchanged.
 - Cleared `R-019` and `R-023` review flags after `tools/tracecheck.py --json`,
   `QT-025`, and `QT-039` confirmed trace and wind-contract evidence.
 - Updated `ARCHITECTURE.md`, `REQUIREMENTS.md`,
@@ -34,19 +37,19 @@
   slice is an additive output/reporting surface only.
 - `R-035`, `R-049`, and `R-071` remain `Status: OPEN`; `R-071` remains
   `Needs-Review: yes`.
-- `R-050`, `R-052`, `R-053`, and `R-070` are `IN_PROGRESS` for the first
-  visualization artifact and interactive-report slice. `R-052` and `R-053`
-  remain `Needs-Review: yes` with explicit follow-up notes for remaining
-  interface/disturbance vector coverage, full linked channel coverage, and true
-  3D timeline linkage.
-- The reduced runtime remains unchanged by the documentation cleanup.
+- `R-050`, `R-052`, `R-053`, `R-056`, and `R-070` are `IN_PROGRESS` for the
+  first visualization artifact, interactive-report slice, and reduced
+  ParaView/VTK export. `R-052`, `R-053`, and `R-056` remain
+  `Needs-Review: yes` with explicit follow-up notes for remaining
+  interface/disturbance vector coverage, full linked channel coverage, true 3D
+  timeline linkage, and ParaView loading guidance.
 - Required gates pass as of this handoff; tracecheck still reports only the
   existing numbering-gap warnings.
 
 ## Immediate Next Steps
-1. Continue `R-050` / `R-052` / `R-053` / `R-070` with remaining
+1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` with remaining
    interface/disturbance vector coverage, true 3D playback linkage, and
-   VTK/ParaView export.
+   ParaView loading guidance.
 2. Keep `R-052` and `R-053` review-flagged until true 3D playback and full
    linked timeline/channel coverage are implemented.
 3. Continue `R-071` with viewer entry pages and study-recommendation or

@@ -7,9 +7,9 @@
   calibration, actuation, comparison, and trust-reporting backlog.
 - `R-050..R-071` are now merged into `docs/process/REQUIREMENTS.md` as the
   active full-simulation extension backlog.
-- `R-050`, `R-052`, `R-053`, and `R-070` are `IN_PROGRESS` for the
-  visualization-ready artifact, offline report controls, and analysis-first
-  CLI slices.
+- `R-050`, `R-052`, `R-053`, `R-056`, and `R-070` are `IN_PROGRESS` for the
+  visualization-ready artifact, offline report controls, reduced ParaView/VTK
+  export, and analysis-first CLI slices.
 - The active long-range plan is `docs/process/ROADMAP_FULL_SIMULATION.md`.
 - Superseded planning snapshots live under `docs/archive/` and
   `docs/ai/archive/`; do not use them as current implementation guidance.
@@ -29,8 +29,9 @@
 - Continue `R-050` / `R-052` / `R-053` / `R-070` from the current artifact and
   offline report controls into broader visualization evidence, remaining
   interface/disturbance vector coverage, true 3D playback linkage, and
-  VTK/ParaView export. Event markers, mirrored moment-vector evidence, and
-  hull-body-frame vector variants have initial offline-report slices.
+  ParaView loading guidance. Event markers, mirrored moment-vector evidence,
+  hull-body-frame vector variants, and reduced VTK export have initial
+  offline-report/tooling slices.
 - Preserve current reduced-runtime numerical behavior unless a scoped physics
   requirement explicitly changes it.
 - Keep archived roadmaps out of normal context retrieval unless historical

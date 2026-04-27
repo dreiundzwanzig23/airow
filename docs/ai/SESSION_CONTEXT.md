@@ -33,16 +33,16 @@
   crossings, stroke boundaries, and trust warnings, report-visible moment
   vector provenance, mirrored yaw-moment evidence, hull-body-frame vector
   variants derived from emitted world-frame vectors, and
-  `metrics.json.interactive_controls` metadata. Full 3D playback, unavailable
-  interface/disturbance vectors, and richer exports remain open.
-- `R-019` and `R-023` review flags are cleared as of 2026-04-27 after
-  `tools/tracecheck.py --json`, `QT-025`, and `QT-039` confirmed current trace
-  and wind-contract evidence.
+  `metrics.json.interactive_controls` metadata. The first `R-056` export slice
+  converts validated visualization artifacts into deterministic reduced
+  ParaView/VTK geometry/vector files plus a metadata sidecar. Full 3D playback,
+  unavailable interface/disturbance vectors, ParaView loading guides, and richer
+  exports remain open.
+- `R-019` and `R-023` review flags are cleared as of 2026-04-27.
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
 - Active docs stay compact; use `python3 tools/tracecheck.py --json` for full
   trace data instead of hand-expanding generated `TRACEABILITY.md`.
-- Superseded planning files are archived under `docs/archive/` and
-  `docs/ai/archive/`.
+- Superseded planning files are archived under `docs/archive/` and `docs/ai/archive/`.
 
 ## Guardrails
 - Keep the current reduced built-in providers and scenario evidence framed as
@@ -58,13 +58,13 @@
   `Commit message:` summary; do not hand-expand generated trace markdown.
 
 ## Next Actions
-1. Continue `R-050` / `R-052` / `R-053` / `R-070` toward remaining
+1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` toward remaining
    interface/disturbance vector coverage, full 3D playback linkage, and
-   VTK/ParaView export.
+   ParaView loading guidance.
 2. Keep `R-052` and `R-053` `Needs-Review: yes` until true 3D playback and
    full linked timeline/channel coverage land.
 3. Continue `R-071` Phase 1 with viewer entry pages and study/optimization
    links once those surfaces exist; keep `R-071` `Needs-Review: yes`.
 4. Allocate each selected packet in `docs/process/ARCHITECTURE.md` before
    adding failing tests.
-5. Preserve current numerical behavior unless the selected requirement changes runtime physics.
+5. Preserve current numerical behavior unless selected work changes runtime physics.

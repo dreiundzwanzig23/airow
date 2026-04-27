@@ -33,8 +33,8 @@ python3 tools/validate_visualization_artifact.py path/to/visualization.json
 
 Generate an offline interactive inspection report with synchronized 2D
 projections, vector overlays, playback controls, linked plot cursors, plot
-click-to-seek hooks, derived event markers, and report-control metadata in
-`metrics.json`:
+click-to-seek hooks, derived event markers, optional ParaView/VTK export, and
+report-control metadata in `metrics.json`:
 
 ```bash
 python3 tools/run_analysis.py \
@@ -44,12 +44,22 @@ python3 tools/run_analysis.py \
   --output-dir examples/output/calm_water_stroke/report
 ```
 
+Export a validated visualization artifact directly to a reduced ParaView/VTK
+bundle:
+
+```bash
+python3 tools/export_visualization_vtk.py \
+  --visualization examples/output/calm_water_stroke/visualization.json \
+  --output-dir examples/output/calm_water_stroke/paraview
+```
+
 ## Simulation Evidence Design
 
 Physical or interpretive claim:
 - Users can inspect a reduced-runtime run's state evolution, frame directions,
   selected world-frame and hull-body-frame vectors, report-side event markers,
-  and time-series relationships without changing the numerical result.
+  ParaView/VTK-compatible reduced export files, and time-series relationships
+  without changing the numerical result.
 
 Fidelity level:
 - reduced visualization of the current reduced runtime.
@@ -70,8 +80,8 @@ Oracle:
   unavailable channels remain labeled unavailable and disabled, hull-body
   vector controls are derived only from emitted body-frame channels, linked
   plots share the same sample index as the playback controls, and event markers
-  are derived from existing emitted samples or trust metadata rather than new
-  runtime state.
+  plus VTK files are derived from existing emitted samples or trust metadata
+  rather than new runtime state.
 
 Required outputs:
 - time-series channels: existing emitted records plus visualization samples and
@@ -80,6 +90,8 @@ Required outputs:
 - frames: world, hull-body, waterline, and port/starboard conventions.
 - visualization vectors: world-frame and hull-body-frame hull hydro, blade,
   aero, wind, moment, and rower inertial vectors when present.
+- diagnostics: optional ParaView export writes deterministic
+  `airow_geometry.vtk`, `airow_vectors.vtk`, and `airow_metadata.json` files.
 - diagnostics: `metrics.json.interactive_controls.event_markers` lists peak,
   zero-crossing, stroke-boundary, and trust-warning markers with sample index,
   time, channel, unit, frame, and source metadata.
@@ -91,7 +103,8 @@ Tests:
   shape.
 - IT: existing output integration coverage for visualization metadata and
   sample alignment.
-- QT: `QT-049`, `QT-050`, `QT-051`, `QT-052`, `QT-053`, and `QT-054`.
+- QT: `QT-049`, `QT-050`, `QT-051`, `QT-052`, `QT-053`, `QT-054`, and
+  `QT-055`.
 
 Failure modes:
 - rejected: unsupported or malformed visualization schema.

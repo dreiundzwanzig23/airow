@@ -19,6 +19,9 @@
 - Added hull-body-frame visualization vector channels derived from emitted
   world-frame vectors, with report-visible toggles preserving unit, frame, and
   provenance metadata.
+- Added reduced ParaView/VTK export tooling for validated visualization
+  artifacts, including deterministic geometry/vector VTK files and a metadata
+  sidecar preserving vector unit, frame, and provenance labels.
 
 ### Changed
 - Standardized final Codex responses after repository changes to include a

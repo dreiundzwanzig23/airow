@@ -30,11 +30,10 @@ project::SimulatorConfig make_config(std::string_view config_id) {
               .center_of_mass_m = {.x = 0.0, .y = 0.0, .z = 0.0},
               .inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2},
               .initial_position_m = {.x = 0.0, .y = 0.0, .z = 0.0},
-              .initial_orientation_xyzw =
-                  {.x = 0.0,
-                   .y = 0.0,
-                   .z = 0.7071067811865476,
-                   .w = 0.7071067811865476},
+              .initial_orientation_xyzw = {.x = 0.0,
+                                           .y = 0.0,
+                                           .z = 0.7071067811865476,
+                                           .w = 0.7071067811865476},
               .initial_linear_velocity_mps = {.x = 0.0, .y = 0.0, .z = 0.0},
               .initial_angular_velocity_radps = {.x = 0.0, .y = 0.0, .z = 0.0},
           },
@@ -68,10 +67,9 @@ project::SimulatorConfig make_config(std::string_view config_id) {
               .release_angle_rad = 0.6,
           },
       .environment =
-          {.wind_time_series =
-               {project::WindSample{
-                    .time_s = 0.0,
-                    .ambient_wind_world_mps = {.x = 2.0, .y = 0.0, .z = 0.0}}},
+          {.wind_time_series = {project::WindSample{
+               .time_s = 0.0,
+               .ambient_wind_world_mps = {.x = 2.0, .y = 0.0, .z = 0.0}}},
            .wind_profile = {}},
       .output =
           {

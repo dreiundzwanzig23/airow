@@ -60,6 +60,14 @@ python3 tools/run_analysis.py \
   --output-dir examples/output/calm_water_stroke/report
 ```
 
+For a reduced ParaView/VTK export from the same visualization artifact:
+
+```bash
+python3 tools/export_visualization_vtk.py \
+  --visualization examples/output/calm_water_stroke/visualization.json \
+  --output-dir examples/output/calm_water_stroke/paraview
+```
+
 The CLI also supports ordered batch configs through the same entry point:
 
 ```bash
@@ -74,6 +82,7 @@ Typical runs can emit:
 - machine-readable time-series JSON;
 - optional visualization artifact JSON for downstream playback or analysis
   tooling;
+- optional reduced ParaView/VTK export generated from a visualization artifact;
 - optional HDF5 output when built with HDF5 support;
 - optional compact or full terminal reports;
 - optional static or interactive analysis reports generated from JSON
@@ -91,7 +100,9 @@ report-control metadata to `metrics.json` and exposes offline playback,
 top/side/end projections, frame labels, world-frame and hull-body-frame vector
 toggles, disabled unavailable channels, selectable linked plots, plot-click
 seeking, and derived event markers for peaks, zero crossings, stroke
-boundaries, and trust warnings.
+boundaries, and trust warnings. `tools/export_visualization_vtk.py` writes a
+reduced ParaView-compatible bundle with geometry, sample vector fields, and a
+metadata sidecar preserving vector units, frames, and provenance.
 
 ## Current Capabilities
 

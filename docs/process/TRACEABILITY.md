@@ -8,17 +8,17 @@ machine-readable trace graph is available through
 
 ## Summary
 
-- Requirements: 71 (DONE: 33, IN_PROGRESS: 4, OPEN: 34)
+- Requirements: 71 (DONE: 33, IN_PROGRESS: 5, OPEN: 33)
 - Requirements needing review: 20
 - Architecture items: 10 (IN_PROGRESS: 10)
 - Architecture evidence profiles: CODE: 10
 - Design blocks: 61
-- Evidence tests: UT 374, IT 28, QT 54
+- Evidence tests: UT 374, IT 28, QT 55
 - Auxiliary tests excluded from evidence gates: 0
 
 ## Evidence Coverage
 
-- Requirements with architecture allocation: 54/71
+- Requirements with architecture allocation: 55/71
 - DONE requirements with requirement-level QT evidence: 33/33
 - CODE architecture items with design coverage: 10/10
 - CODE architecture items with IT evidence: 10/10

@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 from typing import Iterable
 
+from export_visualization_vtk import export_visualization_to_vtk
 from validate_visualization_artifact import validate_document
 
 
@@ -28,6 +29,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-dir", required=True, help="Directory where the report bundle will be written"
+    )
+    parser.add_argument(
+        "--vtk-output-dir",
+        help="Optional directory for a ParaView/VTK bundle derived from --visualization",
     )
     return parser.parse_args()
 
@@ -1238,6 +1243,13 @@ def main() -> int:
         ]
 
         output_dir.mkdir(parents=True, exist_ok=True)
+        if args.vtk_output_dir is not None and visualization is None:
+            raise RuntimeError("--vtk-output-dir requires --visualization")
+        paraview_export = (
+            export_visualization_to_vtk(visualization, Path(args.vtk_output_dir))
+            if args.vtk_output_dir is not None
+            else None
+        )
         plot_specs = [
             ("boat_speed.svg", "Boat Speed", [("boat_speed_mps", boat_speed, "#145a7a")], "m/s"),
             ("seat_position.svg", "Seat Position", [("seat_position_m", seat_position, "#4c7a34")], "m"),
@@ -1284,6 +1296,7 @@ def main() -> int:
             "interactive_controls": interactive_controls_metadata(
                 visualization, plot_channels, markers
             ),
+            "paraview_export": paraview_export,
             "analysis": summary.get("analysis", {}),
         }
         (output_dir / "metrics.json").write_text(
