@@ -51,6 +51,8 @@ constexpr std::string_view BATCH_OUTPUT_SCHEMA_VERSION_V1 =
     "a007-batch-json-v1";
 constexpr std::string_view TRUTH_MODEL_HANDOFF_SCHEMA_VERSION_V1 =
     "truth_model_input_handoff.v1";
+constexpr std::string_view VISUALIZATION_SCHEMA_ID_V1 =
+    "airow.visualization.v1";
 
 [[nodiscard]] bool build_has_hdf5_support() noexcept {
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
@@ -719,6 +721,7 @@ Json truth_model_output_json(const OutputSettings &output) {
       {"time_series_path", output.time_series_path},
       {"hdf5_path", output.hdf5_path},
       {"truth_model_export_path", output.truth_model_export_path},
+      {"visualization_path", output.visualization_path},
       {"formats", configured_output_formats_json(output)},
       {"high_frequency_time_series", output.high_frequency_time_series}};
 }
@@ -862,6 +865,9 @@ Json make_summary_document(const SimulationRunResult &result) {
        Json{{"summary_path", result.outputs.summary_path},
             {"time_series_path", result.outputs.time_series_path},
             {"hdf5_path", result.outputs.hdf5_path},
+            {"visualization",
+             Json{{"path", result.outputs.visualization_path},
+                  {"written", result.outputs.visualization_written}}},
             {"truth_model_export",
              Json{{"path", result.outputs.truth_model_export_path},
                   {"written", result.outputs.truth_model_export_written}}},
@@ -988,6 +994,207 @@ Json time_series_record_json(const SimulationRunResult &result,
       {"stroke_power_w", scalar_channel(stroke_power_w, "W")},
       {"propulsion_metrics", propulsion_time_series_json(result, state, loads)},
   };
+}
+
+Json visualization_metadata_json(const SimulationRunResult &result) {
+  Json external_artifacts = Json::array();
+  for (const auto &artifact : result.metadata.external_artifacts) {
+    external_artifacts.push_back(external_artifact_json(artifact));
+  }
+
+  return Json{
+      {"config_id", result.metadata.config_id},
+      {"simulator_version", result.metadata.simulator_version},
+      {"providers",
+       Json{{"hull_resistance",
+             provider_metadata_json(result.metadata.providers.hull_resistance)},
+            {"blade_force",
+             provider_metadata_json(result.metadata.providers.blade_force)},
+            {"aero_load",
+             provider_metadata_json(result.metadata.providers.aero_load)}}},
+      {"mechanics_backend",
+       backend_metadata_json(result.metadata.mechanics_backend)},
+      {"mechanics_backend_id", result.metadata.mechanics_backend_id},
+      {"integration_backend",
+       backend_metadata_json(result.metadata.integration_backend)},
+      {"integration_backend_id", result.metadata.integration_backend_id},
+      {"trust_envelope", trust_envelope_json(result.metadata.trust_envelope)},
+      {"external_artifacts", std::move(external_artifacts)}};
+}
+
+Json visualization_frames_json() {
+  return Json{
+      {"world", Json{{"axes", "x_forward_y_starboard_z_up"},
+                     {"handedness", "right"},
+                     {"position_unit", "m"}}},
+      {"hull_body", Json{{"axes", "x_forward_y_starboard_z_up"},
+                         {"orientation", "world_from_body_quaternion_xyzw"}}},
+      {"waterline", Json{{"frame", "world"},
+                         {"origin_world_m", Json::array({0.0, 0.0, 0.0})},
+                         {"normal_world", Json::array({0.0, 0.0, 1.0})}}},
+      {"port_starboard",
+       Json{{"port_y_sign", "negative"}, {"starboard_y_sign", "positive"}}}};
+}
+
+Json visualization_channels_json() {
+  return Json{
+      {"hull_pose", Json{{"kind", "transform"},
+                         {"availability", "available"},
+                         {"frame", "world"},
+                         {"position_unit", "m"},
+                         {"orientation_unit", "unit-quaternion"}}},
+      {"seat_translation", Json{{"kind", "scalar"},
+                                {"availability", "available"},
+                                {"frame", "hull_body"},
+                                {"unit", "m"}}},
+      {"port_oar", Json{{"kind", "line_segment"},
+                        {"availability", "available"},
+                        {"frame", "world"},
+                        {"unit", "m"}}},
+      {"starboard_oar", Json{{"kind", "line_segment"},
+                             {"availability", "available"},
+                             {"frame", "world"},
+                             {"unit", "m"}}},
+      {"port_blade", Json{{"kind", "point"},
+                          {"availability", "available"},
+                          {"frame", "world"},
+                          {"unit", "m"}}},
+      {"starboard_blade", Json{{"kind", "point"},
+                               {"availability", "available"},
+                               {"frame", "world"},
+                               {"unit", "m"}}},
+      {"hull_hydro_force", Json{{"kind", "vector"},
+                                {"availability", "available"},
+                                {"frame", "world"},
+                                {"unit", "N"},
+                                {"provenance", "hull_resistance_provider"}}},
+      {"blade_force", Json{{"kind", "vector"},
+                           {"availability", "available"},
+                           {"frame", "world"},
+                           {"unit", "N"},
+                           {"provenance", "blade_force_provider"}}},
+      {"aero_force", Json{{"kind", "vector"},
+                          {"availability", "available"},
+                          {"frame", "world"},
+                          {"unit", "N"},
+                          {"provenance", "aero_load_provider"}}},
+      {"ambient_wind", Json{{"kind", "vector"},
+                            {"availability", "available"},
+                            {"frame", "world"},
+                            {"unit", "m/s"}}},
+      {"gate_loads",
+       Json{{"kind", "vector"},
+            {"availability", "unavailable"},
+            {"reason",
+             "gate/interface loads are not emitted by the current reduced "
+             "runtime"}}}};
+}
+
+Json visualization_oar_transform_json(const OarState &state) {
+  return Json{
+      {"oarlock_position_body_m", vector3_json(state.oarlock_position_body_m)},
+      {"blade_tip_position_world_m",
+       vector3_json(state.blade_tip_position_world_m)},
+      {"blade_tip_velocity_world_mps",
+       vector3_json(state.blade_tip_velocity_world_mps)},
+      {"handle_angle_rad", state.handle_angle_rad}};
+}
+
+Json visualization_sample_json(const MechanicalStateSnapshot &state,
+                               const LoadSample &loads) {
+  const auto hydro_load = loads.resolved_hull_force_world_n();
+  const auto port_blade_load = loads.resolved_port_blade_force_world_n();
+  const auto starboard_blade_load =
+      loads.resolved_starboard_blade_force_world_n();
+
+  return Json{
+      {"time_s", state.time_s},
+      {"transforms",
+       Json{
+           {"hull",
+            Json{
+                {"position_world_m", vector3_json(state.hull.position_world_m)},
+                {"orientation_world_from_body_xyzw",
+                 quaternion_json(state.hull.orientation_world_from_body)}}},
+           {"seat",
+            Json{{"position_along_rail_m", state.seat.position_along_rail_m},
+                 {"rail_axis_body", vector3_json(state.seat.rail_axis_body)}}},
+           {"rower_reference_mass",
+            Json{{"center_of_mass_world_m",
+                  vector3_json(state.rower_center_of_mass_world_m)}}},
+           {"waterline", Json{{"origin_world_m", Json::array({0.0, 0.0, 0.0})},
+                              {"normal_world", Json::array({0.0, 0.0, 1.0})}}},
+           {"port_oar", visualization_oar_transform_json(state.port_oar)},
+           {"starboard_oar",
+            visualization_oar_transform_json(state.starboard_oar)},
+           {"port_blade",
+            Json{
+                {"tip_position_world_m",
+                 vector3_json(state.port_oar.blade_tip_position_world_m)},
+                {"immersion_depth_m", state.port_oar.blade_immersion_depth_m}}},
+           {"starboard_blade",
+            Json{{"tip_position_world_m",
+                  vector3_json(state.starboard_oar.blade_tip_position_world_m)},
+                 {"immersion_depth_m",
+                  state.starboard_oar.blade_immersion_depth_m}}}}},
+      {"vectors",
+       Json{
+           {"hull_hydro_force_world_n",
+            vector_channel(hydro_load, "N", "world")},
+           {"hull_hydro_moment_world_n_m",
+            vector_channel(loads.hull_moment_world_n_m, "N*m", "world")},
+           {"port_blade_force_world_n",
+            vector_channel(port_blade_load, "N", "world")},
+           {"starboard_blade_force_world_n",
+            vector_channel(starboard_blade_load, "N", "world")},
+           {"aero_force_world_n",
+            vector_channel(loads.aero_force_world_n, "N", "world")},
+           {"aero_moment_world_n_m",
+            vector_channel(loads.aero_moment_world_n_m, "N*m", "world")},
+           {"ambient_wind_world_mps",
+            vector_channel(loads.ambient_wind_world_mps, "m/s", "world")},
+           {"apparent_wind_world_mps",
+            vector_channel(loads.apparent_wind_world_mps, "m/s", "world")},
+           {"rower_inertial_force_world_n",
+            vector_channel(loads.rower_inertial_force_world_n, "N", "world")}}},
+      {"scalars",
+       Json{{"boat_speed_mps", state.hull.linear_velocity_world_mps.x},
+            {"seat_position_along_rail_m", state.seat.position_along_rail_m},
+            {"stroke_phase", stroke_phase_text(state.stroke.phase)},
+            {"stroke_cycle_time_s", state.stroke.cycle_time_s},
+            {"stroke_phase_time_s", state.stroke.phase_time_s},
+            {"commanded_force_n", loads.commanded_force_n},
+            {"commanded_power_w", loads.commanded_power_w},
+            {"realized_blade_force_total_n",
+             loads.realized_blade_force_total_n}}}};
+}
+
+/**
+ * @design D-063 — Visualization artifact output contract
+ * @title Optional versioned JSON visualization artifact with explicit frame,
+ * channel, metadata, and sample contracts
+ * @satisfies [A-007, A-008]
+ */
+Json make_visualization_document(const SimulationRunResult &result,
+                                 bool high_frequency_time_series) {
+  Json samples = Json::array();
+  for (const auto index : sample_indices(result, high_frequency_time_series)) {
+    samples.push_back(visualization_sample_json(
+        result.state_history.at(index), load_for_state_index(result, index)));
+  }
+
+  return Json{{"schema_id", VISUALIZATION_SCHEMA_ID_V1},
+              {"config_id", result.metadata.config_id},
+              {"simulator_version", result.metadata.simulator_version},
+              {"generated_at_utc", result.metadata.end_timestamp_utc},
+              {"time_base", Json{{"unit", "s"},
+                                 {"sample_policy", "matches_time_series"},
+                                 {"high_frequency_time_series",
+                                  high_frequency_time_series}}},
+              {"metadata", visualization_metadata_json(result)},
+              {"frames", visualization_frames_json()},
+              {"channels", visualization_channels_json()},
+              {"samples", std::move(samples)}};
 }
 
 /**
@@ -2016,6 +2223,7 @@ struct ResolvedRunOutputPaths {
   std::filesystem::path time_series_path;
   std::filesystem::path hdf5_path;
   std::filesystem::path truth_model_export_path;
+  std::filesystem::path visualization_path;
 };
 
 ResolvedRunOutputPaths resolve_run_output_paths(const SimulatorConfig &config) {
@@ -2034,6 +2242,10 @@ ResolvedRunOutputPaths resolve_run_output_paths(const SimulatorConfig &config) {
           config.output.truth_model_export_path.empty()
               ? std::filesystem::path{}
               : std::filesystem::path(config.output.truth_model_export_path),
+      .visualization_path =
+          config.output.visualization_path.empty()
+              ? std::filesystem::path{}
+              : std::filesystem::path(config.output.visualization_path),
   };
 }
 
@@ -2046,6 +2258,9 @@ void assign_output_paths(const ResolvedRunOutputPaths &paths,
       paths.truth_model_export_path.empty()
           ? std::string{}
           : paths.truth_model_export_path.string();
+  result.outputs.visualization_path = paths.visualization_path.empty()
+                                          ? std::string{}
+                                          : paths.visualization_path.string();
 }
 
 void emit_truth_model_export(const SimulatorConfig &config,
@@ -2064,6 +2279,26 @@ void emit_truth_model_export(const SimulatorConfig &config,
   }
 
   result.outputs.truth_model_export_written = false;
+  record_output_failure(result, std::move(diagnostic));
+}
+
+void emit_visualization_output(const SimulatorConfig &config,
+                               const ResolvedRunOutputPaths &paths,
+                               SimulationRunResult &result) {
+  if (paths.visualization_path.empty()) {
+    return;
+  }
+
+  RunDiagnostic diagnostic;
+  if (write_json_file(paths.visualization_path,
+                      make_visualization_document(
+                          result, config.output.high_frequency_time_series),
+                      diagnostic)) {
+    result.outputs.visualization_written = true;
+    return;
+  }
+
+  result.outputs.visualization_written = false;
   record_output_failure(result, std::move(diagnostic));
 }
 
@@ -2130,9 +2365,11 @@ void emit_run_outputs(const SimulatorConfig &config,
   result.outputs.emit_json = config.output.emit_json;
   result.outputs.emit_hdf5 = config.output.emit_hdf5;
   result.outputs.truth_model_export_written = false;
+  result.outputs.visualization_written = false;
   const auto paths = resolve_run_output_paths(config);
   assign_output_paths(paths, result);
   emit_truth_model_export(config, paths, result);
+  emit_visualization_output(config, paths, result);
   emit_json_outputs(config, paths, result);
   emit_hdf5_output(config, paths, result);
 }

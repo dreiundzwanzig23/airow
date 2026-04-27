@@ -25,6 +25,12 @@
   JSON summaries, HDF5 metadata, and compact/full reports now expose a derived
   trust envelope, and `docs/process/CAPABILITY_MATRIX.md` documents the public
   capability matrix. `R-035`, `R-049`, and `R-071` remain open.
+- The first `R-050` / `R-052` / `R-053` / `R-070` visualization path is in
+  place: `output.visualization_path` emits `airow.visualization.v1`, malformed
+  artifacts are rejected, examples emit the artifact, and `tools/run_analysis.py`
+  can generate an offline interactive report with 2D projections, playback
+  controls, vector labels, linked plot cursors, and trust/unavailable-channel
+  labels. Full 3D playback and richer exports remain open.
 - `R-019` is temporarily review-flagged because P0 trace closure now excludes
   `Needs-Review: yes` draft backlog items until they are reviewed and
   allocated.
@@ -43,8 +49,7 @@
   the validated baseline, not as calibrated full-simulation fidelity.
 - Build observability, capability reporting, and artifact contracts before
   claiming deeper physics realism.
-- Keep optional high-fidelity water workflows offline and separate from the
-  default runtime.
+- Keep optional high-fidelity water workflows offline.
 - Do not reintroduce the removed `environment.ambient_wind_world_mps` config
   field or `simulation.state_advancer` selector; represent constant wind as a
   single-sample series or equivalent constant profile.
@@ -54,10 +59,12 @@
 
 ## Next Actions
 1. Clear or carry forward the `R-019` and `R-023` reviews.
-2. Continue `R-071` Phase 1 with viewer entry pages and study-recommendation or
+2. Continue `R-050` / `R-052` / `R-053` / `R-070` toward richer channel
+   coverage, configurable reference-frame selection, and VTK/ParaView export.
+3. Continue `R-071` Phase 1 with viewer entry pages and study-recommendation or
    optimization links once those surfaces exist; keep `R-071`
    `Needs-Review: yes`.
-3. Allocate each selected packet in `docs/process/ARCHITECTURE.md` before
+4. Allocate each selected packet in `docs/process/ARCHITECTURE.md` before
    adding failing tests.
-4. Preserve current numerical behavior unless the selected requirement
+5. Preserve current numerical behavior unless the selected requirement
    explicitly changes runtime physics.

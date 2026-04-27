@@ -50,12 +50,13 @@ For a compact human-readable summary:
 ./build/project_app --config examples/calm_water_stroke/config.json --report compact
 ```
 
-For a static HTML plus SVG report from emitted JSON artifacts:
+For an interactive HTML report from emitted JSON artifacts:
 
 ```bash
 python3 tools/run_analysis.py \
   --summary examples/output/calm_water_stroke/summary.json \
-  --time-series examples/output/calm_water_stroke/timeseries.json \
+  --time-series examples/output/calm_water_stroke/time_series.json \
+  --visualization examples/output/calm_water_stroke/visualization.json \
   --output-dir examples/output/calm_water_stroke/report
 ```
 
@@ -71,14 +72,20 @@ Typical runs can emit:
 
 - machine-readable summary JSON;
 - machine-readable time-series JSON;
+- optional visualization artifact JSON for downstream playback or analysis
+  tooling;
 - optional HDF5 output when built with HDF5 support;
 - optional compact or full terminal reports;
-- optional static analysis reports generated from JSON artifacts.
+- optional static or interactive analysis reports generated from JSON
+  artifacts.
 
 Run summaries include provider metadata, selected mechanics and integration
 backends, diagnostics, units or frame annotations for boundary-visible
 channels, and trust-envelope metadata. The trust fields are the intended place
 to check whether a run supports a study claim.
+
+Visualization artifacts use the `airow.visualization.v1` schema and can be
+validated with `python3 tools/validate_visualization_artifact.py <path>`.
 
 ## Current Capabilities
 
@@ -134,6 +141,7 @@ For users who want to inspect or contribute to the project:
 - architecture allocation policy: `docs/process/ARCHITECTURE_POLICY.md`;
 - full-simulation roadmap: `docs/process/ROADMAP_FULL_SIMULATION.md`;
 - approved technologies: `docs/process/TECHNOLOGY_STACK.md`;
+- visualization artifact schema: `docs/process/VISUALIZATION_ARTIFACT.md`;
 - state and frame conventions: `docs/process/STATE_CONVENTIONS.md`;
 - workflow and test strategy: `docs/process/WORKFLOW.md` and
   `docs/process/TEST_STRATEGY.md`;

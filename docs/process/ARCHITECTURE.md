@@ -221,7 +221,7 @@ Allocation guardrails:
 
 ## A-001 — Configuration and Validation
 - **Title**: Deterministic configuration and validation subsystem
-- **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-023, R-025, R-028, R-029, R-030, R-031, R-032, R-033, R-036, R-037, R-038, R-039, R-048, R-049, R-071]
+- **Satisfies**: [R-001, R-017, R-020, R-021, R-022, R-023, R-025, R-028, R-029, R-030, R-031, R-032, R-033, R-036, R-037, R-038, R-039, R-048, R-049, R-050, R-070, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Parse, validate, normalize, and expose simulator, provider, artifact, and scenario configuration before execution begins.
 - **Owned Concepts**: `SimulatorConfig`; provider selection metadata; schema validation; unit-bearing and frame-bearing field definitions; provider validity metadata; unsupported-scope rejection; constant and time-varying ambient-wind input definitions; measurement or rigging or athlete dataset boundary contracts; measured-trial import metadata; trust-envelope-bearing configuration definitions.
@@ -273,7 +273,11 @@ Allocation guardrails:
   built-in provider ids; the Phase 1 trust-envelope slice reuses that catalog
   truth through `D-061` to derive run-level fidelity, validity, confidence,
   limitation, and warning metadata without introducing a new architecture owner
-  or changing provider selection behavior.
+  or changing provider selection behavior. The visualization-artifact slice
+  extends the same output boundary with an optional
+  `output.visualization_path` string that requests a versioned JSON
+  visualization artifact while preserving the default runtime and existing
+  summary/time-series output paths.
 
 ## A-002 — Simulation Orchestrator
 - **Title**: Headless simulation orchestration subsystem
@@ -428,7 +432,7 @@ Allocation guardrails:
 
 ## A-007 — Output and Diagnostics
 - **Title**: Structured outputs and runtime diagnostics subsystem
-- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034, R-035, R-041, R-045, R-046, R-047, R-049, R-071]
+- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034, R-035, R-041, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-070, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Capture machine-readable summaries, time series, metadata, actionable diagnostics, and human-readable derived analysis for single and batch runs.
 - **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs; derived run-analysis summaries; comparison metrics; trust-envelope and uncertainty reporting; offline report generation contracts.
@@ -470,11 +474,24 @@ Allocation guardrails:
   extends the same metadata contract through `D-061` and `D-062`: JSON and
   HDF5 summaries expose the derived trust envelope, and compact or full
   reports render the same trust tier, validity, provider capability summaries,
-  limitations, and warnings in a human-readable section.
+  limitations, and warnings in a human-readable section. The first
+  visualization-artifact slice adds `D-063` as an additive JSON artifact
+  contract: it serializes sampled hull, seat, oar, blade, rower-reference,
+  waterline, frame, and vector-overlay data from the existing run histories,
+  declares units, frames, provenance, provider/backend ids, and trust metadata,
+  and records unsupported visualization channels explicitly as unavailable
+  rather than implying full 3D or validated visualization fidelity. The first
+  interactive-inspection slice extends the existing offline report-generation
+  contract rather than the runtime loop: `tools/run_analysis.py` may consume the
+  visualization artifact alongside summary and time-series JSON to generate a
+  dependency-free HTML bundle with synchronized plots, 2D top/side projections,
+  vector overlays, playback controls, and channel availability or trust labels.
+  This remains a reduced inspection surface and must not imply full 3D,
+  calibrated, or validated visualization fidelity.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
-- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049, R-071]
+- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-070, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
 - **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines; technique-comparison suites; hull or rigging sensitivity suites; measured-trial comparison suites.
@@ -512,7 +529,15 @@ Allocation guardrails:
   trust/capability slice keeps scenario-level evidence here through a
   checked-in compact-report fixture and CLI-level `QT-048` coverage that
   demonstrates reduced-provider explanation text without changing scenario
-  pass/fail policy.
+  pass/fail policy. The first visualization-artifact slice keeps evidence here
+  by validating a checked-in example run through a deterministic artifact
+  validator and by treating the validator as the visualization-tool rejection
+  boundary for malformed or unsupported artifact schemas. The first
+  interactive-inspection evidence extends that same boundary with system
+  coverage that generates an offline report from emitted summary, time-series,
+  and visualization artifacts, then verifies playback controls, 2D projection
+  hooks, vector-overlay labels, plot cursor hooks, trust labels, and
+  deterministic malformed-artifact rejection.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

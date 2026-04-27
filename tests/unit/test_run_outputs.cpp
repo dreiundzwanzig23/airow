@@ -97,6 +97,7 @@ project::SimulatorConfig make_config(std::string_view config_id = "ut-output",
               .time_series_path = {},
               .hdf5_path = {},
               .truth_model_export_path = {},
+              .visualization_path = {},
               .high_frequency_time_series = false,
               .emit_json = true,
               .emit_hdf5 = false,
@@ -225,6 +226,33 @@ std::filesystem::path write_temp_marker_file(std::string_view file_name) {
   return path;
 }
 
+void expect_visualization_contract(const Json &visualization,
+                                   const project::SimulationRunResult &result) {
+  EXPECT_EQ(visualization.at("schema_id").get<std::string>(),
+            "airow.visualization.v1");
+  EXPECT_EQ(visualization.at("metadata").at("config_id").get<std::string>(),
+            result.metadata.config_id);
+  EXPECT_EQ(visualization.at("time_base")
+                .at("high_frequency_time_series")
+                .get<bool>(),
+            true);
+  EXPECT_EQ(visualization.at("samples").size(), result.state_history.size());
+  EXPECT_EQ(visualization.at("channels")
+                .at("gate_loads")
+                .at("availability")
+                .get<std::string>(),
+            "unavailable");
+
+  const auto &first_sample = visualization.at("samples").front();
+  EXPECT_TRUE(first_sample.at("transforms").contains("hull"));
+  EXPECT_TRUE(first_sample.at("transforms").contains("starboard_oar"));
+  const auto &hydro_force =
+      first_sample.at("vectors").at("hull_hydro_force_world_n");
+  EXPECT_EQ(hydro_force.at("unit").get<std::string>(), "N");
+  EXPECT_EQ(hydro_force.at("frame").get<std::string>(), "world");
+  EXPECT_EQ(hydro_force.at("value").size(), 3U);
+}
+
 } // namespace
 
 /**
@@ -287,10 +315,10 @@ TEST(RunOutputs, EmitsSummaryAndLowFrequencyTimeSeriesArtifacts) {
 
 /**
  * @test UT-035
- * @verifies [D-022]
+ * @verifies [D-022, D-063]
  * @notes Given high-frequency output mode enabled, when the run executes, then
- * emitted time-series records include every mechanics state sample in
- * deterministic order.
+ * emitted time-series and visualization records include every mechanics state
+ * sample in deterministic order.
  */
 TEST(RunOutputs, HighFrequencyToggleControlsTimeSeriesResolution) {
   auto config = make_config("ut-output-high", 1.0, 0.25);
@@ -298,10 +326,14 @@ TEST(RunOutputs, HighFrequencyToggleControlsTimeSeriesResolution) {
                             "airow-ut-output-high-summary.json";
   const auto time_series_path = std::filesystem::temp_directory_path() /
                                 "airow-ut-output-high-timeseries.json";
+  const auto visualization_path =
+      std::filesystem::temp_directory_path() / "airow-ut-output-high-viz.json";
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
   config.output.summary_path = summary_path.string();
   config.output.time_series_path = time_series_path.string();
+  config.output.visualization_path = visualization_path.string();
   config.output.high_frequency_time_series = true;
 
   FixedClock clock(
@@ -312,6 +344,7 @@ TEST(RunOutputs, HighFrequencyToggleControlsTimeSeriesResolution) {
 
   ASSERT_TRUE(result.ok());
   ASSERT_TRUE(result.outputs.time_series_written);
+  ASSERT_TRUE(result.outputs.visualization_written);
 
   const Json time_series = read_json_file(time_series_path);
   const auto &records = time_series.at("records");
@@ -321,9 +354,11 @@ TEST(RunOutputs, HighFrequencyToggleControlsTimeSeriesResolution) {
     EXPECT_EQ(records.at(index).at("time_s").get<double>(),
               result.state_history.at(index).time_s);
   }
+  expect_visualization_contract(read_json_file(visualization_path), result);
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
 }
 
 /**

@@ -51,8 +51,51 @@ def check_compact_traceability_report() -> None:
         raise AssertionError("TRACEABILITY.md must not duplicate ARCHITECTURE.md details")
 
 
+def check_visualization_artifact_validator() -> None:
+    validator_path = ROOT / "tools" / "validate_visualization_artifact.py"
+    validator = load_module(validator_path, "airow_visualization_validator_contract")
+    valid_artifact = {
+        "schema_id": "airow.visualization.v1",
+        "metadata": {
+            "config_id": "tool-contract",
+            "providers": {},
+            "trust_envelope": {},
+        },
+        "frames": {"world": {"axes": "x_forward_y_starboard_z_up"}},
+        "channels": {"hull_pose": {}, "hull_hydro_force": {}},
+        "samples": [
+            {
+                "time_s": 0.0,
+                "transforms": {},
+                "vectors": {
+                    "hull_hydro_force_world_n": {
+                        "value": [0.0, 0.0, 0.0],
+                        "unit": "N",
+                        "frame": "world",
+                    }
+                },
+            }
+        ],
+    }
+    if validator.validate_document(valid_artifact):
+        raise AssertionError("valid visualization artifact was rejected")
+
+    wrong_schema = dict(valid_artifact)
+    wrong_schema["schema_id"] = "airow.visualization.v0"
+    if not validator.validate_document(wrong_schema):
+        raise AssertionError("unsupported visualization artifact schema was accepted")
+
+    missing_vector_unit = json.loads(json.dumps(valid_artifact))
+    del missing_vector_unit["samples"][0]["vectors"]["hull_hydro_force_world_n"][
+        "unit"
+    ]
+    if not validator.validate_document(missing_vector_unit):
+        raise AssertionError("malformed visualization vector channel was accepted")
+
+
 def main() -> int:
     check_compact_traceability_report()
+    check_visualization_artifact_validator()
 
     compiler_warnings = (ROOT / "cmake" / "CompilerWarnings.cmake").read_text(
         encoding="utf-8"

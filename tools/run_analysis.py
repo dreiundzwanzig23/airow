@@ -11,6 +11,8 @@ from pathlib import Path
 import sys
 from typing import Iterable
 
+from validate_visualization_artifact import validate_document
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -19,6 +21,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--summary", required=True, help="Path to summary JSON artifact")
     parser.add_argument(
         "--time-series", required=True, help="Path to time-series JSON artifact"
+    )
+    parser.add_argument(
+        "--visualization",
+        help="Optional path to airow.visualization.v1 JSON for interactive inspection",
     )
     parser.add_argument(
         "--output-dir", required=True, help="Directory where the report bundle will be written"
@@ -33,6 +39,17 @@ def load_json(path: Path) -> dict:
         raise RuntimeError(f"missing artifact: {path}") from exc
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"failed to parse JSON artifact {path}: {exc}") from exc
+
+
+def load_visualization(path: Path) -> dict:
+    visualization = load_json(path)
+    issues = validate_document(visualization)
+    if issues:
+        joined = "; ".join(issues[:4])
+        if len(issues) > 4:
+            joined += f"; {len(issues) - 4} more issue(s)"
+        raise RuntimeError(f"invalid visualization artifact {path}: {joined}")
+    return visualization
 
 
 def nested_value(mapping: dict, *keys: str) -> dict | list | float | str:
@@ -185,14 +202,94 @@ def render_metrics_table(analysis: dict) -> str:
     )
 
 
+def script_json(value: object) -> str:
+    return json.dumps(value, separators=(",", ":")).replace("</", "<\\/")
+
+
+def viewer_payload(
+    summary: dict,
+    time_series: dict,
+    visualization: dict | None,
+    generated_plots: list[str],
+) -> dict:
+    records = time_series.get("records", [])
+    return {
+        "enabled": visualization is not None,
+        "summary": {
+            "config_id": summary.get("config_id", "unknown"),
+            "status": summary.get("status", "unknown"),
+            "simulator_version": summary.get("simulator_version", "unknown"),
+            "trust_envelope": summary.get("metadata", {}).get("trust_envelope", {}),
+            "providers": summary.get("metadata", {}).get("providers", {}),
+        },
+        "records": records if isinstance(records, list) else [],
+        "visualization": visualization,
+        "plots": generated_plots,
+    }
+
+
+def render_interactive_viewer(visualization: dict | None) -> str:
+    if visualization is None:
+        return ""
+
+    channels = visualization.get("channels", {})
+    unavailable = [
+        f"{name}: {channel.get('reason', 'unavailable')}"
+        for name, channel in channels.items()
+        if isinstance(channel, dict) and channel.get("availability") == "unavailable"
+    ]
+    unavailable_markup = "\n".join(
+        f"<li>{escape(item)}</li>" for item in unavailable
+    ) or "<li>none</li>"
+
+    return f"""
+    <section class="viewer" data-airow-viewer>
+      <div class="viewer-toolbar">
+        <button id="playback-toggle" type="button">Play</button>
+        <button id="step-back" type="button">Prev</button>
+        <button id="step-forward" type="button">Next</button>
+        <input id="timeline" type="range" min="0" max="0" value="0" step="1" />
+        <div class="readout"><strong id="viewer-time">0.000 s</strong><span id="viewer-phase">phase</span></div>
+      </div>
+      <div class="viewer-grid">
+        <div>
+          <h2>Top Projection</h2>
+          <canvas id="projection-top" width="720" height="320"></canvas>
+        </div>
+        <div>
+          <h2>Side Projection</h2>
+          <canvas id="projection-side" width="720" height="320"></canvas>
+        </div>
+      </div>
+      <div class="status-row">
+        <div id="trust-status">trust-status</div>
+        <div id="vector-status">hull_hydro_force_world_n</div>
+      </div>
+      <details open>
+        <summary>Unavailable Channels</summary>
+        <ul>{unavailable_markup}</ul>
+      </details>
+      <div class="plot-board" id="plot-board">
+        <canvas class="linked-plot" data-channel="boat_speed_mps" width="720" height="180"></canvas>
+        <canvas class="linked-plot" data-channel="stroke_power_w" width="720" height="180"></canvas>
+        <span class="plot-cursor" aria-hidden="true"></span>
+      </div>
+    </section>
+"""
+
+
 def write_html_report(
     path: Path,
     summary: dict,
     metrics: dict,
     plot_files: list[str],
+    time_series: dict,
+    visualization: dict | None = None,
 ) -> None:
     analysis = summary.get("analysis", {})
     metric_table = render_metrics_table(analysis if isinstance(analysis, dict) else {})
+    interactive_markup = render_interactive_viewer(visualization)
+    payload = viewer_payload(summary, time_series, visualization, plot_files)
     plot_markup = "\n".join(
         f'<section class="plot-card"><h2>{escape(plot_file[:-4].replace("_", " ").title())}</h2>'
         f'<img src="{escape(plot_file)}" alt="{escape(plot_file)}" /></section>'
@@ -206,16 +303,19 @@ def write_html_report(
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f6f2e8;
-      --card: #fffdf8;
-      --text: #1f241f;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #172026;
+      --muted: #60707d;
       --accent: #145a7a;
-      --border: #d9d0bf;
+      --port: #b34d3d;
+      --starboard: #266f4d;
+      --border: #d8e0e6;
     }}
     body {{
       margin: 0;
       font-family: "Iosevka Aile", "IBM Plex Sans", sans-serif;
-      background: linear-gradient(180deg, #f6f2e8 0%, #efe7d7 100%);
+      background: var(--bg);
       color: var(--text);
     }}
     main {{
@@ -223,12 +323,12 @@ def write_html_report(
       margin: 0 auto;
       padding: 32px 24px 48px;
     }}
-    .hero, .plot-card {{
-      background: var(--card);
+    .hero, .plot-card, .viewer {{
+      background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 8px;
       padding: 20px 22px;
-      box-shadow: 0 10px 30px rgba(20, 30, 40, 0.08);
+      box-shadow: 0 6px 18px rgba(20, 30, 40, 0.06);
       margin-bottom: 18px;
     }}
     h1, h2 {{
@@ -242,8 +342,64 @@ def write_html_report(
     }}
     .meta div {{
       padding: 10px 12px;
-      border-radius: 12px;
+      border-radius: 8px;
       background: #f1f6f8;
+    }}
+    .viewer-toolbar {{
+      display: grid;
+      grid-template-columns: auto auto auto minmax(180px, 1fr) minmax(150px, auto);
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }}
+    button {{
+      min-height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #edf3f6;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }}
+    input[type="range"] {{
+      width: 100%;
+    }}
+    .readout {{
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }}
+    .viewer-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }}
+    canvas {{
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      display: block;
+      background: #fbfdff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }}
+    .status-row {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }}
+    .plot-board {{
+      display: grid;
+      gap: 10px;
+      position: relative;
+    }}
+    .plot-cursor {{
+      display: none;
     }}
     table {{
       width: 100%;
@@ -280,8 +436,187 @@ def write_html_report(
       </div>
       {metric_table}
     </section>
+    {interactive_markup}
     {plot_markup}
   </main>
+  <script>
+    const airowViewerData = {script_json(payload)};
+    (() => {{
+      if (!airowViewerData.enabled || !airowViewerData.visualization) {{
+        return;
+      }}
+      const samples = airowViewerData.visualization.samples || [];
+      const records = airowViewerData.records || [];
+      const timeline = document.getElementById("timeline");
+      const playButton = document.getElementById("playback-toggle");
+      const timeReadout = document.getElementById("viewer-time");
+      const phaseReadout = document.getElementById("viewer-phase");
+      const trustStatus = document.getElementById("trust-status");
+      const vectorStatus = document.getElementById("vector-status");
+      const topCanvas = document.getElementById("projection-top");
+      const sideCanvas = document.getElementById("projection-side");
+      const plotCanvases = Array.from(document.querySelectorAll(".linked-plot"));
+      let frameIndex = 0;
+      let timer = 0;
+
+      timeline.max = String(Math.max(0, samples.length - 1));
+      const trust = airowViewerData.summary.trust_envelope || {{}};
+      trustStatus.textContent = `trust-status: ${{trust.fidelity_tier || "unknown"}} / ${{trust.validity_status || "unknown"}}`;
+
+      function component(vector, axis) {{
+        if (!vector || !Array.isArray(vector.value)) return 0;
+        return Number(vector.value[axis] || 0);
+      }}
+
+      function bounds() {{
+        const xs = [];
+        const ys = [];
+        const zs = [];
+        for (const sample of samples) {{
+          const transforms = sample.transforms || {{}};
+          const hull = transforms.hull || {{}};
+          const pos = hull.position_world_m || [0, 0, 0];
+          xs.push(Number(pos[0] || 0));
+          ys.push(Number(pos[1] || 0));
+          zs.push(Number(pos[2] || 0));
+          for (const key of ["port_blade", "starboard_blade"]) {{
+            const blade = transforms[key] || {{}};
+            const tip = blade.tip_position_world_m || [0, 0, 0];
+            xs.push(Number(tip[0] || 0));
+            ys.push(Number(tip[1] || 0));
+            zs.push(Number(tip[2] || 0));
+          }}
+        }}
+        return {{
+          xMin: Math.min(...xs, -1), xMax: Math.max(...xs, 1),
+          yMin: Math.min(...ys, -1), yMax: Math.max(...ys, 1),
+          zMin: Math.min(...zs, -0.5), zMax: Math.max(...zs, 0.5),
+        }};
+      }}
+
+      const extent = bounds();
+      function map(value, min, max, size, pad) {{
+        if (Math.abs(max - min) < 1e-9) return size / 2;
+        return pad + (value - min) / (max - min) * (size - 2 * pad);
+      }}
+
+      function drawProjection(canvas, sample, mode) {{
+        const ctx = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "#fbfdff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#d8e0e6";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i += 1) {{
+          const x = 40 + i * (w - 80) / 4;
+          const y = 30 + i * (h - 60) / 4;
+          ctx.beginPath(); ctx.moveTo(x, 30); ctx.lineTo(x, h - 30); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(w - 40, y); ctx.stroke();
+        }}
+        const transforms = sample.transforms || {{}};
+        const vectors = sample.vectors || {{}};
+        const hull = transforms.hull || {{}};
+        const hullPos = hull.position_world_m || [0, 0, 0];
+        const x = map(Number(hullPos[0] || 0), extent.xMin, extent.xMax, w, 48);
+        const yValue = mode === "top" ? Number(hullPos[1] || 0) : Number(hullPos[2] || 0);
+        const yMin = mode === "top" ? extent.yMin : extent.zMin;
+        const yMax = mode === "top" ? extent.yMax : extent.zMax;
+        const y = h - map(yValue, yMin, yMax, h, 42);
+
+        ctx.fillStyle = "#145a7a";
+        ctx.fillRect(x - 24, y - 8, 48, 16);
+        ctx.fillStyle = "#172026";
+        ctx.fillText("hull", x - 12, y - 14);
+
+        for (const [key, color] of [["port_blade", "#b34d3d"], ["starboard_blade", "#266f4d"]]) {{
+          const blade = transforms[key] || {{}};
+          const tip = blade.tip_position_world_m || [0, 0, 0];
+          const bx = map(Number(tip[0] || 0), extent.xMin, extent.xMax, w, 48);
+          const byValue = mode === "top" ? Number(tip[1] || 0) : Number(tip[2] || 0);
+          const by = h - map(byValue, yMin, yMax, h, 42);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(bx, by); ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2); ctx.fill();
+        }}
+
+        const hydro = vectors.hull_hydro_force_world_n;
+        const vx = component(hydro, 0);
+        const vy = mode === "top" ? component(hydro, 1) : component(hydro, 2);
+        const scale = 2.0;
+        ctx.strokeStyle = "#0b5870";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + vx * scale, y - vy * scale); ctx.stroke();
+        vectorStatus.textContent = `hull_hydro_force_world_n: [${{component(hydro, 0).toFixed(2)}}, ${{component(hydro, 1).toFixed(2)}}, ${{component(hydro, 2).toFixed(2)}}] N world`;
+      }}
+
+      function drawPlot(canvas, channel, index) {{
+        const ctx = canvas.getContext("2d");
+        const values = records.map((record) => {{
+          if (channel === "boat_speed_mps") return Number(record.boat_speed_mps?.value || 0);
+          if (channel === "stroke_power_w") return Number(record.stroke_power_w?.value || 0);
+          return 0;
+        }});
+        const min = Math.min(...values, 0);
+        const max = Math.max(...values, 1);
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "#fbfdff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#d8e0e6";
+        ctx.strokeRect(45, 16, w - 65, h - 48);
+        ctx.strokeStyle = channel === "boat_speed_mps" ? "#145a7a" : "#266f4d";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        values.forEach((value, i) => {{
+          const px = 45 + (i / Math.max(1, values.length - 1)) * (w - 65);
+          const py = h - 32 - ((value - min) / Math.max(1e-9, max - min)) * (h - 48);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }});
+        ctx.stroke();
+        const cursorX = 45 + (index / Math.max(1, values.length - 1)) * (w - 65);
+        ctx.strokeStyle = "#b34d3d";
+        ctx.beginPath(); ctx.moveTo(cursorX, 16); ctx.lineTo(cursorX, h - 32); ctx.stroke();
+        ctx.fillStyle = "#172026";
+        ctx.fillText(channel, 48, 12);
+      }}
+
+      function render() {{
+        if (!samples.length) return;
+        frameIndex = Math.max(0, Math.min(frameIndex, samples.length - 1));
+        timeline.value = String(frameIndex);
+        const sample = samples[frameIndex];
+        timeReadout.textContent = `${{Number(sample.time_s || 0).toFixed(3)}} s`;
+        phaseReadout.textContent = String(sample.scalars?.stroke_phase || "phase");
+        drawProjection(topCanvas, sample, "top");
+        drawProjection(sideCanvas, sample, "side");
+        plotCanvases.forEach((canvas) => drawPlot(canvas, canvas.dataset.channel || "", frameIndex));
+      }}
+
+      function stop() {{
+        window.clearInterval(timer);
+        timer = 0;
+        playButton.textContent = "Play";
+      }}
+
+      playButton.addEventListener("click", () => {{
+        if (timer) {{ stop(); return; }}
+        playButton.textContent = "Pause";
+        timer = window.setInterval(() => {{
+          frameIndex = (frameIndex + 1) % Math.max(1, samples.length);
+          render();
+        }}, 200);
+      }});
+      document.getElementById("step-back").addEventListener("click", () => {{ stop(); frameIndex -= 1; render(); }});
+      document.getElementById("step-forward").addEventListener("click", () => {{ stop(); frameIndex += 1; render(); }});
+      timeline.addEventListener("input", () => {{ stop(); frameIndex = Number(timeline.value); render(); }});
+      render();
+    }})();
+  </script>
 </body>
 </html>
 """
@@ -297,6 +632,11 @@ def main() -> int:
     try:
         summary = load_json(summary_path)
         time_series = load_json(time_series_path)
+        visualization = (
+            load_visualization(Path(args.visualization))
+            if args.visualization is not None
+            else None
+        )
         records = time_series.get("records")
         if not isinstance(records, list) or not records:
             raise RuntimeError("time-series artifact has no records")
@@ -375,12 +715,20 @@ def main() -> int:
             "simulator_version": summary.get("simulator_version", "unknown"),
             "record_count": len(records),
             "generated_plots": generated_plots,
+            "interactive_visualization": visualization is not None,
             "analysis": summary.get("analysis", {}),
         }
         (output_dir / "metrics.json").write_text(
             json.dumps(metrics, indent=2) + "\n", encoding="utf-8"
         )
-        write_html_report(output_dir / "index.html", summary, metrics, generated_plots)
+        write_html_report(
+            output_dir / "index.html",
+            summary,
+            metrics,
+            generated_plots,
+            time_series,
+            visualization,
+        )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1

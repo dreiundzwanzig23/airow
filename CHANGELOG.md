@@ -1,6 +1,15 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Added optional `output.visualization_path` support for versioned
+  `airow.visualization.v1` JSON artifacts, plus a deterministic validator and
+  checked-in example configs that emit the artifact.
+- Added optional interactive inspection reports in `tools/run_analysis.py` when
+  a visualization artifact is provided, with offline playback controls, 2D
+  projection canvases, linked plot cursors, trust labels, and deterministic
+  malformed-artifact rejection.
+
 ### Changed
 - Refocused `README.md` as a concise simulator-user entry point, moving
   process, roadmap, gate, and implementation-inventory detail behind links to

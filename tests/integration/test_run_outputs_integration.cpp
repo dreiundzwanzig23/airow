@@ -42,6 +42,7 @@ struct OutputConfigJsonOptions {
   std::string_view config_id;
   std::string_view summary_path;
   std::string_view time_series_path;
+  std::string_view visualization_path = "";
   bool high_frequency_time_series{};
   double duration_s{1.0};
   double time_step_s{0.25};
@@ -94,6 +95,8 @@ make_valid_config_json_with_output(const OutputConfigJsonOptions &options) {
          std::string(options.summary_path) + "\",\n" +
          "    \"time_series_path\": \"" +
          std::string(options.time_series_path) + "\",\n" +
+         "    \"visualization_path\": \"" +
+         std::string(options.visualization_path) + "\",\n" +
          "    \"formats\": " + std::string(options.formats_json) + ",\n" +
          "    \"hdf5_path\": \"" + std::string(options.hdf5_path) + "\",\n" +
          "    \"high_frequency_time_series\": " +
@@ -148,6 +151,49 @@ void expect_matching_output_artifacts(const Json &file_summary,
   EXPECT_EQ(file_summary.at("metadata").at("state_advancement_solver_status"),
             mem_summary.at("metadata").at("state_advancement_solver_status"));
   EXPECT_EQ(file_time_series.at("records"), mem_time_series.at("records"));
+}
+
+void expect_visualization_metadata(const Json &visualization,
+                                   const Json &summary) {
+  EXPECT_EQ(visualization.at("schema_id"), "airow.visualization.v1");
+  EXPECT_EQ(visualization.at("metadata").at("config_id"), "it-visualization");
+  EXPECT_EQ(visualization.at("metadata").at("providers"),
+            summary.at("metadata").at("providers"));
+  EXPECT_EQ(visualization.at("metadata").at("trust_envelope"),
+            summary.at("metadata").at("trust_envelope"));
+  EXPECT_EQ(visualization.at("frames").at("world").at("axes"),
+            "x_forward_y_starboard_z_up");
+  EXPECT_TRUE(visualization.at("channels").contains("hull_pose"));
+  EXPECT_TRUE(visualization.at("channels").contains("hull_hydro_force"));
+  EXPECT_TRUE(visualization.at("channels").contains("gate_loads"));
+  EXPECT_EQ(visualization.at("channels")
+                .at("gate_loads")
+                .at("availability")
+                .get<std::string>(),
+            "unavailable");
+}
+
+void expect_visualization_samples(const Json &visualization,
+                                  const Json &time_series) {
+  const auto &samples = visualization.at("samples");
+  ASSERT_EQ(samples.size(), time_series.at("records").size());
+  const auto &first_sample = samples.front();
+  EXPECT_TRUE(first_sample.at("transforms").contains("hull"));
+  EXPECT_TRUE(first_sample.at("transforms").contains("port_oar"));
+  EXPECT_TRUE(first_sample.at("transforms").contains("starboard_blade"));
+  EXPECT_TRUE(first_sample.at("vectors").contains("hull_hydro_force_world_n"));
+  EXPECT_EQ(first_sample.at("vectors")
+                .at("hull_hydro_force_world_n")
+                .at("unit")
+                .get<std::string>(),
+            "N");
+  EXPECT_EQ(first_sample.at("vectors")
+                .at("hull_hydro_force_world_n")
+                .at("frame")
+                .get<std::string>(),
+            "world");
+  EXPECT_EQ(first_sample.at("time_s"),
+            time_series.at("records").front().at("time_s"));
 }
 
 } // namespace
@@ -361,4 +407,59 @@ TEST(RunOutputsIntegration, SummaryArtifactIncludesDerivedAnalysisBlock) {
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test IT-032
+ * @verifies [A-007]
+ * @notes Given a configured visualization artifact path, when the shared run
+ * path emits outputs, then it writes a versioned visualization artifact with
+ * frame, channel, sample, provider, backend, and trust metadata without
+ * changing the normal summary and time-series outputs.
+ */
+TEST(RunOutputsIntegration,
+     VisualizationArtifactIncludesFrameChannelsAndSamples) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-it-viz-summary.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() / "airow-it-viz-timeseries.json";
+  const auto visualization_path =
+      std::filesystem::temp_directory_path() / "airow-it-viz.json";
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
+
+  auto loaded =
+      project::parse_simulator_config_text(make_valid_config_json_with_output(
+          {.config_id = "it-visualization",
+           .summary_path = summary_path.string(),
+           .time_series_path = time_series_path.string(),
+           .visualization_path = visualization_path.string(),
+           .high_frequency_time_series = true}));
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.config.has_value());
+
+  FixedClock clock(
+      {std::chrono::sys_days{std::chrono::year{2026} / 4 / 5} + 10h,
+       std::chrono::sys_days{std::chrono::year{2026} / 4 / 5} + 10h + 1s});
+  const auto result = project::run_simulation(
+      *loaded.config, project::SimulationDependencies{.clock = &clock});
+
+  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.outputs.summary_written);
+  ASSERT_TRUE(result.outputs.time_series_written);
+  ASSERT_TRUE(result.outputs.visualization_written);
+  ASSERT_TRUE(std::filesystem::exists(visualization_path));
+
+  const auto summary = read_json_file(summary_path);
+  const auto time_series = read_json_file(time_series_path);
+  const auto visualization = read_json_file(visualization_path);
+
+  expect_visualization_metadata(visualization, summary);
+  expect_visualization_samples(visualization, time_series);
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
 }

@@ -470,7 +470,7 @@ Milestone framing:
 - **Priority**: P2
 - **Status**: DONE
 - **Created**: 2026-04-01
-- **Updated**: 2026-04-26
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
 - **Notes**: Delivered post-`v0.1` through an exclusive `environment`
@@ -909,12 +909,12 @@ Milestone framing:
   - The artifact declares units, frames, coordinate axes, time base, scenario id, simulator version, provider ids, backend ids, calibration ids, and fidelity/trust-envelope metadata.
   - The artifact schema is versioned, documented, and rejected deterministically by visualization tools when unsupported or malformed.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Notes**: This requirement bridges the headless simulator to understandable post-processing. It extends `R-015`, `R-034`, `R-035`, and `R-049`.
+- **Updated**: 2026-04-27
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: First slice emits and validates `airow.visualization.v1` JSON with frame, channel, transform, vector, provider, backend, and trust metadata. The offline report tool now rejects malformed visualization artifacts before generating an interactive report. Configurable reference-frame selection and richer disturbance channels remain future work.
 
 ## R-051 — Interactive 3D Run Playback
 
@@ -943,12 +943,12 @@ Milestone framing:
   - Vector overlays include scale, units, frame label, sign convention, channel provenance, and availability state.
   - A mirrored port/starboard scenario visibly changes the expected sign or direction of mirrored channels.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: If reviewers cannot see directions and frames, the simulator remains a black box even when the math is correct.
+- **Notes**: First inspection slice adds dependency-free offline 2D top/side projections with hull, oar, blade, waterline, selected vector overlays, frame/unit metadata, trust labels, and unavailable-channel reporting. `Needs-Review: yes` remains because full toggleable frame/vector coverage, mirrored scenario visualization, and moment/vector controls are still follow-up work.
 
 ## R-053 — Synchronized Time-Series Inspection
 
@@ -960,12 +960,12 @@ Milestone framing:
   - The tool identifies peak values, zero crossings, catch/release timing, stroke boundaries, validity-envelope crossings, and configured warning events.
   - Plot channels preserve units, frames, sign conventions, and availability/provenance labels from the machine-readable outputs.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-27
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: Static analysis is useful, but linked plots and 3D playback are what make state evolution intelligible.
+- **Notes**: First inspection slice adds playback controls, scrubbing, step controls, and canvas plot cursors for selected channels in the offline report. `Needs-Review: yes` remains because plot-point selection, full channel coverage, event markers, and true 3D timeline linkage are still follow-up work.
 
 ## R-054 — Run Comparison Visualization
 
@@ -1249,12 +1249,12 @@ Milestone framing:
   - The workflow is deterministic for the same inputs and build configuration.
   - The workflow documents which artifacts are for physics, which are for visualization, and which are for debugging.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Notes**: The project should have a happy path that feels like an inspectable physics lab, not a scavenger hunt through files.
+- **Updated**: 2026-04-26
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: First slice has direct CLI/example configs emitting summary, time-series, and visualization JSON paths. Human report path instructions, optional VTK/ParaView export, and debug bundles remain open.
 
 ## R-071 — Human-Facing Physics Explanation and Capability Matrix
 

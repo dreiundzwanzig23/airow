@@ -75,7 +75,8 @@ make_valid_config_json(std::string_view config_id,
                        std::string_view time_series_path,
                        std::string_view formats_json = R"(["json"])",
                        std::string_view hdf5_path = "",
-                       std::string_view truth_model_export_path = "") {
+                       std::string_view truth_model_export_path = "",
+                       std::string_view visualization_path = "") {
   std::ostringstream stream;
   stream << R"({
         "config_id": ")"
@@ -128,6 +129,8 @@ make_valid_config_json(std::string_view config_id,
          << hdf5_path << R"(",
           "truth_model_export_path": ")"
          << truth_model_export_path << R"(",
+          "visualization_path": ")"
+         << visualization_path << R"(",
           "high_frequency_time_series": true
         }
       })";
@@ -262,6 +265,72 @@ TEST(HeadlessOutputsSystem, CliEmitsStructuredOutputArtifacts) {
   remove_file_if_present(stderr_path);
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);
+}
+
+/**
+ * @test QT-049
+ * @verifies [R-050, R-070]
+ * @notes Given a headless run config with a visualization artifact path, when
+ * the CLI executes, then a versioned visualization artifact is emitted and the
+ * CLI success line exposes the artifact path for downstream tooling.
+ */
+TEST(HeadlessOutputsSystem, CliEmitsVisualizationArtifactAndPath) {
+  const auto summary_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz-summary.json";
+  const auto time_series_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz-timeseries.json";
+  const auto visualization_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz-artifact.json";
+
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
+
+  const auto config_path = write_temp_file(
+      "airow-qt-viz-config.json",
+      make_valid_config_json("qt-viz", summary_path.string(),
+                             time_series_path.string(), R"(["json"])", "", "",
+                             visualization_path.string()));
+
+  const auto stdout_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz.stdout";
+  const auto stderr_path =
+      std::filesystem::temp_directory_path() / "airow-qt-viz.stderr";
+
+  const auto command = shell_quote(kProjectAppPath.string()) + " --config " +
+                       shell_quote(config_path.string()) + " > " +
+                       shell_quote(stdout_path.string()) + " 2> " +
+                       shell_quote(stderr_path.string());
+  const auto status = std::system(command.c_str());
+
+  EXPECT_EQ(decode_exit_code(status), 0);
+  EXPECT_TRUE(read_file(stderr_path).empty());
+  EXPECT_NE(read_file(stdout_path)
+                .find("visualization=" + visualization_path.string()),
+            std::string::npos);
+
+  ASSERT_TRUE(std::filesystem::exists(summary_path));
+  ASSERT_TRUE(std::filesystem::exists(time_series_path));
+  ASSERT_TRUE(std::filesystem::exists(visualization_path));
+
+  const Json summary = Json::parse(read_file(summary_path));
+  const Json visualization = Json::parse(read_file(visualization_path));
+  EXPECT_EQ(summary.at("outputs").at("visualization").at("written").get<bool>(),
+            true);
+  EXPECT_EQ(visualization.at("schema_id").get<std::string>(),
+            "airow.visualization.v1");
+  EXPECT_EQ(
+      visualization.at("frames").at("world").at("axes").get<std::string>(),
+      "x_forward_y_starboard_z_up");
+  EXPECT_TRUE(visualization.at("channels").contains("gate_loads"));
+  EXPECT_FALSE(visualization.at("samples").empty());
+
+  remove_file_if_present(config_path);
+  remove_file_if_present(stdout_path);
+  remove_file_if_present(stderr_path);
+  remove_file_if_present(summary_path);
+  remove_file_if_present(time_series_path);
+  remove_file_if_present(visualization_path);
 }
 
 /**

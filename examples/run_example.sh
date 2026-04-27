@@ -23,6 +23,7 @@ esac
 config_path="examples/${example_name}/config.json"
 summary_path="examples/output/${example_name}/summary.json"
 time_series_path="examples/output/${example_name}/time_series.json"
+visualization_path="examples/output/${example_name}/visualization.json"
 app_path="${repo_root}/build/project_app"
 
 if [[ ! -x "${app_path}" ]]; then
@@ -35,6 +36,7 @@ printf 'example=%s\n' "${example_name}"
 printf 'config=%s/%s\n' "${repo_root}" "${config_path}"
 printf 'summary_output=%s/%s\n' "${repo_root}" "${summary_path}"
 printf 'time_series_output=%s/%s\n' "${repo_root}" "${time_series_path}"
+printf 'visualization_output=%s/%s\n' "${repo_root}" "${visualization_path}"
 
 cd "${repo_root}"
 "${app_path}" --config "${config_path}"
