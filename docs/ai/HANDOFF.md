@@ -16,6 +16,10 @@
   slice: reports now expose run-level physics capability metadata before
   inspection controls, and reduced ParaView bundles include a deterministic
   loading guide linked from report/export metadata.
+- Closed `R-062`: reduced energy accounting now appears in successful run JSON,
+  optional HDF5, terminal reports, offline analysis bundles, and
+  technique-comparison deltas, with unavailable oar kinetic energy and
+  unbounded residual status labeled explicitly.
 - Added `QT-052..QT-057` coverage for richer report controls, event/moment
   evidence, ParaView export, report-entry capability/trust metadata, and
   loading-guide linkage.

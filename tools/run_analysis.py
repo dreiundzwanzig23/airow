@@ -81,6 +81,19 @@ def scalar_channel_value(record: dict, *keys: str) -> float:
     return float(value["value"])
 
 
+def energy_channel_value(record: dict, channel: str) -> float:
+    try:
+        value = nested_value(record, "energy_accounting", channel)
+    except RuntimeError:
+        return 0.0
+    if not isinstance(value, dict) or "value" not in value:
+        return 0.0
+    raw_value = value["value"]
+    if raw_value is None:
+        return 0.0
+    return float(raw_value)
+
+
 def vector_channel_value(record: dict, *keys: str) -> list[float]:
     value = nested_value(record, *keys)
     if not isinstance(value, dict) or "vector" not in value:
@@ -314,6 +327,35 @@ def render_physics_capability_section(capability: dict) -> str:
         <thead><tr><th>Role</th><th>ID</th><th>Fidelity</th><th>Validation</th><th>Summary</th></tr></thead>
         <tbody>{render_provider_capability_rows(providers)}</tbody>
       </table>
+    </section>
+"""
+
+
+def render_energy_flow_section(energy_accounting: object) -> str:
+    if not isinstance(energy_accounting, dict):
+        return ""
+    run_metrics = energy_accounting.get("run_metrics", {})
+    residual = energy_accounting.get("residual", {})
+    dominant = energy_accounting.get("dominant_terms", [])
+    unavailable = energy_accounting.get("unavailable_terms", [])
+    if not isinstance(run_metrics, dict):
+        run_metrics = {}
+    if not isinstance(residual, dict):
+        residual = {}
+    return f"""
+    <section class="energy-flow">
+      <h2>Energy Flow</h2>
+      <div class="meta">
+        <div><strong>Blade Work</strong><br />{escape(str(run_metrics.get("blade_work_j", "unknown")))} J</div>
+        <div><strong>Aero Loss</strong><br />{escape(str(run_metrics.get("aerodynamic_loss_j", "unknown")))} J</div>
+        <div><strong>Hull-Water Loss</strong><br />{escape(str(run_metrics.get("hull_water_loss_j", "unknown")))} J</div>
+        <div><strong>Residual</strong><br />{escape(str(residual.get("value_j", "unknown")))} J</div>
+      </div>
+      <p>Residual status: {escape(str(residual.get("status", "unknown")))}</p>
+      <h3>Dominant Terms</h3>
+      <ul>{render_item_list(string_list(dominant))}</ul>
+      <h3>Unavailable Terms</h3>
+      <ul>{render_item_list(string_list(unavailable))}</ul>
     </section>
 """
 
@@ -767,6 +809,7 @@ def write_html_report(
         "physics_capability_and_trust", physics_capability_metadata(summary)
     )
     capability_markup = render_physics_capability_section(capability_metadata)
+    energy_markup = render_energy_flow_section(metrics.get("energy_accounting"))
     paraview_export_markup = render_paraview_export_section(
         metrics.get("paraview_export")
     )
@@ -810,7 +853,7 @@ def write_html_report(
       margin: 0 auto;
       padding: 32px 24px 48px;
     }}
-    .hero, .plot-card, .viewer, .capability-entry, .paraview-export {{
+    .hero, .plot-card, .viewer, .capability-entry, .paraview-export, .energy-flow {{
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -959,6 +1002,7 @@ def write_html_report(
       {metric_table}
     </section>
     {capability_markup}
+    {energy_markup}
     {paraview_export_markup}
     {interactive_markup}
     {plot_markup}
@@ -1295,6 +1339,13 @@ def main() -> int:
             for record in records
         ]
         stroke_power = [scalar_channel_value(record, "stroke_power_w") for record in records]
+        blade_power = [energy_channel_value(record, "blade_power_w") for record in records]
+        aero_loss_power = [
+            energy_channel_value(record, "aerodynamic_loss_power_w") for record in records
+        ]
+        hull_water_loss_power = [
+            energy_channel_value(record, "hull_water_loss_power_w") for record in records
+        ]
 
         plot_channels = [
             {
@@ -1378,6 +1429,33 @@ def main() -> int:
                 "values": stroke_power,
                 "color": "#4c7a34",
             },
+            {
+                "id": "blade_power_w",
+                "label": "Blade Power",
+                "unit": "W",
+                "frame": "world_x_reduced",
+                "source": "time_series.energy_accounting.blade_power_w",
+                "values": blade_power,
+                "color": "#145a7a",
+            },
+            {
+                "id": "aerodynamic_loss_power_w",
+                "label": "Aerodynamic Loss Power",
+                "unit": "W",
+                "frame": "world",
+                "source": "time_series.energy_accounting.aerodynamic_loss_power_w",
+                "values": aero_loss_power,
+                "color": "#c05a2b",
+            },
+            {
+                "id": "hull_water_loss_power_w",
+                "label": "Hull-Water Loss Power",
+                "unit": "W",
+                "frame": "world",
+                "source": "time_series.energy_accounting.hull_water_loss_power_w",
+                "values": hull_water_loss_power,
+                "color": "#8b3f6b",
+            },
         ]
 
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1417,6 +1495,16 @@ def main() -> int:
                 "m/s",
             ),
             ("stroke_power.svg", "Stroke Power", [("stroke_power_w", stroke_power, "#4c7a34")], "W"),
+            (
+                "energy_power.svg",
+                "Energy Power",
+                [
+                    ("blade_power_w", blade_power, "#145a7a"),
+                    ("aerodynamic_loss_power_w", aero_loss_power, "#c05a2b"),
+                    ("hull_water_loss_power_w", hull_water_loss_power, "#8b3f6b"),
+                ],
+                "W",
+            ),
         ]
         generated_plots: list[str] = []
         for file_name, title, series, unit in plot_specs:
@@ -1435,6 +1523,7 @@ def main() -> int:
                 visualization, plot_channels, markers
             ),
             "physics_capability_and_trust": physics_capability_metadata(summary),
+            "energy_accounting": summary.get("analysis", {}).get("energy_accounting", {}),
             "paraview_export": paraview_export,
             "analysis": summary.get("analysis", {}),
         }

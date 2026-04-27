@@ -1120,12 +1120,17 @@ Milestone framing:
   - Numerical energy residuals are bounded or explicitly reported for supported scenarios.
   - At least one scenario compares energy accounting across a baseline run and a changed technique, provider, or environment setting.
 - **Priority**: P0
-- **Status**: OPEN
+- **Status**: DONE
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
-- **Change-Type**: semantic
-- **Needs-Review**: yes
-- **Notes**: Optimization without energy accounting is especially good at finding fake improvements.
+- **Updated**: 2026-04-27
+- **Change-Type**: none
+- **Needs-Review**: no
+- **Notes**: The closure packet exposes reduced energy accounting in summary
+  JSON, time-series JSON, optional HDF5 output, human-readable reports,
+  offline analysis bundles, and the checked-in actuation-mode comparison
+  scenario. Oar kinetic energy remains explicitly unavailable until oar mass
+  and inertia modeling land, and the reported residual is labeled
+  `reported_unbounded_reduced_model` rather than conservation-validated.
 
 ## R-063 — Environmental Disturbance Model
 

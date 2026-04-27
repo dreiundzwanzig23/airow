@@ -404,6 +404,19 @@ TEST(RunOutputsIntegration, SummaryArtifactIncludesDerivedAnalysisBlock) {
                 .at("max")
                 .get<double>(),
             max_boat_speed_mps);
+  ASSERT_TRUE(analysis.contains("energy_accounting"));
+  EXPECT_EQ(analysis.at("energy_accounting")
+                .at("terms")
+                .at("oar_kinetic_energy_change_j")
+                .at("support_status")
+                .get<std::string>(),
+            "unavailable");
+  const auto time_series = read_json_file(time_series_path);
+  ASSERT_FALSE(time_series.at("records").empty());
+  EXPECT_TRUE(time_series.at("records")
+                  .front()
+                  .at("energy_accounting")
+                  .contains("hull_kinetic_energy_j"));
 
   remove_file_if_present(summary_path);
   remove_file_if_present(time_series_path);

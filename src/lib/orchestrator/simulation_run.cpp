@@ -920,6 +920,9 @@ void stamp_run_metadata(SimulationRunResult &result,
   result.metadata.normalized_config = normalize_simulator_config(config);
   result.metadata.actuation_mode = config.stroke.actuation.mode;
   result.metadata.rower_coupling_enabled = config.stroke.rower_coupling.enabled;
+  result.metadata.hull_mass_kg = config.hull.mass_kg;
+  result.metadata.hull_inertia_kg_m2 = config.hull.inertia_kg_m2;
+  result.metadata.rower_mass_kg = config.stroke.rower_coupling.rower_mass_kg;
 }
 
 void apply_startup_metadata(SimulationRunResult &result,

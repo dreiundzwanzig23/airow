@@ -266,11 +266,9 @@ void cleanup_report_run(const ReportRun &run) {
  * supported study questions, limitations, and provider explanation links
  * before users inspect or export the run.
  */
-TEST(RunAnalysisCapabilitySystem,
-     PythonToolReportsPhysicsCapabilityEntryPage) {
-  const auto run =
-      make_report_run("qt-analysis-capability-entry",
-                      "qt-analysis-capability-entry");
+TEST(RunAnalysisCapabilitySystem, PythonToolReportsPhysicsCapabilityEntryPage) {
+  const auto run = make_report_run("qt-analysis-capability-entry",
+                                   "qt-analysis-capability-entry");
   prepare_report_run(run);
   execute_report_run(run);
 
@@ -317,9 +315,8 @@ TEST(RunAnalysisCapabilitySystem,
  * metadata links that guidance to the generated VTK files.
  */
 TEST(RunAnalysisCapabilitySystem, PythonToolLinksParaViewLoadingGuide) {
-  const auto run =
-      make_report_run("qt-analysis-paraview-guide",
-                      "qt-analysis-paraview-guide");
+  const auto run = make_report_run("qt-analysis-paraview-guide",
+                                   "qt-analysis-paraview-guide");
   const auto paraview_dir = std::filesystem::temp_directory_path() /
                             "airow-qt-analysis-paraview-guide";
   prepare_report_run(run);

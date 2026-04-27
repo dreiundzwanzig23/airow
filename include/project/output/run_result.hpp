@@ -71,6 +71,9 @@ struct RunMetadata {
   double trial_alignment_end_s{};
   std::string actuation_mode{};
   bool rower_coupling_enabled{};
+  double hull_mass_kg{};
+  Vector3 hull_inertia_kg_m2{};
+  double rower_mass_kg{};
   std::vector<ExternalArtifactMetadata> external_artifacts;
   TrustEnvelopeMetadata trust_envelope;
   std::vector<NormalizedConfigEntry> normalized_config;

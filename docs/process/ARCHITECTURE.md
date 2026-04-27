@@ -196,7 +196,7 @@ The next major phase extends the existing subsystem map instead of creating new
 top-level owners.
 
 - Capability, trust, explanation, and analysis artifacts (`R-050`, `R-052`,
-  `R-062`, `R-070`, `R-071`) should start from `A-007`, with `A-001`,
+  `R-062`, `R-070`, `R-071`) start from `A-007`, with `A-001`,
   `A-008`, and `A-009` support where configuration, scenarios, or provenance
   are involved.
 - Interactive playback, linked plots, comparison views, debug replay, and
@@ -432,7 +432,7 @@ Allocation guardrails:
 
 ## A-007 — Output and Diagnostics
 - **Title**: Structured outputs and runtime diagnostics subsystem
-- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034, R-035, R-041, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-056, R-070, R-071]
+- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034, R-035, R-041, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-056, R-062, R-070, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Capture machine-readable summaries, time series, metadata, actionable diagnostics, and human-readable derived analysis for single and batch runs.
 - **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs; derived run-analysis summaries; comparison metrics; trust-envelope and uncertainty reporting; offline report generation contracts.
@@ -513,11 +513,17 @@ Allocation guardrails:
   output owner: offline reports render a physics capability and trust section
   from already-emitted summary metadata, link the public capability matrix, and
   expose matching `metrics.json` metadata before users inspect plots, vectors,
-  or exports.
+  or exports. The `R-062` closure adds `D-064` under this owner: successful
+  runs derive reduced rower input work, reconstructed blade work, hull and
+  rower/seat kinetic-energy deltas, aero and hull-water losses, unavailable
+  oar kinetic energy, and an unbounded reduced residual from existing histories
+  and stamped effective mass properties; JSON, HDF5, human-readable reports,
+  and offline analysis bundles expose units, sign conventions, integration
+  methods, and support labels without changing runtime physics.
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
-- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-056, R-070, R-071]
+- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-056, R-062, R-070, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
 - **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines; technique-comparison suites; hull or rigging sensitivity suites; measured-trial comparison suites.
@@ -549,8 +555,9 @@ Allocation guardrails:
   extends the public harness with one shared-baseline technique-comparison
   scenario type that reuses batch-style override payloads, requires an explicit
   comparison window plus varied-parameter paths, and reports deterministic
-  baseline-versus-variant delta metrics without moving metric computation or
-  serialization ownership out of `A-007`; broader acceleration- and
+  baseline-versus-variant delta metrics, now including supported reduced energy
+  deltas and unsupported energy-term reasons, without moving metric computation
+  or serialization ownership out of `A-007`; broader acceleration- and
   technique-study coverage remains open under `R-045`. The Phase 1
   trust/capability slice keeps scenario-level evidence here through a
   checked-in compact-report fixture and CLI-level `QT-048` coverage that

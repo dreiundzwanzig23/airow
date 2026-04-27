@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace project {
@@ -22,6 +23,10 @@ namespace {
 
 constexpr int K_REPORT_PRECISION = 3;
 constexpr double K_TRAPEZOID_WEIGHT = 0.5;
+constexpr double K_KINETIC_ENERGY_WEIGHT = 0.5;
+constexpr std::size_t K_DOMINANT_ENERGY_TERM_LIMIT = 3U;
+constexpr std::string_view K_ENERGY_RESIDUAL_STATUS =
+    "reported_unbounded_reduced_model";
 
 /**
  * @design D-030 — Derived run analysis summaries
@@ -31,6 +36,10 @@ constexpr double K_TRAPEZOID_WEIGHT = 0.5;
  */
 double vector_magnitude(const Vector3 &value) {
   return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
+}
+
+double dot_product(const Vector3 &lhs, const Vector3 &rhs) {
+  return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
 }
 
 void update_envelope(ScalarEnvelope &envelope, double value) {
@@ -127,6 +136,14 @@ double stroke_power_for_load(const SimulationRunResult &result,
 
 bool sample_within_window(double time_s,
                           const std::optional<PropulsionMetricWindow> &window) {
+  if (!window.has_value()) {
+    return true;
+  }
+  return time_s >= window->start_time_s && time_s <= window->end_time_s;
+}
+
+bool state_within_window(double time_s,
+                         const std::optional<EnergyAccountingWindow> &window) {
   if (!window.has_value()) {
     return true;
   }
@@ -392,6 +409,285 @@ void append_report_propulsion_metrics(std::ostringstream &report,
          << "\n";
 }
 
+EnergyAccountingTerm supported_energy_term(double value_j,
+                                           std::string support_status) {
+  return {
+      .supported = true,
+      .support_status = std::move(support_status),
+      .reason = {},
+      .value_j = value_j,
+  };
+}
+
+EnergyAccountingTerm unsupported_energy_term(std::string reason) {
+  return {
+      .supported = false,
+      .support_status = "unavailable",
+      .reason = std::move(reason),
+      .value_j = 0.0,
+  };
+}
+
+double hull_kinetic_energy_j(const RunMetadata &metadata,
+                             const MechanicalStateSnapshot &state) {
+  const auto &velocity = state.hull.linear_velocity_world_mps;
+  const auto &omega = state.hull.angular_velocity_body_radps;
+  const double translational = K_KINETIC_ENERGY_WEIGHT * metadata.hull_mass_kg *
+                               dot_product(velocity, velocity);
+  const double rotational = K_KINETIC_ENERGY_WEIGHT *
+                            (metadata.hull_inertia_kg_m2.x * omega.x * omega.x +
+                             metadata.hull_inertia_kg_m2.y * omega.y * omega.y +
+                             metadata.hull_inertia_kg_m2.z * omega.z * omega.z);
+  return translational + rotational;
+}
+
+double rower_kinetic_energy_j(const RunMetadata &metadata,
+                              const MechanicalStateSnapshot &state) {
+  const auto &velocity = state.rower_center_of_mass_velocity_world_mps;
+  return K_KINETIC_ENERGY_WEIGHT * metadata.rower_mass_kg *
+         dot_product(velocity, velocity);
+}
+
+bool finite_energy_state(const MechanicalStateSnapshot &state) {
+  return (static_cast<int>(std::isfinite(state.time_s)) &
+          static_cast<int>(
+              std::isfinite(state.hull.linear_velocity_world_mps.x)) &
+          static_cast<int>(
+              std::isfinite(state.hull.linear_velocity_world_mps.y)) &
+          static_cast<int>(
+              std::isfinite(state.hull.linear_velocity_world_mps.z)) &
+          static_cast<int>(
+              std::isfinite(state.hull.angular_velocity_body_radps.x)) &
+          static_cast<int>(
+              std::isfinite(state.hull.angular_velocity_body_radps.y)) &
+          static_cast<int>(
+              std::isfinite(state.hull.angular_velocity_body_radps.z)) &
+          static_cast<int>(
+              std::isfinite(state.rower_center_of_mass_velocity_world_mps.x)) &
+          static_cast<int>(
+              std::isfinite(state.rower_center_of_mass_velocity_world_mps.y)) &
+          static_cast<int>(std::isfinite(
+              state.rower_center_of_mass_velocity_world_mps.z))) != 0;
+}
+
+bool finite_energy_load(const LoadSample &load) {
+  const auto hull_force = load.resolved_hull_force_world_n();
+  return (static_cast<int>(std::isfinite(load.time_s)) &
+          static_cast<int>(std::isfinite(load.commanded_power_w)) &
+          static_cast<int>(std::isfinite(hull_force.x)) &
+          static_cast<int>(std::isfinite(hull_force.y)) &
+          static_cast<int>(std::isfinite(hull_force.z)) &
+          static_cast<int>(std::isfinite(load.aero_force_world_n.x)) &
+          static_cast<int>(std::isfinite(load.aero_force_world_n.y)) &
+          static_cast<int>(std::isfinite(load.aero_force_world_n.z))) != 0;
+}
+
+bool collect_selected_energy_indices(
+    const SimulationRunResult &result,
+    const std::optional<EnergyAccountingWindow> &window,
+    std::vector<std::size_t> &selected_indices, std::string &reason) {
+  if (window.has_value() && window->end_time_s <= window->start_time_s) {
+    reason = "energy accounting window must have end_time_s greater than "
+             "start_time_s";
+    return false;
+  }
+  if (result.state_history.empty() || result.load_history.empty()) {
+    reason = "energy accounting requires finite state and load samples";
+    return false;
+  }
+
+  selected_indices.clear();
+  selected_indices.reserve(result.load_history.size());
+  for (std::size_t index = 0; index < result.load_history.size(); ++index) {
+    const auto &load = result.load_history.at(index);
+    const auto state_index = std::min(index, result.state_history.size() - 1U);
+    const auto &state = result.state_history.at(state_index);
+    if (!sample_within_window(load.time_s, window)) {
+      continue;
+    }
+    if (!finite_energy_state(state) || !finite_energy_load(load)) {
+      reason = "energy accounting requires finite state and load samples";
+      return false;
+    }
+    selected_indices.push_back(index);
+  }
+  if (selected_indices.empty()) {
+    reason = "energy accounting requires finite state and load samples";
+    return false;
+  }
+  reason.clear();
+  return true;
+}
+
+double rower_input_power_w(const SimulationRunResult &result,
+                           const LoadSample &load) {
+  if (result.metadata.actuation_mode == "power_driven") {
+    return load.commanded_power_w;
+  }
+  return 0.0;
+}
+
+double aerodynamic_loss_power_w(const SimulationRunResult &result,
+                                std::size_t index, const LoadSample &load) {
+  const auto state_index = std::min(index, result.state_history.size() - 1U);
+  return std::max(
+      0.0,
+      -dot_product(
+          load.aero_force_world_n,
+          result.state_history.at(state_index).hull.linear_velocity_world_mps));
+}
+
+double hull_water_loss_power_w(const SimulationRunResult &result,
+                               std::size_t index, const LoadSample &load) {
+  const auto state_index = std::min(index, result.state_history.size() - 1U);
+  return std::max(
+      0.0,
+      -dot_product(
+          load.resolved_hull_force_world_n(),
+          result.state_history.at(state_index).hull.linear_velocity_world_mps));
+}
+
+double trapezoid_integral(const SimulationRunResult &result,
+                          const std::vector<std::size_t> &indices,
+                          double (*power_fn)(const SimulationRunResult &,
+                                             std::size_t, const LoadSample &)) {
+  double work_j = 0.0;
+  double previous_power_w = 0.0;
+  double previous_time_s = 0.0;
+  bool have_previous = false;
+  for (const auto index : indices) {
+    const auto &load = result.load_history.at(index);
+    const double power_w = power_fn(result, index, load);
+    if (have_previous) {
+      const double dt_s = load.time_s - previous_time_s;
+      if (dt_s > 0.0) {
+        work_j += K_TRAPEZOID_WEIGHT * (previous_power_w + power_w) * dt_s;
+      }
+    }
+    previous_power_w = power_w;
+    previous_time_s = load.time_s;
+    have_previous = true;
+  }
+  return work_j;
+}
+
+double trapezoid_rower_input_work(const SimulationRunResult &result,
+                                  const std::vector<std::size_t> &indices) {
+  double work_j = 0.0;
+  double previous_power_w = 0.0;
+  double previous_time_s = 0.0;
+  bool have_previous = false;
+  for (const auto index : indices) {
+    const auto &load = result.load_history.at(index);
+    const double power_w = rower_input_power_w(result, load);
+    if (have_previous) {
+      const double dt_s = load.time_s - previous_time_s;
+      if (dt_s > 0.0) {
+        work_j += K_TRAPEZOID_WEIGHT * (previous_power_w + power_w) * dt_s;
+      }
+    }
+    previous_power_w = power_w;
+    previous_time_s = load.time_s;
+    have_previous = true;
+  }
+  return work_j;
+}
+
+std::vector<std::size_t>
+selected_state_indices(const SimulationRunResult &result,
+                       const std::optional<EnergyAccountingWindow> &window) {
+  std::vector<std::size_t> indices;
+  indices.reserve(result.state_history.size());
+  for (std::size_t index = 0; index < result.state_history.size(); ++index) {
+    const auto &state = result.state_history.at(index);
+    if (state_within_window(state.time_s, window) &&
+        finite_energy_state(state)) {
+      indices.push_back(index);
+    }
+  }
+  return indices;
+}
+
+std::vector<std::string>
+dominant_supported_terms(const EnergyAccountingRunMetrics &metrics) {
+  struct NamedValue {
+    std::string name;
+    double magnitude{};
+  };
+  std::vector<NamedValue> values{
+      {"blade_work_j", std::abs(metrics.blade_work_j)},
+      {"hull_kinetic_energy_change_j",
+       std::abs(metrics.hull_kinetic_energy_change_j)},
+      {"aerodynamic_loss_j", std::abs(metrics.aerodynamic_loss_j)},
+      {"hull_water_loss_j", std::abs(metrics.hull_water_loss_j)},
+      {"rower_input_work_j", std::abs(metrics.rower_input_work_j)},
+      {"rower_seat_kinetic_energy_change_j",
+       std::abs(metrics.rower_seat_kinetic_energy_change_j)}};
+  std::sort(values.begin(), values.end(), [](const auto &lhs, const auto &rhs) {
+    return lhs.magnitude > rhs.magnitude;
+  });
+  std::vector<std::string> dominant;
+  for (const auto &value : values) {
+    if (value.magnitude > 0.0) {
+      dominant.push_back(value.name);
+    }
+    if (dominant.size() == K_DOMINANT_ENERGY_TERM_LIMIT) {
+      break;
+    }
+  }
+  return dominant;
+}
+
+EnergyAccounting unsupported_energy_accounting(const std::string &reason) {
+  EnergyAccounting accounting;
+  accounting.availability.reason = reason;
+  accounting.rower_input_work = unsupported_energy_term(reason);
+  accounting.blade_work = unsupported_energy_term(reason);
+  accounting.hull_kinetic_energy_change = unsupported_energy_term(reason);
+  accounting.rower_seat_kinetic_energy_change = unsupported_energy_term(reason);
+  accounting.oar_kinetic_energy_change = unsupported_energy_term(
+      "oar kinetic energy requires modeled oar mass and inertia");
+  accounting.aerodynamic_loss = unsupported_energy_term(reason);
+  accounting.hull_water_loss = unsupported_energy_term(reason);
+  accounting.energy_residual = unsupported_energy_term(reason);
+  return accounting;
+}
+
+void append_unavailable_term(std::vector<std::string> &terms,
+                             std::string_view name,
+                             const EnergyAccountingTerm &term) {
+  if (!term.supported) {
+    terms.push_back(std::string(name) + ": " + term.reason);
+  }
+}
+
+void append_string_list(std::ostringstream &report, std::string_view label,
+                        const std::vector<std::string> &values);
+
+void append_report_energy_flow(std::ostringstream &report,
+                               const RunAnalysis &analysis) {
+  const auto &energy = analysis.energy_accounting;
+  report << "\nEnergy Flow\n";
+  report << "  residual_status=" << energy.energy_residual.support_status
+         << " energy_residual_j="
+         << format_double(energy.run_metrics.energy_residual_j) << "\n";
+  report << "  sources: rower_input_work_j="
+         << (energy.rower_input_work.supported
+                 ? format_double(energy.run_metrics.rower_input_work_j)
+                 : "unavailable")
+         << " blade_work_j=" << format_double(energy.run_metrics.blade_work_j)
+         << "\n";
+  report << "  sinks: aerodynamic_loss_j="
+         << format_double(energy.run_metrics.aerodynamic_loss_j)
+         << " hull_water_loss_j="
+         << format_double(energy.run_metrics.hull_water_loss_j)
+         << " hull_kinetic_energy_change_j="
+         << format_double(energy.run_metrics.hull_kinetic_energy_change_j)
+         << "\n";
+  append_string_list(report, "dominant_terms", energy.dominant_terms);
+  append_string_list(report, "unavailable_terms", energy.unavailable_terms);
+}
+
 void append_string_list(std::ostringstream &report, std::string_view label,
                         const std::vector<std::string> &values) {
   report << "  " << label << ":";
@@ -439,6 +735,12 @@ void append_report_physics_capability_and_trust(
   append_provider_capability(report, "aero_load",
                              result.metadata.providers.aero_load);
   append_string_list(report, "warnings", trust.warnings);
+}
+
+void append_accounting_metrics(const SimulationRunResult &result,
+                               RunAnalysis &analysis) {
+  analysis.propulsion_metrics = analyze_propulsion_metrics(result);
+  analysis.energy_accounting = analyze_energy_accounting(result);
 }
 
 } // namespace
@@ -518,6 +820,132 @@ analyze_propulsion_metrics(const SimulationRunResult &result,
   metrics.run_metrics.propulsion_efficiency =
       work_denominator > 0.0 ? effective_work_j / work_denominator : 0.0;
   return metrics;
+}
+
+/**
+ * @design D-064 — Reduced energy-accounting output and report contract
+ * @title Deterministic reduced energy and power accounting derived from
+ * existing state and load histories
+ * @satisfies [A-007]
+ */
+EnergyAccounting
+analyze_energy_accounting(const SimulationRunResult &result,
+                          std::optional<EnergyAccountingWindow> window) {
+  EnergyAccounting accounting;
+  std::vector<std::size_t> selected_indices;
+  std::string reason;
+  if (!collect_selected_energy_indices(result, window, selected_indices,
+                                       reason)) {
+    return unsupported_energy_accounting(reason);
+  }
+
+  accounting.availability.supported = true;
+  accounting.availability.reason.clear();
+
+  if (result.metadata.actuation_mode == "power_driven") {
+    accounting.run_metrics.rower_input_work_j =
+        trapezoid_rower_input_work(result, selected_indices);
+    accounting.rower_input_work = supported_energy_term(
+        accounting.run_metrics.rower_input_work_j, "reduced_reconstructed");
+  } else {
+    accounting.rower_input_work =
+        unsupported_energy_term("rower input work requires power_driven "
+                                "actuation with commanded_power_w");
+  }
+
+  std::optional<PropulsionMetricWindow> propulsion_metrics_window;
+  if (window.has_value()) {
+    propulsion_metrics_window = PropulsionMetricWindow{
+        .start_time_s = window->start_time_s,
+        .end_time_s = window->end_time_s,
+    };
+  }
+  const auto propulsion =
+      analyze_propulsion_metrics(result, propulsion_metrics_window);
+  if (propulsion.availability.supported) {
+    accounting.run_metrics.blade_work_j =
+        propulsion.run_metrics.effective_propulsive_work_j +
+        propulsion.run_metrics.slip_loss_work_j;
+    accounting.blade_work = supported_energy_term(
+        accounting.run_metrics.blade_work_j, "reduced_reconstructed");
+  } else {
+    accounting.blade_work =
+        unsupported_energy_term(propulsion.availability.reason);
+  }
+
+  const auto states = selected_state_indices(result, window);
+  if (!states.empty() && result.metadata.hull_mass_kg > 0.0 &&
+      result.metadata.hull_inertia_kg_m2.x > 0.0 &&
+      result.metadata.hull_inertia_kg_m2.y > 0.0 &&
+      result.metadata.hull_inertia_kg_m2.z > 0.0) {
+    accounting.run_metrics.hull_kinetic_energy_change_j =
+        hull_kinetic_energy_j(result.metadata,
+                              result.state_history.at(states.back())) -
+        hull_kinetic_energy_j(result.metadata,
+                              result.state_history.at(states.front()));
+    accounting.hull_kinetic_energy_change = supported_energy_term(
+        accounting.run_metrics.hull_kinetic_energy_change_j,
+        "reduced_reconstructed");
+  } else {
+    accounting.hull_kinetic_energy_change = unsupported_energy_term(
+        "hull kinetic-energy change requires stamped hull mass, inertia, and "
+        "finite state samples");
+  }
+
+  if (!states.empty() && result.metadata.rower_coupling_enabled &&
+      result.metadata.rower_mass_kg > 0.0) {
+    accounting.run_metrics.rower_seat_kinetic_energy_change_j =
+        rower_kinetic_energy_j(result.metadata,
+                               result.state_history.at(states.back())) -
+        rower_kinetic_energy_j(result.metadata,
+                               result.state_history.at(states.front()));
+    accounting.rower_seat_kinetic_energy_change = supported_energy_term(
+        accounting.run_metrics.rower_seat_kinetic_energy_change_j,
+        "reduced_reconstructed");
+  } else {
+    accounting.rower_seat_kinetic_energy_change = unsupported_energy_term(
+        "rower/seat kinetic-energy change requires enabled rower coupling "
+        "with rower_mass_kg");
+  }
+
+  accounting.oar_kinetic_energy_change = unsupported_energy_term(
+      "oar kinetic energy is not modeled because oar mass and inertia are not "
+      "modeled in the current reduced runtime");
+
+  accounting.run_metrics.aerodynamic_loss_j =
+      trapezoid_integral(result, selected_indices, aerodynamic_loss_power_w);
+  accounting.aerodynamic_loss = supported_energy_term(
+      accounting.run_metrics.aerodynamic_loss_j, "reduced_reconstructed");
+  accounting.run_metrics.hull_water_loss_j =
+      trapezoid_integral(result, selected_indices, hull_water_loss_power_w);
+  accounting.hull_water_loss = supported_energy_term(
+      accounting.run_metrics.hull_water_loss_j, "reduced_reconstructed");
+
+  accounting.run_metrics.energy_residual_j =
+      accounting.run_metrics.blade_work_j -
+      accounting.run_metrics.hull_kinetic_energy_change_j -
+      accounting.run_metrics.aerodynamic_loss_j -
+      accounting.run_metrics.hull_water_loss_j;
+  if (accounting.rower_seat_kinetic_energy_change.supported) {
+    accounting.run_metrics.energy_residual_j -=
+        accounting.run_metrics.rower_seat_kinetic_energy_change_j;
+  }
+  accounting.energy_residual =
+      supported_energy_term(accounting.run_metrics.energy_residual_j,
+                            std::string(K_ENERGY_RESIDUAL_STATUS));
+
+  accounting.dominant_terms = dominant_supported_terms(accounting.run_metrics);
+  append_unavailable_term(accounting.unavailable_terms, "rower_input_work_j",
+                          accounting.rower_input_work);
+  append_unavailable_term(accounting.unavailable_terms,
+                          "rower_seat_kinetic_energy_change_j",
+                          accounting.rower_seat_kinetic_energy_change);
+  append_unavailable_term(accounting.unavailable_terms,
+                          "oar_kinetic_energy_change_j",
+                          accounting.oar_kinetic_energy_change);
+  append_unavailable_term(accounting.unavailable_terms, "blade_work_j",
+                          accounting.blade_work);
+  return accounting;
 }
 
 RunAnalysis analyze_run_result(const SimulationRunResult &result) {
@@ -606,7 +1034,7 @@ RunAnalysis analyze_run_result(const SimulationRunResult &result) {
     analysis.final_stroke_power_w =
         stroke_power_for_load(result, result.load_history.size() - 1U, load);
   }
-  analysis.propulsion_metrics = analyze_propulsion_metrics(result);
+  append_accounting_metrics(result, analysis);
 
   return analysis;
 }
@@ -621,6 +1049,7 @@ std::string format_run_analysis_report(const SimulationRunResult &result,
   append_report_envelopes(report, analysis);
   append_report_load_section(report, analysis, mode);
   append_report_propulsion_metrics(report, analysis);
+  append_report_energy_flow(report, analysis);
   append_report_physics_capability_and_trust(report, result);
 
   return report.str();

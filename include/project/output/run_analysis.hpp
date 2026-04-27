@@ -32,6 +32,8 @@ struct PropulsionMetricWindow {
   bool operator==(const PropulsionMetricWindow &) const = default;
 };
 
+using EnergyAccountingWindow = PropulsionMetricWindow;
+
 struct PropulsionMetricsAvailability {
   bool supported{};
   std::string reason;
@@ -58,6 +60,52 @@ struct PropulsionMetrics {
   PropulsionRunMetrics run_metrics;
 
   bool operator==(const PropulsionMetrics &) const = default;
+};
+
+struct EnergyAccountingTerm {
+  bool supported{};
+  std::string support_status;
+  std::string reason;
+  double value_j{};
+
+  bool operator==(const EnergyAccountingTerm &) const = default;
+};
+
+struct EnergyAccountingAvailability {
+  bool supported{};
+  std::string reason;
+
+  bool operator==(const EnergyAccountingAvailability &) const = default;
+};
+
+struct EnergyAccountingRunMetrics {
+  double rower_input_work_j{};
+  double blade_work_j{};
+  double hull_kinetic_energy_change_j{};
+  double rower_seat_kinetic_energy_change_j{};
+  double oar_kinetic_energy_change_j{};
+  double aerodynamic_loss_j{};
+  double hull_water_loss_j{};
+  double energy_residual_j{};
+
+  bool operator==(const EnergyAccountingRunMetrics &) const = default;
+};
+
+struct EnergyAccounting {
+  EnergyAccountingAvailability availability;
+  EnergyAccountingRunMetrics run_metrics;
+  EnergyAccountingTerm rower_input_work;
+  EnergyAccountingTerm blade_work;
+  EnergyAccountingTerm hull_kinetic_energy_change;
+  EnergyAccountingTerm rower_seat_kinetic_energy_change;
+  EnergyAccountingTerm oar_kinetic_energy_change;
+  EnergyAccountingTerm aerodynamic_loss;
+  EnergyAccountingTerm hull_water_loss;
+  EnergyAccountingTerm energy_residual;
+  std::vector<std::string> dominant_terms;
+  std::vector<std::string> unavailable_terms;
+
+  bool operator==(const EnergyAccounting &) const = default;
 };
 
 struct RunAnalysis {
@@ -89,6 +137,7 @@ struct RunAnalysis {
   TimedValue peak_starboard_blade_force_n;
   TimedValue peak_stroke_power_w;
   PropulsionMetrics propulsion_metrics;
+  EnergyAccounting energy_accounting;
 
   bool operator==(const RunAnalysis &) const = default;
 };
@@ -98,6 +147,10 @@ enum class RunAnalysisReportMode { compact, full };
 PropulsionMetrics analyze_propulsion_metrics(
     const SimulationRunResult &result,
     std::optional<PropulsionMetricWindow> window = std::nullopt);
+
+EnergyAccounting analyze_energy_accounting(
+    const SimulationRunResult &result,
+    std::optional<EnergyAccountingWindow> window = std::nullopt);
 
 RunAnalysis analyze_run_result(const SimulationRunResult &result);
 

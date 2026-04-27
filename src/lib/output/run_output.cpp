@@ -53,6 +53,7 @@ constexpr std::string_view TRUTH_MODEL_HANDOFF_SCHEMA_VERSION_V1 =
     "truth_model_input_handoff.v1";
 constexpr std::string_view VISUALIZATION_SCHEMA_ID_V1 =
     "airow.visualization.v1";
+constexpr double K_KINETIC_ENERGY_WEIGHT = 0.5;
 
 [[nodiscard]] bool build_has_hdf5_support() noexcept {
 #if defined(PROJECT_HAS_HDF5) && PROJECT_HAS_HDF5
@@ -323,6 +324,115 @@ Json propulsion_metrics_analysis_json(const PropulsionMetrics &metrics) {
       {"run_metrics", propulsion_run_metrics_json(metrics.run_metrics)}};
 }
 
+Json energy_accounting_definitions_json() {
+  return Json{
+      {"rower_input_work_j",
+       Json{{"unit", "J"},
+            {"power_unit", "W"},
+            {"sign_convention", "positive work enters the reduced rower input "
+                                "account"},
+            {"integration_method", "trapezoidal over load-sample time"},
+            {"frame", "not_applicable"}}},
+      {"blade_work_j",
+       Json{{"unit", "J"},
+            {"power_unit", "W"},
+            {"sign_convention", "positive blade work is reconstructed as "
+                                "effective propulsive power plus slip loss"},
+            {"integration_method", "trapezoidal over load-sample time"},
+            {"frame", "world_x_reduced"}}},
+      {"hull_kinetic_energy_change_j",
+       Json{{"unit", "J"},
+            {"sign_convention", "final kinetic energy minus initial kinetic "
+                                "energy"},
+            {"integration_method", "endpoint difference"},
+            {"frame", "world translation plus body angular velocity"}}},
+      {"rower_seat_kinetic_energy_change_j",
+       Json{{"unit", "J"},
+            {"sign_convention", "final rower reference kinetic energy minus "
+                                "initial rower reference kinetic energy"},
+            {"integration_method", "endpoint difference"},
+            {"frame", "world"}}},
+      {"oar_kinetic_energy_change_j",
+       Json{{"unit", "J"},
+            {"sign_convention", "unavailable until oar mass and inertia are "
+                                "modeled"},
+            {"integration_method", "unavailable"},
+            {"frame", "unavailable"}}},
+      {"aerodynamic_loss_j",
+       Json{{"unit", "J"},
+            {"power_unit", "W"},
+            {"sign_convention", "positive resisting loss is max(0, "
+                                "-dot(aero_force, hull_velocity))"},
+            {"integration_method", "trapezoidal over load-sample time"},
+            {"frame", "world"}}},
+      {"hull_water_loss_j",
+       Json{{"unit", "J"},
+            {"power_unit", "W"},
+            {"sign_convention", "positive resisting loss is max(0, "
+                                "-dot(hull_water_force, hull_velocity))"},
+            {"integration_method", "trapezoidal over load-sample time"},
+            {"frame", "world"}}},
+      {"energy_residual_j",
+       Json{{"unit", "J"},
+            {"sign_convention", "reported reduced-accounting residual; not a "
+                                "validated conservation bound"},
+            {"integration_method", "derived from reduced terms"},
+            {"frame", "not_applicable"}}}};
+}
+
+Json energy_term_json(const EnergyAccountingTerm &term) {
+  Json value = nullptr;
+  if (term.supported) {
+    value = term.value_j;
+  }
+  return Json{{"supported", term.supported},
+              {"support_status", term.support_status},
+              {"reason", term.reason},
+              {"value", value},
+              {"unit", "J"}};
+}
+
+Json energy_run_metrics_json(const EnergyAccountingRunMetrics &metrics) {
+  return Json{
+      {"rower_input_work_j", metrics.rower_input_work_j},
+      {"blade_work_j", metrics.blade_work_j},
+      {"hull_kinetic_energy_change_j", metrics.hull_kinetic_energy_change_j},
+      {"rower_seat_kinetic_energy_change_j",
+       metrics.rower_seat_kinetic_energy_change_j},
+      {"oar_kinetic_energy_change_j", metrics.oar_kinetic_energy_change_j},
+      {"aerodynamic_loss_j", metrics.aerodynamic_loss_j},
+      {"hull_water_loss_j", metrics.hull_water_loss_j},
+      {"energy_residual_j", metrics.energy_residual_j}};
+}
+
+Json energy_accounting_analysis_json(const EnergyAccounting &accounting) {
+  return Json{
+      {"definitions", energy_accounting_definitions_json()},
+      {"availability", Json{{"supported", accounting.availability.supported},
+                            {"reason", accounting.availability.reason}}},
+      {"residual", Json{{"status", accounting.energy_residual.support_status},
+                        {"value_j", accounting.run_metrics.energy_residual_j},
+                        {"bounded", false}}},
+      {"run_metrics", energy_run_metrics_json(accounting.run_metrics)},
+      {"dominant_terms", accounting.dominant_terms},
+      {"unavailable_terms", accounting.unavailable_terms},
+      {"terms",
+       Json{{"rower_input_work_j",
+             energy_term_json(accounting.rower_input_work)},
+            {"blade_work_j", energy_term_json(accounting.blade_work)},
+            {"hull_kinetic_energy_change_j",
+             energy_term_json(accounting.hull_kinetic_energy_change)},
+            {"rower_seat_kinetic_energy_change_j",
+             energy_term_json(accounting.rower_seat_kinetic_energy_change)},
+            {"oar_kinetic_energy_change_j",
+             energy_term_json(accounting.oar_kinetic_energy_change)},
+            {"aerodynamic_loss_j",
+             energy_term_json(accounting.aerodynamic_loss)},
+            {"hull_water_loss_j", energy_term_json(accounting.hull_water_loss)},
+            {"energy_residual_j",
+             energy_term_json(accounting.energy_residual)}}}};
+}
+
 bool propulsion_sample_is_finite(const MechanicalStateSnapshot &state,
                                  const LoadSample &loads) {
   return std::isfinite(state.hull.linear_velocity_world_mps.x) &&
@@ -435,6 +545,93 @@ Json propulsion_time_series_json(const SimulationRunResult &result,
   return propulsion;
 }
 
+double dot_product(const Vector3 &lhs, const Vector3 &rhs) {
+  return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
+
+double hull_kinetic_energy_j(const RunMetadata &metadata,
+                             const MechanicalStateSnapshot &state) {
+  const auto &velocity = state.hull.linear_velocity_world_mps;
+  const auto &omega = state.hull.angular_velocity_body_radps;
+  return K_KINETIC_ENERGY_WEIGHT * metadata.hull_mass_kg *
+             dot_product(velocity, velocity) +
+         K_KINETIC_ENERGY_WEIGHT *
+             (metadata.hull_inertia_kg_m2.x * omega.x * omega.x +
+              metadata.hull_inertia_kg_m2.y * omega.y * omega.y +
+              metadata.hull_inertia_kg_m2.z * omega.z * omega.z);
+}
+
+Json energy_power_channel(bool supported, double value, std::string_view unit,
+                          std::string reason = {}) {
+  Json channel{{"supported", supported}, {"unit", unit}};
+  if (supported) {
+    channel["value"] = value;
+  } else {
+    channel["value"] = nullptr;
+    channel["reason"] = std::move(reason);
+  }
+  return channel;
+}
+
+Json energy_time_series_json(const SimulationRunResult &result,
+                             const MechanicalStateSnapshot &state,
+                             const LoadSample &loads) {
+  const auto propulsion = propulsion_time_series_metrics(result, state, loads);
+  const double blade_power_w =
+      propulsion.supported
+          ? propulsion.effective_propulsive_power_w.value_or(0.0) +
+                propulsion.slip_loss_power_w.value_or(0.0)
+          : 0.0;
+  const double aero_loss_power_w =
+      std::max(0.0, -dot_product(loads.aero_force_world_n,
+                                 state.hull.linear_velocity_world_mps));
+  const double hull_water_loss_power_w =
+      std::max(0.0, -dot_product(loads.resolved_hull_force_world_n(),
+                                 state.hull.linear_velocity_world_mps));
+  const bool rower_input_supported =
+      result.metadata.actuation_mode == "power_driven";
+  const bool rower_ke_supported = result.metadata.rower_coupling_enabled &&
+                                  result.metadata.rower_mass_kg > 0.0;
+
+  return Json{
+      {"rower_input_power_w",
+       energy_power_channel(rower_input_supported, loads.commanded_power_w, "W",
+                            "rower input power requires power_driven "
+                            "actuation with commanded_power_w")},
+      {"blade_power_w",
+       energy_power_channel(propulsion.supported, blade_power_w, "W",
+                            propulsion.reason)},
+      {"hull_kinetic_energy_j",
+       energy_power_channel(true, hull_kinetic_energy_j(result.metadata, state),
+                            "J")},
+      {"rower_seat_kinetic_energy_j",
+       energy_power_channel(
+           rower_ke_supported,
+           K_KINETIC_ENERGY_WEIGHT * result.metadata.rower_mass_kg *
+               dot_product(state.rower_center_of_mass_velocity_world_mps,
+                           state.rower_center_of_mass_velocity_world_mps),
+           "J",
+           "rower/seat kinetic energy requires enabled rower "
+           "coupling with rower_mass_kg")},
+      {"oar_kinetic_energy_j",
+       energy_power_channel(
+           false, 0.0, "J",
+           "oar kinetic energy is unavailable because oar mass and inertia are "
+           "not modeled")},
+      {"aerodynamic_loss_power_w",
+       energy_power_channel(true, aero_loss_power_w, "W")},
+      {"hull_water_loss_power_w",
+       energy_power_channel(true, hull_water_loss_power_w, "W")},
+      {"support_flags",
+       Json{{"rower_input_power_w", rower_input_supported},
+            {"blade_power_w", propulsion.supported},
+            {"hull_kinetic_energy_j", true},
+            {"rower_seat_kinetic_energy_j", rower_ke_supported},
+            {"oar_kinetic_energy_j", false},
+            {"aerodynamic_loss_power_w", true},
+            {"hull_water_loss_power_w", true}}}};
+}
+
 Json analysis_json(const SimulationRunResult &result) {
   const auto analysis = analyze_run_result(result);
   Json final_state{
@@ -499,7 +696,9 @@ Json analysis_json(const SimulationRunResult &result) {
             {"peak_stroke_power_w",
              analysis_peak_json(analysis.peak_stroke_power_w, "W")}}},
       {"propulsion_metrics",
-       propulsion_metrics_analysis_json(analysis.propulsion_metrics)}};
+       propulsion_metrics_analysis_json(analysis.propulsion_metrics)},
+      {"energy_accounting",
+       energy_accounting_analysis_json(analysis.energy_accounting)}};
 }
 
 Json output_formats_json(const OutputArtifacts &outputs) {
@@ -859,6 +1058,9 @@ Json make_summary_document(const SimulationRunResult &result) {
       {"trial_alignment_end_s", result.metadata.trial_alignment_end_s},
       {"actuation_mode", result.metadata.actuation_mode},
       {"rower_coupling_enabled", result.metadata.rower_coupling_enabled},
+      {"hull_mass_kg", result.metadata.hull_mass_kg},
+      {"hull_inertia_kg_m2", vector3_json(result.metadata.hull_inertia_kg_m2)},
+      {"rower_mass_kg", result.metadata.rower_mass_kg},
       {"trust_envelope", trust_envelope_json(result.metadata.trust_envelope)}};
 
   Json external_artifacts = Json::array();
@@ -1029,6 +1231,7 @@ Json time_series_record_json(const SimulationRunResult &result,
                                             "N", "world")}}}}},
       {"stroke_power_w", scalar_channel(stroke_power_w, "W")},
       {"propulsion_metrics", propulsion_time_series_json(result, state, loads)},
+      {"energy_accounting", energy_time_series_json(result, state, loads)},
   };
 }
 
@@ -1751,6 +1954,56 @@ bool write_hdf5_propulsion_metrics_summary_group(
              {metrics.run_metrics.propulsion_efficiency}, diagnostic);
 }
 
+bool write_hdf5_energy_accounting_summary_group(
+    hid_t summary_group, const SimulationRunResult &result,
+    RunDiagnostic &diagnostic) {
+  const auto accounting = analyze_energy_accounting(result);
+  const H5ScopedHandle energy_group(H5Gcreate2(summary_group,
+                                               "energy_accounting", H5P_DEFAULT,
+                                               H5P_DEFAULT, H5P_DEFAULT),
+                                    H5Gclose);
+  if (!energy_group.valid()) {
+    diagnostic = make_output_diagnostic(
+        "$.output.hdf5_path",
+        "failed to create HDF5 energy_accounting summary group");
+    return false;
+  }
+
+  return write_string_attribute(energy_group.id, "residual_status",
+                                accounting.energy_residual.support_status,
+                                diagnostic) &&
+         write_string_attribute(energy_group.id, "integration_method",
+                                "trapezoidal over load-sample time",
+                                diagnostic) &&
+         write_double_vector_dataset(
+             energy_group.id, "rower_input_work_j",
+             {accounting.run_metrics.rower_input_work_j}, diagnostic) &&
+         write_double_vector_dataset(energy_group.id, "blade_work_j",
+                                     {accounting.run_metrics.blade_work_j},
+                                     diagnostic) &&
+         write_double_vector_dataset(
+             energy_group.id, "hull_kinetic_energy_change_j",
+             {accounting.run_metrics.hull_kinetic_energy_change_j},
+             diagnostic) &&
+         write_double_vector_dataset(
+             energy_group.id, "rower_seat_kinetic_energy_change_j",
+             {accounting.run_metrics.rower_seat_kinetic_energy_change_j},
+             diagnostic) &&
+         write_double_vector_dataset(
+             energy_group.id, "oar_kinetic_energy_change_j",
+             {accounting.run_metrics.oar_kinetic_energy_change_j},
+             diagnostic) &&
+         write_double_vector_dataset(
+             energy_group.id, "aerodynamic_loss_j",
+             {accounting.run_metrics.aerodynamic_loss_j}, diagnostic) &&
+         write_double_vector_dataset(energy_group.id, "hull_water_loss_j",
+                                     {accounting.run_metrics.hull_water_loss_j},
+                                     diagnostic) &&
+         write_double_vector_dataset(energy_group.id, "energy_residual_j",
+                                     {accounting.run_metrics.energy_residual_j},
+                                     diagnostic);
+}
+
 bool write_provider_metadata_group(hid_t parent, const char *name,
                                    const ProviderMetadata &provider,
                                    RunDiagnostic &diagnostic) {
@@ -1954,7 +2207,9 @@ bool write_hdf5_summary_group(hid_t file, const SimulationRunResult &result,
              summary_group.id, "final_hydro_moment_world_n_m_z",
              result.summary.final_hydro_moment_world_n_m.z, diagnostic) &&
          write_hdf5_propulsion_metrics_summary_group(summary_group.id, result,
-                                                     diagnostic);
+                                                     diagnostic) &&
+         write_hdf5_energy_accounting_summary_group(summary_group.id, result,
+                                                    diagnostic);
 }
 
 bool write_hdf5_metadata_attributes(hid_t metadata_group,
@@ -2092,6 +2347,17 @@ struct Hdf5TimeSeriesChannels {
   std::vector<double> effective_propulsive_power_w;
   std::vector<double> slip_loss_power_w;
   std::vector<double> propulsion_efficiency;
+  std::vector<int> rower_input_power_supported;
+  std::vector<int> blade_power_supported;
+  std::vector<int> rower_seat_kinetic_energy_supported;
+  std::vector<int> oar_kinetic_energy_supported;
+  std::vector<double> rower_input_power_w;
+  std::vector<double> blade_power_w;
+  std::vector<double> hull_kinetic_energy_j;
+  std::vector<double> rower_seat_kinetic_energy_j;
+  std::vector<double> oar_kinetic_energy_j;
+  std::vector<double> aerodynamic_loss_power_w;
+  std::vector<double> hull_water_loss_power_w;
   std::vector<std::string> stroke_phase;
 };
 
@@ -2142,6 +2408,17 @@ void reserve_hdf5_time_series_channels(Hdf5TimeSeriesChannels &channels,
   channels.effective_propulsive_power_w.reserve(sample_count);
   channels.slip_loss_power_w.reserve(sample_count);
   channels.propulsion_efficiency.reserve(sample_count);
+  channels.rower_input_power_supported.reserve(sample_count);
+  channels.blade_power_supported.reserve(sample_count);
+  channels.rower_seat_kinetic_energy_supported.reserve(sample_count);
+  channels.oar_kinetic_energy_supported.reserve(sample_count);
+  channels.rower_input_power_w.reserve(sample_count);
+  channels.blade_power_w.reserve(sample_count);
+  channels.hull_kinetic_energy_j.reserve(sample_count);
+  channels.rower_seat_kinetic_energy_j.reserve(sample_count);
+  channels.oar_kinetic_energy_j.reserve(sample_count);
+  channels.aerodynamic_loss_power_w.reserve(sample_count);
+  channels.hull_water_loss_power_w.reserve(sample_count);
   channels.stroke_phase.reserve(sample_count);
 }
 
@@ -2199,6 +2476,39 @@ void append_hdf5_time_series_sample(Hdf5TimeSeriesChannels &channels,
   channels.propulsion_efficiency.push_back(
       propulsion.propulsion_efficiency.value_or(
           std::numeric_limits<double>::quiet_NaN()));
+  const bool rower_input_supported =
+      result.metadata.actuation_mode == "power_driven";
+  const bool rower_ke_supported = result.metadata.rower_coupling_enabled &&
+                                  result.metadata.rower_mass_kg > 0.0;
+  channels.rower_input_power_supported.push_back(rower_input_supported ? 1 : 0);
+  channels.blade_power_supported.push_back(propulsion.supported ? 1 : 0);
+  channels.rower_seat_kinetic_energy_supported.push_back(
+      rower_ke_supported ? 1 : 0);
+  channels.oar_kinetic_energy_supported.push_back(0);
+  channels.rower_input_power_w.push_back(
+      rower_input_supported ? loads.commanded_power_w
+                            : std::numeric_limits<double>::quiet_NaN());
+  channels.blade_power_w.push_back(
+      propulsion.supported
+          ? propulsion.effective_propulsive_power_w.value_or(0.0) +
+                propulsion.slip_loss_power_w.value_or(0.0)
+          : std::numeric_limits<double>::quiet_NaN());
+  channels.hull_kinetic_energy_j.push_back(
+      hull_kinetic_energy_j(result.metadata, state));
+  channels.rower_seat_kinetic_energy_j.push_back(
+      rower_ke_supported
+          ? K_KINETIC_ENERGY_WEIGHT * result.metadata.rower_mass_kg *
+                dot_product(state.rower_center_of_mass_velocity_world_mps,
+                            state.rower_center_of_mass_velocity_world_mps)
+          : std::numeric_limits<double>::quiet_NaN());
+  channels.oar_kinetic_energy_j.push_back(
+      std::numeric_limits<double>::quiet_NaN());
+  channels.aerodynamic_loss_power_w.push_back(
+      std::max(0.0, -dot_product(loads.aero_force_world_n,
+                                 state.hull.linear_velocity_world_mps)));
+  channels.hull_water_loss_power_w.push_back(
+      std::max(0.0, -dot_product(loads.resolved_hull_force_world_n(),
+                                 state.hull.linear_velocity_world_mps)));
   channels.stroke_phase.push_back(stroke_phase_text(state.stroke.phase));
 }
 
@@ -2221,7 +2531,7 @@ collect_hdf5_time_series_channels(const SimulationRunResult &result,
 bool write_hdf5_scalar_time_series(hid_t group,
                                    const Hdf5TimeSeriesChannels &channels,
                                    RunDiagnostic &diagnostic) {
-  const std::array<DoubleDatasetSpec, 14> scalar_specs{{
+  const std::array<DoubleDatasetSpec, 21> scalar_specs{{
       {"time_s", &channels.time_s},
       {"boat_speed_mps", &channels.boat_speed_mps},
       {"hydro_force_x_n", &channels.hydro_force_x_n},
@@ -2238,6 +2548,13 @@ bool write_hdf5_scalar_time_series(hid_t group,
       {"effective_propulsive_power_w", &channels.effective_propulsive_power_w},
       {"slip_loss_power_w", &channels.slip_loss_power_w},
       {"propulsion_efficiency", &channels.propulsion_efficiency},
+      {"rower_input_power_w", &channels.rower_input_power_w},
+      {"blade_power_w", &channels.blade_power_w},
+      {"hull_kinetic_energy_j", &channels.hull_kinetic_energy_j},
+      {"rower_seat_kinetic_energy_j", &channels.rower_seat_kinetic_energy_j},
+      {"oar_kinetic_energy_j", &channels.oar_kinetic_energy_j},
+      {"aerodynamic_loss_power_w", &channels.aerodynamic_loss_power_w},
+      {"hull_water_loss_power_w", &channels.hull_water_loss_power_w},
   }};
 
   for (const auto &spec : scalar_specs) {
@@ -2248,6 +2565,17 @@ bool write_hdf5_scalar_time_series(hid_t group,
   }
   return write_int_vector_dataset(group, "propulsion_metrics_supported",
                                   channels.propulsion_metrics_supported,
+                                  diagnostic) &&
+         write_int_vector_dataset(group, "rower_input_power_supported",
+                                  channels.rower_input_power_supported,
+                                  diagnostic) &&
+         write_int_vector_dataset(group, "blade_power_supported",
+                                  channels.blade_power_supported, diagnostic) &&
+         write_int_vector_dataset(group, "rower_seat_kinetic_energy_supported",
+                                  channels.rower_seat_kinetic_energy_supported,
+                                  diagnostic) &&
+         write_int_vector_dataset(group, "oar_kinetic_energy_supported",
+                                  channels.oar_kinetic_energy_supported,
                                   diagnostic) &&
          write_string_vector_dataset(group, "stroke_phase",
                                      channels.stroke_phase, diagnostic);

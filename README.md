@@ -93,8 +93,11 @@ Typical runs can emit:
 
 Run summaries include provider metadata, selected mechanics and integration
 backends, diagnostics, units or frame annotations for boundary-visible
-channels, and trust-envelope metadata. The trust fields are the intended place
-to check whether a run supports a study claim.
+channels, reduced energy-accounting terms, and trust-envelope metadata. Energy
+accounting covers reconstructed blade work, hull kinetic-energy change, aero
+and hull-water losses, rower input work when power-driven actuation supports
+it, and explicit unavailable terms such as oar kinetic energy. The trust fields
+are the intended place to check whether a run supports a study claim.
 
 Visualization artifacts use the `airow.visualization.v1` schema and can be
 validated with `python3 tools/validate_visualization_artifact.py <path>`.
@@ -104,7 +107,9 @@ capability/trust entry section, offline playback, top/side/end projections,
 frame labels, world-frame and hull-body-frame vector toggles, disabled
 unavailable channels, selectable linked plots, plot-click seeking, and derived
 event markers for peaks, zero crossings, stroke boundaries, and trust
-warnings. `tools/export_visualization_vtk.py` writes a reduced
+warnings. The same report bundle writes `metrics.json.energy_accounting`, an
+`Energy Flow` section, and an energy/power plot from emitted time-series
+channels. `tools/export_visualization_vtk.py` writes a reduced
 ParaView-compatible bundle with geometry, sample vector fields, a loading
 guide, and a metadata sidecar preserving vector units, frames, and provenance.
 
@@ -118,6 +123,8 @@ The current reduced runtime supports deterministic studies around:
   scenario evidence;
 - reduced hull-water resistance and hydrostatic restoring loads;
 - reduced blade-water propulsion with slip, work, and efficiency reporting;
+- reduced energy and power accounting with support labels and explicit
+  unavailable terms;
 - reduced steady apparent-wind aero with headwind and crosswind behavior;
 - prescribed, force-driven, and power-driven low-order stroke actuation;
 - optional low-order rower center-of-mass coupling;

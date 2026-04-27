@@ -178,6 +178,10 @@ project::SimulationRunResult make_variant_result(std::string_view variant_id,
   project::SimulationRunResult result;
   result.status = project::RunStatus::success;
   result.metadata.config_id = std::string(variant_id);
+  result.metadata.hull_mass_kg = 14.0;
+  result.metadata.hull_inertia_kg_m2 = {.x = 1.1, .y = 7.8, .z = 8.2};
+  result.metadata.actuation_mode = std::string(variant_id);
+  result.metadata.rower_coupling_enabled = false;
   result.metadata.providers.blade_force = project::ProviderMetadata{
       .id = "stroke_propulsion_placeholder",
       .validity_id = "baseline-blade-force-v1",
@@ -193,6 +197,8 @@ project::SimulationRunResult make_variant_result(std::string_view variant_id,
 
   result.load_history.push_back(project::LoadSample{
       .time_s = 0.0,
+      .commanded_power_w = variant_id == "power_driven" ? 650.0 : 0.0,
+      .hull_force_world_n = {.x = -4.0 * force_scale, .y = 0.0, .z = 0.0},
       .port_blade_force_world_n = {.x = 90.0 * force_scale, .y = 0.0, .z = 0.0},
       .starboard_blade_force_world_n = {.x = 75.0 * force_scale,
                                         .y = 0.0,
@@ -200,6 +206,8 @@ project::SimulationRunResult make_variant_result(std::string_view variant_id,
   });
   result.load_history.push_back(project::LoadSample{
       .time_s = 0.6,
+      .commanded_power_w = variant_id == "power_driven" ? 650.0 : 0.0,
+      .hull_force_world_n = {.x = -5.0 * force_scale, .y = 0.0, .z = 0.0},
       .port_blade_force_world_n = {.x = 100.0 * force_scale,
                                    .y = 0.0,
                                    .z = 0.0},
@@ -209,6 +217,8 @@ project::SimulationRunResult make_variant_result(std::string_view variant_id,
   });
   result.load_history.push_back(project::LoadSample{
       .time_s = 1.2,
+      .commanded_power_w = variant_id == "power_driven" ? 650.0 : 0.0,
+      .hull_force_world_n = {.x = -3.0 * force_scale, .y = 0.0, .z = 0.0},
       .port_blade_force_world_n = {.x = 85.0 * force_scale, .y = 0.0, .z = 0.0},
       .starboard_blade_force_world_n = {.x = 70.0 * force_scale,
                                         .y = 0.0,
@@ -222,6 +232,8 @@ project::SimulationRunResult make_variant_result(std::string_view variant_id,
 /**
  * @test UT-353
  * @verifies [D-058]
+ * @case nominal
+ * @oracle exact
  * @notes Given a technique-comparison scenario artifact with one baseline
  * config and three named variants, when the loader parses it, then it
  * resolves each variant through the shared override path and preserves the
@@ -255,6 +267,8 @@ TEST(TechniqueComparisonScenario, LoadsSharedBaselineVariantsAndWindow) {
 /**
  * @test UT-354
  * @verifies [D-058]
+ * @case invalid
+ * @oracle rejection
  * @notes Given a technique-comparison scenario artifact with fewer than two
  * variants, when the loader parses it, then it rejects the shared-baseline
  * comparison surface deterministically at the variants array path.
@@ -278,6 +292,8 @@ TEST(TechniqueComparisonScenario, RejectsScenarioWithFewerThanTwoVariants) {
 /**
  * @test UT-355
  * @verifies [D-058]
+ * @case nominal
+ * @oracle exact
  * @notes Given named baseline, force-driven, and power-driven variant
  * results, when the comparison evaluator runs over the declared window, then
  * it reports deterministic delta metrics from the baseline variant to each
@@ -331,8 +347,59 @@ TEST(TechniqueComparisonScenario, EvaluatesDeterministicActuationModeDeltas) {
 }
 
 /**
+ * @test UT-387
+ * @verifies [D-058]
+ * @case nominal
+ * @oracle diagnostic
+ * @notes Given the technique-comparison evaluator receives successful
+ * baseline and changed actuation-mode runs, when comparison deltas are built,
+ * then supported reduced energy terms receive deterministic deltas while
+ * rower-input and oar kinetic-energy terms preserve unsupported reasons.
+ */
+TEST(TechniqueComparisonScenario, EvaluatesEnergyAccountingDeltas) {
+  const auto path =
+      write_temp_file("airow-ut-technique-comparison-energy.json",
+                      make_valid_technique_comparison_scenario().dump(2));
+  const auto loaded = project::load_scenario_definition_file(path);
+  ASSERT_TRUE(loaded.ok());
+  ASSERT_TRUE(loaded.scenario.has_value());
+
+  const std::vector<project::ScenarioComparisonRunResult> results{
+      {.variant_id = "prescribed_kinematic",
+       .run_result =
+           make_variant_result("prescribed_kinematic", 0.0, 1.0, 1.0)},
+      {.variant_id = "force_driven",
+       .run_result = make_variant_result("force_driven", 0.15, 1.12, 0.90)},
+      {.variant_id = "power_driven",
+       .run_result = make_variant_result("power_driven", 0.22, 1.08, 0.82)}};
+
+  const auto evaluation =
+      project::evaluate_scenario_comparison_results(*loaded.scenario, results);
+
+  ASSERT_TRUE(evaluation.ok());
+  ASSERT_EQ(evaluation.deltas.size(), 2U);
+  const auto &force_delta = evaluation.deltas.at(0);
+  EXPECT_TRUE(force_delta.energy_blade_work_j.supported);
+  EXPECT_TRUE(force_delta.energy_hull_kinetic_energy_change_j.supported);
+  EXPECT_TRUE(force_delta.energy_hull_water_loss_j.supported);
+  EXPECT_TRUE(force_delta.energy_residual_j.supported);
+  EXPECT_GT(std::abs(force_delta.energy_blade_work_j.delta), 1.0e-9);
+  EXPECT_FALSE(force_delta.energy_rower_input_work_j.supported);
+  EXPECT_NE(force_delta.energy_rower_input_work_j.reason.find("power_driven"),
+            std::string::npos);
+  EXPECT_FALSE(force_delta.energy_oar_kinetic_energy_change_j.supported);
+  EXPECT_NE(force_delta.energy_oar_kinetic_energy_change_j.reason.find(
+                "oar mass and inertia"),
+            std::string::npos);
+
+  remove_file_if_present(path);
+}
+
+/**
  * @test UT-358
  * @verifies [D-058]
+ * @case invalid
+ * @oracle rejection
  * @notes Given an invalid comparison window ordering, when the loader parses
  * the scenario, then it rejects the artifact deterministically at the
  * comparison window endpoint path.
@@ -355,6 +422,8 @@ TEST(TechniqueComparisonScenario, RejectsInvalidComparisonWindowOrdering) {
 /**
  * @test UT-359
  * @verifies [D-058]
+ * @case invalid
+ * @oracle rejection
  * @notes Given duplicate technique-comparison variant ids, when loading
  * executes, then the loader rejects the shared-baseline comparison surface
  * before runtime expansion.
@@ -378,6 +447,8 @@ TEST(TechniqueComparisonScenario, RejectsDuplicateVariantIdentifiers) {
 /**
  * @test UT-360
  * @verifies [D-058]
+ * @case equivalence
+ * @oracle diagnostic
  * @notes Given a comparison run set where propulsion metrics are unsupported
  * for one compared variant, when evaluation executes, then speed deltas remain
  * available while propulsion deltas carry a deterministic unsupported reason.
@@ -432,6 +503,8 @@ TEST(TechniqueComparisonScenario,
 /**
  * @test UT-361
  * @verifies [D-058]
+ * @case invalid
+ * @oracle rejection
  * @notes Given a non-comparison scenario, when the comparison evaluator is
  * called, then it rejects the request deterministically at the scenario type
  * boundary.
@@ -452,6 +525,8 @@ TEST(TechniqueComparisonScenario,
 /**
  * @test UT-362
  * @verifies [D-058]
+ * @case invalid
+ * @oracle diagnostic
  * @notes Given a technique-comparison scenario without the baseline run
  * result, when comparison evaluation executes, then it reports the missing
  * baseline variant deterministically.
@@ -489,6 +564,8 @@ TEST(TechniqueComparisonScenario, RejectsMissingBaselineRunResult) {
 /**
  * @test UT-363
  * @verifies [D-058]
+ * @case invalid
+ * @oracle diagnostic
  * @notes Given a compared variant that fails before completing the run, when
  * evaluation executes, then it reports the failed compared variant
  * deterministically.
@@ -534,6 +611,8 @@ TEST(TechniqueComparisonScenario, RejectsFailedComparedVariantRun) {
 /**
  * @test UT-364
  * @verifies [D-058]
+ * @case equivalence
+ * @oracle diagnostic
  * @notes Given propulsion metrics that are unsupported for both baseline and
  * compared variants, when evaluation executes, then the delta reason records
  * both unsupported paths deterministically.
@@ -593,6 +672,8 @@ TEST(TechniqueComparisonScenario,
 /**
  * @test UT-365
  * @verifies [D-058]
+ * @case invalid
+ * @oracle rejection
  * @notes Given a technique-comparison scenario definition with fewer than two
  * variants at evaluation time, when comparison evaluation executes, then it
  * rejects the request deterministically before searching for run results.
@@ -617,6 +698,8 @@ TEST(TechniqueComparisonScenario, RejectsEvaluationWithFewerThanTwoVariants) {
 /**
  * @test UT-366
  * @verifies [D-058]
+ * @case invalid
+ * @oracle diagnostic
  * @notes Given a compared variant without finite state samples inside the
  * comparison window, when evaluation executes, then it reports the missing
  * state requirement at the comparison window surface.

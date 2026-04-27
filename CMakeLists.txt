@@ -249,6 +249,7 @@ if(BUILD_TESTING)
         tests/unit/test_hydro_runtime_actuation.cpp
         tests/unit/test_stroke_command.cpp
         tests/unit/test_run_analysis.cpp
+        tests/unit/test_energy_accounting.cpp
         tests/unit/test_propulsion_metrics.cpp
         tests/unit/test_state_advancement.cpp
         tests/unit/test_state_advancement_startup_validation.cpp

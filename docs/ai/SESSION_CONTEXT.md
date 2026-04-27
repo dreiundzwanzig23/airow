@@ -3,7 +3,7 @@
 ## Snapshot
 - **Date**: 2026-04-27
 - **Branch**: `new_roadmap`
-- **Current Objective**: Continue additive visualization/trust surfaces without changing reduced-runtime physics.
+- **Current Objective**: Continue additive artifact/report surfaces without changing reduced-runtime physics.
 
 ## Current State
 - The simulator remains a headless-first deterministic single-scull runtime
@@ -30,6 +30,11 @@
   ParaView/VTK geometry/vector files plus a metadata sidecar and deterministic
   loading guide. Full 3D playback, unavailable interface/disturbance vectors,
   reference-scenario loading review, and richer exports remain open.
+- `R-062` is DONE as of 2026-04-27. Successful runs now expose reduced energy
+  accounting in summary/time-series JSON, optional HDF5, terminal reports,
+  offline analysis bundles, and the checked-in technique-comparison scenario.
+  Oar kinetic energy remains explicitly unavailable until oar mass/inertia
+  modeling lands, and residuals are labeled unbounded reduced-model residuals.
 - `R-019` and `R-023` review flags are cleared as of 2026-04-27.
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
 - Active docs stay compact; use `python3 tools/tracecheck.py --json` for full

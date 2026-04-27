@@ -1354,6 +1354,18 @@ std::string combine_propulsion_reason(const PropulsionMetrics &baseline,
   return "compared variant: " + compared.availability.reason;
 }
 
+std::string combine_energy_reason(const EnergyAccountingTerm &baseline,
+                                  const EnergyAccountingTerm &compared) {
+  if (!baseline.supported && !compared.supported) {
+    return "baseline variant: " + baseline.reason +
+           "; compared variant: " + compared.reason;
+  }
+  if (!baseline.supported) {
+    return "baseline variant: " + baseline.reason;
+  }
+  return "compared variant: " + compared.reason;
+}
+
 void append_comparison_issue(ScenarioComparisonEvaluationResult &evaluation,
                              std::string code, std::string path,
                              std::string message) {
@@ -1445,6 +1457,54 @@ void assign_unsupported_propulsion_deltas(ScenarioComparisonDelta &delta,
   delta.propulsion_efficiency = unsupported_metric_delta(reason);
   delta.peak_port_blade_slip_speed_mps = unsupported_metric_delta(reason);
   delta.peak_starboard_blade_slip_speed_mps = unsupported_metric_delta(reason);
+}
+
+ScenarioComparisonMetricDelta
+energy_metric_delta(const EnergyAccountingTerm &baseline_term,
+                    const EnergyAccountingTerm &compared_term,
+                    double baseline_value, double compared_value) {
+  if (baseline_term.supported && compared_term.supported) {
+    return supported_metric_delta(baseline_value, compared_value);
+  }
+  return unsupported_metric_delta(
+      combine_energy_reason(baseline_term, compared_term));
+}
+
+void assign_energy_deltas(ScenarioComparisonDelta &delta,
+                          const EnergyAccounting &baseline,
+                          const EnergyAccounting &compared) {
+  delta.energy_blade_work_j = energy_metric_delta(
+      baseline.blade_work, compared.blade_work,
+      baseline.run_metrics.blade_work_j, compared.run_metrics.blade_work_j);
+  delta.energy_hull_kinetic_energy_change_j = energy_metric_delta(
+      baseline.hull_kinetic_energy_change, compared.hull_kinetic_energy_change,
+      baseline.run_metrics.hull_kinetic_energy_change_j,
+      compared.run_metrics.hull_kinetic_energy_change_j);
+  delta.energy_aerodynamic_loss_j =
+      energy_metric_delta(baseline.aerodynamic_loss, compared.aerodynamic_loss,
+                          baseline.run_metrics.aerodynamic_loss_j,
+                          compared.run_metrics.aerodynamic_loss_j);
+  delta.energy_hull_water_loss_j =
+      energy_metric_delta(baseline.hull_water_loss, compared.hull_water_loss,
+                          baseline.run_metrics.hull_water_loss_j,
+                          compared.run_metrics.hull_water_loss_j);
+  delta.energy_rower_input_work_j =
+      energy_metric_delta(baseline.rower_input_work, compared.rower_input_work,
+                          baseline.run_metrics.rower_input_work_j,
+                          compared.run_metrics.rower_input_work_j);
+  delta.energy_rower_seat_kinetic_energy_change_j = energy_metric_delta(
+      baseline.rower_seat_kinetic_energy_change,
+      compared.rower_seat_kinetic_energy_change,
+      baseline.run_metrics.rower_seat_kinetic_energy_change_j,
+      compared.run_metrics.rower_seat_kinetic_energy_change_j);
+  delta.energy_oar_kinetic_energy_change_j = energy_metric_delta(
+      baseline.oar_kinetic_energy_change, compared.oar_kinetic_energy_change,
+      baseline.run_metrics.oar_kinetic_energy_change_j,
+      compared.run_metrics.oar_kinetic_energy_change_j);
+  delta.energy_residual_j =
+      energy_metric_delta(baseline.energy_residual, compared.energy_residual,
+                          baseline.run_metrics.energy_residual_j,
+                          compared.run_metrics.energy_residual_j);
 }
 
 ScenarioComparisonDelta
@@ -1573,6 +1633,8 @@ ScenarioComparisonEvaluationResult evaluate_scenario_comparison_results(
 
   const auto baseline_propulsion = analyze_propulsion_metrics(
       baseline_run->run_result, propulsion_window(scenario.comparison_window));
+  const auto baseline_energy = analyze_energy_accounting(
+      baseline_run->run_result, propulsion_window(scenario.comparison_window));
 
   for (std::size_t index = 1; index < scenario.variants.size(); ++index) {
     const auto &variant = scenario.variants.at(index);
@@ -1597,9 +1659,13 @@ ScenarioComparisonEvaluationResult evaluate_scenario_comparison_results(
 
     const auto compared_propulsion = analyze_propulsion_metrics(
         run_result->run_result, propulsion_window(scenario.comparison_window));
-    evaluation.deltas.push_back(build_comparison_delta(
+    const auto compared_energy = analyze_energy_accounting(
+        run_result->run_result, propulsion_window(scenario.comparison_window));
+    auto delta = build_comparison_delta(
         baseline_variant, variant, baseline_mean_speed, compared_mean_speed,
-        baseline_propulsion, compared_propulsion));
+        baseline_propulsion, compared_propulsion);
+    assign_energy_deltas(delta, baseline_energy, compared_energy);
+    evaluation.deltas.push_back(std::move(delta));
   }
 
   return evaluation;

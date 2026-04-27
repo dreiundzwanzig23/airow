@@ -139,6 +139,14 @@ struct ScenarioComparisonDelta {
   ScenarioComparisonMetricDelta propulsion_efficiency;
   ScenarioComparisonMetricDelta peak_port_blade_slip_speed_mps;
   ScenarioComparisonMetricDelta peak_starboard_blade_slip_speed_mps;
+  ScenarioComparisonMetricDelta energy_blade_work_j;
+  ScenarioComparisonMetricDelta energy_hull_kinetic_energy_change_j;
+  ScenarioComparisonMetricDelta energy_aerodynamic_loss_j;
+  ScenarioComparisonMetricDelta energy_hull_water_loss_j;
+  ScenarioComparisonMetricDelta energy_rower_input_work_j;
+  ScenarioComparisonMetricDelta energy_rower_seat_kinetic_energy_change_j;
+  ScenarioComparisonMetricDelta energy_oar_kinetic_energy_change_j;
+  ScenarioComparisonMetricDelta energy_residual_j;
 
   bool operator==(const ScenarioComparisonDelta &) const = default;
 };

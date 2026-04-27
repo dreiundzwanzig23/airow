@@ -490,10 +490,16 @@ TEST(RunAnalysisSystem, PythonToolGeneratesStaticReportBundle) {
   ASSERT_TRUE(std::filesystem::exists(report_dir / "metrics.json"));
   ASSERT_TRUE(std::filesystem::exists(report_dir / "boat_speed.svg"));
   ASSERT_TRUE(std::filesystem::exists(report_dir / "stroke_power.svg"));
+  ASSERT_TRUE(std::filesystem::exists(report_dir / "energy_power.svg"));
 
   const auto metrics = read_json_file(report_dir / "metrics.json");
   EXPECT_EQ(metrics.at("config_id").get<std::string>(), "qt-analysis-tool");
   EXPECT_GE(metrics.at("record_count").get<std::size_t>(), 1U);
+  EXPECT_TRUE(metrics.contains("energy_accounting"));
+  EXPECT_TRUE(metrics.at("generated_plots").dump().find("energy_power.svg") !=
+              std::string::npos);
+  const auto html = read_file(report_dir / "index.html");
+  EXPECT_NE(html.find("Energy Flow"), std::string::npos);
 
   remove_file_if_present(config_path);
   remove_file_if_present(summary_path);

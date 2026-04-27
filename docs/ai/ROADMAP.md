@@ -10,6 +10,9 @@
 - `R-050`, `R-052`, `R-053`, `R-056`, and `R-070` are `IN_PROGRESS` for the
   visualization-ready artifact, offline report controls, reduced ParaView/VTK
   export, and analysis-first CLI slices.
+- `R-062` is DONE for reduced energy/power accounting outputs, reports,
+  offline bundles, and technique-comparison evidence; future oar kinetic
+  energy still depends on explicit oar mass/inertia modeling.
 - The active long-range plan is `docs/process/ROADMAP_FULL_SIMULATION.md`.
 - Superseded planning snapshots live under `docs/archive/` and
   `docs/ai/archive/`; do not use them as current implementation guidance.
@@ -19,7 +22,7 @@
   `R-071`, `R-035`, and `R-049`.
 - Build out the visualization-ready path from the current
   `airow.visualization.v1` artifact toward richer channels and export tooling:
-  `R-050`, `R-052`, `R-062`, and `R-070`.
+  `R-050`, `R-052`, and `R-070`.
 - Extend interactive inspection beyond the first offline 2D report:
   `R-051`, `R-053`, `R-054`, `R-055`, and `R-056`.
 - Keep geometry and physics expansion staged behind explicit validity and

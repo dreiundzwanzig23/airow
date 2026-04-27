@@ -24,6 +24,9 @@
   sidecar preserving vector unit, frame, and provenance labels.
 - Added offline report physics capability/trust entry metadata and a
   deterministic ParaView loading guide linked from reduced export bundles.
+- Added reduced energy and power accounting across JSON, optional HDF5,
+  human-readable reports, offline analysis bundles, and technique-comparison
+  scenario deltas, with explicit support labels for unavailable terms.
 
 ### Changed
 - Tightened the repository TDD standard so functional work repeats
