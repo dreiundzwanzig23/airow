@@ -29,6 +29,7 @@
   scenario deltas, with explicit support labels for unavailable terms.
 
 ### Changed
+- Introduced lane-based Codex workflow routing so strict TDD/trace gates remain for behavior and public contracts while exploration, tiny fixes, release docs, and handoffs use lighter scoped obligations.
 - Tightened the repository TDD standard so functional work repeats
   red/green/refactor per observable behavior slice, RGR evidence must appear in
   order, and changed unit tests must declare one `@case` and one `@oracle`.

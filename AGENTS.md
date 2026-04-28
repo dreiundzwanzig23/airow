@@ -1,11 +1,13 @@
 # AGENTS.md — Codex Operating Contract
 
-This repository bootstraps an AI-guided C++ rowing simulator project.
-Autonomous work must be traceable, test-driven, and resumable.
+AIRow is an AI-guided C++ rowing simulator. Work must stay testable, traceable, and resumable, but the default path is the lightest lane that safely satisfies the task.
 
-## Policy Core
+## Operating Principle
 
-### Source of truth
+Be strict about behavior, public contracts, traceability, and completion gates. Be lean about context, documentation churn, and handoff artifacts. Do not turn every small change into a major-change workflow.
+
+## Source of Truth
+
 - Product intent and acceptance: `docs/process/REQUIREMENTS.md`
 - Architecture intent: `docs/process/ARCHITECTURE.md`
 - Architecture allocation policy: `docs/process/ARCHITECTURE_POLICY.md`
@@ -13,102 +15,125 @@ Autonomous work must be traceable, test-driven, and resumable.
 - Approved core technologies: `docs/process/TECHNOLOGY_STACK.md`
 - Durable technical decisions: `docs/ai/DECISIONS.md`
 - Design intent: code Doxygen `@design` blocks
-- Verification intent: tests Doxygen `@test` blocks
-- Session continuity: `docs/ai/*`
+- Verification intent: test Doxygen `@test` blocks
+- Compact workflow index: `docs/process/WORKFLOW.md`
+- Operational playbooks: `.agents/skills/*/SKILL.md`
 
-### Context efficiency defaults
-- Start broad orientation with `./scripts/project_stats.py --format agent`.
-- Retrieve context with a locate-then-slice pattern:
-  - use `rg --files` / targeted `rg -n` first,
-  - then read only the needed file section with `sed -n` or equivalent.
-- Default search exclusions unless the task explicitly needs them:
-  - `docs/ai/archive/**`
-  - `docs/archive/**`
-  - `docs/process/TRACEABILITY.md`
-  - `build/**`, `build-*/**`, `build/logs/**`, `**/*.log`
-- Keep active AI docs compact and non-duplicative:
-  - `SESSION_CONTEXT.md` = current state and guardrails only
-  - `HANDOFF.md` = latest-session delta only
-  - `ROADMAP.md` = open/future direction only
-  - `DECISIONS.md` = active constraints only; older ADRs belong in archive
+## Context Budget
 
-### Non-negotiable workflow
-1. Select actionable requirement work in this order:
-   - requirements with `Needs-Review: yes`
-   - then highest-priority `OPEN` requirement
-2. Perform architecture allocation before writing tests:
-   - identify candidate owning `A-*` items,
-   - prefer extending an existing coherent subsystem,
-   - record the architecture delta before TDD,
-   - justify any new `A-*` with explicit cohesion and reuse intent.
-3. Red: add/adjust one focused failing test first for the current functional
-   behavior slice and capture test failure evidence.
-4. Green: implement the minimum code needed to make the targeted failing tests
-   pass.
-5. Refactor: run a mandatory behavior-preserving cleanup pass after green; if
-   no structural changes are needed, record an explicit no-op rationale.
-6. Re-run the fast lane (`./scripts/test_tdd.sh`) after refactor before full
-   completion gates.
-7. Run required quality gates.
-8. Update traceability/context artifacts when triggered.
+Start with `./scripts/project_stats.py --format agent` only when broad orientation is useful. Retrieve context with locate-then-slice:
 
-Never skip failing-tests-first for functional behavior changes, and never skip
-the refactor phase for functional loops.
-Repeat red/green/refactor for each distinct observable behavior slice; when a
-new behavior is discovered during implementation, stop and add the next failing
-test before continuing.
-Use explicit `rgr:red`, `rgr:green`, and `rgr:refactor` markers in commit
-messages or evidence notes.
-`./scripts/check_rgr_evidence.sh` is strict by default and is wired into
-`test_tdd.sh` and `verify.sh`; use `RGR_ENFORCEMENT_MODE=warn` or `off` only
-as explicit local overrides.
-RGR evidence markers must appear in slice order: `rgr:red`, then `rgr:green`,
-then `rgr:refactor`; repeat that sequence for multi-slice work.
-Do not create a 1:1 `R -> A` mapping unless `Allocation Rationale` makes the
-need explicit.
-When a task affects technology choice, solver direction, file-format policy, or
-external-tool integration, align with `docs/process/TECHNOLOGY_STACK.md` and
-`docs/ai/DECISIONS.md` before implementation.
-When a change is cross-cutting, migratory, or architectural, use
-`.agents/skills/major-change-loop/SKILL.md` instead of the ordinary TDD loop.
+1. Search with `rg --files` or targeted `rg -n`.
+2. Read only the needed sections with `sed -n` or an equivalent slice.
+3. Load skill files only when the selected work lane requires them.
 
-### Lightweight requirement-change policy
-- Requirement metadata fields:
-  - `Change-Type: none | editorial | semantic`
-  - `Needs-Review: yes | no`
-  - `Change-Note: optional`
+Default search exclusions unless explicitly needed:
+
+- `docs/ai/archive/**`
+- `docs/archive/**`
+- `docs/process/TRACEABILITY.md`
+- `build/**`, `build-*/**`, `build/logs/**`, `**/*.log`
+
+Use `python3 tools/tracecheck.py --json` for full trace details instead of expanding generated trace markdown by hand.
+
+## Work Lane Router
+
+Before editing, classify the task and use the lightest sufficient lane. If the user directly specifies a task, that task overrides backlog selection.
+
+| Lane | Use for | Required discipline | Typical gate |
+| --- | --- | --- | --- |
+| 0 Explore | Inspection, explanation, impact estimate, plan only | No edits. List inspected files and recommended lane. | None |
+| 1 Tiny local fix | Typo, local cleanup, one small non-public fix | Targeted check. No requirement or architecture edits unless already implicated. | Targeted command or relevant narrow script |
+| 2 Functional behavior slice | Feature or defect changing observable simulator/library behavior | Failing test first, green, mandatory refactor. Identify existing `R-*`, `A-*`, `D-*` owners. | `./scripts/test_tdd.sh` after refactor |
+| 3 Public interface or artifact | Config, CLI, examples, scenarios, output JSON/HDF5, reports, visualization, user docs | TDD plus public-contract docs and trace updates when affected. | Full local gates before completion |
+| 4 Major architecture or migration | Cross-subsystem seam work, backend replacement, semantic multi-requirement change, architecture split | Load major-change skill. Impact map and characterization tests before invasive edits. | Full gates plus drift review |
+| 5 Release or handoff | Milestone wrap-up, merge/release preparation, durable handoff | Release-doc sync and workflow audit. | `./scripts/verify.sh` |
+
+Escalate only when the actual change crosses the next lane's trigger. Do not use Lane 4 merely because a diff touches many docs or generated trace files.
+
+## Non-Negotiables
+
+- Functional behavior changes use failing-tests-first red/green/refactor.
+- Repeat red/green/refactor for each distinct observable behavior slice.
+- Keep `rgr:red`, `rgr:green`, and `rgr:refactor` markers in order for behavior-changing work.
+- Never skip the refactor phase for a functional loop; record a no-op rationale when no cleanup is needed.
+- Prefer existing coherent architecture owners before adding new `A-*` items.
+- Do not create thin 1:1 `R -> A` mappings unless `Allocation Rationale` makes the cohesion need explicit.
+- Align with `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` before changing technology choice, solver direction, file-format policy, or external-tool integration.
+- Use `.agents/skills/major-change-loop/SKILL.md` for cross-cutting, migratory, architectural, backend, or semantic multi-requirement changes.
+
+## Requirement Change Policy
+
+Requirement metadata fields:
+
+- `Change-Type: none | editorial | semantic`
+- `Needs-Review: yes | no`
+- `Change-Note: optional`
+
+Rules:
+
 - `Change-Type: semantic` must set `Needs-Review: yes`.
 - A requirement with `Needs-Review: yes` is not fully aligned even if `Status: DONE`.
 - Newer requirement wording overrides older notes/examples.
-- Removed or replaced terms must be removed from affected architecture, tests,
-  README, and examples/docs.
-- Semantic requirement changes require a drift review across affected
-  requirements, architecture, tests, and user-facing docs.
-- A task touching `Needs-Review` items is complete only when each touched item
-  is either cleared to `Needs-Review: no` or explicitly left flagged with a
-  documented follow-up.
-- Keep this lightweight: do not introduce formal approval workflows,
-  baselines, or revision machinery.
+- Removed or replaced terms must be removed from affected architecture, tests, README, examples, and docs.
+- Semantic requirement changes require drift review across affected requirements, architecture, tests, and user-facing docs.
+- A task touching `Needs-Review` items is complete only when each touched item is cleared to `Needs-Review: no` or explicitly left flagged with a follow-up.
+- Keep this lightweight; do not add formal approval workflows, baselines, or revision machinery.
 
-### Traceability model
-- IDs: `R-###`, `A-###`, `D-###`, `UT-###`, `IT-###`, `QT-###`
-- Layer mapping:
-  - `UT-*` verifies one-or-more `D-*`
-  - `IT-*` verifies one-or-more `A-*`
-  - `QT-*` verifies one-or-more `R-*`
-- Optional overlay:
-  - `@aux yes` marks non-evidence tests that are reported separately and
-    excluded from `DONE` evidence gates
-- Evidence gates:
-  - `D-*` needs at least one `UT-*`
-  - `A-*` (`CODE`) needs at least one `D-*` and one `IT-*`
-  - `A-*` (`ASSET`) needs at least one linked `QT-*` via satisfied `R-*`
-  - `R-*` needs at least one `A-*` and one `QT-*`
-- Validate via:
-  - `python3 tools/tracecheck.py --write`
+## Documentation Update Triggers
 
-### Required quality gates
-Run all before considering work complete:
+Update only when triggered by the actual change:
+
+| Artifact | Update when |
+| --- | --- |
+| `docs/process/REQUIREMENTS.md` | Requirement wording, status, acceptance, semantics, or review flags change |
+| `docs/process/ARCHITECTURE.md` | Subsystem ownership, boundaries, allocation, or architecture status changes |
+| Code/test Doxygen IDs | Design or verification contract changes near code/tests |
+| `docs/process/TRACEABILITY.md` | Regenerated by `python3 tools/tracecheck.py --write` after trace-relevant links/metadata change |
+| `README.md` | Setup, CLI usage, examples, public behavior, or user-visible output changes |
+| `CHANGELOG.md` | User-visible behavior, process-visible workflow, public artifact, or milestone state changes |
+| `docs/ai/DECISIONS.md` | Durable technical decision or constraint changes |
+| `docs/ai/SESSION_CONTEXT.md` | Persistent current-state guardrails or next actions change |
+| `docs/ai/HANDOFF.md` | Session or milestone handoff is being prepared |
+| `docs/ai/ROADMAP.md` | Backlog or milestone direction changes |
+
+Do not update README, CHANGELOG, `docs/ai/*`, requirements, or architecture only to prove that work happened.
+
+## Traceability Model
+
+IDs:
+
+- Requirements: `R-###`
+- Architecture: `A-###`
+- Design: `D-###`
+- Tests: `UT-###`, `IT-###`, `QT-###`
+
+Layer mapping:
+
+- `UT-*` verifies one or more `D-*`
+- `IT-*` verifies one or more `A-*`
+- `QT-*` verifies one or more `R-*`
+- `@aux yes` marks informational tests that are excluded from `DONE` evidence gates
+
+Evidence gates:
+
+- `D-*` needs at least one `UT-*`
+- `A-*` with `CODE` status needs at least one `D-*` and one `IT-*`
+- `A-*` with `ASSET` status needs at least one linked `QT-*` through satisfied `R-*`
+- `R-*` needs at least one `A-*` and one `QT-*`
+
+Validate traceability with:
+
+```bash
+python3 tools/tracecheck.py --write
+```
+
+Do not hand-edit generated trace output.
+
+## Quality Gates
+
+Use the lane table first. For merge-ready, release-ready, public-interface, or major work, run the full local completion gates:
+
 ```bash
 ./scripts/format.sh
 ./scripts/lint.sh
@@ -118,53 +143,52 @@ Run all before considering work complete:
 python3 tools/tracecheck.py --write
 ```
 
-`./scripts/test.sh` is the default full local gate.
-`./scripts/test_tdd.sh` is the fast local iteration lane.
-`./scripts/test_aux.sh` is the auxiliary contract lane.
-`./scripts/verify.sh` is the aggregate pre-merge run.
-`./scripts/check_rgr_evidence.sh` checks for `rgr:red`, `rgr:green`, and
-`rgr:refactor` evidence markers in order.
+Common lanes:
 
-### Context/document completion rules
-A task is complete only when:
-- Tests and required gates pass.
-- Trace check passes.
-- Relevant docs and AI context files are updated.
-- `CHANGELOG.md` and `README.md` reflect user/process-visible changes.
+- Fast functional iteration: `./scripts/test_tdd.sh`
+- Standard full local test: `./scripts/test.sh`
+- Auxiliary script/tool contract checks: `./scripts/test_aux.sh`
+- Protected performance guardrail: `./scripts/test_performance.sh`
+- Aggregate pre-merge verification: `./scripts/verify.sh`
+- RGR evidence check: `./scripts/check_rgr_evidence.sh`
 
-### Final response standard
-- When code, documentation, process, or repository files are changed, the final
-  response must include a one-line `Commit message:` summary suitable for use as
-  a git commit message.
+`check_rgr_evidence.sh`, `test_tdd.sh`, and `verify.sh` are strict by default for RGR evidence. Use `RGR_ENFORCEMENT_MODE=warn` or `off` only as an explicit local override for lanes that do not change functional behavior.
 
-Update `docs/ai/*` when milestone-level change occurs:
-- requirement status changes (`R-*`)
-- architecture status changes (`A-*`)
-- approved technology direction changes
-- durable technical decision changes
-- workflow, gate, or public interface contract changes
+## Completion Rules
+
+A task is complete when:
+
+- The selected lane is named.
+- Required tests/gates for that lane pass, or blockers are reported clearly.
+- Tracecheck is run when trace-relevant files changed.
+- Documentation is updated only where the trigger table requires it.
+- The final response lists changed areas and commands run.
+- Repository-changing final responses include one line: `Commit message: ...`
 
 ## Change Boundaries
+
 - `include/`: public headers and stable interfaces
 - `src/lib/`: library logic
 - `src/app/`: program entry
 - `scripts/`: deterministic local/CI-compatible automation
-- `tools/`: traceability and policy guardrails
+- `tools/`: traceability, analysis, and policy guardrails
+- `.agents/skills/`: on-demand operational playbooks
 
-Avoid adding narrow process policy unless it is reusable or clearly needed by
-the simulator project.
+Avoid adding narrow process policy unless it is reusable or clearly needed by the simulator project. Prefer deleting stale process guidance over wrapping it.
+
 Avoid non-apt dependencies unless explicitly approved.
 
-## Legacy
-- Do not preserve outdated bootstrap or template workflow just for
-  compatibility.
-- Prefer deleting stale process guidance over adding wrappers around it.
+## Codex, OpenAI, and ChatGPT
 
-## Codex, OPENAI, ChatGPT
-Always use the OpenAI developer documentation MCP server if you need to work with the OpenAI API, ChatGPT Apps SDK, Codex,… without me having to explicitly ask.
+Always use the OpenAI developer documentation MCP server if you need to work with the OpenAI API, ChatGPT Apps SDK, Codex, or related OpenAI developer tooling.
 
-## Repository Skills (Load On Demand)
-- Skill index: `.agents/skills/README.md`
+## Repository Skills
+
+Skill index: `.agents/skills/README.md`
+
+Load on demand:
+
+- `.agents/skills/work-lanes/SKILL.md`
 - `.agents/skills/tdd-loop/SKILL.md`
 - `.agents/skills/unit-test-design/SKILL.md`
 - `.agents/skills/major-change-loop/SKILL.md`
@@ -175,5 +199,4 @@ Always use the OpenAI developer documentation MCP server if you need to work wit
 - `.agents/skills/simulation-evidence-design/SKILL.md`
 - `.agents/skills/karpathy-guidelines/SKILL.md`
 
-Policy stays here. Operational playbooks live in skills and should be loaded
-only when relevant to the task.
+Policy stays here. Operational detail lives in skills and should be loaded only when relevant to the selected lane.

@@ -79,6 +79,15 @@ class SkillsLintTests(unittest.TestCase):
 
         self.assertTrue(any("AGENTS.md" in issue for issue in issues), issues)
 
+    def test_plural_skill_file_fails(self) -> None:
+        root = self.make_repo()
+        skill_dir = root / ".agents" / "skills" / "example-skill"
+        (skill_dir / "SKILLS.md").write_text(VALID_SKILL, encoding="utf-8")
+
+        issues = skills_lint.lint_root(root)
+
+        self.assertTrue(any("unexpected plural skill file" in issue for issue in issues), issues)
+
 
 if __name__ == "__main__":
     unittest.main()

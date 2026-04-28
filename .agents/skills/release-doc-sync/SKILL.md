@@ -1,56 +1,59 @@
 ---
 name: release-doc-sync
-description: Synchronize release-facing and AI context documentation with implementation and process changes. Use when public behavior, workflow policy, interfaces, requirement or architecture status, or milestone scope changes.
+description: Synchronize release-facing and AI-context documentation only when their documented triggers are met. Use for Lane 3 public-contract docs, Lane 5 release/handoff work, or explicit documentation-sync tasks.
 ---
 
 # Release Doc Sync
 
-## Trigger Matrix
-| Change | Required docs |
-|---|---|
-| User-visible CLI/config/output behavior | `README.md`, `CHANGELOG.md` |
-| Process-visible workflow, gate, or evidence behavior | `AGENTS.md`, `.agents/skills/*`, `CHANGELOG.md` when externally relevant |
-| Requirement status or milestone scope | `docs/ai/ROADMAP.md`, `docs/ai/SESSION_CONTEXT.md` |
-| Architecture status or process-visible architecture direction | `docs/ai/SESSION_CONTEXT.md`, maybe `docs/ai/HANDOFF.md` |
-| Durable technical decision | `docs/ai/DECISIONS.md` |
-| Small internal implementation detail | Usually no release-doc update |
+## Start
+
+Do not update release or AI-context docs by default. First name the trigger.
+
+## Trigger Table
+
+| Artifact | Update when |
+| --- | --- |
+| `README.md` | Setup, CLI usage, examples, public behavior, user-visible output, or public workflow entry points change |
+| `CHANGELOG.md` | User-visible behavior, process-visible workflow, public artifact, or milestone state changes |
+| `docs/ai/SESSION_CONTEXT.md` | Persistent current-state guardrails, active objective, or next actions change |
+| `docs/ai/HANDOFF.md` | A durable session, milestone, or merge handoff is being prepared |
+| `docs/ai/ROADMAP.md` | Backlog, milestone direction, or prioritization changes |
+| `docs/ai/DECISIONS.md` | A durable technical or process decision is accepted |
+| `docs/process/REQUIREMENTS.md` | Requirement wording, status, acceptance, semantics, or review flags change |
+| `docs/process/ARCHITECTURE.md` | Ownership, boundaries, allocation, or architecture status changes |
+| `docs/process/TRACEABILITY.md` | Regenerated after trace-relevant metadata changed |
 
 ## Execute
-1. Identify which trigger applies before editing docs. Avoid doc churn for purely
-   internal changes that do not affect users, process, handoff, roadmap, or
-   durable decisions.
-2. Record behavior and process deltas with concise, concrete wording.
-3. Keep `docs/ai/*` focused on current state, open risks, and next actions.
-4. Update `CHANGELOG.md` when the change is user-visible or process-visible.
-5. Update `README.md` for user-visible behavior, public workflow, or interface
-   changes.
-6. Update `docs/ai/ROADMAP.md` when backlog or milestone scope changes.
-7. Update `docs/ai/DECISIONS.md` when recording a new durable decision.
-8. Re-run `python3 tools/tracecheck.py --write` when trace-relevant docs or
-   metadata changed.
+
+1. Record only concrete deltas.
+2. Keep `docs/ai/*` short and current:
+   - `SESSION_CONTEXT.md` = active state and guardrails,
+   - `HANDOFF.md` = latest durable handoff only,
+   - `ROADMAP.md` = future direction,
+   - `DECISIONS.md` = durable constraints.
+3. Avoid duplicating requirements, architecture, trace, and README detail in AI-context docs.
+4. Re-run `python3 tools/tracecheck.py --write` only when trace-relevant docs or metadata changed.
+5. Do not hand-expand generated trace markdown.
 
 ## Required Output
-Leave a doc-sync note when this skill is used:
 
 ```markdown
 ## Release Doc Sync
+Triggers:
+- README: yes | no, reason
+- CHANGELOG: yes | no, reason
+- SESSION_CONTEXT: yes | no, reason
+- HANDOFF: yes | no, reason
+- ROADMAP: yes | no, reason
+- DECISIONS: yes | no, reason
+- REQUIREMENTS/ARCHITECTURE/TRACE: yes | no, reason
 
-Trigger:
-- user-visible | process-visible | roadmap | architecture | decision | none
-
-Updated:
-- README:
-- CHANGELOG:
-- docs/ai/SESSION_CONTEXT:
-- docs/ai/HANDOFF:
-- docs/ai/ROADMAP:
-- docs/ai/DECISIONS:
-
-Omitted docs:
-- file:
-- reason:
+Updated artifacts:
+-
+Skipped artifacts:
+-
 ```
 
 ## Finish
-- Keep release and handoff documentation aligned with code and policy state.
-- Prefer no edit over noisy edit when no trigger applies.
+
+Leave docs aligned with the actual change, not with the amount of work performed.
