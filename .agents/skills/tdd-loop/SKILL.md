@@ -1,122 +1,61 @@
 ---
 name: tdd-loop
-description: Execute the repository's failing-tests-first workflow for behavior-changing code work. Use when implementing features or fixing defects in library or app code, when selecting requirement-driven work, or when a task must finish with the standard local quality gates green.
+description: Execute the repository's failing-tests-first workflow for behavior-changing code work. Use for Lane 2 functional behavior slices and the behavior portions of Lane 3 public-contract work.
 ---
 
 # TDD Loop
 
 ## Start
-- When the user gives a concrete task, map that task to the relevant `R-*`,
-  owning `A-*`, affected `D-*`, and evidence lane before selecting unrelated
-  backlog work.
-- When no concrete task is given, select actionable requirement work from
-  `docs/process/REQUIREMENTS.md`:
-  - first any item with `Needs-Review: yes`,
+
+- Confirm the selected lane is Lane 2 or the behavior portion of Lane 3.
+- For user-directed work, use the user's target as the work item.
+- For backlog-driven work, select actionable requirement work from `docs/process/REQUIREMENTS.md`:
+  - first items with `Needs-Review: yes`,
   - then the highest-priority `OPEN` item.
-- Keep each red/green/refactor loop to one behavior claim whenever practical.
-  Split broad work into multiple micro-slices instead of hiding several
-  behaviors behind one failing test.
-- Run a fresh red/green/refactor loop for every distinct observable behavior
-  slice. If implementation exposes another behavior, stop and add the next
-  failing test before continuing.
-- Identify the target requirement IDs (`R-*`), candidate owning architecture IDs
-  (`A-*`), and affected design IDs (`D-*`) before changing tests.
-- Switch to `.agents/skills/major-change-loop/SKILL.md` when the change is
-  cross-cutting, migratory, semantic across multiple requirements, or
-  architectural enough that ordinary TDD is too narrow.
-- Pair with `.agents/skills/simulation-evidence-design/SKILL.md` before
-  implementing hydro, aero, mechanics, visualization, calibration, validation,
-  or optimizer behavior that makes a physical or interpretive claim.
+- Identify the target `R-*`, candidate owning `A-*`, and affected `D-*` items before changing tests when the behavior maps to existing traceable scope.
+- For tiny local fixes that do not change observable behavior, return to Lane 1 instead of forcing TDD.
+- Switch to `.agents/skills/major-change-loop/SKILL.md` when the change is cross-cutting, migratory, backend-related, semantic across multiple requirements, or architectural enough that ordinary TDD is too narrow.
 
 ## Execute
-1. Resolve the target behavior and evidence lane:
-   - `UT-*` for design-level behavior,
-   - `IT-*` for architecture/subsystem contracts,
-   - `QT-*` for requirement/scenario evidence.
-2. Perform architecture allocation in `docs/process/ARCHITECTURE.md`:
-   - evaluate existing subsystem owners first,
-   - reuse a stable subsystem when coherent,
-   - record any architecture delta before TDD,
-   - justify any new `A-*` with `Allocation Rationale` and `Future Absorption`.
-3. Red:
-   - use `.agents/skills/unit-test-design/SKILL.md` when the narrowest correct
-     lane is `UT-*`,
-   - add or adjust targeted failing tests first (`UT-*`, `IT-*`, `QT-*` as
-     needed),
-   - keep the current red phase scoped to one observable behavior,
-   - confirm the intended failure is reproducible,
-   - explain why the failure proves the intended missing behavior instead of an
-     incidental setup problem,
-   - record `rgr:red` evidence.
-4. Green:
-   - implement the minimum code change required to pass the targeted failures,
-   - avoid broad cleanup or unrelated behavior during green,
-   - record `rgr:green` evidence.
-5. Refactor (mandatory):
-   - perform behavior-preserving cleanup immediately after green,
-   - if no cleanup edit is needed, record explicit no-op rationale,
-   - record `rgr:refactor` evidence.
-6. Run the fast iteration lane after refactor:
-   - `./scripts/test_tdd.sh`
-7. Recheck `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md`
-   before landing any change that affects technology choice, solver direction,
-   file-format policy, or external-tool integration.
-8. Run required completion gates in order:
-   - `./scripts/format.sh`
-   - `./scripts/lint.sh`
-   - `./scripts/build.sh`
-   - `./scripts/test.sh`
-   - `./scripts/depcheck.sh`
-   - `python3 tools/tracecheck.py --write`
 
-## Required Evidence Output
-Leave an evidence note or commit-message section in this shape:
+1. **Architecture ownership**
+   - Evaluate existing subsystem owners first.
+   - Reuse a stable subsystem when coherent.
+   - Record an architecture delta only when ownership, boundaries, or allocation actually change.
+   - Justify any new `A-*` with `Allocation Rationale` and reuse/cohesion intent.
 
-```markdown
-## RGR Evidence
+2. **Red**
+   - Use `.agents/skills/unit-test-design/SKILL.md` when `UT-*` is the narrowest correct lane.
+   - Add or adjust the smallest targeted failing test first (`UT-*`, `IT-*`, or `QT-*` as appropriate).
+   - Confirm the intended failure is reproducible.
+   - Record compact `rgr:red` evidence.
 
-Target:
-- Requirement: R-###
-- Architecture: A-###
-- Design: D-###
-- Test: UT/IT/QT-###
+3. **Green**
+   - Implement the minimum code change required to pass the targeted failure.
+   - Record compact `rgr:green` evidence.
 
-rgr:red:
-- Command:
-- Expected failing test:
-- Observed failure:
-- Why this proves the intended missing behavior:
+4. **Refactor**
+   - Perform behavior-preserving cleanup immediately after green.
+   - If no cleanup edit is needed, record an explicit no-op rationale.
+   - Record compact `rgr:refactor` evidence.
 
-rgr:green:
-- Command:
-- Minimal implementation change:
-- Observed pass:
+5. **Fast re-check**
+   - Run `./scripts/test_tdd.sh` after refactor unless the user explicitly constrained the task to a narrower local check.
 
-rgr:refactor:
-- Cleanup performed:
-- Or explicit no-op rationale:
+6. **Technology guardrail**
+   - Recheck `docs/process/TECHNOLOGY_STACK.md` and `docs/ai/DECISIONS.md` before landing changes that affect technology choice, solver direction, file-format policy, or external-tool integration.
 
-Gates:
-- test_tdd:
-- format:
-- lint:
-- build:
-- test:
-- depcheck:
-- tracecheck:
-```
+## Completion Gates
+
+Use the selected lane to decide final gates:
+
+- Lane 2: `./scripts/test_tdd.sh` plus any targeted checks that prove the slice.
+- Lane 3: full local completion gates from `AGENTS.md` before completion.
+- Merge-ready or handoff work: `./scripts/verify.sh` when requested or appropriate.
 
 ## Finish
-- Leave all tests and gates passing.
-- Update traceability and AI context artifacts when changes trigger
-  documentation obligations.
-- Update `README.md` and `CHANGELOG.md` when the change is user-visible or
-  process-visible.
-- Keep RGR evidence markers (`rgr:red`, `rgr:green`, `rgr:refactor`) in a
-  commit message or evidence note. `./scripts/check_rgr_evidence.sh` is strict
-  by default and rejects out-of-order markers. Use `RGR_ENFORCEMENT_MODE=warn`
-  or `off` only as explicit local overrides.
-- For multi-slice work, repeat the evidence sequence for each slice:
-  `rgr:red`, then `rgr:green`, then `rgr:refactor`.
-- Do not create a thin 1:1 `R -> A` mapping unless the architecture policy
-  explicitly justifies it.
+
+- Leave tests for the selected lane passing, or report blockers clearly.
+- Update traceability only when trace links or evidence metadata changed.
+- Update README, CHANGELOG, `docs/ai/*`, requirements, or architecture only when the documentation trigger table in `AGENTS.md` requires it.
+- Keep RGR evidence markers (`rgr:red`, `rgr:green`, `rgr:refactor`) ordered in a commit message or evidence note.

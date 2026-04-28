@@ -39,6 +39,7 @@
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
 - Active docs stay compact; use `python3 tools/tracecheck.py --json` for full
   trace data instead of hand-expanding generated `TRACEABILITY.md`.
+- Process/tooling guardrail: classify each Codex task into Lane 0..5, default to the lightest sufficient lane, and update release/context docs only when their explicit trigger table requires it.
 - Process/tooling guardrail: functional work now repeats red/green/refactor per
   observable behavior slice; changed `tests/unit/**` blocks must declare one
   `@case` and one `@oracle`; RGR evidence markers must be ordered.

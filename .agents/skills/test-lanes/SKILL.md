@@ -1,69 +1,51 @@
 ---
 name: test-lanes
-description: Select the correct repository test lane based on confidence, coverage, and iteration speed. Use when deciding which test script to run during development, fast TDD iteration, auxiliary contract checks, regression validation, or pre-merge verification.
+description: Select the correct repository test lane based on work lane, confidence need, coverage, and iteration speed. Use when deciding which test script to run during development, regression validation, or pre-merge verification.
 ---
 
 # Test Lanes
 
-## Lane Matrix
-| Situation | Lane |
-|---|---|
-| Red/green/refactor iteration | `./scripts/test_tdd.sh` |
-| Standard full local testing | `./scripts/test.sh` |
-| Tooling, validation helpers, script contracts, skill structure | `./scripts/test_aux.sh` |
-| Optional scenario regression protection | `./scripts/regression.sh` |
-| Aggregate pre-merge confidence | `./scripts/verify.sh` |
-| Trace regeneration/validation | `python3 tools/tracecheck.py --write` |
+## Choose By Work Lane
 
-## Choose A Lane
-- Use `./scripts/test_tdd.sh` for fast local TDD iteration.
-- Use `./scripts/test.sh` for standard full local testing.
-- Use `./scripts/test_aux.sh` for auxiliary script/tool/skill contract tests.
-- Use `./scripts/regression.sh` for optional broader regression validation,
-  especially when protecting named baseline scenarios.
-- Use `./scripts/verify.sh` for aggregate pre-merge verification.
+| Work lane | Typical checks |
+| --- | --- |
+| Lane 0 Explore | None |
+| Lane 1 Tiny local fix | Narrow targeted command, formatter, or relevant script |
+| Lane 2 Functional behavior slice | Targeted failing/passing test, then `./scripts/test_tdd.sh` after refactor |
+| Lane 3 Public interface or artifact | Full local gates from `AGENTS.md` before completion |
+| Lane 4 Major architecture or migration | Full local gates plus drift review; `./scripts/verify.sh` when merge-ready |
+| Lane 5 Release or handoff | `./scripts/verify.sh` |
+
+## Available Commands
+
+- `./scripts/test_tdd.sh` — fast local TDD iteration; includes RGR check, unit/integration/system lanes excluding slow/regression/aux, changed-scope aux lint, and coverage checks.
+- `./scripts/test.sh` — standard full local functional test lane.
+- `./scripts/test_aux.sh` — auxiliary script/tool contract checks.
+- `./scripts/test_performance.sh` — protected scenario performance guardrail.
+- `./scripts/regression.sh` — optional broader regression validation, especially for named baseline scenarios.
+- `./scripts/verify.sh` — aggregate pre-merge verification.
+- `./scripts/check_rgr_evidence.sh` — ordered RGR evidence check.
 
 ## Apply Constraints
-- Do not treat `test_tdd.sh` as a replacement for required completion gates.
-- Treat `test_tdd.sh` as the required loop re-check after each green->refactor
-  transition.
-- Keep explicit `rgr:red`, `rgr:green`, and `rgr:refactor` evidence markers.
-- `./scripts/check_rgr_evidence.sh` is strict by default and is wired into
-  `test_tdd.sh` and `verify.sh`; it rejects missing, incomplete, or out-of-order
-  marker sequences. Use `RGR_ENFORCEMENT_MODE=warn` or `off` only as explicit
-  local overrides.
-- `TEST_LINT_SCOPE=changed` in the fast lane enforces the changed-unit-test
-  authoring contract without forcing a legacy-wide rewrite.
-- Treat `IT-*` as the main subsystem-contract lane for architecture boundary
-  checks and characterization coverage around preserved seams.
-- Treat scenario-oriented `QT-*` runs as the main requirement-level evidence lane
-  for simulator behavior.
-- Protect these named baseline scenarios as runtime evidence becomes available:
-  passive float, tow test, calm-water stroke, headwind stroke, crosswind stroke.
-- Add characterization coverage before invasive refactors or major-change work,
-  preferably in the narrowest lane that protects the preserved behavior.
-- Prefer `verify.sh` before handoff when broad confidence is required.
-- Keep auxiliary tests informational unless they are deliberately promoted into
-  evidence-bearing lanes.
 
-## Required Output
-When selecting lanes for non-trivial work, leave a short note:
+- Do not use full gates as the default for exploration or tiny local fixes.
+- Do not treat `test_tdd.sh` as a replacement for full gates when the selected lane requires full gates.
+- `check_rgr_evidence.sh`, `test_tdd.sh`, and `verify.sh` are strict by default for RGR evidence.
+- Use `RGR_ENFORCEMENT_MODE=warn` or `off` only as an explicit local override for lanes that do not change functional behavior.
+- Treat `IT-*` as the main subsystem-contract lane for architecture boundary checks and characterization around preserved seams.
+- Treat scenario-oriented `QT-*` runs as the main requirement-level evidence lane for simulator behavior.
+- Keep auxiliary tests informational unless deliberately promoted into evidence-bearing lanes.
 
-```markdown
-## Test Lane Selection
+## Protected Baseline Scenarios
 
-Iteration lane:
-- command:
-- why sufficient for current loop:
+Protect named baseline scenarios as runtime evidence becomes available:
 
-Completion gates:
-- commands:
-- status:
-
-Optional broad confidence lane:
-- command or omitted with reason:
-```
+- passive float,
+- tow test,
+- calm-water stroke,
+- headwind stroke,
+- crosswind stroke.
 
 ## Finish
-- Run the full required completion gates before considering work complete, even
-  if a narrower lane was enough during iteration.
+
+Report exactly which commands ran and whether any required lane gate was skipped, narrowed, or blocked.

@@ -1,66 +1,103 @@
 ---
 name: major-change-loop
-description: Execute the repository's workflow for cross-cutting, architectural, migratory, or semantic multi-requirement changes. Use when ordinary TDD is too narrow because the change spans multiple subsystems, needs transitional seams, or requires explicit impact and drift management.
+description: Execute the repository workflow for Lane 4 changes: cross-cutting, architectural, migratory, backend, semantic multi-requirement, or evidence-promotion work. Do not use for ordinary local TDD slices.
 ---
 
 # Major-Change Loop
 
 ## Start
-- Use this skill for architectural refactors, migrations, deprecations,
-  semantic multi-requirement edits, backend swaps, and other cross-cutting
-  changes that touch multiple subsystem seams.
-- Name the affected seams up front and confirm which `R-*`, `A-*`, `D-*`, and
-  test lanes will move.
-- Add characterization tests for preserved behavior before invasive edits.
-- Pair with `.agents/skills/simulation-evidence-design/SKILL.md` when the major
-  change affects simulation physics, validation, calibration, visualization, or
-  optimization semantics.
+
+Use this skill only when the change is truly broader than ordinary TDD:
+
+- architectural refactor or subsystem boundary change,
+- migration or deprecation,
+- backend replacement or solver-policy shift,
+- semantic edits across multiple requirements,
+- public artifact/schema transition that needs compatibility handling,
+- evidence or trace promotion across lanes,
+- invasive refactor that needs preserved-behavior characterization.
+
+Do not use this skill merely because the change touches many documentation files or generated trace output.
+
+Pair with `.agents/skills/simulation-evidence-design/SKILL.md` when the major change affects simulation physics, validation, calibration, visualization semantics, or optimization semantics.
 
 ## Execute
-1. Classify the change:
+
+1. **Classify the change**
    - refactor,
    - migration,
    - architecture split,
    - semantic requirement change,
    - backend replacement,
+   - public artifact transition,
    - evidence/trace promotion.
-2. Build an impact map across `R-*`, `A-*`, `D-*`, tests, and touched files.
-3. Record the architecture delta before implementation begins.
-4. Add characterization tests for preserved behavior before invasive edits:
-   - use `.agents/skills/unit-test-design/SKILL.md` when preserved local
-     behavior belongs in `UT-*`,
-   - use `IT-*` when the preserved behavior is a subsystem boundary contract,
-   - use `QT-*` when the preserved behavior is requirement/scenario-level.
-   - keep each functional behavior slice in its own red/green/refactor loop.
-5. Implement seam-first when the change can be split into transitional steps.
-6. Remove transitional code explicitly once the replacement path is stable.
-7. Run a drift review after the change to catch documentation or ownership gaps.
-8. Finish with the standard completion gates:
+
+2. **Build an impact map**
+   - affected `R-*`, `A-*`, `D-*`, tests, and files,
+   - preserved behavior,
+   - new behavior,
+   - public contracts,
+   - docs actually triggered.
+
+3. **Characterize preserved behavior before invasive edits**
+   - use `.agents/skills/unit-test-design/SKILL.md` for local `UT-*` characterization,
+   - use `IT-*` for subsystem boundary contracts,
+   - use `QT-*` for requirement/scenario-level behavior.
+
+4. **Record architecture delta only when it exists**
+   - before,
+   - after,
+   - why cohesion or reuse improves,
+   - why existing owners were or were not sufficient.
+
+5. **Implement seam-first**
+   - split transitional steps when possible,
+   - keep each observable behavior slice in its own red/green/refactor loop,
+   - remove transitional code explicitly once the replacement path is stable.
+
+6. **Run drift review**
+   - requirements,
+   - architecture,
+   - design IDs,
+   - tests,
+   - README/CHANGELOG/docs/ai trigger state,
+   - traceability.
+
+7. **Finish with Lane 4 gates**
    - `./scripts/format.sh`
    - `./scripts/lint.sh`
    - `./scripts/build.sh`
    - `./scripts/test.sh`
    - `./scripts/depcheck.sh`
    - `python3 tools/tracecheck.py --write`
+   - `./scripts/verify.sh` when merge-ready confidence is required
 
 ## Required Output
+
 Leave a reviewable impact map:
 
 ```markdown
 ## Major Change Impact Map
 
 Change class:
-- refactor | migration | architecture split | semantic requirement change | backend replacement | evidence promotion
+- refactor | migration | architecture split | semantic requirement change | backend replacement | public artifact transition | evidence promotion
+
+Why Lane 4 is required:
+-
 
 Affected seams:
-- R-###
-- A-###
-- D-###
+- R-###:
+- A-###:
+- D-###:
+- tests:
 - files:
 
 Preserved behavior:
 - existing tests:
 - new characterization tests:
+
+New or changed behavior:
+-
 
 Architecture delta:
 - before:
@@ -72,18 +109,25 @@ Transition plan:
 - step 2:
 - temporary code removal:
 
+Documentation triggers:
+- REQUIREMENTS:
+- ARCHITECTURE:
+- TRACEABILITY:
+- README:
+- CHANGELOG:
+- docs/ai:
+
 Drift review:
 - requirements:
 - architecture:
 - design:
 - tests:
-- README/CHANGELOG/docs/ai:
+- public docs:
 ```
 
 ## Finish
-- Leave a reviewable architecture delta, not just a green patch.
-- Preserve or improve subsystem boundaries as part of the change.
-- Update traceability, AI context, and process docs when the change affects
-  them.
-- Update `README.md` and `CHANGELOG.md` when the change is user-visible or
-  process-visible.
+
+- Preserve or improve subsystem boundaries.
+- Update traceability only when links or evidence metadata changed.
+- Update release/context docs only where the documentation trigger table requires it.
+- Keep the final patch reviewable by separating behavior, transition, and docs where practical.
