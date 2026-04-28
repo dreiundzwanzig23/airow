@@ -56,6 +56,12 @@ def lint_root(root: Path) -> list[str]:
     for skill_dir in _skill_dirs(root):
         skill_path = skill_dir / "SKILL.md"
         rel_skill = skill_path.relative_to(root)
+        plural_skill_path = skill_dir / "SKILLS.md"
+        if plural_skill_path.exists():
+            issues.append(
+                f"{plural_skill_path.relative_to(root)}: unexpected plural skill file; "
+                "use SKILL.md"
+            )
         if not skill_path.exists():
             issues.append(f"{skill_dir.relative_to(root)}: missing SKILL.md")
             continue

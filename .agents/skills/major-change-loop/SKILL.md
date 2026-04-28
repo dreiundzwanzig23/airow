@@ -1,6 +1,6 @@
 ---
 name: major-change-loop
-description: Execute the repository workflow for Lane 4 changes: cross-cutting, architectural, migratory, backend, semantic multi-requirement, or evidence-promotion work. Do not use for ordinary local TDD slices.
+description: "Execute the repository workflow for Lane 4 changes: cross-cutting, architectural, migratory, backend, semantic multi-requirement, or evidence-promotion work. Do not use for ordinary local TDD slices."
 ---
 
 # Major-Change Loop
