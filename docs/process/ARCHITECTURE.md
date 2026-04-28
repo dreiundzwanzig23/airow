@@ -432,7 +432,7 @@ Allocation guardrails:
 
 ## A-007 — Output and Diagnostics
 - **Title**: Structured outputs and runtime diagnostics subsystem
-- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034, R-035, R-041, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-056, R-062, R-070, R-071]
+- **Satisfies**: [R-003, R-004, R-015, R-016, R-022, R-025, R-031, R-033, R-034, R-035, R-041, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-054, R-056, R-062, R-070, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Capture machine-readable summaries, time series, metadata, actionable diagnostics, and human-readable derived analysis for single and batch runs.
 - **Owned Concepts**: Run metadata; summary outputs; time-series emission; force and power accounting channels; frame and unit annotations; failure diagnostics; provenance and validity propagation into outputs; derived run-analysis summaries; comparison metrics; trust-envelope and uncertainty reporting; offline report generation contracts.
@@ -513,7 +513,16 @@ Allocation guardrails:
   output owner: offline reports render a physics capability and trust section
   from already-emitted summary metadata, link the public capability matrix, and
   expose matching `metrics.json` metadata before users inspect plots, vectors,
-  or exports. The `R-062` closure adds `D-064` under this owner: successful
+  or exports. The first run-comparison report slice also belongs here:
+  `tools/compare_runs.py` consumes already-emitted summary, time-series, and
+  optional visualization artifacts through a versioned manifest, rejects
+  malformed or incompatible inputs deterministically, aligns records by time or
+  emitted stroke-phase labels, and writes a reduced
+  `airow.run_comparison_report.v1` bundle with headline deltas,
+  provider/backend/calibration/config differences, comparability flags,
+  channel coverage, deterministic SVG plots, and an HTML entry page without
+  changing runtime stepping or single-run output schemas. The `R-062` closure
+  adds `D-064` under this owner: successful
   runs derive reduced rower input work, reconstructed blade work, hull and
   rower/seat kinetic-energy deltas, aero and hull-water losses, unavailable
   oar kinetic energy, and an unbounded reduced residual from existing histories
@@ -523,7 +532,7 @@ Allocation guardrails:
 
 ## A-008 — Scenario Harness and Validation
 - **Title**: Scenario definition and validation subsystem
-- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-056, R-062, R-070, R-071]
+- **Satisfies**: [R-018, R-019, R-024, R-026, R-029, R-035, R-045, R-046, R-047, R-049, R-050, R-052, R-053, R-054, R-056, R-062, R-070, R-071]
 - **Status**: IN_PROGRESS
 - **Responsibility**: Own named reference scenarios, acceptance envelopes, characterization baselines, and workflow-facing validation structure.
 - **Owned Concepts**: Named validation scenarios; acceptance envelopes; scenario metadata; quick vs broader validation lanes; characterization baselines; technique-comparison suites; hull or rigging sensitivity suites; measured-trial comparison suites.
@@ -583,7 +592,12 @@ Allocation guardrails:
   guidance, and report links without introducing optional visualization tooling
   into scenario execution. The report-entry explanation evidence also stays
   here by checking that offline reports expose capability/trust guidance before
-  interactive inspection controls.
+  interactive inspection controls. The first run-comparison evidence stays in
+  this owner by generating two deterministic emitted artifact bundles,
+  comparing them through the offline manifest/report tool, and verifying
+  report outputs, non-zero headline deltas, trust/provider/backend metadata,
+  comparability flags, channel coverage, and deterministic invalid-manifest
+  rejection without changing scenario pass/fail policy.
 
 ## A-009 — External Calibration Integration
 - **Title**: External calibration and artifact integration subsystem

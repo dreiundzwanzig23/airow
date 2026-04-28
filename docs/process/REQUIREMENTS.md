@@ -978,12 +978,20 @@ Milestone framing:
   - The tool reports whether compared runs are physically comparable, calibration-comparable, or only software-comparable based on model validity metadata.
   - At least one checked-in comparison example shows a baseline scenario against a changed rigging, environment, technique, or provider setting.
 - **Priority**: P1
-- **Status**: OPEN
+- **Status**: IN_PROGRESS
 - **Created**: 2026-04-24
-- **Updated**: 2026-04-24
+- **Updated**: 2026-04-28
 - **Change-Type**: semantic
 - **Needs-Review**: yes
-- **Notes**: This extends `R-045`, `R-046`, `R-047`, and `R-049` toward human-inspectable comparisons.
+- **Notes**: The first reduced offline comparison slice adds a dependency-free
+  `tools/compare_runs.py` workflow for already-emitted summary, time-series,
+  and visualization artifacts. It validates a versioned comparison manifest,
+  aligns compatible runs by time or emitted stroke-phase labels, emits
+  `airow.run_comparison_report.v1` metrics, deterministic SVG plots, an HTML
+  summary, provider/backend/calibration/config differences, and
+  software/calibration/physical comparability flags. `Needs-Review: yes`
+  remains because true 3D comparison playback, checked-in comparison examples,
+  and broader visual overlay scope are still follow-up work.
 
 ## R-055 — Failure and Instability Replay Bundle
 

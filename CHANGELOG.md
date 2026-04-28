@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 ### Added
+- Added `tools/compare_runs.py` for dependency-free offline run comparison
+  reports from emitted summary, time-series, and visualization artifacts,
+  including manifest validation, comparability metadata, deterministic SVG
+  plots, and `airow.run_comparison_report.v1` metrics.
 - Added optional `output.visualization_path` support for versioned
   `airow.visualization.v1` JSON artifacts, plus a deterministic validator and
   checked-in example configs that emit the artifact.

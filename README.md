@@ -71,6 +71,14 @@ python3 tools/export_visualization_vtk.py \
 The export bundle includes `paraview_loading_guide.md` with a minimal loading
 sequence for the generated geometry, vectors, and metadata files.
 
+For an offline comparison report from two or more emitted runs:
+
+```bash
+python3 tools/compare_runs.py \
+  --manifest path/to/run_comparison_manifest.json \
+  --output-dir path/to/comparison_report
+```
+
 The CLI also supports ordered batch configs through the same entry point:
 
 ```bash
@@ -86,6 +94,7 @@ Typical runs can emit:
 - optional visualization artifact JSON for downstream playback or analysis
   tooling;
 - optional reduced ParaView/VTK export generated from a visualization artifact;
+- optional offline comparison reports generated from a comparison manifest;
 - optional HDF5 output when built with HDF5 support;
 - optional compact or full terminal reports;
 - optional static or interactive analysis reports generated from JSON

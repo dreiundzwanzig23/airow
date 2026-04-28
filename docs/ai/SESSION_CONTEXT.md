@@ -1,7 +1,7 @@
 # SESSION_CONTEXT.md
 
 ## Snapshot
-- **Date**: 2026-04-27
+- **Date**: 2026-04-28
 - **Branch**: `new_roadmap`
 - **Current Objective**: Continue additive artifact/report surfaces without changing reduced-runtime physics.
 
@@ -14,21 +14,21 @@
 - `R-071` provider-capability metadata, trust-envelope reports, and
   `docs/process/CAPABILITY_MATRIX.md` are in place; `R-035`, `R-049`, and
   `R-071` remain open.
-- The first `R-050` / `R-052` / `R-053` / `R-070` visualization path is in
+- The first `R-050` / `R-052` / `R-053` / `R-054` / `R-070` visualization path is in
   place: `output.visualization_path` emits `airow.visualization.v1`, malformed
   artifacts are rejected, examples emit the artifact, and `tools/run_analysis.py`
   can generate an offline interactive report with 2D top/side/end projections,
   projection and frame controls, vector toggles, linked plot cursors,
   plot-click seeking, broader selectable plot coverage, trust labels,
-  unavailable-channel disabling, derived event markers for peaks, zero
-  crossings, stroke boundaries, and trust warnings, report-visible moment
-  vector provenance, mirrored yaw-moment evidence, hull-body-frame vector
-  variants derived from emitted world-frame vectors, and
+  unavailable-channel disabling, derived event markers, report-visible moment
+  vector provenance, mirrored yaw-moment evidence, hull-body-frame variants, and
   `metrics.json.interactive_controls` metadata. Offline reports also include
-  `metrics.json.physics_capability_and_trust` metadata. The first `R-056`
-  export slice converts validated visualization artifacts into deterministic reduced
-  ParaView/VTK geometry/vector files plus a metadata sidecar and deterministic
-  loading guide. Full 3D playback, unavailable interface/disturbance vectors,
+  `metrics.json.physics_capability_and_trust` metadata. The first `R-054`
+  comparison slice consumes emitted artifacts through `tools/compare_runs.py`
+  and writes reduced comparison metrics, SVGs, comparability flags, and HTML.
+  The first `R-056` export slice writes deterministic reduced ParaView/VTK
+  files plus metadata and a loading guide. Full 3D playback, unavailable
+  interface/disturbance vectors, checked-in comparison examples,
   reference-scenario loading review, and richer exports remain open.
 - `R-062` is DONE as of 2026-04-27. Successful runs now expose reduced energy
   accounting in summary/time-series JSON, optional HDF5, terminal reports,
@@ -38,8 +38,10 @@
 - `R-019` and `R-023` review flags are cleared as of 2026-04-27.
 - `docs/process/ROADMAP_FULL_SIMULATION.md` is the active long-range roadmap.
 - Active docs stay compact; use `python3 tools/tracecheck.py --json` for full
-  trace data instead of hand-expanding generated `TRACEABILITY.md`.
-- Process/tooling guardrail: classify each Codex task into Lane 0..5, default to the lightest sufficient lane, and update release/context docs only when their explicit trigger table requires it.
+  trace data.
+- Process/tooling guardrail: classify each Codex task into Lane 0..5, default to
+  the lightest sufficient lane, and update release/context docs only when
+  explicitly triggered.
 - Process/tooling guardrail: functional work now repeats red/green/refactor per
   observable behavior slice; changed `tests/unit/**` blocks must declare one
   `@case` and one `@oracle`; RGR evidence markers must be ordered.
@@ -61,11 +63,8 @@
   mass-rewriting untouched legacy tests.
 
 ## Next Actions
-1. Continue `R-050` / `R-052` / `R-053` / `R-056` / `R-070` toward remaining
-   interface/disturbance vector coverage, full 3D playback linkage, and
-   reference-scenario ParaView loading review.
-2. Keep `R-052` and `R-053` `Needs-Review: yes` until true 3D playback and
-   full linked timeline/channel coverage land.
-3. Continue `R-071` Phase 1 with study/optimization links and broader viewer
+1. Continue visualization/comparison/export work toward interface vectors, true
+   3D playback linkage, checked-in examples, and ParaView loading review.
+2. Continue `R-071` Phase 1 with study/optimization links and broader viewer
    explanation coverage; keep `R-071` `Needs-Review: yes`.
-4. Preserve current numerical behavior unless selected work changes runtime physics.
+3. Preserve current numerical behavior unless selected work changes runtime physics.

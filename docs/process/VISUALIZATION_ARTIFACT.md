@@ -55,6 +55,61 @@ python3 tools/export_visualization_vtk.py \
   --output-dir examples/output/calm_water_stroke/paraview
 ```
 
+Generate an offline comparison report from two or more already-emitted runs:
+
+```bash
+python3 tools/compare_runs.py \
+  --manifest path/to/run_comparison_manifest.json \
+  --output-dir path/to/comparison_report
+```
+
+The comparison manifest schema id is `airow.run_comparison.v1`:
+
+```json
+{
+  "schema_id": "airow.run_comparison.v1",
+  "comparison_id": "baseline-vs-variant",
+  "alignment": {
+    "mode": "time",
+    "start_time_s": 0.0,
+    "end_time_s": 10.0
+  },
+  "runs": [
+    {
+      "id": "baseline",
+      "label": "Baseline",
+      "role": "baseline",
+      "summary_path": "baseline/summary.json",
+      "time_series_path": "baseline/time_series.json",
+      "visualization_path": "baseline/visualization.json"
+    },
+    {
+      "id": "variant",
+      "label": "Changed technique",
+      "role": "variant",
+      "summary_path": "variant/summary.json",
+      "time_series_path": "variant/time_series.json",
+      "visualization_path": "variant/visualization.json"
+    }
+  ]
+}
+```
+
+Supported alignment modes are `time` and `stroke_phase`. Time alignment uses
+emitted `time_s` samples inside the declared window. Stroke-phase alignment
+uses emitted `stroke_input.phase` labels inside the same window and rejects
+artifacts that omit those labels.
+
+The output bundle schema id is `airow.run_comparison_report.v1`. It writes
+`metrics.json`, `index.html`, `boat_speed.svg`, `blade_loads.svg`, and
+`energy_power.svg`. `metrics.json` records run metadata, alignment metadata,
+headline deltas, provider/backend/calibration/config differences,
+software/calibration/physical comparability flags with deterministic false
+reasons, shared channel coverage, visualization vector metadata, and
+unavailable-channel reasons. This reduced comparison bundle is an offline
+artifact inspection workflow; it does not add runtime physics, change solver
+behavior, or claim full 3D comparison playback.
+
 ## Simulation Evidence Design
 
 Physical or interpretive claim:
@@ -103,6 +158,9 @@ Required outputs:
   time, channel, unit, frame, and source metadata.
 - diagnostics: invalid visualization artifacts fail report generation with a
   deterministic error.
+- diagnostics: comparison reports emit `airow.run_comparison_report.v1`
+  metrics, deterministic SVG plots, comparability flags, and explicit
+  unavailable-channel reasons from already-emitted artifacts.
 
 Tests:
 - UT: `UT-382` plus existing output helper coverage for artifact/time-series
@@ -110,10 +168,13 @@ Tests:
 - IT: existing output integration coverage for visualization metadata and
   sample alignment.
 - QT: `QT-049`, `QT-050`, `QT-051`, `QT-052`, `QT-053`, `QT-054`, `QT-055`,
-  `QT-056`, and `QT-057`.
+  `QT-056`, `QT-057`, `QT-059`, and `QT-060`.
 
 Failure modes:
 - rejected: unsupported or malformed visualization schema.
+- rejected: malformed comparison manifest, unsupported comparison schema,
+  missing artifacts, empty records, invalid comparison windows, duplicate run
+  ids, unsupported alignment modes, or missing stroke-phase labels.
 - low-confidence: trust-envelope labels remain visible in the report.
 - visually inspectable: unavailable channels are listed rather than drawn as
   implied zero or supported vectors.
